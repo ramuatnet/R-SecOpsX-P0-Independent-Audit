@@ -1,0 +1,102 @@
+R-SecOpsX main.py patch
+=========================
+
+File to edit:
+main.py
+
+Goal:
+Add:
+- SBOM_FULL_INVENTORY
+- LICENSE_MATRIX
+- DEPENDENCY_LINEAGE_TRACE
+
+No new external libraries.
+
+------------------------------------------------------------
+1) Add imports near other analysis imports
+------------------------------------------------------------
+
+from analysis.sbom_inventory_engine import build_sbom_full_inventory
+from analysis.license_matrix_engine import build_license_matrix
+from analysis.dependency_lineage_engine import build_dependency_lineage
+
+
+------------------------------------------------------------
+2) Add payload construction after SBOM enrichment
+------------------------------------------------------------
+
+Best location:
+After exploitability enrichment, after lines similar to:
+
+payload["sbom"] = enrich_exploitability_decision(payload.get("sbom", []))
+payload["exploitability_summary"] = exploitability_summary(payload.get("sbom", []))
+
+Add:
+
+# SBOM auditability layer: full package inventory, license matrix, lineage trace
+payload["sbom_full_inventory"] = build_sbom_full_inventory(payload.get("sbom", []))
+payload["license_matrix"] = build_license_matrix(payload.get("sbom", []))
+payload["dependency_lineage_trace"] = build_dependency_lineage(
+    payload.get("sbom", []),
+    root_name=Path(target).name if target else "root_application",
+)
+
+metadata["sbom_full_inventory_packages"] = payload["sbom_full_inventory"]["summary"]["total_packages"]
+metadata["license_matrix_components"] = payload["license_matrix"]["summary"]["total_components"]
+metadata["dependency_lineage_traces"] = payload["dependency_lineage_trace"]["summary"]["total_traces"]
+metadata["dependency_lineage_unknown_parent_traces"] = payload["dependency_lineage_trace"]["summary"]["unknown_parent_traces"]
+
+
+------------------------------------------------------------
+3) Add standalone JSON exports after clean_report.json write
+------------------------------------------------------------
+
+After:
+
+json_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
+Add:
+
+_step("Writing SBOM auditability artifacts")
+sbom_inventory_path = output_dir / "SBOM_Full_Inventory.json"
+license_matrix_path = output_dir / "License_Matrix.json"
+lineage_path = output_dir / "Dependency_Lineage.json"
+
+sbom_inventory_path.write_text(
+    json.dumps(payload.get("sbom_full_inventory", {}), indent=2, default=str),
+    encoding="utf-8",
+)
+license_matrix_path.write_text(
+    json.dumps(payload.get("license_matrix", {}), indent=2, default=str),
+    encoding="utf-8",
+)
+lineage_path.write_text(
+    json.dumps(payload.get("dependency_lineage_trace", {}), indent=2, default=str),
+    encoding="utf-8",
+)
+
+_safe_print(f"       => {sbom_inventory_path}")
+_safe_print(f"       => {license_matrix_path}")
+_safe_print(f"       => {lineage_path}")
+
+
+------------------------------------------------------------
+4) Validate
+------------------------------------------------------------
+
+py -m py_compile analysis\sbom_inventory_engine.py
+py -m py_compile analysis\license_matrix_engine.py
+py -m py_compile analysis\dependency_lineage_engine.py
+py -m py_compile main.py
+
+
+------------------------------------------------------------
+5) Run
+------------------------------------------------------------
+
+py main.py "D:\Data\Code test\RMK Sample"
+
+Expected new files:
+reports\SBOM_Full_Inventory.json
+reports\License_Matrix.json
+reports\Dependency_Lineage.json

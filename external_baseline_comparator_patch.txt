@@ -1,0 +1,38 @@
+R-SecOpsX External Baseline Comparator Integration
+
+New file:
+analysis/external_baseline_comparator.py
+
+Run standalone first:
+
+py analysis\external_baseline_comparator.py ^
+  --dependency-track-summary reports\dependency_track_baseline\11_comparison_summary.json ^
+  --rsecopsx-report reports\clean_report.json ^
+  --output-dir reports
+
+Expected outputs:
+reports\external_baseline_comparison.json
+reports\External_Baseline_Comparison.md
+
+Optional main.py integration:
+
+from analysis.external_baseline_comparator import run as run_external_baseline_comparison
+
+After clean_report.json is written:
+
+baseline_summary_path = output_dir / "dependency_track_baseline" / "11_comparison_summary.json"
+if baseline_summary_path.exists():
+    _step("Generating external baseline comparison")
+    try:
+        run_external_baseline_comparison(
+            dependency_track_summary_path=baseline_summary_path,
+            rsecopsx_report_path=output_dir / "clean_report.json",
+            output_dir=output_dir,
+        )
+        _safe_print(f"       => {output_dir / 'external_baseline_comparison.json'}")
+        _safe_print(f"       => {output_dir / 'External_Baseline_Comparison.md'}")
+    except Exception as exc:
+        _safe_print(f"       => External baseline comparison skipped: {exc}")
+
+Validate:
+py -m py_compile analysis\external_baseline_comparator.py
