@@ -89,7 +89,11 @@ def test_artifact_older_than_production_source_is_stale(tmp_path):
     art = tmp_path / "clean_report.json"
     art.write_text("{}", encoding="utf-8")
     newest, _ = newest_production_source_mtime()
-    old = time.time() - (60 * 60 * 6)
+    # Backdate relative to the newest production SOURCE, never to wall-clock now.
+    # A fixed 6h offset from now only lands before the source within 6h of a
+    # source edit, so this went red on any machine that had not touched
+    # production code that morning - while looking like a staleness regression.
+    old = newest - (60 * 60 * 6)
     import os
 
     os.utime(art, (old, old))
@@ -108,7 +112,10 @@ def test_staleness_names_the_modules_that_changed(tmp_path):
     art.write_text("{}", encoding="utf-8")
     import os
 
-    old = time.time() - (60 * 60 * 6)
+    # Same as above: relative to the newest source so the fixture does not
+    # depend on how recently production code was edited.
+    newest, _ = newest_production_source_mtime()
+    old = newest - (60 * 60 * 6)
     os.utime(art, (old, old))
 
     out = artifact_staleness(art)
