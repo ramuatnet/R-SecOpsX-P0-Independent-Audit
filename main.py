@@ -1480,7 +1480,37 @@ def _classify_sca_applicability(pkg: dict) -> dict:
 def _normalize_fixed_version_fields(payload):
     # V17.9.25: canonical fixed-version representation at report boundary.
     no_fixed = 'No fixed version identified in current advisory dataset.'
+    # Report-wide absence marker.  Written in place of `no_fixed` when the
+    # component carries no advisory at all: nothing was looked up, so stating
+    # that the advisory dataset was searched and came back empty would assert a
+    # search that never happened.  Both renderers already print '--' for a row
+    # with no advisory, so this keeps the data and the page in agreement.
+    not_applicable = '--'
     _re = __import__('re')
+
+    def _has_advisory(record):
+        """True only when the record names a vulnerability that could be fixed.
+
+        Deliberately mirrors `_v17923_fixed_text()` in reporting/pdf_report.py
+        and reporting/excel_report.py.  The producer and the two renderers must
+        agree on which rows deserve the "no fixed version" sentence, or one
+        layer re-introduces the prose the other one just removed.
+        """
+        return bool(
+            record.get('cve') or record.get('advisory_id') or
+            record.get('cve_list') or record.get('advisory_ids') or
+            record.get('vulnerabilities') or
+            record.get('vulnerability_intelligence')
+        )
+
+    def _is_prose(token):
+        """A version token never contains a word; a sentence always does.
+
+        Whitespace plus a three-letter word separates English from a version
+        range: `2.0.0-beta` and `>= 1.2.3` are kept, while
+        'No fixed version identified in current advisory dataset.' is not.
+        """
+        return bool(_re.search(r'\s', token) and _re.search(r'[A-Za-z]{3,}', token))
 
     def _flatten(value):
         if value is None:
@@ -1492,14 +1522,25 @@ def _normalize_fixed_version_fields(payload):
         text = str(value).strip()
         if not text:
             return
-        if text.lower() in {'unknown', 'none', 'null', 'n/a', 'na'}:
-            return
-        if text == no_fixed:
-            yield no_fixed
+        # Placeholders standing for "nothing here" rather than naming a
+        # version.  `--` matters most: it is what this function writes for an
+        # advisory-less component, so letting it through would re-ingest the
+        # marker as data and turn `fixed_versions` into `['--']` on the next
+        # pass - a different value every run, never converging.
+        absent = {'unknown', 'none', 'null', 'n/a', 'na', '--'}
+        if text.lower() in absent:
             return
         for token in _re.split(r'[,;\r\n]+', text):
             token = token.strip()
-            if token:
+            if not token or token.lower() in absent:
+                continue
+            # Prose is dropped rather than yielded.  Yielding it let a sentence
+            # be split into fragments that were then joined back up and printed
+            # as if they were versions - which is how 'No fixed version
+            # identified ...' reached 165 Fixed In cells belonging to
+            # components that have no advisory.  Dropping it also lets the
+            # advisory check below choose the wording for each row.
+            if not _is_prose(token):
                 yield token
 
     def _canonical(value):
@@ -1529,8 +1570,16 @@ def _normalize_fixed_version_fields(payload):
             record['fixed_versions'] = versions
             record['fixed_in'] = ', '.join(versions)
         elif raw_versions is not None or raw_fixed_in is not None:
-            record['fixed_versions'] = [no_fixed]
-            record['fixed_in'] = no_fixed
+            # Reached when a field was supplied but held nothing usable.  Only
+            # a component with an advisory may be told that no fix was found;
+            # for every other one there is no fix *to* find, so record the
+            # absence rather than a lookup outcome.
+            if _has_advisory(record):
+                record['fixed_versions'] = [no_fixed]
+                record['fixed_in'] = no_fixed
+            else:
+                record['fixed_versions'] = []
+                record['fixed_in'] = not_applicable
         for key in ('vulnerabilities', 'vulnerability_intelligence', 'advisories'):
             nested = record.get(key)
             if isinstance(nested, list):

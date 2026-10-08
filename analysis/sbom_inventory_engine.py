@@ -22,7 +22,10 @@ def _clean(value: Any, default: str = "") -> str:
 def _first(pkg: Dict[str, Any], *keys: str, default: Any = "") -> Any:
     for key in keys:
         value = pkg.get(key)
-        if value not in (None, "", [], {}, "unknown", "Unknown", "UNKNOWN"):
+        # "--" is the report's absence marker, not a value: without it a
+        # component with no fix would surface `'--'` here where a list of
+        # fixed versions is expected.
+        if value not in (None, "", [], {}, "unknown", "Unknown", "UNKNOWN", "--"):
             return value
     return default
 
