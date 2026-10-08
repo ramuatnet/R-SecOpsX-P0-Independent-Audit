@@ -2038,7 +2038,14 @@ def _exec_summary(payload):
             prio_tbl = Table([[Paragraph(
 
 
-                f"<b>&#x26A1; Executive Prioritization:</b> Fixing the top "
+                # H4: '&#x26A1;' (U+26A1) has no glyph in the report fonts and
+                # printed as a black box on page 4.  Written as an entity it
+                # also slipped past _pdf_normalize_text, which matches the
+                # character and not the markup, so the substitution never ran.
+                # Going through the sanitizer keeps the two in step: whatever
+                # it does to a stray lightning bolt in payload data it now does
+                # here too, and both land on a glyph Helvetica can draw.
+                f"<b>{_pdf_normalize_text(chr(0x26A1))} Executive Prioritization:</b> Fixing the top "
 
 
                 f"{min(3,len(top_causes))} root causes (<i>{names}</i>) eliminates "
