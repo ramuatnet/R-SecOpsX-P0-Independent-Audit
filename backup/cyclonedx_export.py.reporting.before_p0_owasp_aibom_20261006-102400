@@ -1,0 +1,464 @@
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+from analysis.intelligence_provenance import NOT_AVAILABLE, STATIC_REFERENCE
+
+
+CYCLONEDX_VERSION = "1.5"
+
+
+def _canonical_component_version(pkg: dict) -> str | None:
+    value = pkg.get("version")
+    if value is None:
+        return None
+    value = str(value).strip()
+    if not value:
+        return None
+    return "UNRESOLVED" if "||" in value else value
+
+
+def _bom_ref(pkg: dict) -> str:
+    purl = _purl(pkg)
+    if purl:
+        return purl
+
+    name = str(pkg.get("name") or "unknown")
+    version = _canonical_component_version(pkg) or "unknown"
+    return f"pkg:{name}@{version}".replace(" ", "_")
+
+
+def _purl(pkg: dict) -> str | None:
+    ecosystem = str(pkg.get("ecosystem") or "").lower()
+    name = pkg.get("name")
+    version = _canonical_component_version(pkg)
+
+    if not name:
+        return None
+
+    purl_type = {
+        "pypi": "pypi",
+        "npm": "npm",
+        "maven": "maven",
+        "go": "golang",
+        "cargo": "cargo",
+        "nuget": "nuget",
+        "composer": "composer",
+        "gem": "gem",
+    }.get(ecosystem)
+
+    if not purl_type:
+        return None
+
+    if version:
+        return f"pkg:{purl_type}/{name}@{version}"
+
+    return f"pkg:{purl_type}/{name}"
+
+
+def _license(pkg: dict) -> list[dict]:
+    lic = pkg.get("license")
+
+    if not lic or str(lic).lower() in {"unknown", "none", "null"}:
+        return []
+
+    return [{"license": {"id": str(lic)}}]
+
+
+def _component(pkg: dict) -> dict:
+    comp = {
+        "type": "library",
+        "bom-ref": _bom_ref(pkg),
+        "name": str(pkg.get("name") or "unknown"),
+        "version": _canonical_component_version(pkg) or "unknown",
+        "scope": "required",
+        "properties": [
+            {"name": "rsecopsx:ecosystem", "value": str(pkg.get("ecosystem") or "")},
+            {"name": "rsecopsx:dependency_type", "value": str(pkg.get("dependency_type") or "")},
+            {"name": "rsecopsx:reachability_status", "value": str(pkg.get("reachability_status") or "")},
+            {"name": "rsecopsx:reachability_priority", "value": str(pkg.get("reachability_priority") or "")},
+            {"name": "rsecopsx:vulnerability_age_bucket", "value": str(pkg.get("vulnerability_age_bucket") or "")},
+            {"name": "rsecopsx:patch_urgency", "value": str(pkg.get("patch_urgency") or "")},
+            {"name": "rsecopsx:vulnerability_severity", "value": str(pkg.get("severity") or "Unknown")},
+            {"name": "rsecopsx:vulnerability_age_days", "value": str(pkg.get("vulnerability_age_days") if pkg.get("vulnerability_age_days") is not None else "")},
+            {"name": "rsecopsx:vulnerability_age", "value": _human_age(pkg.get("vulnerability_age_days"))},
+            {"name": "rsecopsx:zero_day_status", "value": _zero_day_status(pkg)},
+        ],
+    }
+
+    purl = _purl(pkg)
+    if purl:
+        comp["purl"] = purl
+
+    licenses = _license(pkg)
+    if licenses:
+        comp["licenses"] = licenses
+
+    return comp
+
+
+def _vulnerability_id(pkg: dict) -> str | None:
+    return pkg.get("cve") or pkg.get("advisory_id") or pkg.get("primary_vulnerability_id")
+
+
+def _vulnerability_source(pkg: dict) -> dict:
+    vuln_id = _vulnerability_id(pkg) or ""
+
+    if vuln_id.startswith("CVE-"):
+        return {"name": "NVD", "url": f"https://nvd.nist.gov/vuln/detail/{vuln_id}"}
+
+    if vuln_id.startswith("GHSA-"):
+        return {"name": "GitHub Security Advisory"}
+
+    return {"name": "R-SecOpsX"}
+
+
+def _severity(pkg: dict) -> str:
+    sev = str(pkg.get("severity") or pkg.get("cvss_severity") or "").lower()
+    if sev in {"critical", "high", "medium", "low", "info", "none"}:
+        return sev
+    return "unknown"
+
+
+def _display_severity(pkg: dict) -> str:
+    sev = _severity(pkg)
+    return sev.title() if sev not in {"unknown", "info", "none"} else sev.title()
+
+
+def _human_age(days) -> str:
+    if days is None:
+        return "Unknown"
+    days = max(int(days), 0)
+    years, rem = divmod(days, 365)
+    months, days2 = divmod(rem, 30)
+    parts = []
+    if years:
+        parts.append(f"{years}y")
+    if months:
+        parts.append(f"{months}mo")
+    if days2 or not parts:
+        parts.append(f"{days2}d")
+    return " ".join(parts)
+
+
+def _zero_day_status(pkg: dict) -> str:
+    value = str(pkg.get("zero_day_status") or "").upper()
+    if value in {"ZERO_DAY_CONFIRMED", "ZERO_DAY_CANDIDATE", "NOT_ZERO_DAY", "NOT_ASSESSED"}:
+        return value
+    return "NOT_ASSESSED"
+
+
+def _vulnerability_records(pkg: dict) -> list[dict]:
+    records = pkg.get("vulnerability_intelligence")
+    if isinstance(records, list) and records:
+        return [r for r in records if isinstance(r, dict)]
+
+    records = pkg.get("vulnerabilities")
+    if isinstance(records, list) and records:
+        return [r for r in records if isinstance(r, dict)]
+
+    return [pkg] if _vulnerability_id(pkg) else []
+
+
+def _vulnerability(pkg: dict, record: dict | None = None) -> dict | None:
+    record = record or pkg
+    vuln_id = (
+        record.get("cve") or record.get("advisory_id") or record.get("id")
+        or pkg.get("primary_vulnerability_id")
+    )
+    if not vuln_id:
+        return None
+
+    vuln_id = str(vuln_id)
+    vuln = {
+        "id": vuln_id,
+        "source": _vulnerability_source({**pkg, **record}),
+        "ratings": [
+            {
+                "severity": _severity({**pkg, **record}),
+                "method": "CVSSv3" if record.get("cvss") is not None else "other",
+            }
+        ],
+        "affects": [{"ref": _bom_ref(pkg)}],
+        "properties": [
+            {"name": "rsecopsx:cve", "value": str(record.get("cve") or pkg.get("cve") or "")},
+            {"name": "rsecopsx:advisory_id", "value": str(record.get("advisory_id") or pkg.get("advisory_id") or "")},
+            {"name": "rsecopsx:severity", "value": _display_severity({**pkg, **record})},
+            {"name": "rsecopsx:cvss", "value": str(record.get("cvss") if record.get("cvss") is not None else pkg.get("cvss") or "")},
+            {"name": "rsecopsx:kev_status", "value": str(record.get("kev_status", pkg.get("kev_status", False)))},
+            # G-003: CycloneDX properties are the machine-readable channel, so the
+            # STATIC_REFERENCE label belongs here rather than only in prose.
+            {"name": "rsecopsx:kev_provenance", "value": str(record.get("kev_provenance") or pkg.get("kev_provenance") or STATIC_REFERENCE)},
+            {"name": "rsecopsx:epss_provenance", "value": str(record.get("epss_provenance") or pkg.get("epss_provenance") or NOT_AVAILABLE)},
+            {"name": "rsecopsx:actively_exploited", "value": str(record.get("actively_exploited", pkg.get("actively_exploited", False)))},
+            {"name": "rsecopsx:zero_day_status", "value": _zero_day_status({**pkg, **record})},
+            {"name": "rsecopsx:outbreak_status", "value": str(record.get("outbreak_status") or pkg.get("outbreak_status") or "")},
+            {"name": "rsecopsx:patch_urgency", "value": str(record.get("patch_urgency") or pkg.get("patch_urgency") or "")},
+            {"name": "rsecopsx:reachability_status", "value": str(pkg.get("reachability_status") or "")},
+            {"name": "rsecopsx:reachability_priority", "value": str(pkg.get("reachability_priority") or "")},
+            {"name": "rsecopsx:vulnerability_age_days", "value": str(record.get("vulnerability_age_days") if record.get("vulnerability_age_days") is not None else pkg.get("vulnerability_age_days") if pkg.get("vulnerability_age_days") is not None else "")},
+            {"name": "rsecopsx:vulnerability_age", "value": _human_age(record.get("vulnerability_age_days") if record.get("vulnerability_age_days") is not None else pkg.get("vulnerability_age_days"))},
+            {"name": "rsecopsx:published_date", "value": str(record.get("published_date") or pkg.get("published_date") or "")},
+        ],
+    }
+
+    cvss = record.get("cvss") if record.get("cvss") is not None else pkg.get("cvss")
+    if cvss is not None:
+        try:
+            vuln["ratings"][0]["score"] = float(cvss)
+        except (TypeError, ValueError):
+            pass
+
+    published = record.get("published_date") or record.get("published") or pkg.get("published_date")
+    if published:
+        vuln["published"] = str(published)
+
+    if record.get("summary") or record.get("details") or pkg.get("description"):
+        vuln["description"] = str(record.get("summary") or record.get("details") or pkg.get("description"))
+
+    return vuln
+
+
+
+SUMMARY_KEYS = [
+    "cbom_summary", "ai_bom_summary", "ml_bom_summary", "api_bom_summary",
+    "abom_summary", "reachability_summary", "kev_intelligence_summary",
+    "epss_intelligence_summary", "exploitability_decision_summary",
+    "license_policy_summary", "copyright_ip_compliance_summary",
+    "supply_chain_trust_summary", "runtime_artifact_integrity_summary",
+    "data_flow_sensitivity_summary", "data_flow_correlation_summary",
+    "identity_access_risk_summary", "identity_access_correlation_summary",
+    "auth_hardening_risk_summary", "auth_hardening_correlation_summary",
+    "ai_model_risk_summary", "business_logic_risk_summary",
+    "business_logic_correlation_summary", "api_abuse_risk_summary",
+    "security_control_coverage_summary", "crypto_misuse_summary",
+    "secret_intelligence_summary", "secret_blast_radius_correlation_summary",
+    "framework_enrichment_summary", "governance_signal_summary",
+    "release_readiness_summary", "executive_decision_summary",
+    "vulnerability_age_summary",
+]
+
+def _summary_properties(payload: dict) -> list[dict]:
+    props = []
+    for key in SUMMARY_KEYS:
+        value = payload.get(key)
+        if value not in (None, {}, [], ""):
+            props.append({"name": f"rsecopsx:{key}", "value": json.dumps(value, default=str)})
+    for key in sorted(k for k in payload.keys() if k.endswith("_summary") and k not in SUMMARY_KEYS):
+        value = payload.get(key)
+        if value not in (None, {}, [], ""):
+            props.append({"name": f"rsecopsx:{key}", "value": json.dumps(value, default=str)})
+    return props
+
+def _bom_asset_components(payload: dict) -> list[dict]:
+    assets = []
+    for key, ctype in [("cbom", "cryptographic-asset"), ("ai_bom", "machine-learning-model"), ("ml_bom", "machine-learning-model"), ("api_bom", "service"), ("abom", "application")]:
+        for i, item in enumerate(payload.get(key, []) or [], 1):
+            name = str(item.get("name") or item.get("id") or item.get("endpoint") or f"{key}-{i}")
+            assets.append({
+                "type": "data" if ctype == "cryptographic-asset" else "application",
+                "bom-ref": f"rsecopsx:{key}:{i}:{name}".replace(" ", "_"),
+                "name": name,
+                "version": str(item.get("version") or "unknown"),
+                "properties": [
+                    {"name": "rsecopsx:bom_type", "value": key},
+                    {"name": "rsecopsx:asset_type", "value": ctype},
+                    {"name": "rsecopsx:raw", "value": json.dumps(item, default=str)},
+                ],
+            })
+    return assets
+
+def build_cyclonedx(payload: dict) -> dict:
+    sbom = payload.get("sbom", []) or []
+    metadata = payload.get("metadata", {}) or {}
+
+    components = [_component(pkg) for pkg in sbom] + _bom_asset_components(payload)
+
+    # Synthetic project root used by the authoritative Dependency Graph V2.
+    # It is emitted only when the graph explicitly contains pkg:npm/__root__.
+    dependency_graph = payload.get("dependency_graph", {}) or {}
+    graph_edges = dependency_graph.get("edges", []) or []
+
+    has_synthetic_root = any(
+        isinstance(edge, dict)
+        and (
+            str(edge.get("parent") or "") == "pkg:npm/__root__"
+            or str(edge.get("child") or "") == "pkg:npm/__root__"
+        )
+        for edge in graph_edges
+    )
+
+    if has_synthetic_root:
+        components.append({
+            "type": "application",
+            "bom-ref": "pkg:npm/__root__",
+            "name": "__root__",
+            "version": "unknown",
+        })
+
+    vulnerabilities = []
+    for pkg in sbom:
+        for record in _vulnerability_records(pkg):
+            vuln = _vulnerability(pkg, record)
+            if vuln:
+                vulnerabilities.append(vuln)
+
+    # Dependency Graph V2
+    #
+    # Only authoritative VERIFIED edges are serialized into
+    # CycloneDX dependency relationships.
+    dependency_graph = payload.get("dependency_graph", {}) or {}
+    graph_edges = dependency_graph.get("edges", []) or []
+
+    verified_edges = [
+        edge
+        for edge in graph_edges
+        if (
+            isinstance(edge, dict)
+            and str(edge.get("confidence") or "").upper() == "VERIFIED"
+            and edge.get("parent")
+            and edge.get("child")
+        )
+    ]
+
+    dependency_map = {}
+
+    for edge in verified_edges:
+        parent = str(edge["parent"])
+        child = str(edge["child"])
+        dependency_map.setdefault(parent, set()).add(child)
+
+    dependencies = [
+        {
+            "ref": parent,
+            "dependsOn": sorted(children),
+        }
+        for parent, children in sorted(dependency_map.items())
+    ]
+
+    graph_status = (
+        "VERIFIED_EDGES_AVAILABLE"
+        if verified_edges
+        else "NO_VERIFIED_EDGES"
+    )
+
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": CYCLONEDX_VERSION,
+        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+        "version": 1,
+        "metadata": {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "tools": [
+                {
+                    "vendor": "R-SecOpsX",
+                    "name": "R-SecOpsX SAST",
+                    "version": "2.0.0",
+                }
+            ],
+            "properties": [
+                {
+                    "name": "rsecopsx:total_findings",
+                    "value": str(metadata.get("total_findings", "")),
+                },
+                {
+                    "name": "rsecopsx:risk_score",
+                    "value": str(metadata.get("risk_score", "")),
+                },
+                {
+                    "name": "rsecopsx:executive_decision",
+                    "value": str(metadata.get("executive_decision", "")),
+                },
+                {
+                    "name": "rsecopsx:framework_mapping_status",
+                    "value": str(metadata.get("framework_mapping_status", "")),
+                },
+                {
+                    "name": "rsecopsx:vulnerability_age_status",
+                    "value": str(metadata.get("vulnerability_age_status", "")),
+                },
+                {
+                    "name": "rsecopsx:scan_date",
+                    "value": datetime.now(timezone.utc).date().isoformat(),
+                },
+            ],
+        },
+        "components": components,
+        "vulnerabilities": vulnerabilities,
+        "dependencies": dependencies,
+        "properties": _summary_properties(payload) + [
+            {
+                "name": "rsecopsx:executive_decision",
+                "value": json.dumps(
+                    payload.get("executive_decision", {}),
+                    default=str,
+                ),
+            },
+            {
+                "name": "rsecopsx:dependency_graph_status",
+                "value": graph_status,
+            },
+            {
+                "name": "rsecopsx:verified_dependency_edge_count",
+                "value": str(len(verified_edges)),
+            },
+            {
+                "name": "rsecopsx:dependency_graph_evidence",
+                "value": "AUTHORITATIVE_RELATIONSHIP_FIELDS_ONLY",
+            },
+        ],
+    }
+
+def write_cyclonedx_report(payload: dict, output_path: str) -> str:
+    bom = build_cyclonedx(payload)
+
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    with out.open("w", encoding="utf-8") as f:
+        json.dump(bom, f, indent=2, default=str)
+
+    return str(out)
+
+
+if __name__ == "__main__":
+    sample_payload = {
+        "metadata": {
+            "total_findings": 10,
+            "risk_score": 78.2,
+            "executive_decision": "REMEDIATE_BEFORE_RELEASE",
+            "framework_mapping_status": "RULE_BASED_FRAMEWORK_ENRICHMENT_V1",
+            "vulnerability_age_status": "VULNERABILITY_AGE_INTELLIGENCE_V1_OFFLINE",
+        },
+        "sbom": [
+            {
+                "name": "log4j-core",
+                "version": "2.14.1",
+                "ecosystem": "maven",
+                "dependency_type": "Direct",
+                "license": "Apache-2.0",
+                "cve": "CVE-2021-44228",
+                "advisory_id": "GHSA-jfh8-c2jp-5v3q",
+                "severity": "Critical",
+                "reachability_status": "REACHABLE",
+                "reachability_priority": "REACHABLE_VULNERABLE",
+                "vulnerability_age_bucket": "LEGACY_HIGH_RISK",
+                "kev_status": True,
+                "actively_exploited": True,
+                "outbreak_status": "OUTBREAK_ACTIVE_REACHABLE",
+                "patch_urgency": "IMMEDIATE",
+                "published_date": "2021-12-10T00:00:00Z",
+            }
+        ],
+        "secret_intelligence_summary": {},
+        "vulnerability_age_summary": {},
+        "governance_signal_summary": {},
+        "executive_decision": {},
+    }
+
+    write_cyclonedx_report(sample_payload, "reports/bom.cyclonedx.json")
+    print("CycloneDX written to reports/bom.cyclonedx.json")
+

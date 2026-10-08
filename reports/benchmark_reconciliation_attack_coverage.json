@@ -1,0 +1,111 @@
+{
+  "benchmark": "attack-coverage-2026-10",
+  "root_causes": [
+    "G-054"
+  ],
+  "ground_truth": {
+    "reference": "MITRE ATT&CK for Enterprise, tactic list (15 tactics)",
+    "source_url": "https://attack.mitre.org/tactics/enterprise/",
+    "attack_content_version": "v19.2",
+    "retrieved": "2026-10-06",
+    "authored_before_inspection": true,
+    "tactics_total": 15,
+    "note": "Tactic names only. No technique->tactic mapping is authored here: that requires a pinned ATT&CK dataset, which is the remediation this benchmark exists to measure progress against. The list is sourced from attack.mitre.org rather than from any third-party repository, because those disagree with each other (one popular skills library documents 14 tactics and v16 in its coverage file while its README claims 15 and v19.1)."
+  },
+  "source": {
+    "live_py_files": 142,
+    "techniques_distinct": [
+      "T1005",
+      "T1027",
+      "T1053",
+      "T1059",
+      "T1059.001",
+      "T1059.004",
+      "T1059.006",
+      "T1068",
+      "T1071",
+      "T1078",
+      "T1082",
+      "T1083",
+      "T1102",
+      "T1105",
+      "T1110",
+      "T1129",
+      "T1189",
+      "T1190",
+      "T1195",
+      "T1203",
+      "T1543.002",
+      "T1547.001",
+      "T1552",
+      "T1557",
+      "T1566",
+      "T1595",
+      "T1600"
+    ],
+    "techniques_distinct_count": 27,
+    "sub_techniques_distinct": [
+      "T1059.001",
+      "T1059.004",
+      "T1059.006",
+      "T1543.002",
+      "T1547.001"
+    ],
+    "sub_techniques_count": 5,
+    "tactic_ids_present": [],
+    "tactic_ids_count": 0,
+    "tactic_names_mentioned_in_prose": [
+      "Collection",
+      "Discovery",
+      "Execution",
+      "Exfiltration",
+      "Impact",
+      "Persistence",
+      "Privilege Escalation"
+    ],
+    "tactics_modelled_as_data": 0,
+    "sigma_rule_files": 0,
+    "data_source_tokens": 0,
+    "log_source_tokens": 0,
+    "attck_version_strings": [],
+    "attck_version_pinned": false,
+    "has_bundled_attck_dataset": false
+  },
+  "report": {
+    "present": true,
+    "findings": 102,
+    "findings_carrying_technique": 21,
+    "techniques_in_report": [
+      "T1195",
+      "T1083",
+      "T1600",
+      "T1190",
+      "T1059",
+      "T1552",
+      "T1595"
+    ],
+    "techniques_in_report_count": 7,
+    "techniques_not_on_any_finding": [],
+    "defaulted_description_count": 1
+  },
+  "properties": {
+    "tactics_modelled": {
+      "modelled": false,
+      "present": 0,
+      "expected": 15
+    },
+    "techniques_present": 27,
+    "sub_techniques_present": 5,
+    "attck_version_pinned": false,
+    "technique_to_detection_mapping": false,
+    "bundled_dataset": false
+  },
+  "verdict": {
+    "v1_tactics_modelled": false,
+    "v2_version_pinned": false,
+    "v3_detection_mapping": false,
+    "v4_no_stale_technique": true,
+    "v5_coverage_measurable": false
+  },
+  "honest_limitation": "This benchmark measures structure, not correctness. It can say whether a tactic model, a pinned version and a detection mapping exist; it cannot say whether the hardcoded technique IDs are correct ATT&CK assignments, because that requires the dataset."
+}

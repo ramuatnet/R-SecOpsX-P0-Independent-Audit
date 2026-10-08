@@ -1,0 +1,2691 @@
+{
+  "metadata": {
+    "tool": "R-SecOpsX SAST v2.0",
+    "target": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke",
+    "scan_date": "2026-10-02T15:32:06.367966Z",
+    "total_findings": 1,
+    "sast_findings": 1,
+    "sca_findings": 0,
+    "risk_score": 51.0,
+    "dedup_ratio": 1.0,
+    "dedup_root_count": 1,
+    "dedup_occurrence_count": 1,
+    "dedup_ratio_semantics": "SAST_ROOT_FINDINGS_DIVIDED_BY_SAST_OCCURRENCES",
+    "risk_score_model": {
+      "model": "R-SecOpsX Weighted Risk Score v2.0",
+      "scale": "0\u00e2\u20ac\u201c100 (higher = more risk)",
+      "factors": {
+        "severity": "Base severity (Critical=10, High=7, Medium=4, Low=2)",
+        "exploitability": "Ease of exploitation (High=9, Medium=5, Low=2)",
+        "data_sensitivity": "Sensitivity of data at risk (8 for data-exposing vulns)",
+        "exposure": "Internet-accessible attack surface (8 for web vulns)",
+        "privilege": "Privilege required to exploit (8 if unauthenticated)",
+        "confidence": "Taint analysis confidence (High=1.0\u00c3\u2014, Medium=0.85\u00c3\u2014, Low=0.70\u00c3\u2014)"
+      },
+      "weights": {
+        "severity": "30%",
+        "exploitability": "25%",
+        "data_sensitivity": "20%",
+        "exposure": "15%",
+        "privilege": "10%"
+      },
+      "portfolio_method": "70% \u00c3\u2014 avg(top-3 scores) + 30% \u00c3\u2014 overall average"
+    },
+    "severity_distribution": {
+      "Critical": 0,
+      "High": 0,
+      "Medium": 1,
+      "Low": 0,
+      "Info": 0
+    },
+    "finding_classification_summary": {
+      "heuristic": 1
+    },
+    "k8s_findings": 0,
+    "tf_findings": 0,
+    "docker_findings": 0,
+    "iac_findings": 0,
+    "sbom_packages": 0,
+    "direct_packages": 0,
+    "transitive_packages": 0,
+    "unique_vulnerable_packages": 0,
+    "vulnerable_package_dedup_key": "purl_or_ecosystem_name_version",
+    "cve_count": 0,
+    "advisory_count": 0,
+    "vulnerable_advisory_records": 0,
+    "license_risks": 0,
+    "undeclared_dependency_count": 0,
+    "undeclared_dependency_status": "COMPLETED",
+    "privacy_data_exposure_status": "PRIVACY_DATA_ELEMENTS_OBSERVED_REVIEW_REQUIRED",
+    "privacy_data_exposure_indicators": 1,
+    "privacy_data_exposure_critical": 0,
+    "privacy_data_exposure_high": 0,
+    "privacy_third_party_transfer_indicators": 0,
+    "privacy_raw_evidence_count": 1,
+    "privacy_deduplicated_finding_count": 1,
+    "privacy_potential_executive_review_indicators": 0,
+    "privacy_confirmed_executive_exposures": 0,
+    "privacy_static_exposure_indicators": 0,
+    "privacy_runtime_exposure_confirmed": 0,
+    "privacy_classification_complete": true,
+    "privacy_unclassified_indicators": 0,
+    "ioc_malware_status": "NO_IOC_OR_BACKDOOR_INDICATORS_IDENTIFIED",
+    "ioc_malware_indicators": 0,
+    "ioc_malware_critical": 0,
+    "ioc_malware_high": 0,
+    "ioc_malware_behavior_indicators": 0,
+    "packages_with_cvss": 0,
+    "packages_missing_cvss": 0,
+    "dependency_risk_register_count": 0,
+    "secret_intelligence_total": 0,
+    "secret_high_blast_radius": 0,
+    "secret_critical_blast_radius": 0,
+    "secret_validation_status": "OFFLINE_ONLY_NOT_VALIDATED",
+    "secret_live_validation_enabled": false,
+    "secret_live_validation_status": "SECRET_LIVE_VALIDATION_DISABLED",
+    "secret_live_validation_mode": "OFFLINE_ONLY_NOT_VALIDATED",
+    "secret_live_validated": 0,
+    "secret_live_valid": 0,
+    "secret_live_no_secret_value": 0,
+    "secret_live_inconclusive": 0,
+    "secret_live_errors": 0,
+    "direct_dependencies": 0,
+    "transitive_dependencies": 0,
+    "unknown_dependencies": 0,
+    "vulnerable_direct_dependencies": 0,
+    "vulnerable_transitive_dependencies": 0,
+    "reachable_packages": 0,
+    "not_observed_packages": 0,
+    "unknown_reachability_packages": 0,
+    "direct_reachable_packages": 0,
+    "transitive_reachable_packages": 0,
+    "reachability_references_count": 1,
+    "kev_status": "STATIC_OFFLINE_CISA_KEV_V1",
+    "kev_packages": 0,
+    "reachable_kev_packages": 0,
+    "known_ransomware_use_packages": 0,
+    "vulnerable_packages_with_age": 0,
+    "legacy_high_risk_packages": 0,
+    "exposure_surface_status": "NO_EXPOSURE_SURFACE_RISK_IDENTIFIED",
+    "supply_chain_trust_status": "NO_SUPPLY_CHAIN_TRUST_RISK_IDENTIFIED",
+    "supply_chain_trust_indicators": 0,
+    "supply_chain_unpinned_dependencies": 0,
+    "supply_chain_git_dependencies": 0,
+    "supply_chain_recent_packages": 0,
+    "supply_chain_unique_affected_component_risks": 0,
+    "supply_chain_unique_high_component_risks": 0,
+    "supply_chain_unique_critical_component_risks": 0,
+    "runtime_artifact_integrity_status": "NO_ARTIFACT_INTEGRITY_RISK_IDENTIFIED",
+    "runtime_artifact_integrity_indicators": 0,
+    "runtime_artifact_presence_indicators": 0,
+    "runtime_artifact_unsigned": 0,
+    "runtime_artifact_tampered": 0,
+    "runtime_artifact_packed": 0,
+    "runtime_artifact_embedded_secrets": 0,
+    "runtime_artifact_provenance_gaps": 0,
+    "runtime_artifact_digest_pinning_gaps": 0,
+    "runtime_artifact_checksum_gaps": 0,
+    "runtime_artifact_sbom_gaps": 0,
+    "runtime_artifact_global_integrity_indicators": 0,
+    "runtime_artifact_global_presence_indicators": 0,
+    "runtime_artifact_executive_relevant_global": 0,
+    "data_flow_sensitivity_status": "DATA_FLOW_SENSITIVITY_INDICATORS_IDENTIFIED",
+    "data_flow_sensitivity_indicators": 2,
+    "data_flow_sensitivity_critical": 0,
+    "data_flow_sensitivity_high": 2,
+    "data_flow_sensitivity_executive_relevant": 2,
+    "data_flow_correlation_status": "NO_DATA_FLOW_CORRELATION_IDENTIFIED",
+    "data_flow_correlation_mode": "STATIC_CONTEXT_SOURCE_SINK_CORRELATION_V2_WITH_FILE_FALLBACK",
+    "data_flow_correlated_flows": 0,
+    "data_flow_critical_correlated_flows": 0,
+    "data_flow_high_correlated_flows": 0,
+    "data_flow_file_context_flows": 0,
+    "data_flow_function_context_flows": 0,
+    "component_exposure_indicators": 0,
+    "global_exposure_indicators": 0,
+    "executive_relevant_global_exposure": 0,
+    "identity_access_risk_status": "NO_IDENTITY_ACCESS_RISK_IDENTIFIED",
+    "identity_access_indicators": 0,
+    "identity_access_critical": 0,
+    "identity_access_high": 0,
+    "identity_access_executive_relevant": 0,
+    "identity_access_correlation_status": "NO_IDENTITY_ACCESS_CORRELATION_RISK_IDENTIFIED",
+    "identity_access_correlations": 0,
+    "identity_access_correlation_critical": 0,
+    "identity_access_correlation_high": 0,
+    "identity_access_privileged_routes": 0,
+    "identity_access_unauth_privileged_routes": 0,
+    "auth_hardening_status": "NO_AUTH_HARDENING_RISK_IDENTIFIED",
+    "auth_hardening_indicators": 0,
+    "auth_hardening_critical": 0,
+    "auth_hardening_high": 0,
+    "auth_hardening_executive_relevant": 0,
+    "ai_model_risk_status": "NO_AI_MODEL_RISK_IDENTIFIED",
+    "ai_model_risk_indicators": 0,
+    "ai_model_risk_critical": 0,
+    "ai_model_risk_high": 0,
+    "ai_model_risk_executive_relevant": 0,
+    "ai_model_risk_confirmed_executive": 0,
+    "ai_model_risk_executive_status": "NO_CONFIRMED_EXECUTIVE_AI_RISK",
+    "business_logic_risk_status": "NO_BUSINESS_LOGIC_RISK_IDENTIFIED",
+    "business_logic_risk_indicators": 0,
+    "business_logic_risk_critical": 0,
+    "business_logic_risk_high": 0,
+    "business_logic_risk_executive_relevant": 0,
+    "business_logic_file_context": 0,
+    "business_logic_function_context": 0,
+    "business_logic_api_route_context": 0,
+    "business_logic_correlation_status": "NO_BUSINESS_LOGIC_CORRELATION_RISK_IDENTIFIED",
+    "business_logic_correlations": 0,
+    "business_logic_correlation_critical": 0,
+    "business_logic_correlation_high": 0,
+    "business_logic_correlation_executive_relevant": 0,
+    "api_abuse_risk_status": "NO_API_ABUSE_RISK_IDENTIFIED",
+    "api_abuse_risk_indicators": 0,
+    "api_abuse_risk_critical": 0,
+    "api_abuse_risk_high": 0,
+    "api_abuse_risk_unique": 0,
+    "api_abuse_risk_executive_relevant": 0,
+    "api_abuse_route_context": 0,
+    "security_control_coverage_status": "CONTROL_COVERAGE_GAPS_IDENTIFIED",
+    "security_control_coverage_grade": "LIMITED",
+    "security_control_coverage_ratio": 0.1,
+    "security_control_coverage_ratio_semantics": "STATIC_EVIDENCE_ONLY_NOT_CONTROL_EFFECTIVENESS",
+    "security_control_domains_evaluated": 10,
+    "security_control_domain_coverage_ratio": 0.1,
+    "security_control_total_rules_evaluated": 32,
+    "security_control_rules_observed": 1,
+    "security_control_rules_not_observed": 31,
+    "security_control_rule_coverage_ratio": 0.03,
+    "security_controls_observed": 1,
+    "security_controls_not_observed": 31,
+    "security_control_domains_observed": 1,
+    "security_control_domains_not_observed": 9,
+    "security_control_executive_relevant_gaps": 7,
+    "crypto_misuse_status": "NO_CRYPTO_MISUSE_IDENTIFIED",
+    "crypto_misuse_indicators": 0,
+    "crypto_misuse_critical": 0,
+    "crypto_misuse_high": 0,
+    "crypto_misuse_executive_relevant": 0,
+    "crypto_misuse_executive_status": "NO_CONFIRMED_EXECUTIVE_CRYPTO_RISK",
+    "vulnerability_age_status": "VULNERABILITY_AGE_INTELLIGENCE_V2",
+    "epss_status": "STATIC_OFFLINE_EPSS_INTELLIGENCE_V1",
+    "known_epss_packages": 0,
+    "very_high_epss_packages": 0,
+    "p0_immediate_packages": 0,
+    "exploitability_status": "RUNTIME_RISK_FUSION_V1",
+    "immediate_remediate_packages": 0,
+    "priority_patch_packages": 0,
+    "license_policy_status": "RULE_BASED_LICENSE_POLICY_V1",
+    "license_notice_required_components": 0,
+    "license_legal_review_required": 0,
+    "license_unknown_components": 0,
+    "vulnerable_packages": 0,
+    "reachable_vulnerable_packages": 0,
+    "not_observed_vulnerable_packages": 0,
+    "unknown_reachability_vulnerable_packages": 0,
+    "governance_signals_total": 2,
+    "governance_high_signals": 1,
+    "governance_medium_signals": 1,
+    "executive_decision": "SECURITY_REVIEW_REQUIRED",
+    "executive_decision_priority": "P3",
+    "release_readiness_decision": "SECURITY_REVIEW_REQUIRED",
+    "release_readiness_priority": "P2",
+    "release_readiness_confidence": 0.8,
+    "release_readiness_blocking_gates": 0,
+    "release_readiness_review_gates": 1,
+    "release_readiness_status": "RELEASE_READINESS_EVALUATED",
+    "executive_decision_confidence": 0.8,
+    "framework_mapped_findings": 1,
+    "framework_mapping_status": "RULE_BASED_FRAMEWORK_ENRICHMENT_V1",
+    "auth_hardening_correlation_status": "NO_AUTH_HARDENING_CORRELATION_RISK_IDENTIFIED",
+    "auth_hardening_correlations": 0,
+    "auth_hardening_correlation_critical": 0,
+    "auth_hardening_correlation_high": 0,
+    "auth_hardening_correlation_executive_relevant": 0,
+    "severity_distribution_scope": "SAST_findings_plus_unique_vulnerable_dependency_packages",
+    "severity_distribution_sast": {
+      "Critical": 0,
+      "High": 0,
+      "Medium": 1,
+      "Low": 0,
+      "Info": 0
+    },
+    "severity_distribution_sca": {
+      "Critical": 0,
+      "High": 0,
+      "Medium": 0,
+      "Low": 0,
+      "Info": 0
+    },
+    "severity_distribution_sca_unknown": 0,
+    "severity_distribution_unknown": 0,
+    "canonical_release_decision": "SECURITY_REVIEW_REQUIRED",
+    "report_evidence_redaction": {
+      "enabled": true,
+      "scope": "secret_and_private_key_evidence",
+      "raw_analysis_evidence_retained_in_memory_only": true
+    },
+    "scan_timing": {
+      "started_at": "2026-10-02 21:02:06.126",
+      "completed_at": "2026-10-02 21:02:09.749",
+      "total_seconds": 3.6235,
+      "total_duration": "00:03.62",
+      "stages": [
+        {
+          "stage": "Scanning codebase",
+          "start_at": "2026-10-02 21:02:06.126",
+          "end_at": "2026-10-02 21:02:06.166",
+          "seconds": 0.0403,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Generating SBOM & dependency analysis",
+          "start_at": "2026-10-02 21:02:06.167",
+          "end_at": "2026-10-02 21:02:06.243",
+          "seconds": 0.0717,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Generating CBOM crypto inventory",
+          "start_at": "2026-10-02 21:02:06.244",
+          "end_at": "2026-10-02 21:02:06.247",
+          "seconds": 0.0037,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Generating AI-BOM model/provider inventory",
+          "start_at": "2026-10-02 21:02:06.248",
+          "end_at": "2026-10-02 21:02:06.253",
+          "seconds": 0.0053,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Generating ML-BOM framework/model inventory",
+          "start_at": "2026-10-02 21:02:06.254",
+          "end_at": "2026-10-02 21:02:06.268",
+          "seconds": 0.0146,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Generating API-BOM route inventory",
+          "start_at": "2026-10-02 21:02:06.269",
+          "end_at": "2026-10-02 21:02:06.273",
+          "seconds": 0.0035,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Scanning API abuse controls",
+          "start_at": "2026-10-02 21:02:06.273",
+          "end_at": "2026-10-02 21:02:06.276",
+          "seconds": 0.0033,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Generating ABOM agent inventory",
+          "start_at": "2026-10-02 21:02:06.276",
+          "end_at": "2026-10-02 21:02:06.279",
+          "seconds": 0.0024,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Scanning OWASP LLM security rules",
+          "start_at": "2026-10-02 21:02:06.279",
+          "end_at": "2026-10-02 21:02:06.300",
+          "seconds": 0.0207,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Scanning Advanced AI security rules",
+          "start_at": "2026-10-02 21:02:06.301",
+          "end_at": "2026-10-02 21:02:06.320",
+          "seconds": 0.0189,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Scanning Kubernetes IaC",
+          "start_at": "2026-10-02 21:02:06.320",
+          "end_at": "2026-10-02 21:02:06.322",
+          "seconds": 0.0022,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Scanning Terraform IaC",
+          "start_at": "2026-10-02 21:02:06.323",
+          "end_at": "2026-10-02 21:02:06.325",
+          "seconds": 0.0021,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Scanning Dockerfile IaC",
+          "start_at": "2026-10-02 21:02:06.325",
+          "end_at": "2026-10-02 21:02:06.327",
+          "seconds": 0.0018,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Scanning Secret Intelligence",
+          "start_at": "2026-10-02 21:02:06.327",
+          "end_at": "2026-10-02 21:02:06.337",
+          "seconds": 0.009,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Deduplicating, scoring, correlating attack paths",
+          "start_at": "2026-10-02 21:02:06.337",
+          "end_at": "2026-10-02 21:02:06.371",
+          "seconds": 0.0335,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Compliance enrichment",
+          "start_at": "2026-10-02 21:02:06.371",
+          "end_at": "2026-10-02 21:02:06.372",
+          "seconds": 0.0007,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Secret Intelligence enrichment",
+          "start_at": "2026-10-02 21:02:06.372",
+          "end_at": "2026-10-02 21:02:06.375",
+          "seconds": 0.003,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Secret blast-radius correlation",
+          "start_at": "2026-10-02 21:02:06.375",
+          "end_at": "2026-10-02 21:02:06.379",
+          "seconds": 0.003,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Framework mapping enrichment",
+          "start_at": "2026-10-02 21:02:06.379",
+          "end_at": "2026-10-02 21:02:06.380",
+          "seconds": 0.0007,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Dependency intelligence",
+          "start_at": "2026-10-02 21:02:06.380",
+          "end_at": "2026-10-02 21:02:06.380",
+          "seconds": 0.0004,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Undeclared dependency intelligence",
+          "start_at": "2026-10-02 21:02:06.380",
+          "end_at": "2026-10-02 21:02:06.384",
+          "seconds": 0.0035,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Reachability analysis",
+          "start_at": "2026-10-02 21:02:06.384",
+          "end_at": "2026-10-02 21:02:06.386",
+          "seconds": 0.0019,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "KEV intelligence",
+          "start_at": "2026-10-02 21:02:06.387",
+          "end_at": "2026-10-02 21:02:06.387",
+          "seconds": 0.0005,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Vulnerability age intelligence",
+          "start_at": "2026-10-02 21:02:06.387",
+          "end_at": "2026-10-02 21:02:06.388",
+          "seconds": 0.0004,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Legacy protocol intelligence",
+          "start_at": "2026-10-02 21:02:06.388",
+          "end_at": "2026-10-02 21:02:06.392",
+          "seconds": 0.0037,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Exposure surface intelligence",
+          "start_at": "2026-10-02 21:02:06.392",
+          "end_at": "2026-10-02 21:02:06.399",
+          "seconds": 0.0071,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "EPSS intelligence",
+          "start_at": "2026-10-02 21:02:06.400",
+          "end_at": "2026-10-02 21:02:06.400",
+          "seconds": 0.0006,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Exploitability decision",
+          "start_at": "2026-10-02 21:02:06.401",
+          "end_at": "2026-10-02 21:02:06.401",
+          "seconds": 0.0004,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "License evidence integration",
+          "start_at": "2026-10-02 21:02:06.401",
+          "end_at": "2026-10-02 21:02:06.402",
+          "seconds": 0.0006,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "License policy",
+          "start_at": "2026-10-02 21:02:06.402",
+          "end_at": "2026-10-02 21:02:06.403",
+          "seconds": 0.0004,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Copyright / IP compliance",
+          "start_at": "2026-10-02 21:02:06.403",
+          "end_at": "2026-10-02 21:02:06.412",
+          "seconds": 0.0085,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Supply-chain trust",
+          "start_at": "2026-10-02 21:02:06.412",
+          "end_at": "2026-10-02 21:02:06.412",
+          "seconds": 0.0004,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Runtime artifact integrity",
+          "start_at": "2026-10-02 21:02:06.413",
+          "end_at": "2026-10-02 21:02:06.417",
+          "seconds": 0.0044,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Data-flow sensitivity",
+          "start_at": "2026-10-02 21:02:06.418",
+          "end_at": "2026-10-02 21:02:06.434",
+          "seconds": 0.0162,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Data-flow correlation",
+          "start_at": "2026-10-02 21:02:06.434",
+          "end_at": "2026-10-02 21:02:06.440",
+          "seconds": 0.0058,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Privacy data exposure",
+          "start_at": "2026-10-02 21:02:06.440",
+          "end_at": "2026-10-02 21:02:06.454",
+          "seconds": 0.0137,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "IOC / malware intelligence",
+          "start_at": "2026-10-02 21:02:06.455",
+          "end_at": "2026-10-02 21:02:06.480",
+          "seconds": 0.0255,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Identity / access risk",
+          "start_at": "2026-10-02 21:02:06.481",
+          "end_at": "2026-10-02 21:02:06.491",
+          "seconds": 0.0102,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Identity / access correlation",
+          "start_at": "2026-10-02 21:02:06.492",
+          "end_at": "2026-10-02 21:02:06.492",
+          "seconds": 0.0007,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Authentication hardening risk",
+          "start_at": "2026-10-02 21:02:06.493",
+          "end_at": "2026-10-02 21:02:06.502",
+          "seconds": 0.009,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Authentication hardening correlation",
+          "start_at": "2026-10-02 21:02:06.502",
+          "end_at": "2026-10-02 21:02:06.503",
+          "seconds": 0.0006,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "AI model risk",
+          "start_at": "2026-10-02 21:02:06.503",
+          "end_at": "2026-10-02 21:02:06.505",
+          "seconds": 0.0022,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Business-logic risk",
+          "start_at": "2026-10-02 21:02:06.505",
+          "end_at": "2026-10-02 21:02:06.511",
+          "seconds": 0.0055,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "API abuse risk",
+          "start_at": "2026-10-02 21:02:06.511",
+          "end_at": "2026-10-02 21:02:06.512",
+          "seconds": 0.0008,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Business-logic correlation",
+          "start_at": "2026-10-02 21:02:06.512",
+          "end_at": "2026-10-02 21:02:06.513",
+          "seconds": 0.0004,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Security control coverage",
+          "start_at": "2026-10-02 21:02:06.513",
+          "end_at": "2026-10-02 21:02:06.522",
+          "seconds": 0.0085,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Crypto misuse analysis",
+          "start_at": "2026-10-02 21:02:06.522",
+          "end_at": "2026-10-02 21:02:06.527",
+          "seconds": 0.005,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Final benchmark metadata enrichment",
+          "start_at": "2026-10-02 21:02:06.527",
+          "end_at": "2026-10-02 21:02:06.529",
+          "seconds": 0.0013,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Final mapping normalization",
+          "start_at": "2026-10-02 21:02:06.529",
+          "end_at": "2026-10-02 21:02:06.529",
+          "seconds": 0.0006,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Final report integrity pass",
+          "start_at": "2026-10-02 21:02:06.530",
+          "end_at": "2026-10-02 21:02:06.532",
+          "seconds": 0.0025,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Final report safety pass",
+          "start_at": "2026-10-02 21:02:06.533",
+          "end_at": "2026-10-02 21:02:06.537",
+          "seconds": 0.0039,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Writing JSON report",
+          "start_at": "2026-10-02 21:02:06.537",
+          "end_at": "2026-10-02 21:02:06.543",
+          "seconds": 0.0056,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Git diff / change intelligence",
+          "start_at": "2026-10-02 21:02:06.543",
+          "end_at": "2026-10-02 21:02:06.613",
+          "seconds": 0.0692,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Changed-line security findings",
+          "start_at": "2026-10-02 21:02:06.613",
+          "end_at": "2026-10-02 21:02:06.613",
+          "seconds": 0.0005,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Change-impact analysis",
+          "start_at": "2026-10-02 21:02:06.614",
+          "end_at": "2026-10-02 21:02:06.614",
+          "seconds": 0.0007,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Security change graph",
+          "start_at": "2026-10-02 21:02:06.615",
+          "end_at": "2026-10-02 21:02:06.616",
+          "seconds": 0.0015,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Security test coverage",
+          "start_at": "2026-10-02 21:02:06.616",
+          "end_at": "2026-10-02 21:02:06.618",
+          "seconds": 0.002,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "PR security summary",
+          "start_at": "2026-10-02 21:02:06.619",
+          "end_at": "2026-10-02 21:02:06.619",
+          "seconds": 0.0004,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Security test generation",
+          "start_at": "2026-10-02 21:02:06.619",
+          "end_at": "2026-10-02 21:02:06.621",
+          "seconds": 0.0017,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Historical finding intelligence",
+          "start_at": "2026-10-02 21:02:06.621",
+          "end_at": "2026-10-02 21:02:06.622",
+          "seconds": 0.0011,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Malicious package intelligence",
+          "start_at": "2026-10-02 21:02:06.623",
+          "end_at": "2026-10-02 21:02:06.623",
+          "seconds": 0.0003,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Fix / patch intelligence",
+          "start_at": "2026-10-02 21:02:06.623",
+          "end_at": "2026-10-02 21:02:06.624",
+          "seconds": 0.0012,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "PR review integration",
+          "start_at": "2026-10-02 21:02:06.625",
+          "end_at": "2026-10-02 21:02:06.625",
+          "seconds": 0.0004,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Finding lifecycle intelligence",
+          "start_at": "2026-10-02 21:02:06.625",
+          "end_at": "2026-10-02 21:02:06.626",
+          "seconds": 0.0004,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Generating PDF report",
+          "start_at": "2026-10-02 21:02:06.626",
+          "end_at": "2026-10-02 21:02:08.592",
+          "seconds": 1.9657,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Generating Excel reports",
+          "start_at": "2026-10-02 21:02:08.592",
+          "end_at": "2026-10-02 21:02:09.729",
+          "seconds": 1.1368,
+          "gap_seconds": 0.0
+        },
+        {
+          "stage": "Generating SARIF report",
+          "start_at": "2026-10-02 21:02:09.730",
+          "end_at": "2026-10-02 21:02:09.737",
+          "seconds": 0.0072,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Generating VEX report",
+          "start_at": "2026-10-02 21:02:09.738",
+          "end_at": "2026-10-02 21:02:09.743",
+          "seconds": 0.0054,
+          "gap_seconds": 0.001
+        },
+        {
+          "stage": "Generating CycloneDX report",
+          "start_at": "2026-10-02 21:02:09.744",
+          "end_at": "2026-10-02 21:02:09.749",
+          "seconds": 0.0047,
+          "gap_seconds": 0.001
+        }
+      ]
+    }
+  },
+  "findings": [
+    {
+      "title": "SSRF Dynamic Outbound Request",
+      "vuln_type": "ssrf",
+      "severity": "Medium",
+      "priority": "P3",
+      "snippet": "return requests.get(url).text",
+      "instances": 1,
+      "affected_files": [
+        "smoke_ssrf.py"
+      ],
+      "file": "smoke_ssrf.py",
+      "line": 9,
+      "owasp": "A10:2021 - Server-Side Request Forgery",
+      "mitre": "T1190",
+      "cwe": "CWE-918",
+      "pci_dss": "Req 6.2.4 - Prevent SSRF attacks",
+      "nist": "SC-7 Boundary Protection",
+      "iso27001": "A.13.1.3 Segregation in Networks",
+      "soc2": "CC6.6 Logical Access Security Measures",
+      "taint_path": "request. -> requests.get(",
+      "description": "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+      "business_impact": "Internal service access, metadata exposure (AWS IMDS), SSRF pivot to RCE, lateral movement.",
+      "remediation": [
+        "Allow outbound requests only to an explicit server-side destination allow-list; never trust a client-supplied URL by itself.",
+        "Resolve the destination and validate every resulting IP address, including IPv4, IPv6, loopback, link-local, private, and cloud-metadata ranges.",
+        "Re-validate the destination after DNS resolution and after redirects; prevent DNS-rebinding and redirect-based allow-list bypasses.",
+        "Allow only required URL schemes, use a controlled egress proxy where possible, and block direct access to internal management and metadata endpoints.",
+        "Add regression tests for private IPs, IPv6, encoded/alternate IP forms, redirects, DNS rebinding, and cloud metadata addresses."
+      ],
+      "risk_score": 51.0,
+      "engine": "scanner.taint_engine",
+      "rule_id": "TAINT_SSRF_EXPANDED",
+      "detection": "Enterprise Source-to-Sink Heuristic",
+      "sink_category": "http",
+      "group_key": "TAINT_SSRF_EXPANDED|D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py|9",
+      "evidence_valid": true,
+      "source_type": null,
+      "source": null,
+      "sink": null,
+      "source_variable": null,
+      "sink_variable": null,
+      "source_line": null,
+      "sink_line": null,
+      "data_flow": null,
+      "semantic_layer": null,
+      "confidence": "HIGH",
+      "sink_call": "requests.get(",
+      "source_expr": "request.",
+      "source_var": null,
+      "taint_chain": [
+        "request.",
+        "requests.get("
+      ],
+      "function": null,
+      "language": "python",
+      "cve": null,
+      "cvss": null,
+      "enterprise_control": true,
+      "classification": "heuristic",
+      "evidence_state": "validated",
+      "canonical_evidence_state": "qualified",
+      "analysis_scope": "production",
+      "context_classification": "production",
+      "is_synthetic": false,
+      "preserved_for_evaluation": true,
+      "context_path": "smoke_ssrf.py",
+      "context_is_not_validity": true,
+      "rule_contract_version": "1.0",
+      "rule_contract": {
+        "rule_id": "TAINT_SSRF_EXPANDED",
+        "rule_version": "V10_ADAPTER",
+        "title": "SSRF Dynamic Outbound Request",
+        "description": "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+        "mode": "TAINT",
+        "languages": [
+          "python"
+        ],
+        "paths": [
+          "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py"
+        ]
+      },
+      "rule_security": {
+        "severity": "Low",
+        "confidence": "Medium",
+        "cwe": "CWE-918",
+        "owasp": "A10:2021 - Server-Side Request Forgery",
+        "mitre": "T1190",
+        "remediation": [
+          "Validate all outbound URLs against a server-side allow-list of trusted hosts.",
+          "Block requests to private IP ranges (10.x, 172.16.x, 192.168.x, 169.254.x).",
+          "Use a dedicated HTTP proxy that enforces egress filtering.",
+          "Disable unnecessary URL schemes (file://, gopher://, dict://).",
+          "Never forward raw user-supplied URLs to backend HTTP clients."
+        ],
+        "references": null
+      },
+      "rule_evidence": {
+        "evidence_requirements": null,
+        "required_evidence": null,
+        "evidence_types": [
+          "SINK",
+          "SOURCE",
+          "TAINT_PATH"
+        ],
+        "provenance": {
+          "engine": "scanner.taint_engine",
+          "detection": "Enterprise Source-to-Sink Heuristic"
+        }
+      },
+      "rule_quality": {
+        "fp_indicators": [],
+        "noise_categories": [],
+        "suppression_policy": null
+      },
+      "rule_dataflow": {
+        "sources": [
+          "request."
+        ],
+        "sinks": [
+          "requests.get("
+        ]
+      },
+      "quality_state": {
+        "classification": "UNCLASSIFIED",
+        "fp_status": "NOT_ASSESSED",
+        "noise_status": "NOT_ASSESSED",
+        "suppression_status": "NOT_SUPPRESSED",
+        "benchmark_status": "NOT_ADJUDICATED"
+      },
+      "occurrences": [
+        {
+          "file": "smoke_ssrf.py",
+          "line": 9,
+          "snippet": "return requests.get(url).text",
+          "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+          "file_path": "smoke_ssrf.py",
+          "file_name": "smoke_ssrf.py",
+          "taint_path": "request. -> requests.get(",
+          "detection": "Enterprise Source-to-Sink Heuristic",
+          "sink_category": null,
+          "evidence_valid": null,
+          "confidence": "Medium"
+        }
+      ],
+      "evidence_validation_detail": {
+        "valid": true,
+        "evidence_present": true,
+        "sink_present": true,
+        "sink_valid": true,
+        "taint_validated": true,
+        "evidence_score": 100,
+        "reason": "Concrete source-to-sink evidence validated.",
+        "evidence": [
+          "return requests.get(url).text",
+          "request. -> requests.get(",
+          "Enterprise Source-to-Sink Heuristic"
+        ],
+        "sink_candidates": [
+          "ssrf",
+          "xss"
+        ],
+        "expected_sinks": [
+          "ssrf"
+        ]
+      },
+      "evidence_validation": "Concrete source-to-sink evidence validated.",
+      "evidence_score": 100,
+      "evidence_quality": 100,
+      "evidence_reason": "Concrete source-to-sink evidence validated.",
+      "sink_validated": true,
+      "fingerprint": "90de05eb0bad0b8832367355266485a4",
+      "detected_at": "2026-10-02T15:32:06.367667Z",
+      "evidence_confidence": "HIGH",
+      "context_confidence": "MEDIUM",
+      "runtime_validation_status": "NOT_PERFORMED",
+      "confidence_basis": "STATIC_EVIDENCE_SEPARATE_FROM_RUNTIME_VALIDATION",
+      "exploitability": "High",
+      "confidence_score": 90,
+      "confidence_label": "HIGH",
+      "occurrence_count": 1,
+      "unique_file_count": 1,
+      "cve_note": "Code-level vulnerability (no CVE). Mapped to CWE-918.",
+      "attack_scenario": "",
+      "risk_category": "High",
+      "score_breakdown": {
+        "severity_factor": 4,
+        "exploitability_factor": 9,
+        "data_sensitivity_factor": 4,
+        "exposure_factor": 3,
+        "privilege_factor": 4,
+        "confidence_multiplier": 1.0,
+        "final_score": 51.0,
+        "explanation": "Severity(Medium=4)\u00c3\u201430% + Exploitability(High=9)\u00c3\u201425% + DataSensitivity(4)\u00c3\u201420% + Exposure(3)\u00c3\u201415% + Privilege(4)\u00c3\u201410% = 5.10/10 \u00e2\u2020\u2019 51.0 \u00c3\u2014 1.0 confidence = 51.0"
+      },
+      "file_count": 1,
+      "file_path": "smoke_ssrf.py",
+      "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+      "evidence": [
+        "return requests.get(url).text",
+        "request. -> requests.get(",
+        "Enterprise Source-to-Sink Heuristic"
+      ],
+      "file_name": "smoke_ssrf.py",
+      "issue_group": "SSRF",
+      "issue_type": "SSRF Dynamic Outbound Request",
+      "canonical_evidence": {
+        "evidence_id": "d185b03b-9321-45e5-9de3-e81aeba223e5",
+        "source": {
+          "engine": "R-SecOpsX",
+          "component": "finding-normalization",
+          "tool": null
+        },
+        "timestamp": "2026-10-02T15:32:06.367667Z",
+        "provenance": {
+          "source": "Enterprise Source-to-Sink Heuristic",
+          "observed_at": "2026-10-02T15:32:06.367667Z",
+          "engine": "R-SecOpsX",
+          "component": "finding-normalization",
+          "tool": null,
+          "decision_consumer": null
+        },
+        "type": "sink",
+        "content_or_context": {
+          "evidence": [
+            "return requests.get(url).text",
+            "request. -> requests.get(",
+            "Enterprise Source-to-Sink Heuristic",
+            "return requests.get(url).text",
+            "request. -> requests.get(",
+            "Enterprise Source-to-Sink Heuristic",
+            "return requests.get(url).text",
+            "request. -> requests.get(",
+            "request.",
+            "requests.get(",
+            "http",
+            "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+            "Concrete source-to-sink evidence validated."
+          ],
+          "vuln_type": "ssrf",
+          "rule_id": "TAINT_SSRF_EXPANDED",
+          "file": "smoke_ssrf.py",
+          "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+          "line": 9,
+          "snippet": "return requests.get(url).text",
+          "taint_path": "request. -> requests.get(",
+          "source_expr": "request.",
+          "sink_category": "http",
+          "sink_call": "requests.get(",
+          "detection": "Enterprise Source-to-Sink Heuristic",
+          "evidence_score": 100,
+          "evidence_quality": 100,
+          "evidence_valid": true,
+          "evidence_state": "validated",
+          "evidence_confidence": "HIGH",
+          "confidence_score": 90,
+          "confidence_label": "HIGH"
+        },
+        "confidence": "HIGH",
+        "related_finding_id": "90de05eb0bad0b8832367355266485a4"
+      },
+      "canonical_qualified_evidence": {
+        "evidence": {
+          "evidence_id": "d185b03b-9321-45e5-9de3-e81aeba223e5",
+          "source": {
+            "engine": "R-SecOpsX",
+            "component": "finding-normalization",
+            "tool": null
+          },
+          "timestamp": "2026-10-02T15:32:06.367667Z",
+          "provenance": {
+            "source": "Enterprise Source-to-Sink Heuristic",
+            "observed_at": "2026-10-02T15:32:06.367667Z",
+            "engine": "R-SecOpsX",
+            "component": "finding-normalization",
+            "tool": null,
+            "decision_consumer": null
+          },
+          "type": "sink",
+          "content_or_context": {
+            "evidence": [
+              "return requests.get(url).text",
+              "request. -> requests.get(",
+              "Enterprise Source-to-Sink Heuristic",
+              "return requests.get(url).text",
+              "request. -> requests.get(",
+              "Enterprise Source-to-Sink Heuristic",
+              "return requests.get(url).text",
+              "request. -> requests.get(",
+              "request.",
+              "requests.get(",
+              "http",
+              "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+              "Concrete source-to-sink evidence validated."
+            ],
+            "vuln_type": "ssrf",
+            "rule_id": "TAINT_SSRF_EXPANDED",
+            "file": "smoke_ssrf.py",
+            "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+            "line": 9,
+            "snippet": "return requests.get(url).text",
+            "taint_path": "request. -> requests.get(",
+            "source_expr": "request.",
+            "sink_category": "http",
+            "sink_call": "requests.get(",
+            "detection": "Enterprise Source-to-Sink Heuristic",
+            "evidence_score": 100,
+            "evidence_quality": 100,
+            "evidence_valid": true,
+            "evidence_state": "validated",
+            "evidence_confidence": "HIGH",
+            "confidence_score": 90,
+            "confidence_label": "HIGH"
+          },
+          "confidence": "HIGH",
+          "related_finding_id": "90de05eb0bad0b8832367355266485a4"
+        },
+        "qualified": true,
+        "qualification_reason": "Concrete source-to-sink evidence validated.",
+        "qualified_at": "2026-10-02T15:32:06.531030+00:00"
+      },
+      "compliance_controls": {
+        "OWASP": [
+          "A10:2021 - Server-Side Request Forgery"
+        ],
+        "CWE": [
+          "CWE-918 - Server-Side Request Forgery"
+        ],
+        "NIST 800-53": [
+          "SC-7",
+          "SI-10"
+        ],
+        "PCI DSS": [
+          "1.2.1",
+          "6.2.4"
+        ],
+        "ISO 27001": [
+          "A.8.20",
+          "A.8.21"
+        ],
+        "SOC 2": [
+          "CC6.6"
+        ],
+        "MITRE ATT&CK": [
+          "T1190 - Exploit Public-Facing Application"
+        ]
+      },
+      "control_theme": "Outbound Request Control",
+      "framework": "Outbound Request Control",
+      "control": "Outbound Request Control"
+    }
+  ],
+  "grouped": [
+    {
+      "title": "SSRF Dynamic Outbound Request",
+      "vuln_type": "ssrf",
+      "severity": "Medium",
+      "priority": "P3",
+      "snippet": "return requests.get(url).text",
+      "instances": 1,
+      "affected_files": [
+        "smoke_ssrf.py"
+      ],
+      "file": "smoke_ssrf.py",
+      "line": 9,
+      "owasp": "A10:2021 - Server-Side Request Forgery",
+      "mitre": "T1190",
+      "cwe": "CWE-918",
+      "pci_dss": "Req 6.2.4 - Prevent SSRF attacks",
+      "nist": "SC-7 Boundary Protection",
+      "iso27001": "A.13.1.3 Segregation in Networks",
+      "soc2": "CC6.6 Logical Access Security Measures",
+      "taint_path": "request. -> requests.get(",
+      "description": "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+      "business_impact": "Internal service access, metadata exposure (AWS IMDS), SSRF pivot to RCE, lateral movement.",
+      "remediation": [
+        "Allow outbound requests only to an explicit server-side destination allow-list; never trust a client-supplied URL by itself.",
+        "Resolve the destination and validate every resulting IP address, including IPv4, IPv6, loopback, link-local, private, and cloud-metadata ranges.",
+        "Re-validate the destination after DNS resolution and after redirects; prevent DNS-rebinding and redirect-based allow-list bypasses.",
+        "Allow only required URL schemes, use a controlled egress proxy where possible, and block direct access to internal management and metadata endpoints.",
+        "Add regression tests for private IPs, IPv6, encoded/alternate IP forms, redirects, DNS rebinding, and cloud metadata addresses."
+      ],
+      "risk_score": 51.0,
+      "engine": "scanner.taint_engine",
+      "rule_id": "TAINT_SSRF_EXPANDED",
+      "detection": "Enterprise Source-to-Sink Heuristic",
+      "sink_category": "http",
+      "group_key": "TAINT_SSRF_EXPANDED|D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py|9",
+      "evidence_valid": true,
+      "source_type": null,
+      "source": null,
+      "sink": null,
+      "source_variable": null,
+      "sink_variable": null,
+      "source_line": null,
+      "sink_line": null,
+      "data_flow": null,
+      "semantic_layer": null,
+      "confidence": "HIGH",
+      "sink_call": "requests.get(",
+      "source_expr": "request.",
+      "source_var": null,
+      "taint_chain": [
+        "request.",
+        "requests.get("
+      ],
+      "function": null,
+      "language": "python",
+      "cve": null,
+      "cvss": null,
+      "enterprise_control": true,
+      "classification": "heuristic",
+      "evidence_state": "validated",
+      "canonical_evidence_state": "qualified",
+      "analysis_scope": "production",
+      "context_classification": "production",
+      "is_synthetic": false,
+      "preserved_for_evaluation": true,
+      "context_path": "smoke_ssrf.py",
+      "context_is_not_validity": true,
+      "rule_contract_version": "1.0",
+      "rule_contract": {
+        "rule_id": "TAINT_SSRF_EXPANDED",
+        "rule_version": "V10_ADAPTER",
+        "title": "SSRF Dynamic Outbound Request",
+        "description": "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+        "mode": "TAINT",
+        "languages": [
+          "python"
+        ],
+        "paths": [
+          "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py"
+        ]
+      },
+      "rule_security": {
+        "severity": "Low",
+        "confidence": "Medium",
+        "cwe": "CWE-918",
+        "owasp": "A10:2021 - Server-Side Request Forgery",
+        "mitre": "T1190",
+        "remediation": [
+          "Validate all outbound URLs against a server-side allow-list of trusted hosts.",
+          "Block requests to private IP ranges (10.x, 172.16.x, 192.168.x, 169.254.x).",
+          "Use a dedicated HTTP proxy that enforces egress filtering.",
+          "Disable unnecessary URL schemes (file://, gopher://, dict://).",
+          "Never forward raw user-supplied URLs to backend HTTP clients."
+        ],
+        "references": null
+      },
+      "rule_evidence": {
+        "evidence_requirements": null,
+        "required_evidence": null,
+        "evidence_types": [
+          "SINK",
+          "SOURCE",
+          "TAINT_PATH"
+        ],
+        "provenance": {
+          "engine": "scanner.taint_engine",
+          "detection": "Enterprise Source-to-Sink Heuristic"
+        }
+      },
+      "rule_quality": {
+        "fp_indicators": [],
+        "noise_categories": [],
+        "suppression_policy": null
+      },
+      "rule_dataflow": {
+        "sources": [
+          "request."
+        ],
+        "sinks": [
+          "requests.get("
+        ]
+      },
+      "quality_state": {
+        "classification": "UNCLASSIFIED",
+        "fp_status": "NOT_ASSESSED",
+        "noise_status": "NOT_ASSESSED",
+        "suppression_status": "NOT_SUPPRESSED",
+        "benchmark_status": "NOT_ADJUDICATED"
+      },
+      "occurrences": [
+        {
+          "file": "smoke_ssrf.py",
+          "line": 9,
+          "snippet": "return requests.get(url).text",
+          "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+          "file_path": "smoke_ssrf.py",
+          "file_name": "smoke_ssrf.py",
+          "taint_path": "request. -> requests.get(",
+          "detection": "Enterprise Source-to-Sink Heuristic",
+          "sink_category": null,
+          "evidence_valid": null,
+          "confidence": "Medium"
+        }
+      ],
+      "evidence_validation_detail": {
+        "valid": true,
+        "evidence_present": true,
+        "sink_present": true,
+        "sink_valid": true,
+        "taint_validated": true,
+        "evidence_score": 100,
+        "reason": "Concrete source-to-sink evidence validated.",
+        "evidence": [
+          "return requests.get(url).text",
+          "request. -> requests.get(",
+          "Enterprise Source-to-Sink Heuristic"
+        ],
+        "sink_candidates": [
+          "ssrf",
+          "xss"
+        ],
+        "expected_sinks": [
+          "ssrf"
+        ]
+      },
+      "evidence_validation": "Concrete source-to-sink evidence validated.",
+      "evidence_score": 100,
+      "evidence_quality": 100,
+      "evidence_reason": "Concrete source-to-sink evidence validated.",
+      "sink_validated": true,
+      "fingerprint": "90de05eb0bad0b8832367355266485a4",
+      "detected_at": "2026-10-02T15:32:06.367667Z",
+      "evidence_confidence": "HIGH",
+      "context_confidence": "MEDIUM",
+      "runtime_validation_status": "NOT_PERFORMED",
+      "confidence_basis": "STATIC_EVIDENCE_SEPARATE_FROM_RUNTIME_VALIDATION",
+      "exploitability": "High",
+      "confidence_score": 90,
+      "confidence_label": "HIGH",
+      "occurrence_count": 1,
+      "unique_file_count": 1,
+      "cve_note": "Code-level vulnerability (no CVE). Mapped to CWE-918.",
+      "attack_scenario": "",
+      "risk_category": "High",
+      "score_breakdown": {
+        "severity_factor": 4,
+        "exploitability_factor": 9,
+        "data_sensitivity_factor": 4,
+        "exposure_factor": 3,
+        "privilege_factor": 4,
+        "confidence_multiplier": 1.0,
+        "final_score": 51.0,
+        "explanation": "Severity(Medium=4)\u00c3\u201430% + Exploitability(High=9)\u00c3\u201425% + DataSensitivity(4)\u00c3\u201420% + Exposure(3)\u00c3\u201415% + Privilege(4)\u00c3\u201410% = 5.10/10 \u00e2\u2020\u2019 51.0 \u00c3\u2014 1.0 confidence = 51.0"
+      },
+      "file_count": 1,
+      "file_path": "smoke_ssrf.py",
+      "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+      "evidence": [
+        "return requests.get(url).text",
+        "request. -> requests.get(",
+        "Enterprise Source-to-Sink Heuristic"
+      ],
+      "file_name": "smoke_ssrf.py",
+      "issue_group": "SSRF",
+      "issue_type": "SSRF Dynamic Outbound Request",
+      "canonical_evidence": {
+        "evidence_id": "d185b03b-9321-45e5-9de3-e81aeba223e5",
+        "source": {
+          "engine": "R-SecOpsX",
+          "component": "finding-normalization",
+          "tool": null
+        },
+        "timestamp": "2026-10-02T15:32:06.367667Z",
+        "provenance": {
+          "source": "Enterprise Source-to-Sink Heuristic",
+          "observed_at": "2026-10-02T15:32:06.367667Z",
+          "engine": "R-SecOpsX",
+          "component": "finding-normalization",
+          "tool": null,
+          "decision_consumer": null
+        },
+        "type": "sink",
+        "content_or_context": {
+          "evidence": [
+            "return requests.get(url).text",
+            "request. -> requests.get(",
+            "Enterprise Source-to-Sink Heuristic",
+            "return requests.get(url).text",
+            "request. -> requests.get(",
+            "Enterprise Source-to-Sink Heuristic",
+            "return requests.get(url).text",
+            "request. -> requests.get(",
+            "request.",
+            "requests.get(",
+            "http",
+            "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+            "Concrete source-to-sink evidence validated."
+          ],
+          "vuln_type": "ssrf",
+          "rule_id": "TAINT_SSRF_EXPANDED",
+          "file": "smoke_ssrf.py",
+          "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+          "line": 9,
+          "snippet": "return requests.get(url).text",
+          "taint_path": "request. -> requests.get(",
+          "source_expr": "request.",
+          "sink_category": "http",
+          "sink_call": "requests.get(",
+          "detection": "Enterprise Source-to-Sink Heuristic",
+          "evidence_score": 100,
+          "evidence_quality": 100,
+          "evidence_valid": true,
+          "evidence_state": "validated",
+          "evidence_confidence": "HIGH",
+          "confidence_score": 90,
+          "confidence_label": "HIGH"
+        },
+        "confidence": "HIGH",
+        "related_finding_id": "90de05eb0bad0b8832367355266485a4"
+      },
+      "canonical_qualified_evidence": {
+        "evidence": {
+          "evidence_id": "d185b03b-9321-45e5-9de3-e81aeba223e5",
+          "source": {
+            "engine": "R-SecOpsX",
+            "component": "finding-normalization",
+            "tool": null
+          },
+          "timestamp": "2026-10-02T15:32:06.367667Z",
+          "provenance": {
+            "source": "Enterprise Source-to-Sink Heuristic",
+            "observed_at": "2026-10-02T15:32:06.367667Z",
+            "engine": "R-SecOpsX",
+            "component": "finding-normalization",
+            "tool": null,
+            "decision_consumer": null
+          },
+          "type": "sink",
+          "content_or_context": {
+            "evidence": [
+              "return requests.get(url).text",
+              "request. -> requests.get(",
+              "Enterprise Source-to-Sink Heuristic",
+              "return requests.get(url).text",
+              "request. -> requests.get(",
+              "Enterprise Source-to-Sink Heuristic",
+              "return requests.get(url).text",
+              "request. -> requests.get(",
+              "request.",
+              "requests.get(",
+              "http",
+              "Source-to-sink indicator: request. reaches requests.get( near the same function/block.",
+              "Concrete source-to-sink evidence validated."
+            ],
+            "vuln_type": "ssrf",
+            "rule_id": "TAINT_SSRF_EXPANDED",
+            "file": "smoke_ssrf.py",
+            "full_path": "D:\\data\\Code test\\R-SecOpsX_V11\\dump\\validation\\evidence_smoke\\smoke_ssrf.py",
+            "line": 9,
+            "snippet": "return requests.get(url).text",
+            "taint_path": "request. -> requests.get(",
+            "source_expr": "request.",
+            "sink_category": "http",
+            "sink_call": "requests.get(",
+            "detection": "Enterprise Source-to-Sink Heuristic",
+            "evidence_score": 100,
+            "evidence_quality": 100,
+            "evidence_valid": true,
+            "evidence_state": "validated",
+            "evidence_confidence": "HIGH",
+            "confidence_score": 90,
+            "confidence_label": "HIGH"
+          },
+          "confidence": "HIGH",
+          "related_finding_id": "90de05eb0bad0b8832367355266485a4"
+        },
+        "qualified": true,
+        "qualification_reason": "Concrete source-to-sink evidence validated.",
+        "qualified_at": "2026-10-02T15:32:06.531030+00:00"
+      },
+      "compliance_controls": {
+        "OWASP": [
+          "A10:2021 - Server-Side Request Forgery"
+        ],
+        "CWE": [
+          "CWE-918 - Server-Side Request Forgery"
+        ],
+        "NIST 800-53": [
+          "SC-7",
+          "SI-10"
+        ],
+        "PCI DSS": [
+          "1.2.1",
+          "6.2.4"
+        ],
+        "ISO 27001": [
+          "A.8.20",
+          "A.8.21"
+        ],
+        "SOC 2": [
+          "CC6.6"
+        ],
+        "MITRE ATT&CK": [
+          "T1190 - Exploit Public-Facing Application"
+        ]
+      },
+      "control_theme": "Outbound Request Control",
+      "framework": "Outbound Request Control",
+      "control": "Outbound Request Control"
+    }
+  ],
+  "owasp": {
+    "A10": {
+      "category": "A10:2021 - Server-Side Request Forgery",
+      "count": 1
+    }
+  },
+  "mitre": [
+    {
+      "id": "T1190",
+      "description": "Exploit Public-Facing Application"
+    }
+  ],
+  "attack_paths": [],
+  "sbom": [],
+  "insights": [
+    "SSRF RISK: 1 Server-Side Request Forgery vulnerability detected. Validate all outbound HTTP request URLs against a server-side allow-list."
+  ],
+  "top_root_causes": [
+    {
+      "title": "Server-Side Request Forgery",
+      "severity": "Medium",
+      "instances": 1,
+      "affected_files": [
+        "smoke_ssrf.py"
+      ],
+      "risk_score": 51.0,
+      "representative_findings": [
+        "SSRF Dynamic Outbound Request"
+      ]
+    }
+  ],
+  "dependency_graph": {
+    "engine": "DEPENDENCY_GRAPH_V2",
+    "graph_status": "NO_VERIFIED_EDGES",
+    "verified_edge_count": 0,
+    "edges": [],
+    "evidence_policy": "AUTHORITATIVE_RELATIONSHIP_FIELDS_ONLY"
+  },
+  "finding_classification_summary": {
+    "heuristic": 1
+  },
+  "rule_telemetry": {
+    "TAINT_SSRF_EXPANDED": {
+      "tp": 0,
+      "fp": 0,
+      "unknown": 1,
+      "total": 1,
+      "precision": null
+    }
+  },
+  "compliance_summary": {
+    "CWE": 1,
+    "ISO 27001": 1,
+    "MITRE ATT&CK": 1,
+    "NIST 800-53": 1,
+    "OWASP": 1,
+    "PCI DSS": 1,
+    "SOC 2": 1
+  },
+  "secret_intelligence_summary": {
+    "total_secrets": 0,
+    "critical_blast_radius": 0,
+    "high_blast_radius": 0,
+    "validation_status": "OFFLINE_ONLY_NOT_VALIDATED",
+    "summary_status": "SECRET_INTELLIGENCE_SUMMARY_AVAILABLE",
+    "by_secret_type": {},
+    "by_severity": {},
+    "total_detected": 0,
+    "review_required": 0,
+    "confirmed_active": 0,
+    "confirmed_inactive": 0,
+    "validity_model": {
+      "UNKNOWN": "Review required; validity not established",
+      "VALID": "Confirmed active credential",
+      "INVALID": "Confirmed inactive credential",
+      "CANNOT_CHECK": "Validation not possible",
+      "FAILED_TO_CHECK": "Validation attempted but failed"
+    },
+    "live_validation_mode": "OFFLINE_ONLY_NOT_VALIDATED",
+    "live_validated_secrets": 0,
+    "live_validation_status": "SECRET_LIVE_VALIDATION_DISABLED"
+  },
+  "secret_live_validation_summary": {
+    "enabled": false,
+    "mode": "OFFLINE_ONLY_NOT_VALIDATED",
+    "total_secret_findings": 0,
+    "validated": 0,
+    "live_valid": 0,
+    "not_valid_or_revoked": 0,
+    "inconclusive": 0,
+    "unsupported": 0,
+    "no_secret_value": 0,
+    "errors": 0,
+    "max_validations": 50,
+    "timeout_seconds": 6,
+    "status": "SECRET_LIVE_VALIDATION_DISABLED"
+  },
+  "secret_blast_radius_correlation_summary": {
+    "total_secret_blast_radius_correlations": 0,
+    "critical_secret_blast_radius": 0,
+    "high_secret_blast_radius": 0,
+    "executive_relevant_correlations": 0,
+    "total_unique_secret_blast_radius": 0,
+    "critical_unique_secret_blast_radius": 0,
+    "high_unique_secret_blast_radius": 0,
+    "total_unique_secret_types": 0,
+    "critical_unique_secret_types": 0,
+    "high_unique_secret_types": 0,
+    "providers_affected": [],
+    "providers_affected_count": 0,
+    "likely_assets_affected": [],
+    "likely_assets_affected_count": 0,
+    "by_context": {
+      "finding_context": 0,
+      "file_context": 0,
+      "function_context": 0,
+      "api_route_context": 0,
+      "ai_agent_context": 0,
+      "ai_bom_context": 0
+    },
+    "correlation_mode": "STATIC_SECRET_PROVIDER_BLAST_RADIUS_CORRELATION_V2",
+    "correlation_status": "NO_SECRET_BLAST_RADIUS_CORRELATION_IDENTIFIED",
+    "correlations": [],
+    "unique_secret_blast_radius_correlations": []
+  },
+  "framework_mapping_summary": {
+    "mapped_findings": 1,
+    "total_findings": 1,
+    "by_owasp": {
+      "A10:2021 - Server-Side Request Forgery": 1
+    },
+    "by_cwe": {
+      "CWE-918": 1
+    },
+    "mapping_status": "RULE_BASED_FRAMEWORK_ENRICHMENT_V1"
+  },
+  "cbom": [],
+  "aibom": [],
+  "mlbom": [],
+  "apibom": [
+    {
+      "bom_type": "API-BOM",
+      "framework": "Flask",
+      "language": "python",
+      "file": "smoke_ssrf.py",
+      "line": 6,
+      "route": "/proxy",
+      "methods": [
+        "GET"
+      ],
+      "auth_hint": "AUTH_HINT_NOT_OBSERVED",
+      "evidence": "@app.route(\"/proxy\")",
+      "risk": "LOW",
+      "recommendation": "Validate route authentication, authorization, input validation, and CSRF controls."
+    }
+  ],
+  "abom": [],
+  "sbom_summary": {
+    "total_packages": 0,
+    "direct_packages": 0,
+    "transitive_packages": 0,
+    "unique_vulnerable_packages": 0,
+    "cve_count": 0,
+    "advisory_count": 0,
+    "vulnerable_advisory_records": 0,
+    "vulnerable_package_dedup_key": "purl_or_ecosystem_name_version",
+    "critical_cves": 0,
+    "high_cves": 0,
+    "medium_cves": 0,
+    "low_cves": 0,
+    "license_risks": 0
+  },
+  "dependency_summary": {
+    "direct_dependencies": 0,
+    "transitive_dependencies": 0,
+    "unknown_dependencies": 0,
+    "vulnerable_direct_dependencies": 0,
+    "vulnerable_transitive_dependencies": 0
+  },
+  "undeclared_dependency_intelligence": {
+    "status": "COMPLETED",
+    "analysis_scope": "STATIC_SOURCE_IMPORT_VS_MANIFEST",
+    "declared_dependencies": {
+      "composer": [],
+      "go": [],
+      "maven": [],
+      "npm": [],
+      "pypi": []
+    },
+    "undeclared_dependencies": [],
+    "summary": {
+      "total_import_records": 0,
+      "unique_imported_packages": 0,
+      "undeclared_package_count": 0,
+      "declared_package_count": 0,
+      "by_ecosystem": {}
+    }
+  },
+  "undeclared_dependency_summary": {
+    "total_import_records": 0,
+    "unique_imported_packages": 0,
+    "undeclared_package_count": 0,
+    "declared_package_count": 0,
+    "by_ecosystem": {}
+  },
+  "reachability_summary": {
+    "total_packages": 0,
+    "reachable_packages": 0,
+    "manifest_referenced_packages": 0,
+    "not_observed_packages": 0,
+    "unknown_packages": 0,
+    "direct_reachable": 0,
+    "transitive_reachable": 0
+  },
+  "reachability_vulnerability_summary": {
+    "vulnerable_packages": 0,
+    "reachable_vulnerable_packages": 0,
+    "not_observed_vulnerable_packages": 0,
+    "unknown_reachability_vulnerable_packages": 0
+  },
+  "reachability_references_count": 1,
+  "kev_intelligence_summary": {
+    "total_vulnerable_packages": 0,
+    "normalized_cve_packages": 0,
+    "kev_packages": 0,
+    "reachable_kev_packages": 0,
+    "known_ransomware_use_packages": 0,
+    "kev_priority_counts": {},
+    "ransomware_use_counts": {},
+    "summary_status": "STATIC_OFFLINE_CISA_KEV_V1"
+  },
+  "vulnerability_age_summary": {
+    "total_vulnerable_packages": 0,
+    "known_age_packages": 0,
+    "kev_packages": 0,
+    "reachable_kev_packages": 0,
+    "legacy_high_risk_packages": 0,
+    "zero_day_status_counts": {},
+    "age_buckets": {},
+    "patch_urgency_counts": {},
+    "outbreak_status_counts": {},
+    "summary_status": "VULNERABILITY_AGE_INTELLIGENCE_V2"
+  },
+  "legacy_protocol_summary": {
+    "component_legacy_indicators": 0,
+    "global_legacy_indicators": 0,
+    "critical_affected_components": 0,
+    "high_affected_components": 0,
+    "global_critical_indicators": 0,
+    "global_high_indicators": 0,
+    "openssl_1_0_x_detected": 0,
+    "tls_deprecated_detected": 0,
+    "weak_hash_detected": 0,
+    "weak_cipher_detected": 0,
+    "executive_status": "NO_LEGACY_PROTOCOL_RISK_IDENTIFIED"
+  },
+  "exposure_surface_summary": {
+    "component_exposure_indicators": 0,
+    "global_exposure_indicators": 0,
+    "critical_affected_components": 0,
+    "high_affected_components": 0,
+    "global_critical_indicators": 0,
+    "global_high_indicators": 0,
+    "executive_relevant_global_indicators": 0,
+    "executive_status": "NO_EXPOSURE_SURFACE_RISK_IDENTIFIED"
+  },
+  "epss_intelligence_summary": {
+    "total_vulnerable_packages": 0,
+    "known_epss_packages": 0,
+    "very_high_exploit_probability": 0,
+    "p0_immediate_packages": 0,
+    "epss_buckets": {},
+    "epss_priority_counts": {},
+    "summary_status": "STATIC_OFFLINE_EPSS_INTELLIGENCE_V1"
+  },
+  "exploitability_summary": {
+    "total_vulnerable_packages": 0,
+    "decision_counts": {},
+    "urgency_counts": {},
+    "immediate_remediate": 0,
+    "priority_patch": 0,
+    "summary_status": "RUNTIME_RISK_FUSION_V1"
+  },
+  "license_evidence": [],
+  "license_evidence_summary": {
+    "total_components": 0,
+    "category_counts": {},
+    "resolution_status_counts": {},
+    "evidence_source_counts": {},
+    "review_required_components": 0,
+    "resolver": "R-SecOpsX License Evidence Resolver v2",
+    "evidence_artifact": "LICENSE_EVIDENCE_RESOLVER_V2.json",
+    "evidence_artifact_mode": "READ_ONLY_FROZEN",
+    "policy_review_required_components": 0,
+    "legal_review_required_components": 0,
+    "unknown_license_components": 0,
+    "final_reporting_stage": "POST_LICENSE_POLICY"
+  },
+  "license_policy_summary": {
+    "total_components": 0,
+    "risk_counts": {},
+    "decision_counts": {},
+    "license_counts": {},
+    "issue_counts": {},
+    "notice_required_components": 0,
+    "legal_review_required_components": 0,
+    "unknown_license_components": 0,
+    "summary_status": "RULE_BASED_LICENSE_POLICY_V1"
+  },
+  "copyright_ip_compliance": {
+    "summary_status": "COPYRIGHT_IP_COMPLIANCE_COMPLETED",
+    "engine": "COPYRIGHT_IP_COMPLIANCE_V1",
+    "files_scanned": 2,
+    "total_findings": 0,
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "risk_score": 0,
+    "decision": "NO_COPYRIGHT_SIGNAL",
+    "review_required": false,
+    "legal_determination": false,
+    "findings": [],
+    "summary": {
+      "copyright_ip_findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "decision": "NO_COPYRIGHT_SIGNAL",
+      "risk_score": 0,
+      "review_required": false
+    }
+  },
+  "copyright_ip_compliance_summary": {
+    "copyright_ip_findings": 0,
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "decision": "NO_COPYRIGHT_SIGNAL",
+    "risk_score": 0,
+    "review_required": false
+  },
+  "supply_chain_trust_summary": {
+    "total_supply_chain_trust_indicators": 0,
+    "critical_affected_components": 0,
+    "high_affected_components": 0,
+    "unique_affected_component_risks": 0,
+    "unique_high_component_risks": 0,
+    "unique_critical_component_risks": 0,
+    "unpinned_dependencies": 0,
+    "git_dependencies": 0,
+    "mutable_tags": 0,
+    "recent_packages": 0,
+    "private_namespace_hints": 0,
+    "package_risk_summary": {
+      "affected_components": 0,
+      "unique_affected_component_risks": 0,
+      "unique_critical_component_risks": 0,
+      "unique_high_component_risks": 0,
+      "critical_affected_components": 0,
+      "high_affected_components": 0,
+      "unpinned_dependencies": 0,
+      "git_dependencies": 0,
+      "mutable_tags": 0,
+      "recent_packages": 0,
+      "private_namespace_hints": 0
+    },
+    "global_risk_summary": {
+      "total_global_indicators": 0,
+      "manifest_trust_indicators": 0,
+      "namespace_trust_indicators": 0,
+      "freshness_trust_indicators": 0
+    },
+    "engine_mode": "OFFLINE_RULE_BASED",
+    "summary_status": "NO_SUPPLY_CHAIN_TRUST_RISK_IDENTIFIED"
+  },
+  "runtime_artifact_integrity_summary": {
+    "total_artifact_integrity_indicators": 0,
+    "total_artifact_presence_indicators": 0,
+    "critical_affected_components": 0,
+    "high_affected_components": 0,
+    "unsigned_artifacts": 0,
+    "tampered_artifacts": 0,
+    "packed_binaries": 0,
+    "embedded_secret_artifacts": 0,
+    "provenance_gaps": 0,
+    "digest_pinning_gaps": 0,
+    "checksum_gaps": 0,
+    "sbom_gaps": 0,
+    "global_artifact_integrity_indicators": 0,
+    "global_artifact_presence_indicators": 0,
+    "global_critical_indicators": 0,
+    "global_high_indicators": 0,
+    "executive_relevant_global_indicators": 0,
+    "engine_mode": "OFFLINE_RULE_BASED",
+    "summary_status": "NO_ARTIFACT_INTEGRITY_RISK_IDENTIFIED"
+  },
+  "data_flow_sensitivity_summary": {
+    "total_data_flow_sensitivity_indicators": 2,
+    "critical_indicators": 0,
+    "high_indicators": 2,
+    "medium_indicators": 0,
+    "executive_relevant_indicators": 2,
+    "highest_risk_indicator": "HIGH",
+    "global_indicators": [
+      {
+        "indicator": "THIRD_PARTY_HTTP_EXFIL",
+        "risk_level": "HIGH",
+        "evidence_match": "THIRD_PARTY_HTTP_EXFIL",
+        "executive_relevant": true,
+        "flow_confirmed": false,
+        "indicator_only": true
+      },
+      {
+        "indicator": "SWIFT_FINANCIAL_FLOW",
+        "risk_level": "HIGH",
+        "evidence_match": "SWIFT_FINANCIAL_FLOW",
+        "executive_relevant": true,
+        "flow_confirmed": false,
+        "indicator_only": true
+      }
+    ],
+    "flow_confirmed": false,
+    "indicator_only": true,
+    "enterprise_impact": "Sensitive data handling indicator may materially increase privacy, regulatory, or exfiltration risk.",
+    "recommended_action": "Review data classification, logging, storage, and third-party transfer controls.",
+    "engine_mode": "OFFLINE_RULE_BASED_INDICATOR_ONLY",
+    "summary_status": "DATA_FLOW_SENSITIVITY_INDICATORS_IDENTIFIED"
+  },
+  "data_flow_correlation_summary": {
+    "total_correlated_flows": 0,
+    "critical_correlated_flows": 0,
+    "high_correlated_flows": 0,
+    "confirmed_flows": 0,
+    "fallback_candidate_flows": 0,
+    "by_context": {
+      "file_context": 0,
+      "function_context": 0
+    },
+    "correlated_flows": [],
+    "correlation_confidence": "MIXED_OR_CONTEXTUAL",
+    "correlation_mode": "STATIC_CONTEXT_SOURCE_SINK_CORRELATION_V2_WITH_FILE_FALLBACK",
+    "correlation_status": "NO_DATA_FLOW_CORRELATION_IDENTIFIED"
+  },
+  "privacy_data_exposure_summary": {
+    "summary_status": "PRIVACY_DATA_ELEMENTS_OBSERVED_REVIEW_REQUIRED",
+    "total_privacy_indicators": 1,
+    "total_privacy_evidence": 1,
+    "privacy_observed_only_indicators": 1,
+    "privacy_exposure_indicators": 0,
+    "privacy_static_exposure_indicators": 0,
+    "privacy_runtime_exposure_confirmed": 0,
+    "privacy_vulnerability_indicators": 0,
+    "privacy_unclassified_indicators": 0,
+    "privacy_classification_complete": true,
+    "critical_privacy_indicators": 0,
+    "high_privacy_indicators": 0,
+    "third_party_transfer_indicators": 0,
+    "pii_type_counts": {},
+    "raw_privacy_evidence_count": 1,
+    "deduplicated_privacy_finding_count": 1,
+    "deduplicated_privacy_findings": [
+      {
+        "indicator": "SENSITIVE_DATA_FLOW_CONTEXT",
+        "risk_level": "LOW",
+        "severity": "Low",
+        "privacy_evidence_state": "OBSERVED_ONLY",
+        "static_exposure_confirmed": false,
+        "runtime_exposure_confirmed": false,
+        "privacy_exposure_status": "OBSERVED_ONLY",
+        "privacy_exposure_confirmed": false,
+        "file": "DATA_FLOW_CORRELATION",
+        "line": 0,
+        "snippet": "2 sensitive data-flow indicators observed by data-flow engine.",
+        "pii_types": [],
+        "privacy_domain": "Data Privacy / Data Flow",
+        "third_party_transfer_hint": false,
+        "description": "Existing data-flow indicators suggest sensitive data handling paths that require privacy review.",
+        "business_impact": "Sensitive data movement may expand breach impact and regulatory exposure.",
+        "recommended_actions": [
+          "Review correlated sensitive data flows and confirm data classification for each source/sink.",
+          "Add masking/encryption at sinks and enforce data minimisation in API responses.",
+          "Map each sensitive flow to owner, purpose, retention, and approved processing basis."
+        ],
+        "confidence": "MEDIUM",
+        "context_validated": true,
+        "false_positive_controls": [
+          "data-flow context is telemetry only and does not establish privacy exposure",
+          "requires independent privacy source-to-sink evidence before EXPOSED classification"
+        ]
+      }
+    ],
+    "potential_executive_review_indicators": 0,
+    "confirmed_executive_exposures": 0,
+    "executive_relevant": 0,
+    "indicator_semantics": "PII_OBSERVED_SEPARATE_FROM_EXPOSURE;_EXPOSURE_REQUIRES_STATIC_SINK_CORRELATION;_RUNTIME_NOT_CONFIRMED",
+    "exposure_semantics": "STATIC_EXPOSURE_REQUIRES_PII_TO_DISCLOSURE_SINK_CORRELATION;_RUNTIME_DISCLOSURE_IS_NOT_CONFIRMED_BY_STATIC_ANALYSIS",
+    "static_exposure_semantics": "STATIC_EXPOSURE_ESTABLISHED_MEANS_A_PII_BEARING_EXPRESSION_WAS_CORRELATED_TO_A_DISCLOSURE_SINK",
+    "runtime_exposure_semantics": "RUNTIME_EXPOSURE_CONFIRMED_REQUIRES_RUNTIME_EVIDENCE_AND_IS_FALSE_FOR_STATIC_ONLY_SCANS",
+    "exposure_classifier": "SINK_DRIVEN_V17_9_3",
+    "challenge_context_semantics": "CHALLENGE_PREDICATE_OBSERVATION_ONLY_UNLESS_INDEPENDENT_EXPOSURE_SINK_EXISTS",
+    "request_side_semantics": "REQUEST_COLLECTION_OR_COMPARISON_IS_NOT_DISCLOSURE_WITHOUT_EXPOSURE_SINK",
+    "engine_mode": "STATIC_PRIVACY_PATTERN_AND_CONTEXT_ANALYSIS_V3_SINK_DRIVEN",
+    "indicators": [
+      {
+        "indicator": "SENSITIVE_DATA_FLOW_CONTEXT",
+        "risk_level": "LOW",
+        "severity": "Low",
+        "privacy_evidence_state": "OBSERVED_ONLY",
+        "static_exposure_confirmed": false,
+        "runtime_exposure_confirmed": false,
+        "privacy_exposure_status": "OBSERVED_ONLY",
+        "privacy_exposure_confirmed": false,
+        "file": "DATA_FLOW_CORRELATION",
+        "line": 0,
+        "snippet": "2 sensitive data-flow indicators observed by data-flow engine.",
+        "pii_types": [],
+        "privacy_domain": "Data Privacy / Data Flow",
+        "third_party_transfer_hint": false,
+        "description": "Existing data-flow indicators suggest sensitive data handling paths that require privacy review.",
+        "business_impact": "Sensitive data movement may expand breach impact and regulatory exposure.",
+        "recommended_actions": [
+          "Review correlated sensitive data flows and confirm data classification for each source/sink.",
+          "Add masking/encryption at sinks and enforce data minimisation in API responses.",
+          "Map each sensitive flow to owner, purpose, retention, and approved processing basis."
+        ],
+        "confidence": "MEDIUM",
+        "context_validated": true,
+        "false_positive_controls": [
+          "data-flow context is telemetry only and does not establish privacy exposure",
+          "requires independent privacy source-to-sink evidence before EXPOSED classification"
+        ]
+      }
+    ]
+  },
+  "ioc_malware_intelligence_summary": {
+    "summary_status": "NO_IOC_OR_BACKDOOR_INDICATORS_IDENTIFIED",
+    "total_ioc_indicators": 0,
+    "critical_ioc_indicators": 0,
+    "high_ioc_indicators": 0,
+    "suspicious_domains": [],
+    "public_ips": [],
+    "hashes_observed": [],
+    "malware_behavior_indicators": 0,
+    "executive_relevant": 0,
+    "engine_mode": "STATIC_IOC_BACKDOOR_HEURISTIC_ANALYSIS_V1_OFFLINE"
+  },
+  "identity_access_risk_summary": {
+    "total_identity_access_indicators": 0,
+    "critical_identity_access_indicators": 0,
+    "high_identity_access_indicators": 0,
+    "executive_relevant_indicators": 0,
+    "highest_risk_indicator": "NONE",
+    "enterprise_impact": "No material identity or access risk indicator identified.",
+    "recommended_action": "No action required.",
+    "engine_mode": "OFFLINE_RULE_BASED_IDENTITY_ACCESS_RISK_V1",
+    "summary_status": "NO_IDENTITY_ACCESS_RISK_IDENTIFIED"
+  },
+  "identity_access_correlation_summary": {
+    "total_identity_access_correlations": 0,
+    "critical_identity_access_correlations": 0,
+    "high_identity_access_correlations": 0,
+    "medium_identity_access_correlations": 0,
+    "executive_relevant_correlations": 0,
+    "by_type": {},
+    "privileged_routes_observed": 0,
+    "unauthenticated_privileged_routes": 0,
+    "correlation_mode": "STATIC_IDENTITY_ACCESS_CORRELATION_V2_HARDENED",
+    "summary_status": "NO_IDENTITY_ACCESS_CORRELATION_RISK_IDENTIFIED",
+    "correlations": []
+  },
+  "auth_hardening_risk_summary": {
+    "total_auth_hardening_indicators": 0,
+    "critical_auth_hardening_indicators": 0,
+    "high_auth_hardening_indicators": 0,
+    "medium_auth_hardening_indicators": 0,
+    "executive_relevant_indicators": 0,
+    "summary_status": "NO_AUTH_HARDENING_RISK_IDENTIFIED",
+    "engine_mode": "STATIC_AUTH_HARDENING_RISK_V2_TARGET_SCAN"
+  },
+  "auth_hardening_correlation_summary": {
+    "total_auth_hardening_correlations": 0,
+    "critical_auth_hardening_correlations": 0,
+    "high_auth_hardening_correlations": 0,
+    "medium_auth_hardening_correlations": 0,
+    "executive_relevant_correlations": 0,
+    "by_type": {},
+    "correlation_mode": "STATIC_AUTH_HARDENING_CORRELATION_V1",
+    "summary_status": "NO_AUTH_HARDENING_CORRELATION_RISK_IDENTIFIED",
+    "correlations": []
+  },
+  "ai_model_risk_summary": {
+    "total_ai_model_risk_indicators": 0,
+    "confirmed_executive_risk_indicators": 0,
+    "critical_ai_model_risk_indicators": 0,
+    "high_ai_model_risk_indicators": 0,
+    "medium_ai_model_risk_indicators": 0,
+    "executive_relevant_indicators": 0,
+    "highest_risk_indicator": "NONE",
+    "enterprise_impact": "No material AI model risk indicator identified.",
+    "recommended_action": "No action required.",
+    "engine_mode": "OFFLINE_RULE_BASED_AI_MODEL_RISK_V2_CONTEXT_GATED",
+    "summary_status": "NO_AI_MODEL_RISK_IDENTIFIED",
+    "executive_risk_status": "NO_CONFIRMED_EXECUTIVE_AI_RISK"
+  },
+  "business_logic_risk_summary": {
+    "total_business_logic_indicators": 0,
+    "critical_business_logic_indicators": 0,
+    "high_business_logic_indicators": 0,
+    "medium_business_logic_indicators": 0,
+    "executive_relevant_indicators": 0,
+    "highest_risk_indicator": "NONE",
+    "unique_indicator_types": [],
+    "unique_indicator_type_count": 0,
+    "by_context": {
+      "finding": 0,
+      "file": 0,
+      "function": 0,
+      "api_route": 0,
+      "ai_agent": 0
+    },
+    "workflow_confirmed": false,
+    "enterprise_impact": "No material business logic risk indicator identified.",
+    "recommended_action": "No action required.",
+    "engine_mode": "OFFLINE_RULE_BASED_BUSINESS_LOGIC_CONTEXT_V2",
+    "summary_status": "NO_BUSINESS_LOGIC_RISK_IDENTIFIED"
+  },
+  "api_abuse_risk_summary": {
+    "total_api_abuse_indicators": 0,
+    "total_unique_api_abuse_indicators": 0,
+    "critical_api_abuse_indicators": 0,
+    "high_api_abuse_indicators": 0,
+    "executive_relevant_indicators": 0,
+    "by_context": {
+      "api_route_context": 0
+    },
+    "by_type": {},
+    "summary_status": "NO_API_ABUSE_RISK_IDENTIFIED"
+  },
+  "business_logic_correlation_summary": {
+    "workflow_confirmed": false,
+    "total_business_logic_correlations": 0,
+    "critical_business_logic_correlations": 0,
+    "high_business_logic_correlations": 0,
+    "medium_business_logic_correlations": 0,
+    "executive_relevant_correlations": 0,
+    "by_type": {},
+    "correlation_mode": "STATIC_BUSINESS_LOGIC_CORRELATION_V1",
+    "summary_status": "NO_BUSINESS_LOGIC_CORRELATION_RISK_IDENTIFIED",
+    "correlations": []
+  },
+  "security_control_coverage_summary": {
+    "total_controls_evaluated": 32,
+    "controls_observed": 1,
+    "controls_not_observed": 31,
+    "control_coverage_ratio": 0.03,
+    "static_evidence_control_coverage_ratio": 0.03,
+    "domains_evaluated": 10,
+    "domains_observed_count": 1,
+    "domains_not_observed_count": 9,
+    "coverage_ratio": 0.1,
+    "domain_coverage_ratio": 0.1,
+    "coverage_ratio_semantics": "STATIC_EVIDENCE_ONLY_NOT_CONTROL_EFFECTIVENESS",
+    "control_coverage_semantics": "UNIQUE_OBSERVED_CONTROL_RULES_DIVIDED_BY_DEFINED_CONTROL_RULES",
+    "domain_coverage_semantics": "OBSERVED_DOMAINS_DIVIDED_BY_REQUIRED_DOMAINS",
+    "coverage_grade": "LIMITED",
+    "defense_in_depth_status": "CONTROL_COVERAGE_GAPS_IDENTIFIED",
+    "executive_relevant_gaps": 7,
+    "domains_observed": [
+      "WEB_SECURITY"
+    ],
+    "domains_not_observed": [
+      "AUTHENTICATION",
+      "AUTHORIZATION",
+      "INPUT_VALIDATION",
+      "OUTPUT_PROTECTION",
+      "ABUSE_PREVENTION",
+      "CRYPTO",
+      "SECRETS",
+      "MONITORING",
+      "RESILIENCE"
+    ],
+    "by_domain": {
+      "AUTHENTICATION": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "HIGH"
+      },
+      "AUTHORIZATION": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "HIGH"
+      },
+      "INPUT_VALIDATION": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "MEDIUM"
+      },
+      "OUTPUT_PROTECTION": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "MEDIUM"
+      },
+      "ABUSE_PREVENTION": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "MEDIUM"
+      },
+      "WEB_SECURITY": {
+        "status": "OBSERVED",
+        "observed_controls": 1,
+        "not_observed_controls": 0,
+        "risk_level": "INFO"
+      },
+      "CRYPTO": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "HIGH"
+      },
+      "SECRETS": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "HIGH"
+      },
+      "MONITORING": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "LOW"
+      },
+      "RESILIENCE": {
+        "status": "NOT_OBSERVED",
+        "observed_controls": 0,
+        "not_observed_controls": 1,
+        "risk_level": "LOW"
+      }
+    },
+    "by_context": {
+      "finding_context": 0,
+      "file_context": 0,
+      "function_context": 0,
+      "api_route_context": 1,
+      "cbom_component_context": 0,
+      "ai_agent_context": 0,
+      "domain_coverage_context": 9
+    },
+    "control_findings": [
+      {
+        "context_id": "/proxy",
+        "context_type": "API_ROUTE",
+        "control": "CSRF_CONTROL",
+        "domain": "WEB_SECURITY",
+        "status": "OBSERVED",
+        "risk_level": "INFO",
+        "coverage_observed": true,
+        "confidence": "Medium",
+        "evidence_match": "CSRF",
+        "evidence": {
+          "route": "/proxy",
+          "method": null
+        },
+        "mapped_frameworks": [
+          "OWASP_ASVS_V4"
+        ],
+        "recommended_action": "Validate whether this control is consistently enforced across applicable routes, functions, and deployment paths."
+      },
+      {
+        "context_id": "AUTHENTICATION",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "AUTHENTICATION_CONTROL_NOT_OBSERVED",
+        "domain": "AUTHENTICATION",
+        "status": "NOT_OBSERVED",
+        "risk_level": "HIGH",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review whether authentication enforcement is consistently applied to protected routes and services."
+      },
+      {
+        "context_id": "AUTHORIZATION",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "AUTHORIZATION_CONTROL_NOT_OBSERVED",
+        "domain": "AUTHORIZATION",
+        "status": "NOT_OBSERVED",
+        "risk_level": "HIGH",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review object-level, role-level, and permission-level authorization controls."
+      },
+      {
+        "context_id": "INPUT_VALIDATION",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "INPUT_VALIDATION_CONTROL_NOT_OBSERVED",
+        "domain": "INPUT_VALIDATION",
+        "status": "NOT_OBSERVED",
+        "risk_level": "MEDIUM",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review schema validation, input normalization, and sanitization coverage."
+      },
+      {
+        "context_id": "OUTPUT_PROTECTION",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "OUTPUT_PROTECTION_CONTROL_NOT_OBSERVED",
+        "domain": "OUTPUT_PROTECTION",
+        "status": "NOT_OBSERVED",
+        "risk_level": "MEDIUM",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review response filtering and output encoding for sensitive or user-controlled data."
+      },
+      {
+        "context_id": "ABUSE_PREVENTION",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "ABUSE_PREVENTION_CONTROL_NOT_OBSERVED",
+        "domain": "ABUSE_PREVENTION",
+        "status": "NOT_OBSERVED",
+        "risk_level": "MEDIUM",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review rate limits, replay protection, and idempotency controls for abuse-prone flows."
+      },
+      {
+        "context_id": "CRYPTO",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "CRYPTO_CONTROL_NOT_OBSERVED",
+        "domain": "CRYPTO",
+        "status": "NOT_OBSERVED",
+        "risk_level": "HIGH",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review encryption, password hashing, TLS, and certificate-validation controls."
+      },
+      {
+        "context_id": "SECRETS",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "SECRETS_CONTROL_NOT_OBSERVED",
+        "domain": "SECRETS",
+        "status": "NOT_OBSERVED",
+        "risk_level": "HIGH",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review use of secrets managers, environment isolation, and runtime secret handling."
+      },
+      {
+        "context_id": "MONITORING",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "MONITORING_CONTROL_NOT_OBSERVED",
+        "domain": "MONITORING",
+        "status": "NOT_OBSERVED",
+        "risk_level": "LOW",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review audit logging, security event logging, and SIEM integration."
+      },
+      {
+        "context_id": "RESILIENCE",
+        "context_type": "DOMAIN_COVERAGE",
+        "control": "RESILIENCE_CONTROL_NOT_OBSERVED",
+        "domain": "RESILIENCE",
+        "status": "NOT_OBSERVED",
+        "risk_level": "LOW",
+        "coverage_observed": false,
+        "confidence": "Low",
+        "evidence_match": null,
+        "evidence": {
+          "note": "Control was not observed in available static evidence. This is not proof the control is absent."
+        },
+        "recommended_action": "Review structured error handling and safe exception disclosure."
+      }
+    ],
+    "engine_mode": "STATIC_SECURITY_CONTROL_COVERAGE_V2_SEMANTICALLY_ALIGNED"
+  },
+  "crypto_misuse_summary": {
+    "total_crypto_misuse_indicators": 0,
+    "critical_crypto_misuse_indicators": 0,
+    "high_crypto_misuse_indicators": 0,
+    "medium_crypto_misuse_indicators": 0,
+    "executive_relevant_indicators": 0,
+    "highest_risk_indicator": "NONE",
+    "by_context": {
+      "finding_context": 0,
+      "file_context": 0,
+      "function_context": 0,
+      "cbom_component_context": 0
+    },
+    "crypto_confirmed": false,
+    "engine_mode": "STATIC_CONTEXT_CRYPTO_MISUSE_INTELLIGENCE_V2",
+    "summary_status": "NO_CRYPTO_MISUSE_IDENTIFIED",
+    "executive_risk_status": "NO_CONFIRMED_EXECUTIVE_CRYPTO_RISK",
+    "enterprise_impact": "No material cryptographic misuse identified.",
+    "recommended_action": "No action required."
+  },
+  "reachable_vulnerable_packages": [],
+  "not_observed_vulnerable_packages": [],
+  "dependency_risk_register": [],
+  "top_dependency_risks": [],
+  "top_cves": [],
+  "governance_signals": [
+    {
+      "signal_id": "CLOUD_GOVERNANCE_WEAKNESS",
+      "severity": "HIGH",
+      "confidence": 0.7,
+      "source": "cloud_iac",
+      "evidence_count": 1,
+      "reason": "1 cloud or cloud-IaC governance indicators identified."
+    },
+    {
+      "signal_id": "API_GOVERNANCE_WEAKNESS",
+      "severity": "MEDIUM",
+      "confidence": 0.7,
+      "source": "api_security",
+      "evidence_count": 1,
+      "reason": "1 API security governance indicators identified."
+    }
+  ],
+  "governance_signal_summary": {
+    "total_signals": 2,
+    "high_signals": 1,
+    "medium_signals": 1,
+    "low_signals": 0
+  },
+  "release_readiness": {
+    "release_decision": "SECURITY_REVIEW_REQUIRED",
+    "release_priority": "P2",
+    "release_confidence": 0.8,
+    "deployment_recommendation": "Release requires security/governance review before approval.",
+    "release_rationale": [
+      "Defense-in-depth controls were not observed in static evidence; this does not prove the controls are absent."
+    ],
+    "blocking_gates": [],
+    "review_gates": [
+      {
+        "gate_id": "CONTROL_COVERAGE_GAPS",
+        "decision": "SECURITY_REVIEW_REQUIRED",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "reason": "Defense-in-depth controls were not observed in static evidence; this does not prove the controls are absent.",
+        "evidence": {
+          "coverage_ratio": 0.1,
+          "control_status": "CONTROL_COVERAGE_GAPS_IDENTIFIED",
+          "executive_relevant_gaps": 7,
+          "evidence_status": "NOT_OBSERVED_NOT_PROOF_OF_ABSENCE"
+        },
+        "executive_relevant": false
+      }
+    ],
+    "all_gates": [
+      {
+        "gate_id": "CONTROL_COVERAGE_GAPS",
+        "decision": "SECURITY_REVIEW_REQUIRED",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "reason": "Defense-in-depth controls were not observed in static evidence; this does not prove the controls are absent.",
+        "evidence": {
+          "coverage_ratio": 0.1,
+          "control_status": "CONTROL_COVERAGE_GAPS_IDENTIFIED",
+          "executive_relevant_gaps": 7,
+          "evidence_status": "NOT_OBSERVED_NOT_PROOF_OF_ABSENCE"
+        },
+        "executive_relevant": false
+      }
+    ],
+    "blocking_gate_count": 0,
+    "review_gate_count": 1,
+    "critical_blockers": 0,
+    "high_blockers": 0,
+    "medium_review_gates": 1,
+    "engine_mode": "STATIC_RELEASE_READINESS_GOVERNANCE_V2",
+    "summary_status": "RELEASE_READINESS_EVALUATED"
+  },
+  "executive_decision": {
+    "executive_decision": "SECURITY_REVIEW_REQUIRED",
+    "decision_priority": "P3",
+    "decision_confidence": 0.8,
+    "decision_drivers": [
+      "CONTROL_COVERAGE_GAPS"
+    ],
+    "decision_rationale": [
+      "Executive decision aligned with release-readiness evaluation.",
+      "No blocking release-readiness gates were identified; review signals are not treated as P0/P1 blockers."
+    ],
+    "decision_model": "rule_based_governance_signal_v1",
+    "decision_scope": "advisory_governance_decision"
+  },
+  "change_intelligence": {
+    "status": "UNAVAILABLE",
+    "reason": "GIT_DIFF_FAILED",
+    "git_exit_code": 129,
+    "git_error": "warning: Not a git repository. Use --no-index to compare two paths outside a working tree\nusage: git diff --no-index [<options>] <path> <path> [<pathspec>...]\n\nDiff output format options\n    -p, --patch           generate patch\n    -s, --no-patch        suppress diff output\n    -u                    generate patch\n    -U, --unified[=<n>]   generate diffs with <n> lines context\n    -W, --[no-]function-context\n                          generate diffs with <n> lines context\n    --raw                 generate the diff in raw format\n    --patch-with-raw      synonym for '-p --raw'\n    --patch-with-stat     synonym for '-p --stat'\n    --numstat             machine friendly --stat\n    --shortstat           output only the last line of --stat\n    -X, --dirstat[=<param1>,<param2>...]\n                          output the distribution of relative amount of changes for each sub-directory\n    --cumulative          synonym for --dirstat=cumulative\n    --dirstat-by-file[=<param1>,<param2>...]\n                          synonym for --dirstat=files,<param1>,<param2>...\n    --check               warn if changes introduce conflict markers or whitespace errors\n    --summary             condensed summary such as creations, renames and mode changes\n    --name-only           show only names of changed files\n    --name-status         show only names and status of changed files\n    --stat[=<width>[,<name-width>[,<count>]]]\n                          generate diffstat\n    --stat-width <width>  generate diffstat with a given width\n    --stat-name-width <width>\n                          generate diffstat with a given name width\n    --stat-graph-width <width>\n                          generate diffstat with a given graph width\n    --stat-count <count>  generate diffstat with limited lines\n    --[no-]compact-summary\n                          generate compact summary in diffstat\n    --binary              output a binary diff that can be applied\n    --[no-]full-index     show full pre- and post-image object names on the \"index\" lines\n    --[no-]color[=<when>] show colored diff\n    --ws-error-highlight <kind>\n                          highlight whitespace errors in the 'context', 'old' or 'new' lines in the diff\n    -z                    do not munge pathnames and use NULs as output field terminators in --raw or --numstat\n    --[no-]abbrev[=<n>]   use <n> digits to display object names\n    --src-prefix <prefix> show the given source prefix instead of \"a/\"\n    --dst-prefix <prefix> show the given destination prefix instead of \"b/\"\n    --line-prefix <prefix>\n                          prepend an additional prefix to every line of output\n    --no-prefix           do not show any source or destination prefix\n    --default-prefix      use default prefixes a/ and b/\n    --inter-hunk-context <n>\n                          show context between diff hunks up to the specified number of lines\n    --output-indicator-new <char>\n                          specify the character to indicate a new line instead of '+'\n    --output-indicator-old <char>\n                          specify the character to indicate an old line instead of '-'\n    --output-indicator-context <char>\n                          specify the character to indicate a context instead of ' '\n\nDiff rename options\n    -B, --break-rewrites[=<n>[/<m>]]\n                          break complete rewrite changes into pairs of delete and create\n    -M, --find-renames[=<n>]\n                          detect renames\n    -D, --irreversible-delete\n                          omit the preimage for deletes\n    -C, --find-copies[=<n>]\n                          detect copies\n    --[no-]find-copies-harder\n                          use unmodified files as source to find copies\n    --no-renames          disable rename detection\n    --[no-]rename-empty   use empty blobs as rename source\n    --[no-]follow         continue listing the history of a file beyond renames\n    -l <n>                prevent rename/copy detection if the number of rename/copy targets exceeds given limit\n\nDiff algorithm options\n    --minimal             produce the smallest possible diff\n    -w, --ignore-all-space\n                          ignore whitespace when comparing lines\n    -b, --ignore-space-change\n                          ignore changes in amount of whitespace\n    --ignore-space-at-eol ignore changes in whitespace at EOL\n    --ignore-cr-at-eol    ignore carrier-return at the end of line\n    --ignore-blank-lines  ignore changes whose lines are all blank\n    -I, --[no-]ignore-matching-lines <regex>\n                          ignore changes whose all lines match <regex>\n    --[no-]indent-heuristic\n                          heuristic to shift diff hunk boundaries for easy reading\n    --patience            generate diff using the \"patience diff\" algorithm\n    --histogram           generate diff using the \"histogram diff\" algorithm\n    --diff-algorithm <algorithm>\n                          choose a diff algorithm\n    --anchored <text>     generate diff using the \"anchored diff\" algorithm\n    --word-diff[=<mode>]  show word diff, using <mode> to delimit changed words\n    --word-diff-regex <regex>\n                          use <regex> to decide what a word is\n    --color-words[=<regex>]\n                          equivalent to --word-diff=color --word-diff-regex=<regex>\n    --[no-]color-moved[=<mode>]\n                          moved lines of code are colored differently\n    --[no-]color-moved-ws <mode>\n                          how white spaces are ignored in --color-moved\n\nOther diff options\n    --[no-]relative[=<prefix>]\n                          when run from subdir, exclude changes outside and show relative paths\n    -a, --[no-]text       treat all files as text\n    -R                    swap two inputs, reverse the diff\n    --[no-]exit-code      exit with 1 if there were differences, 0 otherwise\n    --[no-]quiet          disable all output of the program\n    --[no-]ext-diff       allow an external diff helper to be executed\n    --[no-]textconv       run external text conversion filters when comparing binary files\n    --ignore-submodules[=<when>]\n                          ignore changes to submodules in the diff generation\n    --submodule[=<format>]\n                          specify how differences in submodules are shown\n    --ita-invisible-in-index\n                          hide 'git add -N' entries from the index\n    --ita-visible-in-index\n                          treat 'git add -N' entries as real in the index\n    -S <string>           look for differences that change the number of occurrences of the specified string\n    -G <regex>            look for differences that change the number of occurrences of the specified regex\n    --pickaxe-all         show all changes in the changeset with -S or -G\n    --pickaxe-regex       treat <string> in -S as extended POSIX regular expression\n    -O <file>             control the order in which files appear in the output\n    --rotate-to <path>    show the change in the specified path first\n    --skip-to <path>      skip the output to the specified path\n    --find-object <object-id>\n                          look for differences that change the number of occurrences of the specified object\n    --diff-filter [(A|C|D|M|R|T|U|X|B)...[*]]\n                          select files by diff type\n    --max-depth <depth>   maximum tree depth to recurse\n    --output <file>       output to a specific file",
+    "comparison": "HEAD..WORKTREE",
+    "mode": "HEAD_to_worktree",
+    "files": [],
+    "summary": {
+      "changed_files": 0,
+      "added_lines": 0,
+      "removed_lines": 0,
+      "added_files": 0,
+      "modified_files": 0,
+      "deleted_files": 0,
+      "renamed_files": 0,
+      "findings_on_changed_lines": 0,
+      "findings_in_changed_files": 0
+    },
+    "read_only": true
+  },
+  "changed_line_security": {
+    "status": "UNAVAILABLE",
+    "findings": [
+      {
+        "finding_id": null,
+        "path": "smoke_ssrf.py",
+        "finding_lines": [
+          9
+        ],
+        "changed_lines": [],
+        "on_changed_line": false,
+        "in_changed_file": false,
+        "change_scope": "UNCHANGED_FILE"
+      }
+    ],
+    "summary": {
+      "findings_on_changed_lines": 0,
+      "findings_in_changed_files": 0,
+      "findings_outside_changed_files": 1
+    },
+    "read_only": true
+  },
+  "change_impact": {
+    "status": "UNAVAILABLE",
+    "changed_files": [],
+    "summary": {
+      "changed_files": 0,
+      "files_with_findings": 0
+    },
+    "read_only": true,
+    "runtime_reachability_inferred": false
+  },
+  "security_change_graph": {
+    "status": "UNAVAILABLE",
+    "nodes": [],
+    "edges": [],
+    "summary": {
+      "node_count": 0,
+      "edge_count": 0
+    },
+    "read_only": true,
+    "decision_inference": false
+  },
+  "security_test_coverage": {
+    "status": "UNAVAILABLE",
+    "changed_files": [],
+    "summary": {
+      "changed_files": 0,
+      "with_candidate_tests": 0,
+      "test_files_discovered": 0
+    },
+    "read_only": true,
+    "execution_performed": false,
+    "semantic_coverage_proven": false
+  },
+  "pr_security_summary": {
+    "status": "PARTIAL",
+    "change": {
+      "changed_files": 0,
+      "added_lines": 0,
+      "removed_lines": 0,
+      "added_files": 0,
+      "modified_files": 0,
+      "deleted_files": 0,
+      "renamed_files": 0,
+      "findings_on_changed_lines": 0,
+      "findings_in_changed_files": 0
+    },
+    "changed_line_findings": {
+      "findings_on_changed_lines": 0,
+      "findings_in_changed_files": 0,
+      "findings_outside_changed_files": 1
+    },
+    "finding_lifecycle": {},
+    "change_impact": {
+      "changed_files": 0,
+      "files_with_findings": 0
+    },
+    "security_test_coverage": {
+      "changed_files": 0,
+      "with_candidate_tests": 0,
+      "test_files_discovered": 0
+    },
+    "limitations": [
+      "Lifecycle states require baseline evidence.",
+      "Candidate test files do not prove semantic security coverage.",
+      "Change impact is static evidence and does not establish runtime reachability.",
+      "No severity, exploitability, risk, or decision state is changed by this summary."
+    ],
+    "read_only": true
+  },
+  "security_test_generation": {
+    "status": "AVAILABLE",
+    "blueprints": [
+      {
+        "finding_id": "FINDING_000001",
+        "test_id": "SEC-TEST-FINDING_000001",
+        "rule": "TAINT_SSRF_EXPANDED",
+        "cwe": "CWE-918",
+        "target_file": "smoke_ssrf.py",
+        "test_type": "REGRESSION_SECURITY_TEST_BLUEPRINT",
+        "test_strategy": "GENERIC_SECURITY_REGRESSION",
+        "suggested_harness": "pytest",
+        "assertion": "Finding condition should remain detectable or explicitly be remediated",
+        "setup_guidance": "Verify input sanitization, safe API usage, and non-vulnerable output handling",
+        "execution_performed": false,
+        "synthetic_test_created": false
+      }
+    ],
+    "summary": {
+      "blueprints": 1
+    },
+    "execution_performed": false,
+    "source_modified": false,
+    "read_only": true
+  },
+  "historical_finding_intelligence": {
+    "status": "UNAVAILABLE",
+    "reason": "HISTORY_NOT_CONFIGURED",
+    "records": [],
+    "read_only": true
+  },
+  "malicious_package_intelligence": {
+    "status": "AVAILABLE",
+    "packages": [],
+    "summary": {
+      "packages": 0,
+      "packages_with_indicators": 0
+    },
+    "read_only": true,
+    "external_reputation_query_performed": false
+  },
+  "fix_patch_intelligence": {
+    "status": "AVAILABLE",
+    "remediation_blueprints": [
+      {
+        "finding_id": "FINDING_EBA43B7407D0",
+        "rule": "TAINT_SSRF_EXPANDED",
+        "normalized_rule": "taint_ssrf_expanded",
+        "target_file": "smoke_ssrf.py",
+        "remediation_blueprint": "Validate outbound URLs using strict allowlists and block loopback, link-local, RFC1918/private, and other internal destinations.",
+        "patch_generated": false,
+        "source_modified": false,
+        "human_review_required": true
+      }
+    ],
+    "summary": {
+      "findings": 1,
+      "patches_generated": 0
+    },
+    "read_only": true,
+    "automatic_source_modification": false
+  },
+  "pr_review_integration": {
+    "status": "AVAILABLE",
+    "review_comments": [],
+    "summary": {
+      "candidate_comments": 0,
+      "comments_posted": 0
+    },
+    "read_only": true,
+    "remote_api_called": false,
+    "automatic_posting": false
+  },
+  "finding_lifecycle": {
+    "status": "UNAVAILABLE",
+    "reason": "BASELINE_NOT_CONFIGURED",
+    "baseline_path": null,
+    "current_finding_count": 1,
+    "results": [],
+    "summary": {
+      "new": 0,
+      "fixed": 0,
+      "unchanged": 0,
+      "reintroduced": 0,
+      "regressed": 0,
+      "undetermined": 0
+    },
+    "read_only": true
+  }
+}

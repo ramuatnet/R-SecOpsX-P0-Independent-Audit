@@ -1,0 +1,1283 @@
+{
+ "benchmark_id": "intel-feeds-2026-10",
+ "generated_at": "2026-10-06T09:02:14.505737+00:00",
+ "ground_truth": {
+  "path": "D:\\Data\\Code test\\R-SecOpsX_V11\\reports\\benchmark_intel_ground_truth.json",
+  "fetched_at": "2026-10-06T09:02:11.607224+00:00",
+  "epss_rows": 79,
+  "kev_catalog_version": "2026.10.04",
+  "kev_catalog_count": 1734,
+  "corpus_size": 80
+ },
+ "epss_resolution": {
+  "offline": {
+   "tp": 8,
+   "fp": 0,
+   "fn": 71,
+   "precision": 1.0,
+   "recall": 0.1013,
+   "f1": 0.1839,
+   "resolved": 8,
+   "corpus": 80,
+   "coverage_pct": 10.0
+  },
+  "live": {
+   "tp": 79,
+   "fp": 0,
+   "fn": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "resolved": 79,
+   "corpus": 80,
+   "coverage_pct": 98.75
+  }
+ },
+ "epss_value_fidelity": {
+  "offline": {
+   "compared": 8,
+   "exact_matches": 0,
+   "exact_pct": 0.0,
+   "mean_abs_error": 0.075839,
+   "max_abs_error": 0.19233
+  },
+  "live": {
+   "compared": 79,
+   "exact_matches": 79,
+   "exact_pct": 100.0,
+   "mean_abs_error": 0.0,
+   "max_abs_error": 0.0
+  }
+ },
+ "kev_determination": {
+  "offline": {
+   "tp": 8,
+   "fp": 0,
+   "fn": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "tn": 72,
+   "accuracy": 1.0
+  },
+  "live": {
+   "tp": 8,
+   "fp": 0,
+   "fn": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "tn": 72,
+   "accuracy": 1.0
+  }
+ },
+ "misses": {
+  "total": 71,
+  "by_root_cause": {
+   "COVERAGE_GAP": 71
+  },
+  "items": [
+   {
+    "cve": "CVE-2017-5638",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2018-11776",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2018-16487",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2018-3721",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-1010266",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-10744",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-11358",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-12308",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-12781",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-14232",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-14233",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-14234",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-14235",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-19118",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2019-19844",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-13254",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-13596",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-24583",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-24584",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-28500",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-7471",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-8203",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2020-9402",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-28658",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-31542",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-32052",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-3281",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-33203",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-33571",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-44420",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-44832",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-45105",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-45115",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-45116",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2021-45452",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2022-22818",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2022-23833",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2022-28346",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2022-28347",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2022-36359",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2023-30861",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2023-32681",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2023-34362",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2023-3519",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2024-29041",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2024-3400",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2024-35195",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2024-43796",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2024-45231",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2024-47081",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-13465",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-48432",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-48924",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-57833",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-64458",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-64459",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2025-68161",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-15307",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-15830",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-25645",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-27205",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-2950",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-34477",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-34480",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-4800",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-48587",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-48588",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-53877",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-53878",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-6873",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   },
+   {
+    "cve": "CVE-2026-8404",
+    "category": "EPSS",
+    "offline": "MISS",
+    "live": "HIT",
+    "root_cause": "COVERAGE_GAP",
+    "detail": "compiled-in seed table has no row for this identifier; the live feed does"
+   }
+  ]
+ },
+ "decision_movement": {
+  "epss_bucket": {
+   "count": 73,
+   "items": [
+    {
+     "cve": "CVE-2017-5638",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.99999
+    },
+    {
+     "cve": "CVE-2018-11776",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.99991
+    },
+    {
+     "cve": "CVE-2018-16487",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01553
+    },
+    {
+     "cve": "CVE-2018-3721",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02384
+    },
+    {
+     "cve": "CVE-2019-1010266",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03162
+    },
+    {
+     "cve": "CVE-2019-10744",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.05006
+    },
+    {
+     "cve": "CVE-2019-11358",
+     "from": "UNKNOWN",
+     "to": "HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.8682
+    },
+    {
+     "cve": "CVE-2019-12308",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02402
+    },
+    {
+     "cve": "CVE-2019-12781",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01711
+    },
+    {
+     "cve": "CVE-2019-14232",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03531
+    },
+    {
+     "cve": "CVE-2019-14233",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03172
+    },
+    {
+     "cve": "CVE-2019-14234",
+     "from": "UNKNOWN",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.47694
+    },
+    {
+     "cve": "CVE-2019-14235",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03073
+    },
+    {
+     "cve": "CVE-2019-19118",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.0167
+    },
+    {
+     "cve": "CVE-2019-19844",
+     "from": "UNKNOWN",
+     "to": "HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.53561
+    },
+    {
+     "cve": "CVE-2020-13254",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.0609
+    },
+    {
+     "cve": "CVE-2020-13596",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02897
+    },
+    {
+     "cve": "CVE-2020-24583",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03969
+    },
+    {
+     "cve": "CVE-2020-24584",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03297
+    },
+    {
+     "cve": "CVE-2020-28500",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.07336
+    },
+    {
+     "cve": "CVE-2020-7471",
+     "from": "UNKNOWN",
+     "to": "HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.65575
+    },
+    {
+     "cve": "CVE-2020-8203",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.05213
+    },
+    {
+     "cve": "CVE-2020-9402",
+     "from": "UNKNOWN",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.22513
+    },
+    {
+     "cve": "CVE-2021-23337",
+     "from": "LOW_EXPLOIT_PROBABILITY",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": 0.021,
+     "epss_to": 0.21333
+    },
+    {
+     "cve": "CVE-2021-28658",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03865
+    },
+    {
+     "cve": "CVE-2021-31542",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.05334
+    },
+    {
+     "cve": "CVE-2021-32052",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03172
+    },
+    {
+     "cve": "CVE-2021-3281",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.07605
+    },
+    {
+     "cve": "CVE-2021-33203",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02737
+    },
+    {
+     "cve": "CVE-2021-33571",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.0526
+    },
+    {
+     "cve": "CVE-2021-44420",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02488
+    },
+    {
+     "cve": "CVE-2021-44832",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.97906
+    },
+    {
+     "cve": "CVE-2021-45105",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.99999
+    },
+    {
+     "cve": "CVE-2021-45115",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02417
+    },
+    {
+     "cve": "CVE-2021-45116",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01855
+    },
+    {
+     "cve": "CVE-2021-45452",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02408
+    },
+    {
+     "cve": "CVE-2022-22818",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.03356
+    },
+    {
+     "cve": "CVE-2022-23833",
+     "from": "UNKNOWN",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.49527
+    },
+    {
+     "cve": "CVE-2022-24999",
+     "from": "LOW_EXPLOIT_PROBABILITY",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": 0.01,
+     "epss_to": 0.15622
+    },
+    {
+     "cve": "CVE-2022-28346",
+     "from": "UNKNOWN",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.18661
+    },
+    {
+     "cve": "CVE-2022-28347",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02943
+    },
+    {
+     "cve": "CVE-2022-36359",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00883
+    },
+    {
+     "cve": "CVE-2023-30861",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01261
+    },
+    {
+     "cve": "CVE-2023-32681",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02974
+    },
+    {
+     "cve": "CVE-2023-34362",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.99934
+    },
+    {
+     "cve": "CVE-2023-3519",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.99749
+    },
+    {
+     "cve": "CVE-2024-29041",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00786
+    },
+    {
+     "cve": "CVE-2024-3400",
+     "from": "UNKNOWN",
+     "to": "VERY_HIGH_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.99999
+    },
+    {
+     "cve": "CVE-2024-35195",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.0034
+    },
+    {
+     "cve": "CVE-2024-43796",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00486
+    },
+    {
+     "cve": "CVE-2024-45231",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00788
+    },
+    {
+     "cve": "CVE-2024-47081",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.0098
+    },
+    {
+     "cve": "CVE-2025-13465",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.0185
+    },
+    {
+     "cve": "CVE-2025-48432",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00751
+    },
+    {
+     "cve": "CVE-2025-48924",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02451
+    },
+    {
+     "cve": "CVE-2025-57833",
+     "from": "UNKNOWN",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.16759
+    },
+    {
+     "cve": "CVE-2025-64458",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01902
+    },
+    {
+     "cve": "CVE-2025-64459",
+     "from": "UNKNOWN",
+     "to": "MODERATE_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.19396
+    },
+    {
+     "cve": "CVE-2025-68161",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00767
+    },
+    {
+     "cve": "CVE-2026-15307",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01094
+    },
+    {
+     "cve": "CVE-2026-15830",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00763
+    },
+    {
+     "cve": "CVE-2026-25645",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00185
+    },
+    {
+     "cve": "CVE-2026-27205",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00423
+    },
+    {
+     "cve": "CVE-2026-2950",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00377
+    },
+    {
+     "cve": "CVE-2026-34477",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00502
+    },
+    {
+     "cve": "CVE-2026-34480",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.01187
+    },
+    {
+     "cve": "CVE-2026-4800",
+     "from": "UNKNOWN",
+     "to": "LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.02618
+    },
+    {
+     "cve": "CVE-2026-48587",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00429
+    },
+    {
+     "cve": "CVE-2026-48588",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00429
+    },
+    {
+     "cve": "CVE-2026-53877",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00437
+    },
+    {
+     "cve": "CVE-2026-53878",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00327
+    },
+    {
+     "cve": "CVE-2026-6873",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00281
+    },
+    {
+     "cve": "CVE-2026-8404",
+     "from": "UNKNOWN",
+     "to": "VERY_LOW_EXPLOIT_PROBABILITY",
+     "epss_from": null,
+     "epss_to": 0.00429
+    }
+   ]
+  },
+  "epss_priority": {
+   "count": 11,
+   "items": [
+    {
+     "cve": "CVE-2017-5638",
+     "from": "P3_STANDARD",
+     "to": "P0_IMMEDIATE",
+     "epss_from": null,
+     "epss_to": 0.99999
+    },
+    {
+     "cve": "CVE-2019-14234",
+     "from": "P3_STANDARD",
+     "to": "P2_MEDIUM",
+     "epss_from": null,
+     "epss_to": 0.47694
+    },
+    {
+     "cve": "CVE-2021-23337",
+     "from": "P3_STANDARD",
+     "to": "P2_MEDIUM",
+     "epss_from": 0.021,
+     "epss_to": 0.21333
+    },
+    {
+     "cve": "CVE-2021-44832",
+     "from": "P3_STANDARD",
+     "to": "P0_IMMEDIATE",
+     "epss_from": null,
+     "epss_to": 0.97906
+    },
+    {
+     "cve": "CVE-2021-45105",
+     "from": "P3_STANDARD",
+     "to": "P0_IMMEDIATE",
+     "epss_from": null,
+     "epss_to": 0.99999
+    },
+    {
+     "cve": "CVE-2022-23833",
+     "from": "P3_STANDARD",
+     "to": "P2_MEDIUM",
+     "epss_from": null,
+     "epss_to": 0.49527
+    },
+    {
+     "cve": "CVE-2022-28346",
+     "from": "P3_STANDARD",
+     "to": "P2_MEDIUM",
+     "epss_from": null,
+     "epss_to": 0.18661
+    },
+    {
+     "cve": "CVE-2023-3519",
+     "from": "P3_STANDARD",
+     "to": "P0_IMMEDIATE",
+     "epss_from": null,
+     "epss_to": 0.99749
+    },
+    {
+     "cve": "CVE-2024-3400",
+     "from": "P3_STANDARD",
+     "to": "P0_IMMEDIATE",
+     "epss_from": null,
+     "epss_to": 0.99999
+    },
+    {
+     "cve": "CVE-2025-57833",
+     "from": "P3_STANDARD",
+     "to": "P2_MEDIUM",
+     "epss_from": null,
+     "epss_to": 0.16759
+    },
+    {
+     "cve": "CVE-2025-64459",
+     "from": "P3_STANDARD",
+     "to": "P2_MEDIUM",
+     "epss_from": null,
+     "epss_to": 0.19396
+    }
+   ]
+  },
+  "kev_priority": {
+   "count": 0,
+   "items": []
+  },
+  "kev_status": {
+   "count": 0,
+   "items": []
+  }
+ },
+ "provenance": {
+  "offline_live_claims": [],
+  "errors": [],
+  "offline_clean": true,
+  "live_clean": true
+ },
+ "sentinel": {
+  "cve": "CVE-2099-999999",
+  "expected_epss": null,
+  "expected_in_kev": false,
+  "offline_score": null,
+  "offline_epss_provenance": "NOT_AVAILABLE",
+  "live_score": null,
+  "live_epss_provenance": "NOT_AVAILABLE",
+  "offline_kev": false,
+  "live_kev": false
+ },
+ "proves": "Wiring fidelity: R-SecOpsX reproduces both feeds exactly, labels every value with the provenance of its actual source, and never converts a miss into a number. It does not evaluate whether EPSS or KEV predict exploitation - the feeds are the reference by construction.",
+ "offline_safety": {
+  "enabled": false,
+  "pass": true,
+  "packages": 80,
+  "live_feed_claims": 0,
+  "reason": "RSECOPSX_LIVE_FEEDS is disabled by the operator"
+ }
+}

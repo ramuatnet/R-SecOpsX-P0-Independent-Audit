@@ -1,0 +1,64 @@
+version: "1.0"
+
+analysis_context:
+  enabled: true
+
+  classifications:
+    production:
+      enabled: true
+
+    test:
+      enabled: true
+
+    fixture:
+      enabled: true
+
+    mock:
+      enabled: true
+
+    generated:
+      enabled: true
+
+    third_party:
+      enabled: true
+
+  path_rules:
+    test:
+      - "test/**"
+      - "tests/**"
+      - "__tests__/**"
+      - "spec/**"
+
+    fixture:
+      - "fixtures/**"
+      - "fixture/**"
+
+    mock:
+      - "mock/**"
+      - "mocks/**"
+
+    generated:
+      - "generated/**"
+      - "build/**"
+      - "dist/**"
+      - "target/**"
+
+    third_party:
+      - "vendor/**"
+      - "node_modules/**"
+
+  benchmark_profiles:
+    juice_shop:
+      enabled: true
+      synthetic_paths:
+        - "data/static/**"
+        - "test/**"
+        - "tests/**"
+        - "frontend/src/app/**/challenge/**"
+        - "config/answers.json"
+
+      classification: "benchmark_synthetic"
+      suppress_from_primary_security_count: false
+      preserve_findings: true
+      preserve_evidence: true
+      preserve_for_evaluation: true

@@ -1,0 +1,631 @@
+{
+  "schema_version": "1.0",
+  "tool": "R-SecOpsX SAST v2.0",
+  "scan_start": "2026-10-06 17:11:27.910",
+  "scan_end": "2026-10-06 17:11:30.602",
+  "total_seconds": 2.692,
+  "total_duration": "00:02.69",
+  "phases": [
+    {
+      "phase": "Scanning codebase",
+      "start": "2026-10-06 17:11:27.910",
+      "end": "2026-10-06 17:11:27.972",
+      "elapsed_seconds": 0.0618,
+      "elapsed": "00:00.06",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating SBOM & dependency analysis",
+      "start": "2026-10-06 17:11:27.972",
+      "end": "2026-10-06 17:11:28.004",
+      "elapsed_seconds": 0.0289,
+      "elapsed": "00:00.03",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating CBOM crypto inventory",
+      "start": "2026-10-06 17:11:28.005",
+      "end": "2026-10-06 17:11:28.008",
+      "elapsed_seconds": 0.0036,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating AI-BOM model/provider inventory",
+      "start": "2026-10-06 17:11:28.008",
+      "end": "2026-10-06 17:11:28.017",
+      "elapsed_seconds": 0.0084,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating ML-BOM framework/model inventory",
+      "start": "2026-10-06 17:11:28.017",
+      "end": "2026-10-06 17:11:28.026",
+      "elapsed_seconds": 0.009,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating API-BOM route inventory",
+      "start": "2026-10-06 17:11:28.026",
+      "end": "2026-10-06 17:11:28.031",
+      "elapsed_seconds": 0.0048,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning API abuse controls",
+      "start": "2026-10-06 17:11:28.032",
+      "end": "2026-10-06 17:11:28.035",
+      "elapsed_seconds": 0.0039,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating ABOM agent inventory",
+      "start": "2026-10-06 17:11:28.036",
+      "end": "2026-10-06 17:11:28.040",
+      "elapsed_seconds": 0.0038,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning OWASP LLM security rules",
+      "start": "2026-10-06 17:11:28.040",
+      "end": "2026-10-06 17:11:28.072",
+      "elapsed_seconds": 0.0324,
+      "elapsed": "00:00.03",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning Advanced AI security rules",
+      "start": "2026-10-06 17:11:28.073",
+      "end": "2026-10-06 17:11:28.078",
+      "elapsed_seconds": 0.0059,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning Kubernetes IaC",
+      "start": "2026-10-06 17:11:28.079",
+      "end": "2026-10-06 17:11:28.080",
+      "elapsed_seconds": 0.001,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning Terraform IaC",
+      "start": "2026-10-06 17:11:28.080",
+      "end": "2026-10-06 17:11:28.081",
+      "elapsed_seconds": 0.0007,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning Dockerfile IaC",
+      "start": "2026-10-06 17:11:28.081",
+      "end": "2026-10-06 17:11:28.082",
+      "elapsed_seconds": 0.0009,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Scanning Secret Intelligence",
+      "start": "2026-10-06 17:11:28.082",
+      "end": "2026-10-06 17:11:28.090",
+      "elapsed_seconds": 0.0081,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Deduplicating, scoring, correlating attack paths",
+      "start": "2026-10-06 17:11:28.091",
+      "end": "2026-10-06 17:11:28.145",
+      "elapsed_seconds": 0.0544,
+      "elapsed": "00:00.05",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Compliance enrichment",
+      "start": "2026-10-06 17:11:28.145",
+      "end": "2026-10-06 17:11:28.147",
+      "elapsed_seconds": 0.0017,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Secret Intelligence enrichment",
+      "start": "2026-10-06 17:11:28.147",
+      "end": "2026-10-06 17:11:28.150",
+      "elapsed_seconds": 0.0027,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Secret blast-radius correlation",
+      "start": "2026-10-06 17:11:28.150",
+      "end": "2026-10-06 17:11:28.156",
+      "elapsed_seconds": 0.0051,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Framework mapping enrichment",
+      "start": "2026-10-06 17:11:28.156",
+      "end": "2026-10-06 17:11:28.156",
+      "elapsed_seconds": 0.0004,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "AI-BOM <-> ABOM correlation",
+      "start": "2026-10-06 17:11:28.156",
+      "end": "2026-10-06 17:11:28.163",
+      "elapsed_seconds": 0.0063,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Dependency intelligence",
+      "start": "2026-10-06 17:11:28.163",
+      "end": "2026-10-06 17:11:28.163",
+      "elapsed_seconds": 0.0004,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Undeclared dependency intelligence",
+      "start": "2026-10-06 17:11:28.164",
+      "end": "2026-10-06 17:11:28.167",
+      "elapsed_seconds": 0.0035,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Reachability analysis",
+      "start": "2026-10-06 17:11:28.168",
+      "end": "2026-10-06 17:11:28.170",
+      "elapsed_seconds": 0.0027,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "KEV intelligence",
+      "start": "2026-10-06 17:11:28.170",
+      "end": "2026-10-06 17:11:28.174",
+      "elapsed_seconds": 0.0034,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Vulnerability age intelligence",
+      "start": "2026-10-06 17:11:28.174",
+      "end": "2026-10-06 17:11:28.174",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Legacy protocol intelligence",
+      "start": "2026-10-06 17:11:28.175",
+      "end": "2026-10-06 17:11:28.194",
+      "elapsed_seconds": 0.0198,
+      "elapsed": "00:00.02",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Exposure surface intelligence",
+      "start": "2026-10-06 17:11:28.195",
+      "end": "2026-10-06 17:11:28.231",
+      "elapsed_seconds": 0.0356,
+      "elapsed": "00:00.04",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "EPSS intelligence",
+      "start": "2026-10-06 17:11:28.231",
+      "end": "2026-10-06 17:11:28.231",
+      "elapsed_seconds": 0.0005,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Exploitability decision",
+      "start": "2026-10-06 17:11:28.232",
+      "end": "2026-10-06 17:11:28.232",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "License evidence integration",
+      "start": "2026-10-06 17:11:28.232",
+      "end": "2026-10-06 17:11:28.233",
+      "elapsed_seconds": 0.0004,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "License policy",
+      "start": "2026-10-06 17:11:28.233",
+      "end": "2026-10-06 17:11:28.233",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Copyright / IP compliance",
+      "start": "2026-10-06 17:11:28.233",
+      "end": "2026-10-06 17:11:28.240",
+      "elapsed_seconds": 0.0064,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Supply-chain trust",
+      "start": "2026-10-06 17:11:28.240",
+      "end": "2026-10-06 17:11:28.241",
+      "elapsed_seconds": 0.0005,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Runtime artifact integrity",
+      "start": "2026-10-06 17:11:28.241",
+      "end": "2026-10-06 17:11:28.246",
+      "elapsed_seconds": 0.0048,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Data-flow sensitivity",
+      "start": "2026-10-06 17:11:28.246",
+      "end": "2026-10-06 17:11:28.317",
+      "elapsed_seconds": 0.0711,
+      "elapsed": "00:00.07",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Data-flow correlation",
+      "start": "2026-10-06 17:11:28.318",
+      "end": "2026-10-06 17:11:28.330",
+      "elapsed_seconds": 0.0121,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Privacy data exposure",
+      "start": "2026-10-06 17:11:28.330",
+      "end": "2026-10-06 17:11:28.339",
+      "elapsed_seconds": 0.009,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "IOC / malware intelligence",
+      "start": "2026-10-06 17:11:28.340",
+      "end": "2026-10-06 17:11:28.345",
+      "elapsed_seconds": 0.0057,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Identity / access risk",
+      "start": "2026-10-06 17:11:28.346",
+      "end": "2026-10-06 17:11:28.399",
+      "elapsed_seconds": 0.0538,
+      "elapsed": "00:00.05",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Identity / access correlation",
+      "start": "2026-10-06 17:11:28.400",
+      "end": "2026-10-06 17:11:28.401",
+      "elapsed_seconds": 0.001,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Authentication hardening risk",
+      "start": "2026-10-06 17:11:28.401",
+      "end": "2026-10-06 17:11:28.407",
+      "elapsed_seconds": 0.0057,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Authentication hardening correlation",
+      "start": "2026-10-06 17:11:28.407",
+      "end": "2026-10-06 17:11:28.407",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "AI model risk",
+      "start": "2026-10-06 17:11:28.407",
+      "end": "2026-10-06 17:11:28.414",
+      "elapsed_seconds": 0.0064,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Business-logic risk",
+      "start": "2026-10-06 17:11:28.414",
+      "end": "2026-10-06 17:11:28.427",
+      "elapsed_seconds": 0.0132,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "API abuse risk",
+      "start": "2026-10-06 17:11:28.428",
+      "end": "2026-10-06 17:11:28.429",
+      "elapsed_seconds": 0.0009,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Business-logic correlation",
+      "start": "2026-10-06 17:11:28.429",
+      "end": "2026-10-06 17:11:28.429",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Security control coverage",
+      "start": "2026-10-06 17:11:28.429",
+      "end": "2026-10-06 17:11:28.446",
+      "elapsed_seconds": 0.0168,
+      "elapsed": "00:00.02",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Crypto misuse analysis",
+      "start": "2026-10-06 17:11:28.446",
+      "end": "2026-10-06 17:11:28.474",
+      "elapsed_seconds": 0.028,
+      "elapsed": "00:00.03",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Final benchmark metadata enrichment",
+      "start": "2026-10-06 17:11:28.475",
+      "end": "2026-10-06 17:11:28.475",
+      "elapsed_seconds": 0.0007,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Final mapping normalization",
+      "start": "2026-10-06 17:11:28.476",
+      "end": "2026-10-06 17:11:28.476",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Final report integrity pass",
+      "start": "2026-10-06 17:11:28.476",
+      "end": "2026-10-06 17:11:28.488",
+      "elapsed_seconds": 0.0118,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Final report safety pass",
+      "start": "2026-10-06 17:11:28.488",
+      "end": "2026-10-06 17:11:28.517",
+      "elapsed_seconds": 0.0284,
+      "elapsed": "00:00.03",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Writing JSON report",
+      "start": "2026-10-06 17:11:28.517",
+      "end": "2026-10-06 17:11:28.553",
+      "elapsed_seconds": 0.0358,
+      "elapsed": "00:00.04",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Git diff / change intelligence",
+      "start": "2026-10-06 17:11:28.553",
+      "end": "2026-10-06 17:11:28.605",
+      "elapsed_seconds": 0.0518,
+      "elapsed": "00:00.05",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Changed-line security findings",
+      "start": "2026-10-06 17:11:28.606",
+      "end": "2026-10-06 17:11:28.606",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Change-impact analysis",
+      "start": "2026-10-06 17:11:28.606",
+      "end": "2026-10-06 17:11:28.606",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Security change graph",
+      "start": "2026-10-06 17:11:28.607",
+      "end": "2026-10-06 17:11:28.616",
+      "elapsed_seconds": 0.0089,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Security test coverage",
+      "start": "2026-10-06 17:11:28.616",
+      "end": "2026-10-06 17:11:28.623",
+      "elapsed_seconds": 0.0075,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "PR security summary",
+      "start": "2026-10-06 17:11:28.624",
+      "end": "2026-10-06 17:11:28.624",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Security test generation",
+      "start": "2026-10-06 17:11:28.624",
+      "end": "2026-10-06 17:11:28.631",
+      "elapsed_seconds": 0.0066,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Historical finding intelligence",
+      "start": "2026-10-06 17:11:28.631",
+      "end": "2026-10-06 17:11:28.638",
+      "elapsed_seconds": 0.0073,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Malicious package intelligence",
+      "start": "2026-10-06 17:11:28.639",
+      "end": "2026-10-06 17:11:28.639",
+      "elapsed_seconds": 0.0004,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Fix / patch intelligence",
+      "start": "2026-10-06 17:11:28.640",
+      "end": "2026-10-06 17:11:28.646",
+      "elapsed_seconds": 0.0068,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "PR review integration",
+      "start": "2026-10-06 17:11:28.647",
+      "end": "2026-10-06 17:11:28.647",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Finding lifecycle intelligence",
+      "start": "2026-10-06 17:11:28.647",
+      "end": "2026-10-06 17:11:28.647",
+      "elapsed_seconds": 0.0003,
+      "elapsed": "00:00.00",
+      "gap_seconds": 0.0,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating PDF report",
+      "start": "2026-10-06 17:11:28.648",
+      "end": "2026-10-06 17:11:30.574",
+      "elapsed_seconds": 1.9265,
+      "elapsed": "00:01.93",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating SARIF report",
+      "start": "2026-10-06 17:11:30.575",
+      "end": "2026-10-06 17:11:30.584",
+      "elapsed_seconds": 0.0094,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating VEX report",
+      "start": "2026-10-06 17:11:30.585",
+      "end": "2026-10-06 17:11:30.591",
+      "elapsed_seconds": 0.0061,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    },
+    {
+      "phase": "Generating CycloneDX report",
+      "start": "2026-10-06 17:11:30.592",
+      "end": "2026-10-06 17:11:30.601",
+      "elapsed_seconds": 0.0096,
+      "elapsed": "00:00.01",
+      "gap_seconds": 0.001,
+      "gap_from_previous_end": "00:00.00"
+    }
+  ]
+}

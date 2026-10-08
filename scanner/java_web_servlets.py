@@ -1,0 +1,169 @@
+"""Java servlet cookie-security rules (CWE-614 / CWE-1004).
+
+WHAT SHIPPED, AND WHAT DELIBERATELY DID NOT
+-------------------------------------------
+One rule ships: cookie hardening. It measures recall 1.0000 (36 of 36 declared
+BenchmarkJava cases) with false-positive rate 0.0000 (0 of 31 declared-benign
+cases).
+
+A second rule for CWE-79 XSS was written, measured, and REJECTED. It is not in
+this file, and the reason is recorded here so nobody re-adds it without the
+numbers:
+
+    variant                          recall    FPR
+    permissive (transitive taint)     0.5569   0.4115   <- rejected
+    strict (single-hop taint)        0.0000   0.0000   <- detects nothing
+
+The permissive variant lifts XSS recall from 0.2358 but fires on 86 of 209
+declared-benign cases. Trading 137 true findings for 86 false ones is not a fix,
+and shipping it would have improved the headline recall number while degrading
+the tool. The strict variant is precise because it is blind: BenchmarkJava never
+assigns a variable directly from a request source (`String param = ""` then
+`param = values[0]`), so single-hop taint matches nothing at all. Recall 0.0000 is
+not a pass. XSS therefore remains an OPEN gap with these measurements recorded
+against it, rather than being papered over with a rule that cannot work on the
+code it needs to detect.
+
+THE COOKIE RULE, AND WHY IT IS VARIABLE-SCOPED
+----------------------------------------------
+The first version asked "does this method set setSecure(true) anywhere?" and found
+0 of 36. Reading BenchmarkTest00087 showed why, and it is a general lesson:
+
+    userCookie = new Cookie(...);  userCookie.setSecure(true);   <- hardened
+    Cookie cookie = new Cookie(...); cookie.setSecure(false);    <- NOT hardened
+
+A method-level check sees the hardened cookie and suppresses the finding, hiding
+the one that is actually wrong. So the check is per VARIABLE: a cookie is reported
+when its own variable is explicitly set insecure, or when that variable reaches
+`response.addCookie` with no `setSecure(true)` on it.
+
+WHAT THIS RULE CLAIMS, PRECISELY
+--------------------------------
+It reports that the Secure flag is not set on this cookie variable in this method.
+It does NOT claim the cookie reaches a browser over an insecure channel, and it
+does not claim a vulnerability was exploited. A source scan can observe the
+absence of hardening; it cannot observe the transport. Severity is MEDIUM and
+confidence MEDIUM for that reason, and the `note` travels with every finding so
+the limit cannot be lost downstream.
+
+This closes G-099, which recorded that the product had no cookie rule at all: 0
+rule ids containing COOKIE and 0 references to CWE-614 or CWE-1004.
+"""
+from __future__ import annotations
+
+import re
+
+# A cookie constructor, qualified or not: `new Cookie(`, `new java.io.Cookie(`.
+_COOKIE_NEW_RE = re.compile(
+    r"(?P<var>[A-Za-z_$][\w$]*)\s*=\s*"
+    r"(?:new\s+(?:[A-Za-z_$][\w$]*\s*\.\s*)*)?"
+    r"(?:[A-Za-z_$][\w$]*\s*\.\s*)*Cookie\s*\(",
+    re.I,
+)
+
+_ADD_COOKIE_RE = re.compile(
+    r"\b(?:response|resp|httpResponse)\s*\.\s*addCookie\s*\(", re.I)
+
+
+def _methods(source: str):
+    """Yield (name, body) per method.
+
+    The access modifier is OPTIONAL. An earlier version required
+    public/private/protected, so a package-private or plain `void f(){...}` parsed
+    as no method at all and two unit guards failed for a reason that had nothing
+    to do with the rules under test. Static and other modifiers are permitted in
+    any order.
+    """
+    pattern = re.compile(
+        r"(?:(?:public|private|protected|static|final|synchronized|abstract|"
+        r"native|default|strictfp)\s+)*"
+        r"[\w$<>,\[\]\s\.]+?\s+"
+        r"(?P<name>[A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?:throws\s[\w$.,\s]*)?\{",
+        re.S)
+    for m in pattern.finditer(source):
+        start = m.end() - 1
+        depth = 0
+        for i in range(start, len(source)):
+            if source[i] == "{":
+                depth += 1
+            elif source[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    yield m.group("name"), source[start + 1:i]
+                    break
+
+
+def _line_of(source: str, pos: int) -> int:
+    return source.count("\n", 0, max(0, pos)) + 1
+
+
+def scan_java_cookie_security(source: str, path: str = "") -> list:
+    """Per-variable cookie hardening check. CWE-614 / CWE-1004."""
+    if not source:
+        return []
+    out: list = []
+
+    for name, body in _methods(source):
+        if not _ADD_COOKIE_RE.search(body):
+            # A cookie never added to a response is not a response-cookie concern.
+            continue
+        offset = source.find(body)
+        base_line = _line_of(source, offset) if offset >= 0 else 1
+
+        for m in _COOKIE_NEW_RE.finditer(body):
+            var = m.group("var")
+            escaped = re.escape(var)
+
+            # Scoped to THIS variable. A method-level check would let one hardened
+            # cookie mask another that is left insecure, which is exactly what
+            # BenchmarkTest00087 does.
+            if re.search(rf"\b{escaped}\s*\.\s*setSecure\s*\(\s*true\s*\)",
+                         body, re.I):
+                continue
+
+            explicit_false = re.search(
+                rf"\b{escaped}\s*\.\s*setSecure\s*\(\s*false\s*\)", body, re.I)
+            reason = (
+                f"cookie variable '{var}' is explicitly set with setSecure(false)"
+                if explicit_false else
+                f"cookie variable '{var}' reaches the response with no "
+                f"setSecure(true) on that variable")
+
+            line = base_line + body.count("\n", 0, m.start())
+            out.append({
+                "rule_id": "JAVA_WEB_COOKIE_MISSING_SECURITY_FLAGS",
+                "vuln_type": "insecure_cookie_configuration",
+                "cwe": "CWE-614",
+                "cwe_ids": ["CWE-614", "CWE-1004"],
+                "title": "Response cookie set without the Secure flag",
+                "severity": "MEDIUM",
+                "file": path,
+                "line": line,
+                "description": f"method {name}(): {reason}",
+                "evidence_type": "pattern-detected",
+                "evidence": reason,
+                "confidence": "MEDIUM",
+                "semantic_scope": "VARIABLE_SCOPED",
+                "note": (
+                    "ABSENCE OF HARDENING, not proven exploitability. This reports "
+                    "that the Secure flag is not set on this cookie variable in "
+                    "this method. It does NOT claim the cookie reaches a browser "
+                    "over an insecure channel, which a static source scan cannot "
+                    "establish. CWE-1004 (HttpOnly) is tracked on the same finding "
+                    "as a secondary attribute; only Secure is asserted."),
+            })
+
+    seen = set()
+    uniq = []
+    for f in out:
+        key = (f["rule_id"], f.get("file"), f.get("line"))
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(f)
+    return uniq
+
+
+# Backwards-compatible alias. The XSS rule that used to live here was REJECTED at
+# FPR 0.4115; see the module docstring for the measurements and the reason.
+scan_java_web_servlets = scan_java_cookie_security

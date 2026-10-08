@@ -1,0 +1,196 @@
+{
+  "benchmark": "report-consistency-2026-10",
+  "root_causes": [
+    "G-047",
+    "G-048",
+    "G-049",
+    "G-053"
+  ],
+  "corpus": "OWASP Juice Shop (data/static/challenges.yml, 116 declared challenges)",
+  "before_report": "C:\\Users\\janan\\AppData\\Local\\Temp\\opencode\\js_report_validate\\clean_report.json",
+  "after_report": "C:\\Users\\janan\\AppData\\Local\\Temp\\opencode\\js_fix\\clean_report.json",
+  "properties": {
+    "P1_owasp_aggregate_integrity": {
+      "before": {
+        "owasp_matches_findings": false,
+        "framework_matches_findings": true,
+        "aggregates_agree_with_each_other": false,
+        "severity_sum_matches_total": true,
+        "insights_match_findings": false,
+        "no_stale_mitre_technique": true
+      },
+      "after": {
+        "owasp_matches_findings": true,
+        "framework_matches_findings": true,
+        "aggregates_agree_with_each_other": true,
+        "severity_sum_matches_total": true,
+        "insights_match_findings": true,
+        "no_stale_mitre_technique": true
+      },
+      "owasp_delta": [
+        146,
+        0
+      ],
+      "cross_aggregate_delta": [
+        146,
+        0
+      ]
+    },
+    "P2_insight_parity": {
+      "before": {
+        "ssrf": {
+          "claimed": 9,
+          "actual": 6,
+          "match": false
+        },
+        "deserialization": {
+          "claimed": 4,
+          "actual": 1,
+          "match": false
+        },
+        "secret": {
+          "claimed": 141,
+          "actual": 3,
+          "match": false
+        },
+        "injection": {
+          "claimed": 3,
+          "actual": 3,
+          "match": true
+        }
+      },
+      "after": {
+        "ssrf": {
+          "claimed": 6,
+          "actual": 6,
+          "match": true
+        },
+        "deserialization": {
+          "claimed": 1,
+          "actual": 1,
+          "match": true
+        },
+        "secret": {
+          "claimed": 3,
+          "actual": 3,
+          "match": true
+        },
+        "injection": {
+          "claimed": 3,
+          "actual": 3,
+          "match": true
+        }
+      },
+      "all_match_before": false,
+      "all_match_after": true
+    },
+    "P3_coverage_preservation": {
+      "preserved": true,
+      "derivation": "Both sides are derived from findings[].benchmark_ground_truth.challenge_key, because the pre-fix report has no coverage fields (that is G-049) and the denominator comes from data/static/challenges.yml.",
+      "before": {
+        "challenges_total": 116,
+        "challenges_covered_count": 13,
+        "challenge_recall_derived": 0.1121,
+        "declared_intentional_findings": 15,
+        "report_wrote_coverage_fields": false
+      },
+      "after": {
+        "challenges_total": 116,
+        "challenges_covered_count": 13,
+        "challenge_recall_derived": 0.1121,
+        "declared_intentional_findings": 15,
+        "report_wrote_coverage_fields": true
+      },
+      "covered_set_before": [
+        "changePasswordBenderChallenge",
+        "changeProductChallenge",
+        "chatbotPromptInjectionChallenge",
+        "exposedCredentialsChallenge",
+        "iacLeakedKeyChallenge",
+        "leakedApiKeyChallenge",
+        "noSqlCommandChallenge",
+        "noSqlOrdersChallenge",
+        "oauthUserPasswordChallenge",
+        "resetPasswordBjoernOwaspChallenge",
+        "resetPasswordJimChallenge",
+        "resetPasswordUvoginChallenge",
+        "weakPasswordChallenge"
+      ],
+      "covered_set_after": [
+        "changePasswordBenderChallenge",
+        "changeProductChallenge",
+        "chatbotPromptInjectionChallenge",
+        "exposedCredentialsChallenge",
+        "iacLeakedKeyChallenge",
+        "leakedApiKeyChallenge",
+        "noSqlCommandChallenge",
+        "noSqlOrdersChallenge",
+        "oauthUserPasswordChallenge",
+        "resetPasswordBjoernOwaspChallenge",
+        "resetPasswordJimChallenge",
+        "resetPasswordUvoginChallenge",
+        "weakPasswordChallenge"
+      ],
+      "note": "A scoping change that removes findings but also removes ground-truth matches is a regression, not a precision gain."
+    },
+    "P4_finding_scope": {
+      "semantics": "after <= before: withholding must never introduce a finding into one of those paths, and a corpus that has none of them passes trivially. A strict improvement would fail on such a corpus for no reason.",
+      "before": {
+        "findings": 1290,
+        "in_withheld_paths": 1165,
+        "withheld_path_rules": {
+          "CONFIG_CONTEXTUAL_CREDENTIAL": 1165
+        },
+        "severity": {
+          "Medium": 42,
+          "Low": 1246,
+          "High": 2
+        },
+        "top_extensions": {
+          ".json": 1169,
+          ".yml": 59,
+          ".ts": 45,
+          ".tf": 13,
+          "": 3,
+          ".js": 1
+        }
+      },
+      "after": {
+        "findings": 102,
+        "in_withheld_paths": 0,
+        "withheld_path_rules": {},
+        "severity": {
+          "Medium": 42,
+          "Low": 58,
+          "High": 2
+        },
+        "top_extensions": {
+          ".ts": 45,
+          ".yml": 36,
+          ".tf": 13,
+          ".json": 4,
+          "": 3,
+          ".js": 1
+        }
+      },
+      "findings_removed": 1188,
+      "all_removed_were_config_credentials": true,
+      "config_credential_findings": [
+        1225,
+        37
+      ]
+    }
+  },
+  "console": {
+    "before": null,
+    "after": null,
+    "note": "Console figures are parsed from a transcript when supplied. They are not recoverable from the written artifact, which is why the stale-console defect had to be pinned by a source-ordering test."
+  },
+  "verdict": {
+    "p1": true,
+    "p2": true,
+    "p3": true,
+    "p4": true,
+    "p5": true
+  }
+}

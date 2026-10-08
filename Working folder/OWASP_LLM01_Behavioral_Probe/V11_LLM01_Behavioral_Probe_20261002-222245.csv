@@ -1,0 +1,11 @@
+id,class,expect_llm01,expected_llm01,detected_llm01,finding_count,rule_ids,status
+DIRECT_001,Direct injection,True,True,True,1,['LLM01_PROMPT_INJECTION'],PASS
+INDIRECT_001,Indirect / RAG injection,True,True,True,1,['LLM01_PROMPT_INJECTION'],PASS
+SUFFIX_001,Adversarial suffix / jailbreak,True,True,True,1,['LLM01_PROMPT_INJECTION'],PASS
+SPLIT_001,Payload splitting / fragmented source,True,True,False,0,[],BEHAVIOR_GAP
+MULTI_001,Multilingual injection,True,True,False,0,[],BEHAVIOR_GAP
+OBF_001,Unicode / escape obfuscation,True,True,False,0,[],BEHAVIOR_GAP
+ZW_001,Zero-width / Unicode disruption,True,True,False,0,[],BEHAVIOR_GAP
+TOOL_001,Tool / agent injection,True,True,True,1,['LLM01_PROMPT_INJECTION'],PASS
+BENIGN_001,Benign prompt,False,False,False,0,[],PASS
+BENIGN_002,Benign prompt containing security terminology,False,False,False,0,[],PASS

@@ -1,0 +1,212 @@
+{
+ "benchmark_id": "ai-llm-corpus-genai-2026-10",
+ "corpus": {
+  "name": "OWASP GenAI Red Team Lab",
+  "path": "D:\\Data\\Code test\\prodtest\\GenAI-Red-Team-Lab-main",
+  "files_total": 416,
+  "code_files_py_js_cs": 108,
+  "size_mb": 8.1,
+  "classes": ["controlled_synthetic", "real_world_oss", "ai_llm_corpus"],
+  "note": "Intentionally-vulnerable red-team lab. Intent does not remove a defect: a code-level security flaw is in ground truth whether or not it was planted on purpose."
+ },
+ "authored": "2026-10-06",
+ "authored_before_scan": true,
+ "method": "Manual source review of every .py/.js/.cs file reachable from sandboxes/ and exploitation/. Each entry was confirmed by reading the source, the request-derived origin of the tainted value, and the sink. No scanner output was consulted while authoring this file.",
+ "scoping_rules": {
+  "in_scope": "Code-level security defects (CWE-mapped) with a demonstrable untrusted source and a dangerous sink, plus credentials that participate in an authorization decision.",
+  "credential_positive": "A string literal is a CWE-798 ground-truth positive iff some code path compares it against a request-derived value to grant or deny access, OR it is committed in configuration and posted as an authentication credential.",
+  "credential_dedup": "A client-side literal mirroring a separate enforcement-site literal of the same secret is not counted twice; the enforcement site is the positive.",
+  "credential_negative": "A literal handed to an SDK where the receiving side performs no authentication is a negative control, not a credential. Value entropy does not decide this - the presence of an authorization decision does.",
+  "command_injection": "shell=True / os.system with an f-string is a positive only when an untrusted value can reach it. A value derived from a fixed literal list, a constant, or a local operator menu is a negative control."
+ },
+ "positives": [
+  {
+   "id": "GT-01",
+   "category": "PATH_TRAVERSAL",
+   "cwe": "CWE-22",
+   "file": "sandboxes/RAG_local/app/mocks/s3.py",
+   "line": 37,
+   "sink": "open(file_path, \"wb\")",
+   "source": "object_key route parameter from /{bucket_name}/{object_key:path} (line 9)",
+   "title": "Unsanitized path parameter written to disk",
+   "why": "object_key is joined into target_dir with os.path.join (line 32) with no basename(), no '..' rejection and no resolve()-based containment check, then opened for writing. bucket_name (line 27) is equally unsanitized, so an absolute or '..' bucket escapes data/ as well."
+  },
+  {
+   "id": "GT-02",
+   "category": "PATH_TRAVERSAL",
+   "cwe": "CWE-22",
+   "file": "sandboxes/agentic_local_llamaindex/app/server.py",
+   "line": 332,
+   "sink": "open(target_path, \"r\")",
+   "source": "request.get_json() -> data['query'] (line 214-215) -> split(':') -> remainder (line 229) -> _peek(remainder) (line 235)",
+   "title": "Arbitrary file read from request body",
+   "why": "The 'peek:<path>' action passes the request-controlled remainder straight to _peek, which strips whitespace and opens it. No allow-list, no prefix check, no realpath containment."
+  },
+  {
+   "id": "GT-03",
+   "category": "PATH_TRAVERSAL",
+   "cwe": "CWE-22",
+   "file": "sandboxes/agentic_local_llamaindex/app/server.py",
+   "line": 357,
+   "sink": "kv.persist(persist_path=path)",
+   "source": "request.get_json() -> data['query'] (line 214) -> 'drop' action splits path/content (lines 236-240)",
+   "title": "Arbitrary file write from request body",
+   "why": "The 'drop:<path>:<content>' action writes attacker-controlled content to an attacker-controlled path. The code even checks 'if \"__init__.py\" in path' (line 359) to confirm the write target is an importable package file - the RCE impact is acknowledged, the containment is absent."
+  },
+  {
+   "id": "GT-04",
+   "category": "PATH_TRAVERSAL",
+   "cwe": "CWE-22",
+   "file": "sandboxes/agentic_local_llamaindex/app/server.py",
+   "line": 305,
+   "sink": "storage_context.persist(persist_dir=target_dir)",
+   "source": "request.get_json() -> persist_dir / client_name (lines 279-281) -> target_dir (line 286)",
+   "title": "Traversal detected but not enforced",
+   "why": "is_traversal is computed at lines 289-291 and then only reported back to the caller as a string (line 311-313). The write at line 305 proceeds unconditionally. Detection without enforcement is still the vulnerability."
+  },
+  {
+   "id": "GT-05",
+   "category": "PATH_TRAVERSAL",
+   "cwe": "CWE-22",
+   "file": "sandboxes/agentic_local_langchain/app/server.py",
+   "line": 74,
+   "sink": "open(resolved, \"r\")",
+   "source": "request body data['query'] (line 190) -> regex capture of Action Input path (line 203) -> handle_document_reader(path) (line 206)",
+   "title": "Path from agent tool input read without validation",
+   "why": "target_path_str is parsed out of the request body with a regex and converted to a Path, then resolve()ed and opened. resolve() only normalises - it does not confine - so ../../../../etc/passwd reads normally. Reachable when LC_VERSION_TUPLE < (1,2,25), which is the version this sandbox pins at stage 0."
+  },
+  {
+   "id": "GT-06",
+   "category": "CODE_INJECTION",
+   "cwe": "CWE-94",
+   "file": "sandboxes/agentic_local_llamaindex/app/server.py",
+   "line": 402,
+   "sink": "f.write(payload)",
+   "source": "request.get_json() -> data['query'] (line 214) -> 'rce' action -> _nuke_rce(remainder) (lines 245-248)",
+   "title": "Attacker-controlled Python written into an importable package",
+   "why": "payload is written into core/__init__.py inside a dataset that is then served over HTTP and pulled into site-packages/llama_index by download_dataset_and_source_files (lines 417-420). Direct request-body-to-code-execution."
+  },
+  {
+   "id": "GT-07",
+   "category": "HARDCODED_CREDENTIAL",
+   "cwe": "CWE-798",
+   "file": "sandboxes/RAG_local/app/mocks/openai.py",
+   "line": 43,
+   "sink": "if token != \"sk-mock-key\": raise HTTPException(401)",
+   "source": "Authorization request header (line 25)",
+   "title": "API key literal is the sole authorization check",
+   "why": "verify_api_key compares the bearer token against the literal sk-mock-key to grant or deny every /v1/chat/completions and /v1/embeddings call. This is an authorization decision on a network-exposed surface, so it is a positive under the credential rule regardless of the value looking like a placeholder."
+  },
+  {
+   "id": "GT-08",
+   "category": "HARDCODED_CREDENTIAL",
+   "cwe": "CWE-798",
+   "file": "sandboxes/RAG_local/app/mocks/s3.py",
+   "line": 16,
+   "sink": "if api_key != \"foobar\": raise HTTPException(401)",
+   "source": "Api-Key request header (line 14)",
+   "title": "Shared secret literal is the sole authorization check",
+   "why": "Same structure as GT-07: the literal 'foobar' is compared against the request header to authorize every object upload."
+  },
+  {
+   "id": "GT-09",
+   "category": "HARDCODED_CREDENTIAL",
+   "cwe": "CWE-798",
+   "file": "exploitation/n8n_RCE_via_file_write/config.toml",
+   "line": 3,
+   "sink": "password = \"RedTeamPassword123!\"",
+   "source": "committed configuration",
+   "title": "Committed login password",
+   "why": "attack.py line 16 loads it and posts it to /rest/login (lines 73-82) to obtain the n8n-auth cookie. It is a working credential committed to source."
+  },
+  {
+   "id": "GT-10",
+   "category": "HARDCODED_CREDENTIAL",
+   "cwe": "CWE-798",
+   "file": "exploitation/Ni8mare/config.toml",
+   "line": 8,
+   "sink": "password = \"AdminPassword123!\"",
+   "source": "committed configuration",
+   "title": "Committed login password",
+   "why": "setup_target.py line 119 passes config['password'] to login(), which posts it to /rest/login (lines 21-25). Working credential committed to source."
+  },
+  {
+   "id": "GT-11",
+   "category": "HARDCODED_CREDENTIAL",
+   "cwe": "CWE-798",
+   "file": "exploitation/agent0/run_agent.py",
+   "line": 118,
+   "sink": "api_key = \"9azN9k-K-tZl2SVP\"",
+   "source": "committed fallback for --api-key / AGENT0_API_KEY (line 113)",
+   "title": "Committed API key used as X-API-KEY",
+   "why": "Used as the X-API-KEY header on /api/api_message (lines 39-40). It is the fallback when neither the flag nor the environment supplies one, so the key is live by default."
+  }
+ ],
+ "negative_controls": [
+  {
+   "id": "NC-01",
+   "category": "COMMAND_INJECTION",
+   "file": "exploitation/haystack/interactive_trainer.py",
+   "line": 1333,
+   "pattern": "os.system(f\"{engine} logs --tail 30 {CONTAINER_NAME}\")",
+   "why_not_a_finding": "engine is returned by detect_container_engine(), which iterates the fixed literal list ['docker', 'podman'] (line 165) and returns one of them. CONTAINER_NAME is the module constant 'haystack-sandbox' (line 34). No untrusted value can reach this call, so there is no injection. Reporting it means the rule fires on an f-string alone.",
+   "expected": "NOT_REPORTED"
+  },
+  {
+   "id": "NC-02",
+   "category": "COMMAND_INJECTION",
+   "file": "exploitation/langchain/interactive_trainer.py",
+   "line": 285,
+   "pattern": "os.system(f\"{engine} logs --tail 30 {CONTAINER_NAME}\")",
+   "why_not_a_finding": "Identical construction to NC-01 with the same fixed-list engine and constant container name.",
+   "expected": "NOT_REPORTED"
+  },
+  {
+   "id": "NC-03",
+   "category": "COMMAND_INJECTION",
+   "file": "exploitation/llamaindex/interactive_trainer.py",
+   "line": 136,
+   "pattern": "subprocess.run(cmd, shell=True, timeout=timeout)",
+   "why_not_a_finding": "Generic CLI runner: cmd is a bare parameter of run_cmd(). No caller in this repository demonstrates an untrusted value reaching it, so the shell=True alone does not establish a vulnerability.",
+   "expected": "NOT_REPORTED"
+  },
+  {
+   "id": "NC-04",
+   "category": "HARDCODED_CREDENTIAL",
+   "file": "sandboxes/RAG_local/app/mocks/openai.py",
+   "line": 17,
+   "pattern": "os.environ[\"OPENAI_API_KEY\"] = \"foo\"",
+   "why_not_a_finding": "Dead assignment: verify_api_key() compares against the literal 'sk-mock-key' at line 43 and never reads this environment variable, so no authorization decision depends on it.",
+   "expected": "NOT_REPORTED"
+  },
+  {
+   "id": "NC-05",
+   "category": "HARDCODED_CREDENTIAL",
+   "file": "sandboxes/RAG_local/ETL/ingest.py",
+   "line": 22,
+   "pattern": "OpenAI(base_url=OLLAMA_BASE_URL, api_key=\"ollama\")",
+   "why_not_a_finding": "SDK constructor argument for a local Ollama endpoint. Ollama performs no API-key authentication, so nothing is authenticated by this literal. Also present in sandboxes/*/app/mocks/openai.py at the OpenAI(...) construction sites.",
+   "expected": "NOT_REPORTED"
+  },
+  {
+   "id": "NC-06",
+   "category": "SQL_INJECTION",
+   "file": "sandboxes/llm_memory_local/app/memory.py",
+   "line": 79,
+   "pattern": "SELECT role, content FROM conversation_log WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+   "why_not_a_finding": "Fully parameterised query with placeholders; the same holds for every execute() in this file. There is no string-built SQL anywhere in it.",
+   "expected": "NOT_REPORTED"
+  }
+ ],
+ "totals": {
+  "positives": 11,
+  "negative_controls": 6,
+  "categories": {
+   "PATH_TRAVERSAL": 5,
+   "CODE_INJECTION": 1,
+   "HARDCODED_CREDENTIAL": 5,
+   "COMMAND_INJECTION": 0,
+   "SQL_INJECTION": 0
+  }
+ }
+}

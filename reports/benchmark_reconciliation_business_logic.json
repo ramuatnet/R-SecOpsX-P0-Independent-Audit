@@ -1,0 +1,154 @@
+{
+  "benchmark": "business-logic-dryrun-2026-10",
+  "root_causes": [
+    "G-062"
+  ],
+  "mode": "DRY RUN - the product pipeline was not modified and no finding was added to any report",
+  "rule_source": "D:\\Data\\Code test\\R-SecOpsX_V11\\quarantine\\scanner\\business_logic_patterns.py",
+  "targets": [
+    "D:\\Data\\Code test\\prodtest\\juice-shop-git",
+    "D:\\Data\\Code test\\prodtest\\GenAI-Red-Team-Lab-main"
+  ],
+  "files_scanned": 746,
+  "rules_total": 14,
+  "rules_exercised": 0,
+  "total_matches": 0,
+  "per_rule": {
+    "BL_APPROVAL_BYPASS": {
+      "title": "Approval Bypass Logic",
+      "severity": "High",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_CLIENT_CONTROLLED_AMOUNT": {
+      "title": "Client-Controlled Price or Amount",
+      "severity": "High",
+      "confidence": "HIGH",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_COUPON_MANIPULATION": {
+      "title": "Coupon Manipulation Risk",
+      "severity": "High",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_DOUBLE_SPEND_RISK": {
+      "title": "Double-Spend Transaction Risk",
+      "severity": "Critical",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_IDEMPOTENCY_MISSING": {
+      "title": "Missing Idempotency Control",
+      "severity": "High",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_INVENTORY_RACE_CONDITION": {
+      "title": "Inventory Race Condition Risk",
+      "severity": "High",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_LIMIT_BYPASS": {
+      "title": "Limit or Quota Bypass",
+      "severity": "High",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_MISSING_BALANCE_CHECK": {
+      "title": "Missing Balance Check",
+      "severity": "Critical",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_NEGATIVE_BALANCE_ALLOWED": {
+      "title": "Negative Balance Allowed",
+      "severity": "High",
+      "confidence": "HIGH",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_NEGATIVE_QUANTITY_ALLOWED": {
+      "title": "Negative Quantity Allowed",
+      "severity": "High",
+      "confidence": "HIGH",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_REFUND_APPROVAL_BYPASS": {
+      "title": "Refund Approval Control Missing",
+      "severity": "High",
+      "confidence": "MEDIUM",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_ROLE_FROM_CLIENT": {
+      "title": "Client-Controlled Role or Permission",
+      "severity": "Critical",
+      "confidence": "HIGH",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_SKIP_PAYMENT": {
+      "title": "Payment Bypass Logic",
+      "severity": "Critical",
+      "confidence": "HIGH",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    },
+    "BL_TRUSTED_CLIENT_STATUS": {
+      "title": "Trusted Client Status Flag",
+      "severity": "High",
+      "confidence": "HIGH",
+      "matches": 0,
+      "files": [],
+      "samples": []
+    }
+  },
+  "unexercised_rules": [
+    "BL_APPROVAL_BYPASS",
+    "BL_CLIENT_CONTROLLED_AMOUNT",
+    "BL_COUPON_MANIPULATION",
+    "BL_DOUBLE_SPEND_RISK",
+    "BL_IDEMPOTENCY_MISSING",
+    "BL_INVENTORY_RACE_CONDITION",
+    "BL_LIMIT_BYPASS",
+    "BL_MISSING_BALANCE_CHECK",
+    "BL_NEGATIVE_BALANCE_ALLOWED",
+    "BL_NEGATIVE_QUANTITY_ALLOWED",
+    "BL_REFUND_APPROVAL_BYPASS",
+    "BL_ROLE_FROM_CLIENT",
+    "BL_SKIP_PAYMENT",
+    "BL_TRUSTED_CLIENT_STATUS"
+  ],
+  "verdict": {
+    "v1_rule_module_locatable": true,
+    "v2_every_rule_exercised": false
+  },
+  "problems": [
+    "14 of 14 rules matched nothing on these corpora, so their behaviour is unmeasured: ['BL_APPROVAL_BYPASS', 'BL_CLIENT_CONTROLLED_AMOUNT', 'BL_COUPON_MANIPULATION', 'BL_DOUBLE_SPEND_RISK', 'BL_IDEMPOTENCY_MISSING', 'BL_INVENTORY_RACE_CONDITION', 'BL_LIMIT_BYPASS', 'BL_MISSING_BALANCE_CHECK', 'BL_NEGATIVE_BALANCE_ALLOWED', 'BL_NEGATIVE_QUANTITY_ALLOWED', 'BL_REFUND_APPROVAL_BYPASS', 'BL_ROLE_FROM_CLIENT', 'BL_SKIP_PAYMENT', 'BL_TRUSTED_CLIENT_STATUS']"
+  ],
+  "decision_input": "Match volume is a noise estimate, not a quality score. A high count here means wiring these rules would add findings that no ground truth currently validates -- which argues for measuring against a labelled corpus first, not for enabling them silently."
+}

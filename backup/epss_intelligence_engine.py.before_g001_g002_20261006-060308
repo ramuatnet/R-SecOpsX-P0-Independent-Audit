@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+from collections import Counter
+
+from analysis.intelligence_provenance import (
+    EPSS_PROVENANCE,
+    NOT_AVAILABLE,
+    STATIC_REFERENCE,
+)
+
+
+STATIC_EPSS_SCORES = {
+    "CVE-2021-44228": 0.975,
+    "CVE-2021-45046": 0.920,
+    "CVE-2022-22965": 0.970,
+    "CVE-2018-18074": 0.042,
+    "CVE-2017-18342": 0.089,
+    "CVE-2021-23337": 0.021,
+    "CVE-2021-3749": 0.013,
+    "CVE-2022-24999": 0.010,
+}
+
+
+def _get_cve(pkg: dict) -> str | None:
+    cve = pkg.get("cve") or pkg.get("primary_vulnerability_id")
+
+    if not cve:
+        return None
+
+    cve = str(cve).strip().upper()
+
+    if cve.startswith("CVE-"):
+        return cve
+
+    return None
+
+
+def _epss_bucket(score: float | None) -> str:
+    if score is None:
+        return "UNKNOWN"
+
+    if score >= 0.90:
+        return "VERY_HIGH_EXPLOIT_PROBABILITY"
+
+    if score >= 0.50:
+        return "HIGH_EXPLOIT_PROBABILITY"
+
+    if score >= 0.10:
+        return "MODERATE_EXPLOIT_PROBABILITY"
+
+    if score >= 0.01:
+        return "LOW_EXPLOIT_PROBABILITY"
+
+    return "VERY_LOW_EXPLOIT_PROBABILITY"
+
+
+def _epss_priority(score: float | None, kev: bool, reachable: bool, severity: str) -> str:
+    sev = str(severity or "").upper()
+
+    if kev and reachable:
+        return "P0_IMMEDIATE"
+
+    if score is not None and score >= 0.90:
+        return "P0_IMMEDIATE"
+
+    if reachable and sev in {"CRITICAL", "HIGH"}:
+        return "P1_HIGH"
+
+    if score is not None and score >= 0.10:
+        return "P2_MEDIUM"
+
+    return "P3_STANDARD"
+
+
+def _reachable(pkg: dict) -> bool:
+    return str(pkg.get("reachability_status") or "").upper() == "REACHABLE"
+
+
+def enrich_epss_intelligence(sbom: list[dict]) -> list[dict]:
+    enriched = []
+
+    for pkg in sbom:
+        item = dict(pkg)
+
+        cve = _get_cve(item)
+        existing = item.get("epss")
+
+        score = None
+
+        if existing is not None:
+            try:
+                score = float(existing)
+            except Exception:
+                score = None
+
+        if score is None and cve:
+            score = STATIC_EPSS_SCORES.get(cve)
+
+        bucket = _epss_bucket(score)
+
+        item["epss_score"] = score
+        item["epss_bucket"] = bucket
+        item["epss_priority"] = _epss_priority(
+            score,
+            bool(item.get("kev_status")),
+            _reachable(item),
+            item.get("severity"),
+        )
+        item["epss_method"] = (
+            "STATIC_OFFLINE_EPSS_V1"
+            if score is not None
+            else "EPSS_NOT_AVAILABLE"
+        )
+        # G-003: epss_method is the engine's internal code and no reporter ever
+        # read it, so the reader could not tell an offline table from a live
+        # FIRST.org feed.  epss_provenance is the surfaced honesty label.
+        item["epss_provenance"] = (
+            EPSS_PROVENANCE if score is not None else NOT_AVAILABLE
+        )
+
+        enriched.append(item)
+
+    return enriched
+
+
+def epss_intelligence_summary(sbom: list[dict]) -> dict:
+    bucket_counter = Counter()
+    priority_counter = Counter()
+
+    total_vulnerable = 0
+    known_epss = 0
+    very_high = 0
+    p0 = 0
+
+    for pkg in sbom:
+        if not (pkg.get("cve") or pkg.get("advisory_id")):
+            continue
+
+        total_vulnerable += 1
+
+        bucket = pkg.get("epss_bucket", "UNKNOWN")
+        priority = pkg.get("epss_priority", "UNKNOWN")
+
+        bucket_counter[bucket] += 1
+        priority_counter[priority] += 1
+
+        if pkg.get("epss_score") is not None:
+            known_epss += 1
+
+        if bucket == "VERY_HIGH_EXPLOIT_PROBABILITY":
+            very_high += 1
+
+        if priority == "P0_IMMEDIATE":
+            p0 += 1
+
+    return {
+        "total_vulnerable_packages": total_vulnerable,
+        "known_epss_packages": known_epss,
+        "very_high_exploit_probability": very_high,
+        "p0_immediate_packages": p0,
+        "epss_buckets": dict(bucket_counter),
+        "epss_priority_counts": dict(priority_counter),
+        "summary_status": "STATIC_OFFLINE_EPSS_INTELLIGENCE_V1",
+        # G-003: surfaced, human-facing label for the summary block.
+        "provenance": STATIC_REFERENCE,
+    }
+
+
+if __name__ == "__main__":
+    sample = [
+        {
+            "name": "log4j-core",
+            "version": "2.14.1",
+            "cve": "CVE-2021-44228",
+            "severity": "Critical",
+            "kev_status": True,
+            "reachability_status": "REACHABLE",
+        },
+        {
+            "name": "lodash",
+            "version": "4.17.20",
+            "cve": "CVE-2021-23337",
+            "severity": "High",
+            "kev_status": False,
+            "reachability_status": "NOT_OBSERVED",
+        },
+        {
+            "name": "ghsa-only",
+            "version": "1.0.0",
+            "cve": None,
+            "advisory_id": "GHSA-test",
+            "severity": "Medium",
+        },
+    ]
+
+    import json
+
+    enriched = enrich_epss_intelligence(sample)
+    print(json.dumps(enriched, indent=2))
+    print(json.dumps(epss_intelligence_summary(enriched), indent=2))

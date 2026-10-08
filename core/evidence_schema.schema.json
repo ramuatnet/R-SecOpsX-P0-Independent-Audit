@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r-secopsx-v11-evidence-v1",
+  "title": "R-SecOpsX V11 Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_id",
+    "source",
+    "timestamp",
+    "provenance",
+    "type",
+    "content_or_context",
+    "confidence"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine",
+        "component"
+      ],
+      "properties": {
+        "engine": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "observed_at",
+        "engine",
+        "component"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "engine": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision_consumer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "type": {
+      "enum": [
+        "pattern",
+        "taint",
+        "sink",
+        "static",
+        "dynamic",
+        "dependency",
+        "secret",
+        "graph",
+        "context",
+        "other"
+      ]
+    },
+    "content_or_context": {},
+    "confidence": {
+      "enum": [
+        "HIGH",
+        "MEDIUM",
+        "LOW",
+        "UNKNOWN"
+      ]
+    },
+    "related_finding_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

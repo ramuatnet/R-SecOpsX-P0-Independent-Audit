@@ -1,0 +1,30 @@
+﻿============================================================
+ R-SecOpsX V11 - OWASP LLM01 COVERAGE GATE v2
+============================================================
+Timestamp       : 20261003-112450
+Root            : D:\data\Code test\R-SecOpsX_V11
+PASS            : 12
+REVIEW_REQUIRED : 2
+FAIL            : 0
+
+STATUS RULE:
+PASS requires source evidence only; it does not prove runtime efficacy.
+REVIEW_REQUIRED means implementation or validation evidence is incomplete.
+FAIL means the expected core capability is absent.
+
+DETAILED RESULTS
+------------------------------------------------------------
+[PASS] LLM01 rule - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - LLM01_PROMPT_INJECTION present
+[PASS] Production LLM integration - D:\data\Code test\R-SecOpsX_V11\main.py - main.py contains LLM security integration references
+[PASS] Direct prompt injection - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Direct-injection/jailbreak patterns found
+[PASS] Indirect prompt injection - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Indirect/external-content/RAG indicators found
+[PASS] Payload splitting - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Payload-splitting indicator found
+[REVIEW_REQUIRED] Multimodal injection - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - No explicit multimodal prompt-injection implementation evidence
+[PASS] Adversarial suffix - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Adversarial/suffix indicator found
+[PASS] Multilingual/obfuscated injection - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Encoding/obfuscation/multilingual indicator found
+[PASS] Tool/MCP injection surface - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Tool/plugin/agent/MCP indicators found
+[PASS] Memory/session propagation - D:\data\Code test\R-SecOpsX_V11\scanner\llm_security.py - Memory/session indicators found
+[REVIEW_REQUIRED] Canonical evidence integration - D:\data\Code test\R-SecOpsX_V11\main.py - Production canonical evidence path not established by this gate
+[PASS] LLM01 test evidence - D:\data\Code test\R-SecOpsX_V11\tests\test_v11_intelligence_remaining.py; D:\data\Code test\R-SecOpsX_V11\tests\test_v11_llm01_hardening_v1.py - 2 test file(s) contain LLM01/prompt-injection coverage
+[PASS] OWASP LLM01 mapping - OWASP mapping candidates - LLM01 mapping identifier exists
+[PASS] OWASP namespace integrity - OWASP mapping candidates - No unsupported LLM01:2026 identifier detected

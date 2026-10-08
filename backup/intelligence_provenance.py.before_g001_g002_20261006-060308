@@ -1,0 +1,68 @@
+"""Provenance tokens for offline / static threat-intelligence values.
+
+Why this module exists
+----------------------
+R-SecOpsX currently derives **every** EPSS score and **every** CISA KEV match
+from small seed tables baked into this repository
+(``STATIC_EPSS_SCORES`` in ``analysis/epss_intelligence_engine.py`` and
+``KNOWN_EXPLOITED_CVES`` in ``analysis/kev_intelligence_engine.py``).  It does
+**not** query the live FIRST.org EPSS API or the live CISA KEV catalog; those
+are gap-register items **G-001** and **G-002**.
+
+A report reader looking at ``EPSS 0.975`` or ``KEV No`` cannot tell whether the
+number came from a live feed or from an eight-entry offline table.  That is an
+active honesty defect (**G-003**), so every EPSS/KEV value must travel with an
+explicit provenance token that every report surface renders.
+
+Token vocabulary
+----------------
+``STATIC_REFERENCE``
+    The value came from an offline table compiled into the build.  It is a
+    reference point, not a current exploit-probability statement.
+``LIVE_FEED``
+    The value came from a live upstream feed.  **Not yet produced anywhere**;
+    the token exists so that wiring G-001/G-002 is a data change, not a schema
+    change.
+``NOT_AVAILABLE``
+    No value could be produced (for example, no EPSS row matched).
+
+Contract
+--------
+* Provenance is an **honesty label only**.  It never alters a score, bucket,
+  priority, severity, reachability state or release decision.
+* Provenance never gates anything: it does not turn UNKNOWN into UNREACHABLE
+  and does not turn an offline miss into "not exploited".
+* A ``kev_status`` of ``False`` with ``kev_provenance == STATIC_REFERENCE``
+  means "absent from the offline table", **not** "absent from the live CISA
+  KEV catalog".
+"""
+
+from __future__ import annotations
+
+__all__ = [
+    "STATIC_REFERENCE",
+    "LIVE_FEED",
+    "NOT_AVAILABLE",
+    "EPSS_PROVENANCE",
+    "KEV_PROVENANCE",
+    "STATIC_INTELLIGENCE_NOTE",
+]
+
+STATIC_REFERENCE = "STATIC_REFERENCE"
+LIVE_FEED = "LIVE_FEED"
+NOT_AVAILABLE = "NOT_AVAILABLE"
+
+# Every EPSS/KEV value produced today is offline.  Flip these to LIVE_FEED only
+# once the corresponding live feed is wired *and* benchmarked (G-001 / G-002).
+EPSS_PROVENANCE = STATIC_REFERENCE
+KEV_PROVENANCE = STATIC_REFERENCE
+
+# Single human-readable sentence used verbatim by the PDF and Excel renderers
+# so the two cannot drift apart.
+STATIC_INTELLIGENCE_NOTE = (
+    "EPSS and KEV values in this report carry provenance "
+    f"'{STATIC_REFERENCE}': they are read from offline seed tables compiled into "
+    "the R-SecOpsX build, not from the live FIRST.org EPSS API or the live CISA "
+    "KEV catalog. A KEV flag of 'No' therefore means 'not present in the offline "
+    "table', not 'confirmed not exploited'."
+)

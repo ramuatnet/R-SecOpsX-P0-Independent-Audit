@@ -1,0 +1,453 @@
+{
+  "benchmark_id": "sast-multilang-2026-10",
+  "languages": [
+    "python",
+    "javascript",
+    "java",
+    "csharp",
+    "go",
+    "php"
+  ],
+  "ground_truth_total": 13,
+  "ground_truth_negative_controls": 6,
+  "rsecopsx_findings": 13,
+  "true_positives": 13,
+  "false_positives": 0,
+  "false_negatives": 0,
+  "true_negatives": 6,
+  "unmatched_findings": 0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "detection_rate": 1.0,
+  "by_category": {
+    "sql_injection": {
+      "ground_truth": 5,
+      "detected": 5,
+      "missed": 0,
+      "recall": 1.0
+    },
+    "command_injection": {
+      "ground_truth": 5,
+      "detected": 5,
+      "missed": 0,
+      "recall": 1.0
+    },
+    "code_injection": {
+      "ground_truth": 1,
+      "detected": 1,
+      "missed": 0,
+      "recall": 1.0
+    },
+    "path_traversal": {
+      "ground_truth": 2,
+      "detected": 2,
+      "missed": 0,
+      "recall": 1.0
+    }
+  },
+  "matches": [
+    {
+      "ground_truth_id": "GT-01",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "app.py",
+        "line": 6,
+        "category": "sql_injection",
+        "rule_id": "TAINT_SQL_INJECTION",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "c.execute(\"SELECT * FROM users WHERE n = '\" + name + \"'\")"
+      },
+      "reason_missed": "",
+      "note": "Flask request arg concatenated into SQL text"
+    },
+    {
+      "ground_truth_id": "GT-02",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "app.py",
+        "line": 13,
+        "category": "command_injection",
+        "rule_id": "TAINT_COMMAND_INJECTION",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "subprocess.run(request.args.get(\"cmd\"))"
+      },
+      "reason_missed": "",
+      "note": "Flask request arg passed to a shell interpreter"
+    },
+    {
+      "ground_truth_id": "GT-03",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "server.js",
+        "line": 6,
+        "category": "command_injection",
+        "rule_id": "TAINT_JS_CHILD_PROCESS_EXEC",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "cp.execSync('ls ' + id);"
+      },
+      "reason_missed": "",
+      "note": "Express query concatenated into child_process.execSync"
+    },
+    {
+      "ground_truth_id": "GT-04",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "server.js",
+        "line": 7,
+        "category": "code_injection",
+        "rule_id": "EVAL_CALL",
+        "severity": "Low",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "eval("
+      },
+      "reason_missed": "",
+      "note": "Express query passed to eval()"
+    },
+    {
+      "ground_truth_id": "GT-05",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "views.py",
+        "line": 5,
+        "category": "path_traversal",
+        "rule_id": "TAINT_PATH_TRAVERSAL",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "open(p)"
+      },
+      "reason_missed": "",
+      "note": "Django GET param opened as a filesystem path"
+    },
+    {
+      "ground_truth_id": "GT-06",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "views.py",
+        "line": 8,
+        "category": "sql_injection",
+        "rule_id": "TAINT_SQL_INJECTION",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "c.execute(request.POST[\"name\"])"
+      },
+      "reason_missed": "",
+      "note": "Django POST body used as an identifier"
+    },
+    {
+      "ground_truth_id": "GT-07",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "vuln.java",
+        "line": 6,
+        "category": "command_injection",
+        "rule_id": "JAVA_TAINT_COMMAND_INJECTION",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "Runtime.getRuntime().exec(cmd);"
+      },
+      "reason_missed": "",
+      "note": "Servlet parameter passed to Runtime.exec"
+    },
+    {
+      "ground_truth_id": "GT-08",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "vuln.java",
+        "line": 10,
+        "category": "sql_injection",
+        "rule_id": "JAVA_JDBC_SQL_CONCAT",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "st.executeQuery(\"SELECT * FROM t WHERE n='\" + n + \"'\");"
+      },
+      "reason_missed": "",
+      "note": "Servlet parameter concatenated into JDBC query"
+    },
+    {
+      "ground_truth_id": "GT-09",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "vuln.java",
+        "line": 12,
+        "category": "path_traversal",
+        "rule_id": "JAVA_TAINT_PATH_TRAVERSAL",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "java.nio.file.Paths.get(\"/var/data/\" + f);"
+      },
+      "reason_missed": "",
+      "note": "Servlet parameter appended to a filesystem path"
+    },
+    {
+      "ground_truth_id": "GT-10",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "controller.cs",
+        "line": 7,
+        "category": "sql_injection",
+        "rule_id": "DOTNET_ADO_SQL_CONCAT",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "var cmd = new SqlCommand(\"SELECT * FROM t WHERE id = '\" + id + \"'\", cn);"
+      },
+      "reason_missed": "",
+      "note": "Action parameter concatenated into SqlCommand text"
+    },
+    {
+      "ground_truth_id": "GT-11",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "main.go",
+        "line": 10,
+        "category": "command_injection",
+        "rule_id": "GO_EXEC_SH_C",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "cmd := exec.Command(\"sh\", \"-c\", q)"
+      },
+      "reason_missed": "",
+      "note": "HTTP query routed to a shell via exec.Command(sh, -c, q)"
+    },
+    {
+      "ground_truth_id": "GT-12",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "index.php",
+        "line": 4,
+        "category": "sql_injection",
+        "rule_id": "TAINT_PHP_SQL_INJECTION",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "$db->query(\"SELECT * FROM t WHERE id = '\" . $id . \"'\");"
+      },
+      "reason_missed": "",
+      "note": "Superglobal concatenated into mysqli query text"
+    },
+    {
+      "ground_truth_id": "GT-13",
+      "status": "TRUE_POSITIVE",
+      "match_confidence": "EXACT_MATCH",
+      "matched_finding": {
+        "file": "index.php",
+        "line": 5,
+        "category": "command_injection",
+        "rule_id": "TAINT_PHP_COMMAND_INJECTION",
+        "severity": "Medium",
+        "confidence": "HIGH",
+        "evidence_valid": true,
+        "snippet": "system(\"echo \" . $id);"
+      },
+      "reason_missed": "",
+      "note": "Superglobal concatenated into a shell command"
+    },
+    {
+      "ground_truth_id": "NT-01",
+      "status": "TRUE_NEGATIVE",
+      "match_confidence": "NO_MATCH",
+      "matched_finding": null,
+      "reason_missed": "",
+      "note": "Bind parameter: value is data, not SQL structure"
+    },
+    {
+      "ground_truth_id": "NT-02",
+      "status": "TRUE_NEGATIVE",
+      "match_confidence": "NO_MATCH",
+      "matched_finding": null,
+      "reason_missed": "",
+      "note": "html.escape applied before rendering is a proven sanitizer"
+    },
+    {
+      "ground_truth_id": "NT-03",
+      "status": "TRUE_NEGATIVE",
+      "match_confidence": "NO_MATCH",
+      "matched_finding": null,
+      "reason_missed": "",
+      "note": "Taint killed by a subsequent constant assignment"
+    },
+    {
+      "ground_truth_id": "NT-04",
+      "status": "TRUE_NEGATIVE",
+      "match_confidence": "NO_MATCH",
+      "matched_finding": null,
+      "reason_missed": "",
+      "note": "argv vector with no shell interpretation"
+    },
+    {
+      "ground_truth_id": "NT-05",
+      "status": "TRUE_NEGATIVE",
+      "match_confidence": "NO_MATCH",
+      "matched_finding": null,
+      "reason_missed": "",
+      "note": "Constant query text; no attacker-controlled input exists"
+    },
+    {
+      "ground_truth_id": "NT-06",
+      "status": "TRUE_NEGATIVE",
+      "match_confidence": "NO_MATCH",
+      "matched_finding": null,
+      "reason_missed": "",
+      "note": "Statement declaration only; the injection is on line 10"
+    }
+  ],
+  "raw_findings": [
+    {
+      "file": "controller.cs",
+      "line": 7,
+      "category": "sql_injection",
+      "rule_id": "DOTNET_ADO_SQL_CONCAT",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "var cmd = new SqlCommand(\"SELECT * FROM t WHERE id = '\" + id + \"'\", cn);"
+    },
+    {
+      "file": "app.py",
+      "line": 6,
+      "category": "sql_injection",
+      "rule_id": "TAINT_SQL_INJECTION",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "c.execute(\"SELECT * FROM users WHERE n = '\" + name + \"'\")"
+    },
+    {
+      "file": "app.py",
+      "line": 13,
+      "category": "command_injection",
+      "rule_id": "TAINT_COMMAND_INJECTION",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "subprocess.run(request.args.get(\"cmd\"))"
+    },
+    {
+      "file": "index.php",
+      "line": 4,
+      "category": "sql_injection",
+      "rule_id": "TAINT_PHP_SQL_INJECTION",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "$db->query(\"SELECT * FROM t WHERE id = '\" . $id . \"'\");"
+    },
+    {
+      "file": "index.php",
+      "line": 5,
+      "category": "command_injection",
+      "rule_id": "TAINT_PHP_COMMAND_INJECTION",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "system(\"echo \" . $id);"
+    },
+    {
+      "file": "main.go",
+      "line": 10,
+      "category": "command_injection",
+      "rule_id": "GO_EXEC_SH_C",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "cmd := exec.Command(\"sh\", \"-c\", q)"
+    },
+    {
+      "file": "server.js",
+      "line": 7,
+      "category": "code_injection",
+      "rule_id": "EVAL_CALL",
+      "severity": "Low",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "eval("
+    },
+    {
+      "file": "server.js",
+      "line": 6,
+      "category": "command_injection",
+      "rule_id": "TAINT_JS_CHILD_PROCESS_EXEC",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "cp.execSync('ls ' + id);"
+    },
+    {
+      "file": "views.py",
+      "line": 5,
+      "category": "path_traversal",
+      "rule_id": "TAINT_PATH_TRAVERSAL",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "open(p)"
+    },
+    {
+      "file": "views.py",
+      "line": 8,
+      "category": "sql_injection",
+      "rule_id": "TAINT_SQL_INJECTION",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "c.execute(request.POST[\"name\"])"
+    },
+    {
+      "file": "vuln.java",
+      "line": 10,
+      "category": "sql_injection",
+      "rule_id": "JAVA_JDBC_SQL_CONCAT",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "st.executeQuery(\"SELECT * FROM t WHERE n='\" + n + \"'\");"
+    },
+    {
+      "file": "vuln.java",
+      "line": 6,
+      "category": "command_injection",
+      "rule_id": "JAVA_TAINT_COMMAND_INJECTION",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "Runtime.getRuntime().exec(cmd);"
+    },
+    {
+      "file": "vuln.java",
+      "line": 12,
+      "category": "path_traversal",
+      "rule_id": "JAVA_TAINT_PATH_TRAVERSAL",
+      "severity": "Medium",
+      "confidence": "HIGH",
+      "evidence_valid": true,
+      "snippet": "java.nio.file.Paths.get(\"/var/data/\" + f);"
+    }
+  ],
+  "scan_seconds": 6.21
+}

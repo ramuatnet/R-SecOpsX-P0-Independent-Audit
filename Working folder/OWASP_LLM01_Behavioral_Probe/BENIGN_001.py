@@ -1,0 +1,1 @@
+prompt = "Summarize the security policy and list the main controls."
