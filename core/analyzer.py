@@ -2,13 +2,13 @@
 core/analyzer.py  v5
 
 CHANGES (v4 ¢€ €™ v5):
-  1. FIX  — _root_cause_key() now uses finding['group_key'] when present
+  1. FIX  — _root_cause_key() now uses finding['group_key'] when present
              (set by sast.py v5 as vuln_type|line|snippet).  This correctly
-             merges cmd_0.py¢‚¬¦cmd_9.py — 10 files with identical code at
-             line 4 — into ONE finding with 10 affected_files entries.
+             merges cmd_0.py¢‚¬¦cmd_9.py — 10 files with identical code at
+             line 4 — into ONE finding with 10 affected_files entries.
              Falls back to v4 per-function key when group_key is absent
              (preserves compatibility with taint_engine output).
-  2. KEEP — All v4 fixes retained: _safe_float, non-mutating score_finding,
+  2. KEEP — All v4 fixes retained: _safe_float, non-mutating score_finding,
              confidence swap, SBOM scoring, pivot point analysis.
 """
 from __future__ import annotations
@@ -63,7 +63,7 @@ def _safe_float(v, default: float = 0.0) -> float:
 
 
 def _path_fp(f: dict) -> str:
-    """Strict per-file fingerprint — used only for exact-duplicate removal."""
+    """Strict per-file fingerprint — used only for exact-duplicate removal."""
     key = f"{f.get('vuln_type')}|{f.get('file')}|{f.get('line')}"
     return hashlib.md5(key.encode()).hexdigest()
 
@@ -76,7 +76,7 @@ def _normalise_sink(snippet: str, vuln_type: str) -> str:
     """
     import re
 
-    # IaC declarative patterns — use the vuln_type itself as the sink key
+    # IaC declarative patterns — use the vuln_type itself as the sink key
     IAC_TYPES = {
         "iac_privileged_container": "privileged_container",
         "iac_public_s3":            "public_s3_acl",
@@ -85,26 +85,26 @@ def _normalise_sink(snippet: str, vuln_type: str) -> str:
     if vuln_type in IAC_TYPES:
         return IAC_TYPES[vuln_type]
 
-    # PATCH 5: hardcoded secrets — normalise to category so AWS keys from
+    # PATCH 5: hardcoded secrets — normalise to category so AWS keys from
     # 10 different files merge into ONE root cause regardless of variable name.
     if vuln_type == "hardcoded_secret":
         snip_lower = snippet.lower()
-        # AWS key patterns — group all AKIA-pattern credentials
+        # AWS key patterns — group all AKIA-pattern credentials
         if "akia" in snip_lower or "akid" in snip_lower:
             return "hardcoded_secret|aws_access_key"
         if "private key" in snip_lower or "begin rsa" in snip_lower or "begin ec" in snip_lower:
             return "hardcoded_secret|private_key"
         if "jwt" in snip_lower:
             return "hardcoded_secret|jwt_secret"
-        # Generic API keys — group ALL together regardless of file type (yaml/py/env)
+        # Generic API keys — group ALL together regardless of file type (yaml/py/env)
         # This ensures config.yaml and sec_0.py generic keys merge into one finding
         return "hardcoded_secret|generic_credential"
 
-    # IDOR — normalise to generic "idor_access" so all IDOR patterns group together
+    # IDOR — normalise to generic "idor_access" so all IDOR patterns group together
     if vuln_type == "api_idor":
         return "idor_access"
 
-    # Supply chain — group by the typo package name
+    # Supply chain — group by the typo package name
     if vuln_type == "supply_chain_typosquat":
         m = re.search(r"import\s+(\w+)|from\s+(\w+)", snippet)
         return m.group(1) or m.group(2) if m else "typosquat"
@@ -184,7 +184,7 @@ def _root_cause_key(f: dict) -> str:
 def deduplicate(findings: list[dict]) -> list[dict]:
     # Level 1: exact per-file dedupe
     # When two findings share the same fingerprint (same file+line+vuln),
-    # keep the one with the richer detection — TAINT-VALIDATED > Regex.
+    # keep the one with the richer detection — TAINT-VALIDATED > Regex.
     seen_exact: dict[str, int] = {}  # fp -> index in phase1
     phase1: list[dict] = []
     for f in findings:
@@ -196,14 +196,14 @@ def deduplicate(findings: list[dict]) -> list[dict]:
             existing_idx = seen_exact[fp]
             existing     = phase1[existing_idx]
 
-            # Part 5+6: Conflict resolution — same line, different vuln_type
+            # Part 5+6: Conflict resolution — same line, different vuln_type
             # HTTP sink SSRF wins; remove IDOR classification
             e_vt = existing.get("vuln_type", "")
             f_vt = f.get("vuln_type", "")
             e_sc = existing.get("sink_category", "")
             f_sc = f.get("sink_category", "")
 
-            # Issue 4 FIX: generic rule — sink_category="http" SSRF wins.
+            # Issue 4 FIX: generic rule — sink_category="http" SSRF wins.
             # Handles SSRF vs IDOR and any future http-sink misclassification.
             both_cats = {e_sc, f_sc}
             if "http" in both_cats or {e_vt, f_vt} == {"ssrf", "api_idor"}:
@@ -250,7 +250,7 @@ def deduplicate(findings: list[dict]) -> list[dict]:
                     groups[rck]["engine"] = existing_engine
 
             occ = _occurrence_from_finding(f)
-            # Issue 4: dedup by (file, line) — same location from regex + fallback
+            # Issue 4: dedup by (file, line) — same location from regex + fallback
             # must not create two entries in the occurrence list
             _seen_locs = {(o["file"], o["line"]) for o in groups[rck]["occurrences"]}
             if (occ["file"], occ["line"]) not in _seen_locs:
@@ -262,7 +262,7 @@ def deduplicate(findings: list[dict]) -> list[dict]:
             # Belt-and-suspenders: keep affected_files unique after every merge step
             groups[rck]["affected_files"] = list(dict.fromkeys(groups[rck]["affected_files"]))
 
-            # Fix 1: promote detection label — TAINT-VALIDATED beats regex
+            # Fix 1: promote detection label — TAINT-VALIDATED beats regex
             incoming_det = f.get("detection", "")
             existing_det = groups[rck].get("detection", "")
             if incoming_det == "TAINT-VALIDATED" and existing_det != "TAINT-VALIDATED":
@@ -334,9 +334,9 @@ def _compute_exploitability(f: dict, sbom: list | None = None) -> str:
 def _compute_exploitability_legacy(f: dict) -> str:
     """
     Determine exploitability based on evidence quality:
-      HIGH   — real taint path confirms user-controlled data reaches the sink
-      MEDIUM — source name suggests user input but flow is not fully traced
-      LOW    — pattern match only, no user-input evidence
+      HIGH   — real taint path confirms user-controlled data reaches the sink
+      MEDIUM — source name suggests user input but flow is not fully traced
+      LOW    — pattern match only, no user-input evidence
     """
     taint = f.get("taint_path", "")
     if taint and "->" in taint:
@@ -629,7 +629,7 @@ def enrich_finding(f: dict) -> dict:
     if not f.get("sink_category"):
         f["sink_category"] = "unknown"
 
-    # Issue 2 FIX: IDOR with http sink_category is a misclassification — drop it.
+    # Issue 2 FIX: IDOR with http sink_category is a misclassification — drop it.
     # The conflict-resolution in Phase 1 dedup handles the common case (same line
     # as SSRF), but this guard catches any IDOR on HTTP sinks that arrive solo.
     if f.get("vuln_type") == "api_idor" and f.get("sink_category") == "http":
@@ -704,7 +704,7 @@ def enrich_finding(f: dict) -> dict:
     f["confidence_basis"] = "STATIC_EVIDENCE_SEPARATE_FROM_RUNTIME_VALIDATION"
 
     # Issue 1: always expose occurrence_count for report visibility
-    # Issue 2 FIX: guarantee unique affected_files — use dict.fromkeys to preserve order
+    # Issue 2 FIX: guarantee unique affected_files — use dict.fromkeys to preserve order
     if "affected_files" in f:
         f["affected_files"] = list(dict.fromkeys(p for p in f["affected_files"] if p))
     f["occurrence_count"]  = len(f.get("occurrences", [])) or f.get("instances", 1)
@@ -780,7 +780,7 @@ def generate_insights(findings: list[dict], sbom: list[dict],
     if dist["Critical"] > 0:
         n = dist["Critical"]
         insights.append(
-            f"CRITICAL: {n} critical vulnerabilit{'y' if n==1 else 'ies'} identified — "
+            f"CRITICAL: {n} critical vulnerabilit{'y' if n==1 else 'ies'} identified — "
             "immediate remediation required before next deployment."
         )
     if dist["High"] > 0:
@@ -854,7 +854,7 @@ def generate_insights(findings: list[dict], sbom: list[dict],
     if pivots:
         insights.append(
             f"PIVOT POINTS: {', '.join(pivots[:3])} "
-            f"{'are' if len(pivots)>1 else 'is'} reachable from multiple attack chains — "
+            f"{'are' if len(pivots)>1 else 'is'} reachable from multiple attack chains — "
             "prioritize remediation of these vulnerabilities first."
         )
 
@@ -884,7 +884,7 @@ def generate_insights(findings: list[dict], sbom: list[dict],
         insights.append(
             f"DEPENDENCY CONFUSION: {len(typosquat_deps)} probable typosquatted package"
             f"{'s' if len(typosquat_deps)>1 else ''} detected. "
-            "Malicious packages execute code on install — remove immediately and audit pip history."
+            "Malicious packages execute code on install — remove immediately and audit pip history."
         )
 
     crit_high = dist["Critical"] + dist["High"]
@@ -1109,7 +1109,7 @@ def build_report_payload(findings: list[dict], sbom: list[dict],
     ]
     # Risk score reflects severity of root-cause vulnerabilities.
     # Dedup ratio is reported separately in metadata for transparency
-    # but does NOT reduce the score — same vulns = same risk regardless of file count.
+    # but does NOT reduce the score — same vulns = same risk regardless of file count.
     total_occ  = sum(f.get("instances", 1) for f in enriched)
     n_roots    = len(enriched)
     portfolio = compute_portfolio_score(enriched + vulnerable_sbom)

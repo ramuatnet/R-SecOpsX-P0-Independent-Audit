@@ -267,10 +267,28 @@ def _pdf_normalize_text(value) -> str:
         "[!]": "[!]",
         "\u2726": "*",
         "\u2022": "*",
+        # Symbols with no glyph in the report fonts print as a black box.
+        "\u26a1": "*",
+        "\u25a0": "*",
     }
 
     for bad, good in replacements.items():
         text = text.replace(bad, good)
+
+    # Nothing unprintable may reach the page.  The C0 controls, DEL and the C1
+    # range (U+0080-U+009F) have no glyph in the report fonts, so they print
+    # as a black box - one stray U+009D produced three of them in the shipped
+    # report.  \n, \t and \r are kept so deliberate line breaks survive.
+    #
+    # This runs LAST, after `residual` above, because that table matches
+    # mojibake sequences that CONTAIN U+009D (the `" entry) and needs the
+    # control byte intact to recognise them; removing it first would leave
+    # those sequences half-decoded and visible on the page.
+    text = "".join(
+        ch for ch in text
+        if ch in "\n\t\r"
+        or not (ord(ch) < 0x20 or ord(ch) == 0x7F or 0x80 <= ord(ch) <= 0x9F)
+    )
 
     return text
 
@@ -1545,7 +1563,7 @@ def _top_root_causes_section(payload):
         "The following vulnerabilities appear most frequently across the codebase. "
 
 
-        "Fixing the root cause in shared code eliminates all occurrences at once "
+        "Fixing the root cause in shared code eliminates all occurrences at once — "
 
 
         "highest remediation leverage.",
