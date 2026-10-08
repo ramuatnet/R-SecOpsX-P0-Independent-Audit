@@ -787,7 +787,10 @@ _SBOM_TYPOSQUATS: dict[str, str] = {
 def enrich_with_cve(packages: list[dict]) -> list[dict]:
     sbom = []
     for pkg in packages:
-        entry = {**pkg, "cve": None, "cvss": None, "severity": "None",
+        # "Unknown", not the literal "None": "None" is a truthy *string*, so
+        # every downstream `x or "Unknown"` guard is defeated and the Python
+        # word 'None' prints straight into the report's Severity column.
+        entry = {**pkg, "cve": None, "cvss": None, "severity": "Unknown",
                  "nvd": None, "epss": None,
                  "description": "No known vulnerabilities",
                  "fixed_in": None, "reachable": False}

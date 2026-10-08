@@ -773,7 +773,20 @@ def _sbom(ws, payload):
     for i, pkg in enumerate(payload.get("sbom", []) or [], start=3):
         cves = _pkg_cve_list(pkg)
         has_vulnerability = bool(cves)
-        sev = pkg.get("severity", "None") if has_vulnerability else "None"
+        # No vulnerability means there is no severity to report, so '--' beside
+        # the '--' in the CVE column rather than a placeholder word.  With a
+        # vulnerability but no severity recorded, say 'Unknown'.  The legacy
+        # literal-'None' sentinel is filtered so already-generated payloads
+        # still render correctly.  Keep this set in step with
+        # `scanner.package_intelligence._ABSENT_SEVERITY_VALUES` -- `"None"` is a
+        # truthy *string*, so `pkg.get("severity") or "Unknown"` cannot catch it.
+        if has_vulnerability:
+            _raw_sev = str(pkg.get("severity") or "").strip()
+            sev = (_raw_sev
+                   if _raw_sev.lower() not in {"", "none", "unknown", "n/a", "na"}
+                   else "Unknown")
+        else:
+            sev = "--"
         bg = C_LBLUE if i % 2 == 0 else C_WHT
         epss_s = _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3)
         pkg_type = pkg.get("dependency_type") or pkg.get("type", "Direct")

@@ -409,11 +409,28 @@ def vulnerability_count(pkg: dict) -> int:
     return len(normalized_vulnerabilities(pkg))
 
 
+# Values that mean "no severity recorded".  `"None"` is the legacy sentinel and
+# is a truthy *string*, so `or "Unknown"` never catches it -- the comparison has
+# to be explicit.  Kept lower-cased for case-insensitive matching; `_severity_rank`
+# treats both "none" and "unknown" as 0, so normalising here is tier-neutral.
+_ABSENT_SEVERITY_VALUES = frozenset({"", "none", "unknown", "n/a", "na", "null"})
+
+
+def _normalise_severity(value) -> str:
+    """Return a displayable severity, or "Unknown" when none was recorded."""
+    text = str(value if value is not None else "").strip()
+    if text.lower() in _ABSENT_SEVERITY_VALUES:
+        return "Unknown"
+    return text
+
+
 def highest_vulnerability_severity(pkg: dict) -> str:
     primary = primary_vulnerability(pkg)
-    if primary:
-        return str(primary.get("severity") or "Unknown")
-    return str(pkg.get("severity") or "None")
+    candidate = primary.get("severity") if primary else pkg.get("severity")
+    # One normaliser for both arms: the legacy payload carries `severity: "None"`
+    # (and a primary advisory may carry a null), so filtering only the fallback
+    # default still let the literal Python word 'None' print into the report.
+    return _normalise_severity(candidate)
 
 
 def package_risk_tier(pkg: dict) -> str:
@@ -499,7 +516,12 @@ def enrich_package(pkg: dict) -> dict:
         if item.get("cvss_available")
         else "not_available_from_offline_advisory_source"
     )
-    item["severity"] = primary.get("severity") if primary else item.get("severity", "None")
+    # One normaliser for both arms (see `_normalise_severity`): a primary
+    # advisory may carry a null severity and the legacy payload carries the
+    # truthy string "None", which `or "Unknown"` cannot catch.
+    item["severity"] = _normalise_severity(
+        primary.get("severity") if primary else item.get("severity")
+    )
     item["highest_vulnerability_severity"] = highest_vulnerability_severity(item)
     item["package_risk_tier"] = package_risk_tier(item)
     item["fixed_versions"] = fixed_versions(item)
