@@ -4675,40 +4675,112 @@ def _licensing_section(payload):
     cats=summary.get("category_counts",{}) or {}
 
 
+    # Build the category list FROM the counts rather than from a fixed set of
+
+
+    # names.  The old list named four categories, two of which never occur, and
+
+
+    # omitted the two that do -- so "Known / Canonical: 48" never appeared while
+
+
+    # the sentence above it claimed all 168 components were covered.  Iterating
+
+
+    # the counter makes that class of omission impossible: anything present is
+
+
+    # printed, anything absent is not.
+
+
+    _cat_order = (
+
+
+        "Permissive",
+
+
+        "Known / Canonical",
+
+
+        "Composite / Review",
+
+
+        "Custom / Review",
+
+
+        "Evidence Unavailable",
+
+
+        "Unknown",
+
+
+    )
+
+
+    _names = [c for c in _cat_order if cats.get(c)]
+
+
+    _names += [c for c in sorted(cats) if c not in _cat_order and cats.get(c)]
+
+
+    cats_text = (
+
+
+        "; ".join(f"{c}: <b>{int(cats.get(c, 0))}</b>" for c in _names)
+
+
+        if _names else "no licence categories recorded"
+
+
+    )
+
+
+    _status_counts = summary.get("resolution_status_counts", {}) or {}
+
+
+    _total = int(
+
+
+        summary.get("total_components", len(payload.get("sbom", []) or []))
+
+
+    )
+
+
+    _resolved = int(_status_counts.get("RESOLVED_FROM_CANONICAL_REPORT", 0))
+
+
+    _no_evidence = int(_status_counts.get("NO_LICENSE_EVIDENCE", 0))
+
+
     story.append(Paragraph(
 
 
-        f"<b>{summary.get('total_components', len(payload.get('sbom',[]) or []))} components</b> "
+        f"<b>{_total}</b> components assessed for licence evidence: "
 
 
-        f"are covered by canonical license evidence. "
+        f"<b>{_resolved}</b> resolved from the canonical report, "
 
 
-        f"Permissive: <b>{cats.get('Permissive',0)}</b>; "
+        f"<b>{_no_evidence}</b> with no licence evidence available. "
 
 
-        f"Composite / Review: <b>{cats.get('Composite / Review',0)}</b>; "
+        f"{cats_text}. "
 
 
-        f"Custom / Review: <b>{cats.get('Custom / Review',0)}</b>; "
+        f"Evidence review required: <b>{summary.get('review_required_components', 0)}</b>; "
 
 
-        f"Evidence Unavailable: <b>{cats.get('Evidence Unavailable',0)}</b>. "
+        f"Policy review required: <b>{summary.get('policy_review_required_components', 0)}</b>; "
 
 
-        f"Evidence review required: <b>{summary.get('review_required_components',0)}</b>; "
+        f"Legal review required: <b>{summary.get('legal_review_required_components', 0)}</b>; "
 
 
-        f"Policy review required: <b>{summary.get('policy_review_required_components',0)}</b>; "
+        f"Unknown license components: <b>{summary.get('unknown_license_components', 0)}</b>. "
 
 
-        f"Legal review required: <b>{summary.get('legal_review_required_components',0)}</b>; "
-
-
-        f"Unknown license components: <b>{summary.get('unknown_license_components',0)}</b>. "
-
-
-        f"Existing policy summary status remains <b>{policy.get('summary_status','NOT_AVAILABLE')}</b>.",
+        f"Existing policy summary status remains <b>{policy.get('summary_status', 'NOT_AVAILABLE')}</b>.",
 
 
         S["Body"]))

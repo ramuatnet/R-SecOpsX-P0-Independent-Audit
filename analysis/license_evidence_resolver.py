@@ -42,6 +42,21 @@ def _evidence_index(data: dict) -> dict[tuple[str, str], dict]:
     return index
 
 
+# A sentinel, not a licence.  "UNKNOWN" is a non-empty *string*, so it defeats
+# both `or`-chains and bare `if value:` guards -- which is how 48 components with
+# no identifiable licence were reported as "Known / Canonical", marked
+# "RESOLVED_FROM_CANONICAL_REPORT" and given an evidence source of
+# "CANONICAL_REPORT".  Treat it as absence everywhere below.
+_UNKNOWN_LICENSE_VALUES = frozenset(
+    {"", "unknown", "none", "null", "n/a", "na", "noassertion", "-"}
+)
+
+
+def _is_unknown_license(value) -> bool:
+    """True when *value* is an absence marker rather than a licence name."""
+    return str(value or "").strip().lower() in _UNKNOWN_LICENSE_VALUES
+
+
 def _canonical_category(pkg: dict) -> str:
     risk = str(pkg.get("license_risk") or "").upper()
     decision = str(pkg.get("license_policy_decision") or "").upper()
@@ -53,7 +68,9 @@ def _canonical_category(pkg: dict) -> str:
         or pkg.get("license")
         or ""
     ).strip()
-    if license_value:
+    # Without the sentinel guard this returns "Known / Canonical" precisely for
+    # the components whose only value IS the sentinel.
+    if license_value and not _is_unknown_license(license_value):
         return "Known / Canonical"
     return "Unknown"
 
@@ -106,6 +123,9 @@ def enrich_license_evidence(payload: dict) -> dict:
                 "Composite / Review",
                 "Custom / Review",
                 "Evidence Unavailable",
+                # `category` defaults to "Unknown" at line 92, so without this
+                # an unclassified component is quietly marked as reviewed.
+                "Unknown",
             }
 
             row = {
@@ -142,17 +162,29 @@ def enrich_license_evidence(payload: dict) -> dict:
                 "license_expression": resolved,
                 "license_category": _canonical_category(pkg),
                 "license_components": [resolved] if resolved not in {"UNKNOWN", ""} else [],
-                "license_resolution_status": "RESOLVED_FROM_CANONICAL_REPORT",
-                "license_evidence_source": "CANONICAL_REPORT",
+                # Only claim a resolution/evidence source when one exists.  The
+                # canonical report carried the sentinel for these components, so
+                # "RESOLVED" and "CANONICAL_REPORT" were both fabrications.
+                "license_resolution_status": (
+                    "NO_LICENSE_EVIDENCE" if _is_unknown_license(resolved)
+                    else "RESOLVED_FROM_CANONICAL_REPORT"
+                ),
+                "license_evidence_source": (
+                    "--" if _is_unknown_license(resolved) else "CANONICAL_REPORT"
+                ),
                 "license_evidence": None,
                 "license_evidence_raw": resolved,
                 "license_provenance": {
                     "resolver": "R-SecOpsX canonical license policy",
                     "source": "canonical_report_payload",
                 },
+                # license_policy_engine emits REVIEW_REQUIRED for unknown
+                # licences and LEGAL_REVIEW_REQUIRED for restrictive ones.
+                # Matching only the latter reported 0 review-required
+                # components directly beside 48 unknown ones.
                 "license_review_required": str(
                     pkg.get("license_policy_decision") or ""
-                ).upper() == "LEGAL_REVIEW_REQUIRED",
+                ).upper() in {"REVIEW_REQUIRED", "LEGAL_REVIEW_REQUIRED"},
             }
 
         for key_name, value in row.items():
