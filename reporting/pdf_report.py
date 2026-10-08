@@ -1931,7 +1931,11 @@ def _exec_summary(payload):
     bi=Image(io.BytesIO(_bar(dist)),width=9*cm,  height=5.5*cm)
 
 
-    ct=Table([[pi,bi]],colWidths=[8*cm,10*cm])
+    # H1: this held 18.00cm of columns in a 17.40cm frame, so the pair sat
+    # 0.30cm past the right margin on both sides.  Only the image column had
+    # to move - the pie is 7.5cm and the bar 9.0cm, both still clear of their
+    # cells at 8.0 / 9.4.
+    ct=Table([[pi,bi]],colWidths=[8*cm,9.4*cm])
 
 
     ct.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),
@@ -4227,9 +4231,13 @@ def _pq_qbom_section(payload):
                 Paragraph(html.escape(basis or "--"), S["TDSm"]),
             ])
 
+        # H1: 17.60cm, 0.20cm past the frame.  Every header word and every
+        # cell token now fits on one line within 17.40 - notably Risk, which
+        # was 1.60cm wide against a 1.91cm 'UNKNOWN' and printed as
+        # 'UNKNO / WN'.
         t = Table(rows,
-                  colWidths=[2.6*cm, 1.9*cm, 1.2*cm, 3.4*cm, 1.6*cm, 2.0*cm,
-                             4.9*cm],
+                  colWidths=[2.47*cm, 1.85*cm, 1.19*cm, 3.17*cm, 1.92*cm,
+                             1.95*cm, 4.85*cm],
                   repeatRows=1, splitByRow=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), DARK_BLUE),
@@ -4674,7 +4682,12 @@ def _iac_section(payload):
         rows.append([Paragraph("--",S["TDC"])]*6)
 
 
-    t=Table(rows,colWidths=[2.1*cm,2.5*cm,2.0*cm,5.0*cm,1.3*cm,5.1*cm],repeatRows=1,splitByRow=1)
+    # H1: 18.00cm in a 17.40cm frame.  Two cells hold single unbreakable
+    # tokens - the rule id 'TF_OPEN_SECURITY_GROUP_INGRESS' (5.24cm) and the
+    # path 'juice-shop-git\infrastructure\terraform\networking.tf' (5.95cm) -
+    # which both wrapped mid-token at 2.5 / 5.0.  All six columns plus both
+    # of those fit inside 17.40, so nothing here breaks except at spaces.
+    t=Table(rows,colWidths=[1.6*cm,5.24*cm,1.59*cm,5.95*cm,1.05*cm,1.97*cm],repeatRows=1,splitByRow=1)
 
 
     t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),("TEXTCOLOR",(0,0),(-1,0),WHITE),
@@ -4994,7 +5007,10 @@ def _conclusion(payload):
           ["P4","Low",     str(dist.get("Low",     0)),"90 days",    "Dev Team (backlog)"]]
 
 
-    t=Table(rows,colWidths=[2*cm,3.5*cm,2.5*cm,4*cm,6*cm])
+    # H1: 18.00cm in a 17.40cm frame.  These cells are plain strings, which
+    # reportlab does not wrap, so each whole value must fit - the longest,
+    # 'Security Team + Dev Lead', needs 4.19cm and still has 5.86cm.
+    t=Table(rows,colWidths=[1.95*cm,3.35*cm,2.4*cm,3.84*cm,5.86*cm])
 
 
     t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),("TEXTCOLOR",(0,0),(-1,0),WHITE),
