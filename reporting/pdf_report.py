@@ -2554,7 +2554,7 @@ def _compliance(payload):
     if len(rows)>1:
 
 
-        t=Table(rows,colWidths=[4*cm,3.5*cm,3.5*cm,3.5*cm,3.5*cm],
+        t=Table(rows,colWidths=[3.85*cm,3.39*cm,3.39*cm,3.39*cm,3.38*cm],
 
 
                 repeatRows=1)          # repeat header on every page
@@ -4397,7 +4397,7 @@ def _sbom_section(payload):
         ])
 
 
-    t=Table(rows,colWidths=[3.1*cm,1.6*cm,1.0*cm,3.0*cm,1.3*cm,1.3*cm,1.8*cm,1.8*cm,1.6*cm,2.1*cm],
+    t=Table(rows,colWidths=[3.08*cm,1.49*cm,1.0*cm,3.04*cm,1.14*cm,1.13*cm,1.5*cm,1.64*cm,1.75*cm,1.63*cm],
 
 
             repeatRows=1, splitByRow=1)
@@ -4416,6 +4416,19 @@ def _sbom_section(payload):
 
 
                             ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3),
+
+
+                            # H1: widest table in the report (10 columns).  Its
+                            # content needs more room than the 17.4cm frame
+                            # grants at reportlab's 6pt default, and widths
+                            # alone cannot give it - shaving columns instead
+                            # broke ~60 package names mid-token.  4pt per side
+                            # frees 0.14cm per column, which is enough for every
+                            # column to keep every token that fits today while
+                            # the total lands exactly on the frame.  Measured by
+                            # rendering, not estimated.  Other tables untouched.
+                            ("LEFTPADDING",(0,0),(-1,-1),4),
+                            ("RIGHTPADDING",(0,0),(-1,-1),4),
 
 
                             ("FONTSIZE",(0,0),(-1,-1),7)]))
@@ -4885,7 +4898,7 @@ def _licensing_section(payload):
         rows,
 
 
-        colWidths=[2.5*cm,1.3*cm,2.0*cm,2.0*cm,1.8*cm,2.2*cm,1.8*cm,1.2*cm,2.4*cm],
+        colWidths=[2.55*cm,1.61*cm,2.1*cm,2.1*cm,1.72*cm,1.99*cm,1.74*cm,1.45*cm,2.14*cm],
 
 
         repeatRows=1,splitByRow=1
