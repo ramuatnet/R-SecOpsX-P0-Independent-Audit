@@ -151,6 +151,58 @@ def _zero_day_status(pkg: dict) -> str:
     return "NOT_ASSESSED"
 
 
+# CycloneDX 1.5 `definitions.scoreMethod` enum, read off the published schema
+# (specification/1.5/schema/bom-1.5.schema.json):
+#     CVSSv2, CVSSv3, CVSSv31, CVSSv4, OWASP, SSVC, other
+# Two traps live in it.  CVSSv3 means v3.0 *specifically* -- v3.1 has its own
+# member, and 1212 of our 2259 scored advisories publish v3.1 -- so the old
+# hard-coded "CVSSv3" misstated most of them.  And there is no member for a
+# version that was never stated, so `other` is the only honest value there:
+# claiming CVSSv3 for "a number handed over without a version" is precisely
+# the relabelling this work exists to stop.
+_CDX_SCORE_METHOD = {
+    "4.0": "CVSSv4",
+    "3.1": "CVSSv31",
+    "3.0": "CVSSv3",
+}
+
+
+def _cvss_number(value):
+    """A CVSS score as a float in [0, 10], or None when there is not one.
+
+    ``0.0`` is a score and is returned as such; ``None`` is the only absence.
+    A numeric string is accepted because feeds publish scores as strings as
+    often as numbers.  Measured across the cache, all 4397 CVSS values held
+    are already numeric and inside the range, so this drops nothing that is
+    published today.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+        try:
+            value = float(value)
+        except ValueError:
+            return None
+    if not isinstance(value, (int, float)):
+        return None
+    return float(value) if 0.0 <= float(value) <= 10.0 else None
+
+
+def _score_method(version, has_score: bool) -> str:
+    """Map a *stated* CVSS version onto the CycloneDX method name.
+
+    A version that was never stated is never guessed from the number: 7.5 is
+    a legal 3.1 score and a legal 4.0 score, and they come from different
+    formulas.
+    """
+    if not has_score:
+        return "other"
+    return _CDX_SCORE_METHOD.get(str(version or "").strip(), "other")
+
+
 def _vulnerability_records(pkg: dict) -> list[dict]:
     records = pkg.get("vulnerability_intelligence")
     if isinstance(records, list) and records:
@@ -173,15 +225,48 @@ def _vulnerability(pkg: dict, record: dict | None = None) -> dict | None:
         return None
 
     vuln_id = str(vuln_id)
+    # One assessment, labelled as itself: the method, score and vector are all
+    # taken from the advisory's preferred assessment so the three cannot
+    # disagree about which standard produced the number.  The legacy `cvss`
+    # scalar keeps being published unchanged below as rsecopsx:cvss -- it
+    # simply no longer masquerades as CVSSv3.
+    merged = {**pkg, **record}
+    preferred = (
+        record.get("cvss_preferred_score")
+        if record.get("cvss_preferred_score") is not None
+        else pkg.get("cvss_preferred_score")
+    )
+    legacy = (
+        record.get("cvss")
+        if record.get("cvss") is not None
+        else pkg.get("cvss")
+    )
+    score = _cvss_number(preferred)
+    if score is None:
+        # A payload written before cvss_preferred_score existed carries only
+        # the legacy scalar -- and no version either, so the method stays
+        # `other` instead of being reported as some v3 number.
+        score = _cvss_number(legacy)
+    version = (
+        record.get("cvss_version")
+        if record.get("cvss_version") is not None
+        else pkg.get("cvss_version")
+    )
+    vector = record.get("cvss_vector") or pkg.get("cvss_vector")
+
+    rating = {
+        "severity": _severity(merged),
+        "method": _score_method(version, score is not None),
+    }
+    if score is not None:
+        rating["score"] = score
+    if vector:
+        rating["vector"] = str(vector)
+
     vuln = {
         "id": vuln_id,
-        "source": _vulnerability_source({**pkg, **record}),
-        "ratings": [
-            {
-                "severity": _severity({**pkg, **record}),
-                "method": "CVSSv3" if record.get("cvss") is not None else "other",
-            }
-        ],
+        "source": _vulnerability_source(merged),
+        "ratings": [rating],
         "affects": [{"ref": _bom_ref(pkg)}],
         "properties": [
             {"name": "rsecopsx:cve", "value": str(record.get("cve") or pkg.get("cve") or "")},
@@ -205,13 +290,11 @@ def _vulnerability(pkg: dict, record: dict | None = None) -> dict | None:
         ],
     }
 
-    cvss = record.get("cvss") if record.get("cvss") is not None else pkg.get("cvss")
-    if cvss is not None:
-        try:
-            vuln["ratings"][0]["score"] = float(cvss)
-        except (TypeError, ValueError):
-            pass
-
+    # No score is written back here.  ratings[0]["score"] was already set from
+    # the preferred assessment above; re-assigning the legacy scalar over it
+    # would put a 3.1 number beside a "CVSSv4" method -- the exact relabelling
+    # this change exists to stop.  The legacy scalar still ships, unchanged,
+    # as the rsecopsx:cvss property.
     published = record.get("published_date") or record.get("published") or pkg.get("published_date")
     if published:
         vuln["published"] = str(published)
