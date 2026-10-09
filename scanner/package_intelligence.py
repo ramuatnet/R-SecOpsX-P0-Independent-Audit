@@ -7,6 +7,8 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.parse import quote
 
+from scanner.vulnerability_intel import extract_cvss_metadata
+
 
 LICENSE_RISK = {
     "gpl-2.0": "High",
@@ -129,6 +131,18 @@ def _severity_from_cvss_local(cvss):
     return "Unknown"
 
 
+def _extract_cvss_metadata(raw: dict) -> dict:
+    """Preserve CVSS version/vector only when explicitly supported by metadata.
+
+    Thin alias for :func:`scanner.vulnerability_intel.extract_cvss_metadata`,
+    which owns the rule: a version comes from a vector prefix or a stated,
+    supported version field -- never from a numeric score. It lives there
+    because that module is the first place raw advisory data still carries
+    the ``severity[]`` entries the version is read from.
+    """
+    return extract_cvss_metadata(raw)
+
+
 def _normalize_vulnerability_record(raw: dict) -> dict:
     vid = raw.get("id") or raw.get("cve") or raw.get("advisory_id") or raw.get("ghsa_id")
     aliases = raw.get("aliases") or raw.get("alias") or []
@@ -180,9 +194,16 @@ def _normalize_vulnerability_record(raw: dict) -> dict:
     if severity not in {"Critical", "High", "Medium", "Low", "Info"}:
         severity = _severity_from_cvss_local(cvss)
 
+    cvss_metadata = _extract_cvss_metadata(raw)
+
     return {
         "id": str(vid or cve or advisory_id or "").strip(),
         "cve": cve,
+        "cvss_version": cvss_metadata["cvss_version"],
+        "cvss_vector": cvss_metadata["cvss_vector"],
+        "cvss_alternate_assessments": (
+            raw.get("cvss_alternate_assessments") or []
+        ),
         "aliases": aliases,
         "advisory_id": advisory_id,
         "severity": severity,
@@ -509,6 +530,21 @@ def enrich_package(pkg: dict) -> dict:
     item["cve"] = primary.get("cve") if primary else item.get("cve")
     item["advisory_id"] = primary.get("advisory_id") if primary else item.get("advisory_id")
     item["cvss"] = primary.get("cvss") if primary and primary.get("cvss") is not None else item.get("cvss")
+    item["cvss_version"] = (
+        primary.get("cvss_version")
+        if primary and primary.get("cvss_version")
+        else item.get("cvss_version")
+    )
+    item["cvss_vector"] = (
+        primary.get("cvss_vector")
+        if primary and primary.get("cvss_vector")
+        else item.get("cvss_vector")
+    )
+    item["cvss_alternate_assessments"] = (
+        primary.get("cvss_alternate_assessments")
+        if primary and primary.get("cvss_alternate_assessments")
+        else (item.get("cvss_alternate_assessments") or [])
+    )
     item["cvss_score"] = item.get("cvss")
     item["cvss_available"] = item.get("cvss") is not None
     item["cvss_source"] = (
