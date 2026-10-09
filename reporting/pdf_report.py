@@ -4688,7 +4688,7 @@ def _iac_section(payload):
 
     # H1: 18.00cm in a 17.40cm frame.  Two cells hold single unbreakable
     # tokens - the rule id 'TF_OPEN_SECURITY_GROUP_INGRESS' (5.24cm) and the
-    # path 'juice-shop-git\infrastructure\terraform\networking.tf' (5.95cm) -
+    # path 'juice-shop-git/infrastructure/terraform/networking.tf' (5.95cm) -
     # which both wrapped mid-token at 2.5 / 5.0.  All six columns plus both
     # of those fit inside 17.40, so nothing here breaks except at spaces.
     t=Table(rows,colWidths=[1.6*cm,5.24*cm,1.59*cm,5.95*cm,1.05*cm,1.97*cm],repeatRows=1,splitByRow=1)
