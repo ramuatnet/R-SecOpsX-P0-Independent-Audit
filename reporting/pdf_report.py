@@ -5434,10 +5434,15 @@ def _conclusion(payload):
         story.append(Paragraph(
 
 
-            "Release is <b>not approved</b> because the canonical release-readiness decision requires remediation before release. "
-
-
-            "Review the blocking gates, complete remediation or formal risk acceptance, and re-run the assessment.",
+            # L7: "not approved because the canonical release-readiness decision
+            # requires remediation before release" gave the conclusion as its own
+            # cause.  Name what actually blocks the build instead.
+            "Release is <b>not approved</b>. "
+            + ("The blocking gates below are each a release blocker in their own "
+               "right and must be cleared first. " if blocking_gates else "")
+            + "Clear each one by remediating the underlying finding, or by "
+              "recording formal risk acceptance from a named owner, then "
+              "re-run the assessment.",
 
 
             S["Body"]
