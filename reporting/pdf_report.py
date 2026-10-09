@@ -4446,6 +4446,19 @@ def _sbom_section(payload):
     story.append(Spacer(1, 0.2*cm))
 
 
+    # The Type column is a single letter; without a legend the reader has to
+    # guess that D/T means direct/transitive (audit M2).  Derived from the
+    # same field the column renders, so they cannot drift apart.
+    story.append(Paragraph(
+        "<b>Type:</b> D = declared directly in a manifest "
+        "(dependencies / devDependencies); T = transitive, pulled in by "
+        "another dependency.",
+        S["BodySmall"]))
+
+
+    story.append(Spacer(1, 0.1*cm))
+
+
     # G-001/G-002: caption derived from the provenance the table above
     # actually carries, so a live-sourced report cannot be captioned offline
     # (nor the reverse) - both the header and the sentence come from the one
