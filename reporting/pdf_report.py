@@ -1513,6 +1513,21 @@ def _cover(payload, logo_path=None):
 def _sec(title,level=1):
 
 
+    if level>=3:
+
+
+        # Sub-group heading inside a section.  No rule and one weight heavier
+
+
+        # than body text, so it reads as a group of the table beneath it rather
+
+
+        # than as a peer of the section that contains it.
+
+
+        return [Paragraph(f"<b>{title}</b>",S["SubTitle"])]
+
+
     return [HRFlowable(width="100%",thickness=2 if level==1 else 0.5,
 
 
@@ -2415,49 +2430,118 @@ def _compliance(payload):
 
 
 
-    # OWASP
-
-
+    # Findings by security category (audit M6 / L10).
+    #
+    # payload['owasp'] carries only the categories that have at least one
+    # finding -- A06 and A09 are absent because neither has any -- and it
+    # mixes three separate catalogues in one flat list.  Titled "OWASP Top 10"
+    # the block claimed coverage the rows did not show and put LLM02 beside
+    # A07 as though they shared a numbering scheme.  So: title it by what it
+    # counts, group the rows by the catalogue their id belongs to, and
+    # reconcile the rows to the report total before a reader does it for us.
     owasp=payload.get("owasp",{})
 
 
     if owasp:
 
 
-        story+=_sec("OWASP Top 10",level=2)
+        story+=_sec("Findings by Security Category",level=2)
 
 
-        rows=[[Paragraph(h,S["TH"]) for h in ["OWASP ID","Category","Findings"]]]
+        _cat_meta=payload.get("metadata",{}) or {}
+        _cat_total=sum(int((info or {}).get("count",0) or 0) for info in owasp.values())
+        _cat_reported=int(_cat_meta.get("total_findings") or 0)
+        _cat_sca=int(_cat_meta.get("sca_findings") or 0)
+        _cat_gap=_cat_reported-_cat_total
 
 
-        for oid,info in sorted(owasp.items()):
+        if _cat_reported and _cat_total!=_cat_reported:
+            _note=(f"The categories below account for {_cat_total} of "
+                   f"{_cat_reported} reported findings.")
+        else:
+            _note=f"The categories below account for {_cat_total} findings."
 
 
-            rows.append([Paragraph(oid,S["TDC"]),Paragraph(info.get("category",""),S["TD"]),
+        if _cat_gap>0 and _cat_gap==_cat_sca:
+            _note+=(f" The other {_cat_gap} are vulnerable dependency packages, "
+                    f"reported under Dependencies; they carry no OWASP category "
+                    f"and so are not counted here.")
 
 
-                         Paragraph(str(info.get("count",0)),S["TDC"])])
+        _note+=(" Only categories with at least one finding are listed, so an id "
+                "that is absent means a genuine zero rather than a row that was "
+                "dropped.")
 
 
-        t=Table(rows,colWidths=[3*cm,11*cm,3*cm])
+        story.append(Paragraph(_note,S["BodySmall"]))
+        story.append(Spacer(1,0.15*cm))
 
 
-        t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),
+        # Which catalogue an id belongs to is decided by its id shape; the rows
+        # themselves still come entirely from the payload's own keys.  The digit
+        # guard matters: without it "API4" matches the bare "A" list and lands
+        # in the Top 10 table.
+        _catalogues=(("OWASP Top 10 (2021)",
+                      lambda k: k.startswith("A") and k[1:].isdigit()),
+                     ("OWASP API Security Top 10 (2023)",
+                      lambda k: k.startswith("API")),
+                     ("OWASP Top 10 for LLM Applications",
+                      lambda k: k.startswith("LLM")))
 
 
-                                ("GRID",(0,0),(-1,-1),0.5,GREY_MED),
+        _buckets={}
+        for _oid,_info in owasp.items():
+            _key=str(_oid).strip()
+            _up=_key.upper()
+            _bucket=next((title for title,pred in _catalogues if pred(_up)),
+                         "Other mappings")
+            _buckets.setdefault(_bucket,[]).append((_key,_info))
 
 
-                                ("ROWBACKGROUNDS",(0,1),(-1,-1),[WHITE,LIGHT_BLUE]),
+        _known=[title for title,_ in _catalogues]
 
 
-                                ("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4),
+        for _bucket in _known+[b for b in _buckets if b not in _known]:
+            if not _buckets.get(_bucket):
+                continue
 
 
-                                ("FONTSIZE",(0,0),(-1,-1),8)]))
+            story+=_sec(_bucket,level=3)
 
 
-        story.append(t); story.append(Spacer(1,0.3*cm))
+            rows=[[Paragraph(h,S["TH"]) for h in ["ID","Category","Findings"]]]
+
+
+            for oid,info in sorted(_buckets[_bucket],key=lambda kv:kv[0]):
+                info=info or {}
+                cat=str(info.get("category","") or "")
+                # The ID column already carries 'A08'; do not print it twice.
+                title=(cat.split(" - ",1)[1].strip()
+                       if cat.startswith(oid+":") and " - " in cat else cat)
+                rows.append([Paragraph(oid,S["TDC"]),
+                             Paragraph(title or oid,S["TD"]),
+                             Paragraph(str(info.get("count",0)),S["TDC"])])
+
+
+            t=Table(rows,colWidths=[3*cm,11*cm,3*cm])
+
+
+            t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),
+
+
+                                    ("GRID",(0,0),(-1,-1),0.5,GREY_MED),
+
+
+                                    ("ROWBACKGROUNDS",(0,1),(-1,-1),[WHITE,LIGHT_BLUE]),
+
+
+                                    ("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4),
+
+
+                                    ("FONTSIZE",(0,0),(-1,-1),8)]))
+
+
+            story.append(t); story.append(Spacer(1,0.2*cm))
 
 
 
