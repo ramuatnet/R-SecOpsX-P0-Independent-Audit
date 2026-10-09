@@ -3250,7 +3250,12 @@ def _nistaml_section(payload):
                 Paragraph(_safe_text((NISTAML_ATTACKS.get(gid) or {}).get("name") or ""), S["TDSm"]),
                 Paragraph(_safe_text(gap.get("gap") if isinstance(gap, dict) else gap), S["TDSm"]),
             ])
-        gt = Table(gap_rows, colWidths=[1.9 * cm, 4.2 * cm, 11.1 * cm], repeatRows=1)
+        # "Attack Class" holds ids like NISTAML.012, which have no space to
+        # wrap at: stringWidth(Helvetica 7pt) + 6pt/side = 43.96 + 12 =
+        # 55.96pt = 1.97cm, against the 1.90cm this column used to be.  The
+        # extra 0.10cm comes out of the 0.20cm this table leaves unused, so
+        # the total stays inside the 17.40cm frame.
+        gt = Table(gap_rows, colWidths=[2.0 * cm, 4.2 * cm, 11.1 * cm], repeatRows=1)
         gt.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), DARK_BLUE),
             ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
@@ -4111,7 +4116,15 @@ def _findings_section(payload):
         meta_tbl=Table([[Paragraph(c,S["BodySmall"]) for c in row] for row in meta_rows],
 
 
-                       colWidths=[2*cm,8*cm,2*cm,5*cm])
+                       # col1 holds file paths and CVE/GHSA ids, none of which
+                       # have a space to wrap at.  The widest is
+                       # frontend/src/app/change-password/change-password.component.ts
+                       # at 238.78pt = 8.42cm, so with 6pt/side padding it
+                       # needs 8.85cm against the 8.00cm it had.  The 0.90cm
+                       # comes out of col3, whose own widest token is
+                       # "Misconfiguration" at 2.06cm, so 4.10cm still fits it
+                       # nearly three times over.  Total unchanged at 17.00cm.
+                       colWidths=[2*cm,8.9*cm,2*cm,4.1*cm])
 
 
         meta_tbl.setStyle(TableStyle([

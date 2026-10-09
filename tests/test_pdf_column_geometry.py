@@ -158,6 +158,73 @@ def test_the_measured_width_vectors_are_the_ones_in_the_source():
     assert "1.55*cm, 2.75*cm, 1.60*cm, 3.35*cm," in src
     assert "2.0*cm, 1.29*cm, 2.01*cm, 2.85*cm" in src
     assert "colWidths=[4.4 * cm, 1.5 * cm, 5.2 * cm, 4.7 * cm, 1.6 * cm]" in src
+    assert "colWidths=[2.0 * cm, 4.2 * cm, 11.1 * cm]" in src
+    assert "colWidths=[2*cm,8.9*cm,2*cm,4.1*cm]" in src
     # the widths these replace
     assert "1.55*cm, 2.75*cm, 1.35*cm, 3.35*cm," not in src
     assert "4.4 * cm, 1.5 * cm, 5.6 * cm, 4.7 * cm, 1 * cm" not in src
+
+
+# --------------------------------- the two data-token columns ----------------
+import core.nist_aml_mappings as _nistaml
+import reporting.pdf_report as _pdf_report
+
+LONG_PATH = "frontend/src/app/change-password/change-password.component.ts"
+
+
+def _gap_table(monkeypatch):
+    monkeypatch.setattr(_nistaml, "NISTAML_DETECTION_GAPS", {
+        "NISTAML.012": "Clean-label Poisoning - no V11 rule.",
+    })
+    story = _pdf_report._nistaml_section({})
+    for flowable in story:
+        if type(flowable).__name__ == "Table":
+            return flowable
+    raise AssertionError("no Table in the NIST AML story")
+
+
+def _meta_table(payload):
+    story = _pdf_report._findings_section(payload)
+    for flowable in story:
+        if type(flowable).__name__ == "Table" and len(flowable._argW) == 4:
+            return flowable
+    raise AssertionError("no 4-column evidence table rendered")
+
+
+def test_the_nistaml_gap_id_column_holds_its_widest_id(monkeypatch):
+    """The gap ids (NISTAML.012) have no space to wrap at, so the column was
+    force-splitting them at 1.90cm.  Measured need: 43.96pt of text + 12pt
+    padding = 55.96pt = 1.97cm."""
+    widths = _widths_cm(_gap_table(monkeypatch))
+    assert widths[0] >= 1.98, f"Attack Class column is {widths[0]}cm"
+
+
+def test_the_findings_evidence_path_column_holds_a_real_path():
+    """Three findings carried a 66-character path that did not fit the 8.00cm
+    column, so it broke mid-token.  Measured need: 238.78pt + 12pt padding
+    = 250.78pt = 8.85cm.  The 0.90cm comes out of the line/OWASP column,
+    whose own widest token is only 2.06cm."""
+    finding = {
+        "rule_id": "RULE_X", "title": "t", "severity": "High",
+        "confidence_label": "High", "affected_files": [LONG_PATH],
+        "line": "99", "cwe": "CWE-798", "owasp": "A07:2021",
+        "mitre": "T1234", "cve": "CVE-2020-15084",
+        "sink_category": "external_resource",
+        "exploit_disp": "EXPLOITABLE", "decision_state": "REVIEW_REQUIRED",
+        "reportable": False, "evidence_valid": "NOT_EVALUATED",
+        "evidence_state": "NOT_RECORDED",
+    }
+    payload = {"findings": [finding], "grouped": [finding]}
+    table = _meta_table(payload)
+    widths = _widths_cm(table)
+    assert widths[1] >= 8.85, f"path column is {widths[1]}cm"
+    assert widths[3] >= 2.10, f"line/OWASP column is {widths[3]}cm"
+
+
+def test_the_findings_evidence_table_keeps_its_total():
+    finding = {"rule_id": "RULE_X", "title": "t", "severity": "High",
+               "confidence_label": "High", "affected_files": [LONG_PATH],
+               "line": "99"}
+    table = _meta_table({"findings": [finding], "grouped": [finding]})
+    total = sum(table._argW) / PT_PER_CM
+    assert abs(total - 17.00) < 1e-6, f"table is {total:.4f}cm wide"
