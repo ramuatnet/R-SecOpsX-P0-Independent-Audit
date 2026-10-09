@@ -2559,16 +2559,28 @@ def _compliance(payload):
         story+=_sec("MITRE ATT&amp;CK",level=2)
 
 
-        rows=[[Paragraph(h,S["TH"]) for h in ["Technique ID","Description"]]]
+        # The payload's mitre entries carry no count of their own, so count the
+        # findings that attribute each technique -- the same unit the OWASP
+        # table reports, which is what made this column's absence noticeable
+        # (audit L11).
+        _mitre_counts={}
+        for _f in (payload.get("findings") or payload.get("grouped") or []):
+            _v=_f.get("mitre")
+            for _t in (_v if isinstance(_v,list) else ([_v] if _v else [])):
+                if _t:
+                    _mitre_counts[_t]=_mitre_counts.get(_t,0)+1
+
+
+        rows=[[Paragraph(h,S["TH"]) for h in ["Technique ID","Description","Findings"]]]
 
 
         for te in mitre:
+            _tid=te.get("id","")
+            rows.append([Paragraph(_tid,S["TDC"]),Paragraph(te.get("description",""),S["TD"]),
+                         Paragraph(str(_mitre_counts.get(_tid,0)),S["TDC"])])
 
 
-            rows.append([Paragraph(te.get("id",""),S["TDC"]),Paragraph(te.get("description",""),S["TD"])])
-
-
-        t=Table(rows,colWidths=[4*cm,13*cm])
+        t=Table(rows,colWidths=[4*cm,11*cm,2*cm])
 
 
         t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),
@@ -2586,7 +2598,15 @@ def _compliance(payload):
                                 ("FONTSIZE",(0,0),(-1,-1),8)]))
 
 
-        story.append(t); story.append(Spacer(1,0.3*cm))
+        story.append(t); story.append(Spacer(1,0.15*cm))
+
+
+        story.append(Paragraph(
+            f"The Findings column counts how many findings attribute each "
+            f"technique; a single finding may attribute more than one, so the "
+            f"column is not a partition of the {len(payload.get('findings') or payload.get('grouped') or [])} "
+            f"findings in this report.", S["BodySmall"]))
+        story.append(Spacer(1,0.15*cm))
 
 
 
