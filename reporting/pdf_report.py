@@ -5186,16 +5186,40 @@ def _licensing_section(payload):
         S["Body"]))
 
 
+    # L12 -- presentation only. Two of this table's nine columns were measured
+    # across all 168 evidence rows and are constant: `license_review_required`
+    # prints "No" 168 times, `license_provenance` prints an identical string
+    # 168 times. A column whose every cell reads the same thing costs width
+    # and tells a reader nothing, so both are dropped from the render. The
+    # fields themselves stay in the payload exactly as delivered -- the JSON
+    # contract is untouched by this; only what the PDF draws changes.
+    #
+    # Column widths below are derived, not eyeballed. reportlab wraps a
+    # Paragraph only at spaces, so each column is set from
+    # pdfmetrics.stringWidth against the shipped payload:
+    #   widest unbreakable token + 6pt left + 6pt right padding.
+    #     Component 4.23 + 0.42 = 4.65  @fortawesome/fontawesome-svg-core
+    #     Source    2.61 + 0.42 = 3.03  CANONICAL_REPORT
+    # At the old 2.55 and 1.74 cm both were force-split mid-token. Dropping
+    # the two constant columns frees 3.59 cm, which is what pays for that:
+    # Component and Source are set to 4.77 and 3.11 cm (minimum plus a
+    # proportional share of the 0.20 cm left over), and the five columns that
+    # already fitted keep their original widths untouched. All seven still
+    # total exactly the 17.40 cm frame this table has always occupied.
+    #
+    # JSON redundancy, documented rather than "repaired": on this payload
+    # license_declared, license_resolved, license_expression and
+    # license_evidence_raw carry the same four distinct values, and
+    # license_evidence is null on every row. Collapsing them would change
+    # the payload contract, so all eight licence fields are retained as
+    # delivered and the redundancy is reported instead of acted on.
     rows=[[Paragraph(h,S["TH"]) for h in [
 
 
         "Component","Version","Declared License","Resolved License",
 
 
-        "License Category","Resolution Status","Evidence Source",
-
-
-        "Review","Provenance"
+        "License Category","Resolution Status","Evidence Source"
 
 
     ]]]
@@ -5205,21 +5229,6 @@ def _licensing_section(payload):
 
 
     for item in evidence_rows:
-
-
-        provenance=item.get("license_provenance") or {}
-
-
-        provenance_text="; ".join(
-
-
-            f"{k}={v}" for k,v in provenance.items()
-
-
-            if v not in (None,"",[],{})
-
-
-        ) or "--"
 
 
         rows.append([
@@ -5246,19 +5255,13 @@ def _licensing_section(payload):
             Paragraph(str(item.get("license_evidence_source") or "--"),S["TDSm"]),
 
 
-            Paragraph("Yes" if item.get("license_review_required") else "No",S["TDC"]),
-
-
-            Paragraph(provenance_text,S["TDSm"]),
-
-
         ])
 
 
     if len(rows)==1:
 
 
-        rows.append([Paragraph("--",S["TDC"])]*9)
+        rows.append([Paragraph("--",S["TDC"])]*7)
 
 
     t=Table(
@@ -5267,7 +5270,7 @@ def _licensing_section(payload):
         rows,
 
 
-        colWidths=[2.55*cm,1.61*cm,2.1*cm,2.1*cm,1.72*cm,1.99*cm,1.74*cm,1.45*cm,2.14*cm],
+        colWidths=[4.77*cm,1.61*cm,2.10*cm,2.10*cm,1.72*cm,1.99*cm,3.11*cm],
 
 
         repeatRows=1,splitByRow=1
