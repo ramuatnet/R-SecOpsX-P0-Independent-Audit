@@ -949,16 +949,14 @@ def _hf(canvas, doc):
         canvas.drawString(MARGIN+2.3*cm, h-0.58*cm, f"|  {section}")
 
 
-    # Right: tool name + page
+    # Right: document title.  The page number is printed by the bottom footer
+    # only -- repeating it here put two page numbers on every page (audit L1).
 
 
     canvas.setFont("Helvetica", 7)
 
 
-    canvas.drawRightString(w-MARGIN, h-0.58*cm,
-
-
-                           f"Security Assessment Report  |  Page {doc.page}")
+    canvas.drawRightString(w-MARGIN, h-0.58*cm, "Security Assessment Report")
 
 
     # PATCH 10: thin gold separator
