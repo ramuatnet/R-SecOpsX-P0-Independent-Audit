@@ -89,6 +89,13 @@ def _statement(pkg: dict) -> dict | None:
             "epss_provenance": pkg.get("epss_provenance") or NOT_AVAILABLE,
             "kev_provenance": pkg.get("kev_provenance") or STATIC_REFERENCE,
             "severity": pkg.get("severity"), "cvss": pkg.get("cvss"), "advisory_id": pkg.get("advisory_id"), "cve": pkg.get("cve"),
+            # Which standard produced a score, carried alongside the legacy
+            # scalar rather than merged into it: `cvss` ships byte-for-byte
+            # as before, so a consumer reading only that key sees exactly
+            # what it saw before. These three identify the preferred
+            # assessment -- the one PDF, Excel and CycloneDX show -- so no
+            # surface can be reading a different assessment from another.
+            "cvss_version": pkg.get("cvss_version"), "cvss_vector": pkg.get("cvss_vector"), "cvss_preferred_score": pkg.get("cvss_preferred_score"),
             "fixed_in": pkg.get("fixed_in"), "accepted_risk": pkg.get("accepted_risk"), "mitigation_status": pkg.get("mitigation_status"),
             "release_gate": pkg.get("release_gate"), "exploitability_decision": pkg.get("exploitability_decision"),
         },
