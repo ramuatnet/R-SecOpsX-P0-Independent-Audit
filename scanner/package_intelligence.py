@@ -546,6 +546,28 @@ def enrich_packages(packages: list[dict]) -> list[dict]:
     return [enrich_package(pkg) for pkg in packages]
 
 
+# Licence risk values that mean "permissive baseline, nothing to escalate".
+# `license_risk` is written by two stages with different casing -- this module
+# returns "High"/"Medium" while analysis.license_policy_engine writes "HIGH"/
+# "MEDIUM" -- so every comparison against it has to be case-insensitive.
+_NO_LICENSE_RISK_VALUES = frozenset({"", "LOW"})
+
+
+def license_risk_count(packages: list[dict]) -> int:
+    """Components whose licence risk sits above the permissive LOW baseline.
+
+    The previous predicate matched only ``{"Critical", "High"}``, so a
+    component carrying ``MEDIUM`` (an unknown or unclassified licence) was
+    never counted and the report published ``license_risks: 0`` alongside 48
+    components the same payload labelled ``MEDIUM``.
+    """
+    return sum(
+        1
+        for p in packages
+        if str(p.get("license_risk") or "").strip().upper() not in _NO_LICENSE_RISK_VALUES
+    )
+
+
 def build_package_summary(packages: list[dict]) -> dict:
     total = len(packages)
     direct = sum(1 for p in packages if p.get("is_direct"))
@@ -608,10 +630,7 @@ def build_package_summary(packages: list[dict]) -> dict:
             elif sev == "low":
                 low_cves += 1
 
-    license_risks = sum(
-        1 for p in packages
-        if p.get("license_risk") in {"Critical", "High"}
-    )
+    license_risks = license_risk_count(packages)
 
     return {
         "total_packages": total,

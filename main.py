@@ -38,7 +38,7 @@ from scanner.iac_terraform import scan_terraform
 from scanner.mlbom import generate_mlbom
 from scanner.iac_docker import scan_docker
 from scanner.compliance_mapper import enrich_compliance, compliance_summary, compliance_summary_detail
-from scanner.package_intelligence import enrich_report_payload
+from scanner.package_intelligence import enrich_report_payload, license_risk_count
 from scanner.dependency_intelligence import enrich_dependency_intelligence, dependency_summary
 from scanner.change_intelligence import enrich_report_payload_with_change_intelligence
 from scanner.changed_line_security import enrich_changed_line_findings
@@ -3213,6 +3213,19 @@ def main():
     payload["license_policy_summary"] = license_policy_summary(
         payload.get("sbom", [])
     )
+
+    # `sbom_summary.license_risks` was frozen at the package-intelligence
+    # step, which runs *before* enrich_license_policy rewrites `license_risk`.
+    # Recompute it from the final policy-enriched list so the summary, its
+    # `metadata` mirror and `license_policy_summary.risk_counts` cannot
+    # disagree (it previously read 0 while 48 components were MEDIUM).
+    _license_risk_count = license_risk_count(payload.get("sbom", []))
+    _sbom_summary = payload.get("sbom_summary")
+    if isinstance(_sbom_summary, dict):
+        _sbom_summary["license_risks"] = _license_risk_count
+    _metadata = payload.get("metadata")
+    if isinstance(_metadata, dict):
+        _metadata["license_risks"] = _license_risk_count
 
     # Final license reporting aggregation:
     # preserve resolver evidence counts, while exposing policy-stage review state.
