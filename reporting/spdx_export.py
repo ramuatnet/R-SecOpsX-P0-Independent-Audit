@@ -58,6 +58,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+from reporting.report_mappings import format_cvss_assessment
+
 SPDX_VERSION = "SPDX-2.3"
 SPDX_SCHEMA_URL = "https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json"
 SPDX_DATA_LICENSE = "CC0-1.0"
@@ -183,6 +185,44 @@ def _external_refs(pkg: dict, spdx_id: str) -> list[dict]:
     return refs
 
 
+def _cvss_assessment_bits(pkg: dict) -> list[str]:
+    """One self-contained clause naming the standard that scored a package.
+
+    SPDX 2.3 has no structured CVSS field, so this rides in the same
+    free-text annotation as the bare ``cvss:`` scalar.  It is deliberately a
+    single clause rather than separate version / score / vector fragments:
+    split apart, "cvss version: 4.0" would sit beside "cvss: 5.3" and a
+    reader would pair the version with the wrong number.  Kept whole, both
+    numbers survive and neither can be mis-read -- the ``cvss:`` scalar is
+    the payload's legacy value and is published here unchanged.
+
+    The score used is the preferred assessment's *own* score, never the
+    legacy one: pairing "CVSS 4.0" with a 3.1 number is the relabelling this
+    work exists to stop.  The version is the record's stated version and is
+    never inferred from the number -- 7.5 is a legal 3.1 score and a legal
+    4.0 score, and they come from different formulas.
+
+    Returns nothing when the record states neither a version nor a vector,
+    because there is then no standard to name.
+    """
+    raw_version = pkg.get("cvss_version")
+    version = None if raw_version is None else str(raw_version).strip()
+    # "UNKNOWN" and "None" are truthy *strings*; a bare `if version` would
+    # print "CVSS UNKNOWN" and read as though a version had been named.
+    if version in {None, "", "UNKNOWN", "None"}:
+        version = None
+    vector = str(pkg.get("cvss_vector") or "").strip()
+    if version is None and not vector:
+        return []
+
+    assessment = format_cvss_assessment(
+        version, pkg.get("cvss_preferred_score"), has_vulnerability=True
+    )
+    if vector:
+        return [f"cvss assessment: {assessment}, vector {vector}"]
+    return [f"cvss assessment: {assessment}"]
+
+
 def _package_annotations(pkg: dict, spdx_id: str) -> list[dict]:
     """Evidence annotations for a vulnerable component.
 
@@ -211,6 +251,9 @@ def _package_annotations(pkg: dict, spdx_id: str) -> list[dict]:
     cvss = pkg.get("cvss_score", pkg.get("cvss"))
     if cvss not in (None, ""):
         bits.append(f"cvss: {cvss}")
+    # Emitted only when the record states a version or a vector, so a
+    # package that carries no score at all still gets no "cvss" text.
+    bits.extend(_cvss_assessment_bits(pkg))
     reach = str(pkg.get("reachability_status") or "").strip()
     if reach:
         bits.append(f"reachability: {reach}")
