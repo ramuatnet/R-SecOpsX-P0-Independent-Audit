@@ -242,6 +242,8 @@ def _executive_ai_framework_summary(payload: dict) -> list:
     """
     from collections import Counter
 
+    from reporting.report_mappings import humanize_enum
+
     story = [Paragraph("AI & Secure-Development Framework Position", S["SubTitle"])]
 
     rows = [[Paragraph(h, S["TH"]) for h in ["Framework", "Position", "What it does not mean"]]]
@@ -252,9 +254,9 @@ def _executive_ai_framework_summary(payload: dict) -> list:
         total = align.get("total_practices", 0)
         observed = align.get("observed", 0)
         not_attestable = align.get("not_attestable", 0)
-        pos = f"{observed} of {total} practices OBSERVED on produced evidence; " \
-              f"{align.get('not_observed', 0)} NOT_OBSERVED; {not_attestable} " \
-              "NOT_ATTESTABLE_BY_A_SCANNER"
+        pos = f"{observed} of {total} practices observed on produced evidence; " \
+              f"{align.get('not_observed', 0)} {humanize_enum('NOT_OBSERVED')}; " \
+              f"{not_attestable} {humanize_enum('NOT_ATTESTABLE_BY_A_SCANNER')}"
         meaning = ("A low observed count is the expected result. SSDF describes "
                    "organisational and lifecycle practice; a source-code scan cannot "
                    "attest those in either direction, so they are recorded as "

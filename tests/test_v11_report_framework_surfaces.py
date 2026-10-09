@@ -260,8 +260,10 @@ def test_absent_decision_state_never_renders_as_a_pass():
     assert _decision_state_display(None) == _NOT_RECORDED
 
 
-def test_present_decision_state_renders_verbatim():
-    assert _decision_state_display({"decision_state": "REVIEW_REQUIRED"}) == "REVIEW_REQUIRED"
+def test_present_decision_state_renders_in_reader_wording():
+    # The stored value is a pipeline identifier; the reader gets wording.
+    assert _decision_state_display({"decision_state": "REVIEW_REQUIRED"}) == "Needs reviewer sign-off"
+    # An unrecognised value still renders as itself rather than being dropped.
     assert _decision_state_display({"decision_state": "CONFIRMED"}) == "CONFIRMED"
 
 
@@ -312,7 +314,7 @@ def test_findings_section_renders_all_three_decision_fields():
     assert "Decision State" in text
     assert "Reportable" in text
     assert "Evidence Valid" in text
-    assert "REVIEW_REQUIRED" in text
+    assert "Needs reviewer sign-off" in text
     assert "NO" in text
     assert "VALID" in text
     assert "INVALID" in text
@@ -419,7 +421,7 @@ def test_ssdf_section_names_the_not_attestable_bucket_as_the_honest_result():
     payload = {"ssdf_alignment": evaluate_ssdf_alignment(
         {"sbom": [1], "secret_intelligence_summary": {"total": 1}})}
     text = _pdf_text(_ssdf_alignment_section(payload))
-    assert "NOT_ATTESTABLE_BY_A_SCANNER" in text
+    assert "Not attestable by a scanner" in text
     assert "honest result" in text
     assert "can attest in either direction" in text
 
@@ -561,7 +563,7 @@ def test_ssdf_sheet_states_the_scope_caveats(workbooks, name):
     blob = " ".join(str(ws.cell(row=r, column=1).value)
                     for r in range(1, ws.max_row + 1)
                     if ws.cell(row=r, column=1).value)
-    assert "NOT_ATTESTABLE_BY_A_SCANNER" in blob
+    assert "Not attestable by a scanner" in blob
     assert "largest bucket" in blob
     assert "convert absence into assurance" in blob
 

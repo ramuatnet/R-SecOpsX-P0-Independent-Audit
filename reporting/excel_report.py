@@ -1861,9 +1861,9 @@ def _ssdf_sheet(ws, payload):
         f"Dataset: {align.get('dataset')}",
         f"Observed: {align.get('observed', 0)} of {align.get('total_practices', 0)} practices"
         + (f" ({', '.join(align.get('observed_ids') or [])})" if align.get("observed_ids") else ""),
-        f"NOT_OBSERVED: {align.get('not_observed', 0)}",
-        f"NOT_ATTESTABLE_BY_A_SCANNER: {align.get('not_attestable', 0)}",
-        "NOT_ATTESTABLE is the largest bucket by design. Those practices concern "
+        f"Not observed: {align.get('not_observed', 0)}",
+        f"Not attestable by a scanner: {align.get('not_attestable', 0)}",
+        "Not attestable is the largest bucket by design. Those practices concern "
         "organisation, process and release governance; a source-code scan cannot attest "
         "them in either direction, so they are neither passes nor failures.",
         "No practice identifier is attached to any finding. SSDF is a process framework; "

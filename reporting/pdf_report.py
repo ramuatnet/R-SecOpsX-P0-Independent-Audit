@@ -46,7 +46,7 @@ from core.config import TOOL_NAME, TOOL_FULL, CLASSIFICATION
 from pathlib import Path
 
 
-from reporting.report_mappings import clean_mojibake, normalize_fixed_versions, format_attack_path_label, normalize_report_insights
+from reporting.report_mappings import clean_mojibake, normalize_fixed_versions, format_attack_path_label, normalize_report_insights, humanize_enum
 # Attack-path records come in two shapes: the current one from
 # core/attack_graph.py (path/source/sink/attack_path_status) and the legacy
 # one still present in three corpus artifacts (steps/narrative/risk_score/
@@ -3034,8 +3034,9 @@ def _ssdf_alignment_section(payload):
 
     story.append(Paragraph(
         f"Observed {align.get('observed', 0)} of {align.get('total_practices', 0)} practices. "
-        f"NOT_OBSERVED {align.get('not_observed', 0)}. "
-        f"NOT_ATTESTABLE_BY_A_SCANNER {align.get('not_attestable', 0)} -- this last "
+        f"{humanize_enum('NOT_OBSERVED')} {align.get('not_observed', 0)}. "
+        f"{humanize_enum('NOT_ATTESTABLE_BY_A_SCANNER')} "
+        f"{align.get('not_attestable', 0)} -- this last "
         f"bucket is the majority of the catalogue and is the honest result: those "
         f"practices concern organisation, process and release governance, which no "
         f"source-code scan can attest in either direction.",
@@ -3058,9 +3059,12 @@ def _ssdf_alignment_section(payload):
                 ev_txt = "-- (no probe declared)"
 
             status = str(p.get("status") or "")
+            # The stored verdict is an identifier (NOT_ATTESTABLE_BY_A_SCANNER);
+            # the table column and the prose above it must read as words.
+            shown = humanize_enum(status)
             cell = Paragraph(
-                _safe_text(status) + (f": {_safe_text(p.get('rationale'))}"
-                                      if status != "OBSERVED" and p.get("rationale") else ""),
+                _safe_text(shown) + (f": {_safe_text(p.get('rationale'))}"
+                                     if status != "OBSERVED" and p.get("rationale") else ""),
                 S["TDSm"])
 
             rows.append([
@@ -3458,20 +3462,26 @@ _NOT_RECORDED = "NOT RECORDED"
 
 
 def _decision_state_display(finding) -> str:
-    """Render `decision_state` verbatim, or NOT RECORDED when absent."""
+    """Render `decision_state` in reader wording, or NOT RECORDED when absent.
+
+    The stored value is a pipeline identifier (`REVIEW_REQUIRED`), which used
+    to be printed verbatim into every finding card's Decision State field.
+    Known identifiers are humanised; anything unrecognised still renders as
+    itself, so a status introduced later is never silently swallowed.
+    """
     value = (finding or {}).get("decision_state")
 
     if isinstance(value, str):
 
         text = value.strip()
 
-        return text if text else _NOT_RECORDED
+        return humanize_enum(text) if text else _NOT_RECORDED
 
     if value is None:
 
         return _NOT_RECORDED
 
-    return str(value)
+    return humanize_enum(str(value))
 
 
 def _reportable_display(finding) -> str:
@@ -4355,7 +4365,7 @@ def _sbom_section(payload):
         if age_days not in (None, "", "--"):
 
 
-            age = f"{age_days}d" + (f" ({age_bucket})" if age_bucket else "")
+            age = f"{age_days}d" + (f" ({humanize_enum(age_bucket)})" if age_bucket else "")
 
 
         age = age or "Unknown"
@@ -4835,7 +4845,8 @@ def _licensing_section(payload):
         f"Unknown license components: <b>{summary.get('unknown_license_components', 0)}</b>. "
 
 
-        f"Existing policy summary status remains <b>{policy.get('summary_status', 'NOT_AVAILABLE')}</b>.",
+        f"Existing policy summary status remains "
+        f"<b>{humanize_enum(policy.get('summary_status') or 'NOT_AVAILABLE')}</b>.",
 
 
         S["Body"]))
@@ -4895,7 +4906,7 @@ def _licensing_section(payload):
             Paragraph(str(item.get("license_category") or "Unknown"),S["TDSm"]),
 
 
-            Paragraph(str(item.get("license_resolution_status") or "UNKNOWN"),S["TDSm"]),
+            Paragraph(humanize_enum(item.get("license_resolution_status") or "UNKNOWN"),S["TDSm"]),
 
 
             Paragraph(str(item.get("license_evidence_source") or "--"),S["TDSm"]),
@@ -5726,7 +5737,9 @@ def _bom_scalar_text(value) -> str:
         return ", ".join(part for part in (_bom_scalar_text(v) for v in value) if part)
     if isinstance(value, dict):
         return "; ".join(f"{k}={_bom_scalar_text(v)}" for k, v in value.items())
-    return str(value)
+    # Machine status identifiers (AUTH_HINT_PRESENT, MODEL_HINT, UNKNOWN, ...)
+    # are rendered as words here rather than shouted back at the reader.
+    return humanize_enum(value)
 
 
 def _bom_display_value(value, payload: dict) -> str:

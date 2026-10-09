@@ -521,6 +521,56 @@ def get_remediation_guidance(vuln_type: str, endpoint: str = None) -> list:
         return ['Perform coupon redemption atomically.', 'Enforce a unique redemption constraint per account/coupon.', 'Reject replayed redemption attempts.', 'Add concurrent redemption regression tests.']
     return REMEDIATION_BY_RULE.get(rule_key({'vuln_type': vuln_type}), [])
 
+# Machine-readable status identifiers belong in the payload, not in a
+# client-facing sentence: an assessor reading "REVIEW_REQUIRED",
+# "NOT_ATTESTABLE_BY_A_SCANNER" or "AUTH_HINT_NOT_OBSERVED" is looking at
+# pipeline internals, not at a result.  This map is deliberately explicit --
+# a value that is not listed is returned unchanged, so a status introduced
+# later renders as itself rather than being silently rewritten or dropped.
+STATUS_WORDING = {
+    # governance / decision state
+    'REVIEW_REQUIRED': 'Needs reviewer sign-off',
+    'APPROVE_WITH_CONDITIONS': 'Approve with conditions',
+    # SSDF practice verdicts
+    'OBSERVED': 'Observed',
+    'NOT_OBSERVED': 'Not observed',
+    'NOT_ATTESTABLE_BY_A_SCANNER': 'Not attestable by a scanner',
+    # licence resolution
+    'RESOLVED_FROM_CANONICAL_REPORT': 'Resolved from canonical report',
+    'NO_LICENSE_EVIDENCE': 'No licence evidence',
+    'CANONICAL_REPORT': 'Canonical report',
+    'RULE_BASED_LICENSE_POLICY_V1': 'Rule-based licence policy (v1)',
+    'QUALIFIED_RESOLVED_EVIDENCE': 'Qualified resolved evidence',
+    # API-BOM / ABOM field values
+    'AUTH_HINT_PRESENT': 'Present',
+    'AUTH_HINT_NOT_OBSERVED': 'Not observed',
+    'MODEL_HINT': 'Model hint',
+    'REGEX': 'Regex',
+    'STATIC_EVIDENCE': 'Static evidence',
+    'SOURCE_TEXT_PATTERN': 'Source text pattern',
+    # vulnerability age buckets
+    'LEGACY_HIGH_RISK': 'Legacy, high risk',
+    'RECENT': 'Recent',
+    'OLD': 'Old',
+    'NOT_APPLICABLE': 'Not applicable',
+    # generic null-ish values that otherwise render as shouted words
+    'NOT_AVAILABLE': 'Not available',
+    'UNKNOWN': 'Unknown',
+    'INFERRED_FROM_DISPLAY_NAME': 'Inferred from display name',
+}
+
+
+def humanize_enum(value) -> str:
+    """Return reader-facing wording for a known status identifier.
+
+    Any other value -- including ordinary data such as "MIT" or a rule id --
+    is returned untouched, so this can be applied at a render boundary
+    without needing to know which fields are enumerated.
+    """
+    text = str(value if value is not None else '').strip()
+    return STATUS_WORDING.get(text, text)
+
+
 def format_attack_path_label(is_confirmed: bool) -> str:
     return ('CONFIRMED — Source-to-sink evidence validated.' if is_confirmed else
             'PATTERN-ONLY — Candidate attack path. Manual validation is required before exploitability is established.')
