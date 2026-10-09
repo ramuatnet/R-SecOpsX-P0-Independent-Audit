@@ -1849,7 +1849,12 @@ _PEM_RE = re.compile(
     re.I | re.S,
 )
 _SECRET_ASSIGNMENT_RE = re.compile(
-    r"(?P<prefix>\b(?:password|passwd|secret|client[-_ ]secret|api[-_ ]?key|access[-_ ]?key|private[-_ ]?key|jwt[-_ ]?secret|token)\b\s*[:=]\s*)(?P<quote>['\"]?)(?!\[REDACTED)(?P<value>[^\s,'\";]+)(?P<endquote>['\"]?)",
+    # The guard skips any *already-redacted* bracketed marker, not just ones
+    # that literally start "[REDACTED": our own evidence builders emit
+    # "[HIGH-ENTROPY VALUE REDACTED]", "[SECRET MATERIAL REDACTED]" etc., and
+    # re-masking those turned "password=[HIGH-ENTROPY VALUE REDACTED]" into the
+    # unbalanced "password=[REDACTED SECRET] VALUE REDACTED]".
+    r"(?P<prefix>\b(?:password|passwd|secret|client[-_ ]secret|api[-_ ]?key|access[-_ ]?key|private[-_ ]?key|jwt[-_ ]?secret|token)\b\s*[:=]\s*)(?P<quote>['\"]?)(?!\[[^\[\]]*REDACTED)(?P<value>[^\s,'\";]+)(?P<endquote>['\"]?)",
     re.I,
 )
 
