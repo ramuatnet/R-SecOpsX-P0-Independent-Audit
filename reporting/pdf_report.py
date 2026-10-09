@@ -5395,7 +5395,7 @@ def _conclusion(payload):
         banner_tbl = Table(
 
 
-            [[Paragraph("[!] REMEDIATE BEFORE RELEASE [!]  NOT APPROVED", _s("BannerRemediate",
+            [[Paragraph("REMEDIATE BEFORE RELEASE: NOT APPROVED", _s("BannerRemediate",
 
 
                 fontName="Helvetica-Bold", fontSize=12,
@@ -5503,7 +5503,7 @@ def _conclusion(payload):
         banner_tbl = Table(
 
 
-            [[Paragraph("[!] SECURITY REVIEW REQUIRED [!] NOT APPROVED", _s("BannerReview",
+            [[Paragraph("SECURITY REVIEW REQUIRED: NOT APPROVED", _s("BannerReview",
 
 
                 fontName="Helvetica-Bold", fontSize=12,
@@ -5713,7 +5713,7 @@ def _conclusion(payload):
         banner_tbl = Table(
 
 
-            [[Paragraph("[!] CONDITIONAL RELEASE", _s("BannerConditional",
+            [[Paragraph("CONDITIONAL RELEASE", _s("BannerConditional",
 
 
                 fontName="Helvetica-Bold", fontSize=12,
