@@ -150,19 +150,33 @@ def test_dependency_cell_renders_a_legacy_payload_that_has_no_version_keys():
     assert cells == ["CVSS version unknown — 5.3"]
 
 
-def test_dependency_table_still_totals_exactly_the_frame():
-    """Widening CVSS by shaving Type and Reachable must not drift the total."""
+def test_sbom_table_still_totals_exactly_the_frame():
+    """Re-funding the broken header columns must not drift the total.
+
+    Renamed: it matched on `3.08*cm`, which is the 10-column *SBOM* table, so
+    the old name pointed at the dependency table while testing the SBOM one.
+
+    Type and Reachable had been cut to 0.70 and 1.15cm to widen CVSS, but a
+    column must hold its widest unbreakable token including the header word,
+    and "Type" and "Reachable" have no space to wrap at -- they rendered as a
+    broken label. Re-funding them takes CVSS back to its measured 1.71cm and
+    Advisory to its measured 2.99cm; Package, the column this test has always
+    guarded against shaving, ends up 0.02cm *wider*. Every value below is
+    that column's own widest token plus padding, so nothing that fit before
+    wraps now -- tests/test_pdf_column_geometry.py asserts that directly and
+    across every other table in the report.
+    """
     src = PDF_SOURCE.read_text(encoding="utf-8-sig")
-    m = re.search(r"colWidths=\[([^\]]*3\.08\*cm[^\]]*)\]", src)
-    assert m, "dependency colWidths not found"
+    m = re.search(r"colWidths=\[([^\]]*3\.10\*cm[^\]]*)\]", src)
+    assert m, "SBOM colWidths not found"
     body = re.sub(r"#[^\n]*", "", m.group(1)).replace("\n", " ")
     widths = [float(x.replace("*cm", "").strip())
               for x in body.split(",") if x.strip()]
     assert len(widths) == DEP_NCOLS
     assert abs(sum(widths) - 17.40) < 1e-6, sum(widths)
-    assert widths[0] == 3.08, "Package column must not be shaved"
-    assert widths[3] == 3.04, "Advisory column must not be shaved"
-    assert widths[4] == 2.04, "CVSS column should be 2.04cm"
+    assert widths[0] == 3.10, "Package column must not be shaved"
+    assert widths[3] == 2.99, "Advisory must not be shaved past its measured 2.99cm"
+    assert widths[4] == 1.71, "CVSS column should be 1.71cm"
 
 
 def test_dependency_section_explains_the_new_cell():

@@ -1679,12 +1679,22 @@ def _sca_remediation_priority_section(payload):
     table = Table(
         rows,
         colWidths=[
-            1.55*cm, 2.75*cm, 1.35*cm, 3.35*cm,
-            # CVSS widened 1.0 -> 2.0cm out of this table's 2.0cm of slack
-            # (15.4cm of columns in a 17.4cm frame) so the cell can carry
-            # "CVSS 4.0 — 6.9" instead of a bare number whose version is
-            # anyone's guess.
-            2.0*cm, 0.9*cm, 1.65*cm, 2.85*cm
+            # A column must hold its widest unbreakable token, and the
+            # header word counts: reportlab wraps only at spaces, so at
+            # 1.35 / 0.90 / 1.65 cm the three labels rendered as
+            # "Versio n", "EP SS" and "Reachab le".  Widths are
+            # stringWidth(token, Helvetica-Bold 8pt) + 6pt each side,
+            # measured against this payload:
+            #   Version   29.34+12 = 41.34pt = 1.46cm
+            #   EPSS      21.34+12 = 33.34pt = 1.18cm  (its 0.085 cell
+            #             needs 1.13cm, so the header binds)
+            #   Reachable 40.02+12 = 52.02pt = 1.84cm
+            # This table was leaving 1.00cm unused (16.40 of the 17.40cm
+            # frame); the three of them spend it, which fills the frame
+            # exactly.  CVSS keeps the 2.0cm it needs to carry
+            # "CVSS 4.0 — 6.9", and no other column moves.
+            1.55*cm, 2.75*cm, 1.60*cm, 3.35*cm,
+            2.0*cm, 1.29*cm, 2.01*cm, 2.85*cm
         ],
         repeatRows=1,
         splitByRow=1
@@ -3345,7 +3355,14 @@ def _ssdf_alignment_section(payload):
                 Paragraph(str(len(ev)), S["TDSm"]),
             ])
 
-        t = Table(rows, colWidths=[4.4 * cm, 1.5 * cm, 5.6 * cm, 4.7 * cm, 1 * cm],
+        # "Findings" was 1.00cm against a 1.60cm requirement, so the header
+        # rendered as two broken halves.  reportlab wraps only at spaces and
+        # "Findings" has none: stringWidth(Helvetica-Bold 8pt) + 6pt/side =
+        # 33.34 + 12 = 45.34pt = 1.60cm.  The 0.60cm comes half from the
+        # 0.20cm this table left unused and half from "Status", which holds
+        # prose that wraps at spaces either way.  Total 17.40cm, exactly the
+        # frame.  The column's own cells are counts, so nothing else moves.
+        t = Table(rows, colWidths=[4.4 * cm, 1.5 * cm, 5.2 * cm, 4.7 * cm, 1.6 * cm],
                   repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), DARK_BLUE),
@@ -4719,13 +4736,26 @@ def _sbom_section(payload):
 
 
     # Widest table in the report and it must still total exactly the 17.4cm
-    # frame. The CVSS cell now names a version as well as a score, so it
-    # needs 1.14 -> 2.04cm; that comes out of "Type" (1.0 -> 0.7, which holds
-    # a single D or T) and "Reachable" (1.75 -> 1.15, which holds Yes or No).
-    # Package and advisory columns are never shaved - breaking a token there
-    # hurts far more than a wrapped score.  3.08+1.49+0.7+3.04+2.04+1.13+1.5+
-    # 1.64+1.15+1.63 = 17.40cm, unchanged.
-    t=Table(rows,colWidths=[3.08*cm,1.49*cm,0.7*cm,3.04*cm,2.04*cm,1.13*cm,1.5*cm,1.64*cm,1.15*cm,1.63*cm],
+    # frame.  The CVSS cell now names a version as well as a score, so it
+    # needs 1.14 -> 1.71cm.
+    #
+    # A column has to hold its widest unbreakable token, and that includes
+    # the HEADER word: reportlab wraps a Paragraph only at spaces, so
+    # "Type" and "Reachable" (no space in either) were force-split into
+    # "Type" mid-word and "Reachab le" when those columns were set from
+    # their data alone -- a one-character cell does not make a
+    # one-character label.  Every width below is now
+    #
+    #     stringWidth(widest token, that cell's own font, size) + 4pt + 4pt
+    #
+    # measured with pdfmetrics against the shipped payload (this table was
+    # forked to 4pt/side padding by H1; other tables keep reportlab's 6pt).
+    # The two headers that broke cost 0.95 and 1.70cm; they are paid for by
+    # returning the other columns to their own measured requirement rather
+    # than by shaving them further -- no token that fits today starts
+    # wrapping, and "Package" gains 0.02cm.  3.10+1.42+0.95+2.99+1.71+1.04+
+    # 1.46+1.56+1.70+1.47 = 17.40cm.
+    t=Table(rows,colWidths=[3.10*cm,1.42*cm,0.95*cm,2.99*cm,1.71*cm,1.04*cm,1.46*cm,1.56*cm,1.70*cm,1.47*cm],
 
 
             repeatRows=1, splitByRow=1)
