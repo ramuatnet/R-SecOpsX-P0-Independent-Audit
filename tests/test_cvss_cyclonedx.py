@@ -197,9 +197,21 @@ def test_no_rating_still_claims_cvssv3_by_default():
     assert '"3.0": "CVSSv3"' in src
 
 
-def test_file_stays_lf_only_with_no_bom():
-    """HEAD's blob for this file is pure LF with no BOM; the edit tool wrote
-    CRLF on insertion, so the repair is asserted rather than assumed."""
+def test_file_has_no_bom_and_no_mixed_line_endings():
+    """HEAD's blob for this file carries no BOM, and it must not be half-LF
+    and half-CRLF: the edit tool wrote CRLF on insertion into a pure-LF file,
+    and a mixed file is what breaks tooling that reads it byte-wise.
+
+    This is deliberately NOT an assertion that there are no CR bytes. This
+    repo has core.autocrlf=true and no .gitattributes, so a fresh checkout
+    writes CRLF for every file -- a literal "no CR" test would fail on a
+    clean clone while the file was perfectly healthy. Consistency is the
+    real property, and it survives checkout.
+    """
     raw = CDX_SOURCE.read_bytes()
-    assert not raw.startswith(b"\xef\xbb\xbf")
-    assert b"\r" not in raw
+    assert not raw.startswith(b"\xef\xbb\xbf"), "no BOM may appear"
+    crlf = raw.count(b"\r\n")
+    bare_lf = raw.count(b"\n") - crlf
+    assert not (crlf and bare_lf), (
+        f"mixed line endings: {crlf} CRLF vs {bare_lf} bare LF"
+    )
