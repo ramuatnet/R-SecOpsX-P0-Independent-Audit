@@ -100,7 +100,7 @@ from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate, NextPageTemplate,
 
 
-    Paragraph, Spacer, Table, TableStyle, PageBreak,
+    Paragraph, Spacer, Table, TableStyle, PageBreak, CondPageBreak,
 
 
     HRFlowable, Image, KeepTogether,
@@ -4227,6 +4227,17 @@ def _findings_section(payload):
 
 
         items+=[desc_tbl,ev_tbl,rem_tbl,Spacer(1,0.5*cm)]
+
+
+        # L5: a card header landing in the last centimetre of a page leaves the
+        # reader with a title bar and no finding -- the body starts on the next
+        # page.  KeepTogether was the wrong instrument here: pinning the header
+        # to the metadata table reserves that table's full height, so every
+        # page with less than ~7cm free was abandoned (232 -> 253 pages) and in
+        # a short document the pair was dropped altogether.  A conditional break
+        # instead only asks for room for the header and the line that names the
+        # file, and leaves the rest of the card free to flow.
+        story.append(CondPageBreak(3*cm))
 
 
         story.extend(items)
