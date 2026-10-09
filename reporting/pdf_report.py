@@ -1599,7 +1599,7 @@ def _top_root_causes_section(payload):
     rows = [[Paragraph(h, S["TH"]) for h in
 
 
-             ["#", "Vulnerability", "Severity", "Occurrences", "Files Affected", "Age", "Risk Score"]]]
+             ["#", "Vulnerability", "Severity", "Occurrences", "Files Affected", "Risk Score"]]]
 
 
 
@@ -1623,18 +1623,10 @@ def _top_root_causes_section(payload):
         risk_str   = f"{risk}" if risk else "N/A"
 
 
-        age_days = f.get("vulnerability_age_days")
-
-
-        age_bucket = f.get("vulnerability_age_bucket")
-
-
-        age_str = (f"{age_days}d" + (f" ({age_bucket})" if age_bucket else "")) if age_days not in (None, "", "--") else str(f.get("vulnerability_age") or "--")
-
-
-
-
-
+        # A root cause is a *class* of vulnerability spanning findings from
+        # different introduction dates, and the payload carries no age for it
+        # (top_root_causes entries have no vulnerability_age* field at all),
+        # so the old Age column rendered "--" on every single row.
         sev_para = Paragraph(sev, _s(f"SevR{i}", fontName="Helvetica-Bold",
 
 
@@ -1662,9 +1654,6 @@ def _top_root_causes_section(payload):
             Paragraph(str(files),          S["TDC"]),
 
 
-            Paragraph(str(age_str),         S["TDC"]),
-
-
             Paragraph(risk_str,            S["TDC"]),
 
 
@@ -1674,7 +1663,9 @@ def _top_root_causes_section(payload):
 
 
 
-    t = Table(rows, colWidths=[0.8*cm, 5.8*cm, 2.3*cm, 2.2*cm, 2.2*cm, 2.0*cm, 1.5*cm])
+    # Six columns now that Age is gone; its 2.0cm goes to the title, which is
+    # the only column that actually wraps.
+    t = Table(rows, colWidths=[0.8*cm, 7.8*cm, 2.3*cm, 2.2*cm, 2.2*cm, 1.5*cm])
 
 
     cmds = [
