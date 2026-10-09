@@ -4406,18 +4406,25 @@ def _sbom_section(payload):
     advisory_count = int((payload.get("metadata", {}) or {}).get("advisory_count", 0) or 0)
 
 
+    # L6: the two counters were printed side by side whether or not they
+    # differed, so a target where every advisory carries exactly one CVE read
+    # "13 unique CVEs and 13 advisory records" -- one population described
+    # twice under two nouns, which invites the reader to go looking for 26
+    # things.  Only name the advisory records when they really are another
+    # number; on this corpus cve_count == advisory_count == 13 and the payload
+    # has 13 top_cves rows carrying 13 distinct CVE ids.
+    _cve_sentence = f"{cve_count} unique CVEs"
+    if advisory_count and advisory_count != cve_count:
+        _cve_sentence += f" across {advisory_count} advisory records"
+    _cve_sentence += " were identified. "
+
+
     story.append(Paragraph(
 
 
         f"<b>{len(vuln_deps)} of {len(sbom)} packages have known vulnerabilities</b>; "
-
-
-        f"{cve_count} unique CVEs and {advisory_count} advisory records were identified. "
-
-
+        + _cve_sentence +
         f"<b>{len(reachable)} of {len(vuln_deps)} vulnerable packages are reachable</b> "
-
-
         "in the scanned application context.",S["Body"]))
 
 
