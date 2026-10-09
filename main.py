@@ -1632,6 +1632,7 @@ def _build_dependency_reporting_views(payload: dict) -> None:
             "cvss_version": pkg.get("cvss_version") or "UNKNOWN",
             "cvss_vector": pkg.get("cvss_vector"),
             "cvss_source": pkg.get("cvss_source") or "UNKNOWN",
+            "cvss_preferred_score": pkg.get("cvss_preferred_score"),
             "cvss_available": pkg.get("cvss_available", pkg.get("cvss") is not None),
             "severity": pkg.get("severity"),
             "fixed_in": pkg.get("fixed_in") or pkg.get("fixed_versions"),

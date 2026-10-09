@@ -7,7 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.parse import quote
 
-from scanner.vulnerability_intel import extract_cvss_metadata
+from scanner.vulnerability_intel import extract_cvss_metadata, preferred_cvss_score
 
 
 LICENSE_RISK = {
@@ -201,6 +201,12 @@ def _normalize_vulnerability_record(raw: dict) -> dict:
         "cve": cve,
         "cvss_version": cvss_metadata["cvss_version"],
         "cvss_vector": cvss_metadata["cvss_vector"],
+        # The primary assessment's own score, never a sibling assessment's.
+        # `cvss` above is left exactly as it was: severity and risk keep
+        # reading the legacy scalar while the report reads this one.
+        "cvss_preferred_score": preferred_cvss_score(
+            cvss_metadata["cvss_version"], cvss_metadata["cvss_vector"], cvss
+        ),
         "cvss_alternate_assessments": (
             raw.get("cvss_alternate_assessments") or []
         ),
@@ -539,6 +545,13 @@ def enrich_package(pkg: dict) -> dict:
         primary.get("cvss_vector")
         if primary and primary.get("cvss_vector")
         else item.get("cvss_vector")
+    )
+    # Recomputed from the package's own (primary-derived) fields rather than
+    # copied, so a 4.0 primary can never inherit a 3.1 sibling's number. Not
+    # written as `primary.get(...) or item.get(...)`: 0.0 is a real CVSS
+    # score and bare truthiness would silently discard it.
+    item["cvss_preferred_score"] = preferred_cvss_score(
+        item.get("cvss_version"), item.get("cvss_vector"), item.get("cvss")
     )
     item["cvss_alternate_assessments"] = (
         primary.get("cvss_alternate_assessments")
