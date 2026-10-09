@@ -1540,6 +1540,162 @@ def _sec(title,level=1):
 
 
 
+def _sca_remediation_priority_section(payload):
+    """Render Critical and High SCA packages separately from SAST root causes."""
+    sbom = payload.get("sbom") or []
+    candidates = []
+    seen = set()
+
+    for pkg in sbom:
+        if not isinstance(pkg, dict):
+            continue
+
+        severity = str(
+            pkg.get("severity")
+            or pkg.get("highest_vulnerability_severity")
+            or ""
+        ).strip().title()
+
+        if severity not in {"Critical", "High"}:
+            continue
+
+        ids = list(pkg.get("cve_list") or [])
+        advisories = list(pkg.get("advisory_ids") or [])
+        ids += [x for x in advisories if x not in ids]
+
+        if not ids:
+            single = pkg.get("cve") or pkg.get("advisory_id")
+            if single:
+                ids = [single]
+
+        if not (
+            pkg.get("vulnerabilities") or ids
+            or pkg.get("cve") or pkg.get("advisory_id")
+        ):
+            continue
+
+        name = str(pkg.get("name") or pkg.get("purl") or "Unknown package")
+        version = str(pkg.get("version") or "--")
+
+        # Deduplicate identical package/version/vulnerability records only.
+        key = (
+            str(pkg.get("purl") or name).lower(),
+            version.lower(),
+            tuple(sorted(str(x).upper() for x in ids))
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+
+        epss = pkg.get("epss_score", pkg.get("epss"))
+        try:
+            epss = f"{float(epss):.3f}" if epss is not None else "--"
+        except (TypeError, ValueError):
+            epss = str(epss) if epss else "--"
+
+        cvss = pkg.get("cvss")
+        if cvss in (None, ""):
+            cvss = pkg.get("cvss_score", "--")
+
+        reachable = (
+            pkg.get("reachability_priority") == "REACHABLE_VULNERABLE"
+            or pkg.get("reachable") is True
+            or str(pkg.get("reachability_status") or "").upper() == "REACHABLE"
+        )
+
+        fixed = pkg.get("fixed_versions") or pkg.get("fixed_in") or "--"
+        if isinstance(fixed, (list, tuple)):
+            fixed = ", ".join(str(x) for x in fixed[:3]) or "--"
+
+        candidates.append({
+            "severity": severity,
+            "name": name,
+            "version": version,
+            "ids": ", ".join(str(x) for x in ids[:5]) or "See advisory",
+            "cvss": str(cvss),
+            "epss": epss,
+            "reachable": "Yes" if reachable else "No / Unknown",
+            "fixed": str(fixed),
+        })
+
+    candidates.sort(key=lambda x: (
+        0 if x["severity"] == "Critical" else 1,
+        x["name"].lower(),
+        x["version"]
+    ))
+
+    story = _sec("Critical and High Remediation Priorities", level=2)
+    story.append(Paragraph(
+        "Vulnerable dependency packages are listed separately from SAST root "
+        "causes. 'No / Unknown' reachability does not prove a vulnerability "
+        "is unreachable.",
+        S["BodySmall"]
+    ))
+
+    critical = sum(x["severity"] == "Critical" for x in candidates)
+    high = sum(x["severity"] == "High" for x in candidates)
+
+    story.append(Paragraph(
+        f"<b>{critical}</b> Critical and <b>{high}</b> High "
+        "package records in this section. These are package records, "
+        "not unique CVE counts.",
+        S["Body"]
+    ))
+
+    if not candidates:
+        story.append(Paragraph(
+            "No Critical or High vulnerable dependency records were found "
+            "in the SBOM payload.",
+            S["Body"]
+        ))
+        return story
+
+    headers = [
+        "Severity", "Package", "Version", "CVE / Advisory",
+        "CVSS", "EPSS", "Reachable", "Fixed In"
+    ]
+    rows = [[Paragraph(html.escape(x), S["TH"]) for x in headers]]
+
+    for item in candidates:
+        rows.append([
+            Paragraph(html.escape(item["severity"]), S["TDC"]),
+            Paragraph(html.escape(item["name"]), S["TDSm"]),
+            Paragraph(html.escape(item["version"]), S["TDC"]),
+            Paragraph(html.escape(item["ids"]), S["TDSm"]),
+            Paragraph(html.escape(item["cvss"]), S["TDC"]),
+            Paragraph(html.escape(item["epss"]), S["TDC"]),
+            Paragraph(html.escape(item["reachable"]), S["TDC"]),
+            Paragraph(html.escape(item["fixed"]), S["TDSm"]),
+        ])
+
+    table = Table(
+        rows,
+        colWidths=[
+            1.55*cm, 2.75*cm, 1.35*cm, 3.35*cm,
+            1.0*cm, 0.9*cm, 1.65*cm, 2.85*cm
+        ],
+        repeatRows=1,
+        splitByRow=1
+    )
+
+    commands = [
+        ("BACKGROUND", (0, 0), (-1, 0), DARK_BLUE),
+        ("GRID", (0, 0), (-1, -1), 0.4, GREY_MED),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT_BLUE]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+
+    for row_index, item in enumerate(candidates, start=1):
+        color = RED if item["severity"] == "Critical" else ORANGE
+        commands.append(("BACKGROUND", (0, row_index), (0, row_index), color))
+
+    table.setStyle(TableStyle(commands))
+    story.append(table)
+    story.append(Spacer(1, 0.3*cm))
+    return story
+
 def _top_root_causes_section(payload):
 
 
@@ -6712,6 +6868,8 @@ def _build_pdf_story(payload: dict, logo_path: str | None = None, page_map: dict
 
 
     story.append(_TocBookmark("Top Root Causes")); story += _top_root_causes_section(payload)
+
+    story += _sca_remediation_priority_section(payload)
 
 
     story.append(NextPageTemplate("Compliance")); story.append(PageBreak())
