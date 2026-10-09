@@ -5709,6 +5709,22 @@ def _conclusion(payload):
 
 
 
+# Booleans and collections must never reach a client-facing table through
+# str(): the ABOM/API-BOM sections printed 50 bare "True"/"False" and 412
+# Python list reprs ("[':id']", "['POST']") that way.
+def _bom_scalar_text(value) -> str:
+    """Render one BOM value without leaking Python repr syntax."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(part for part in (_bom_scalar_text(v) for v in value) if part)
+    if isinstance(value, dict):
+        return "; ".join(f"{k}={_bom_scalar_text(v)}" for k, v in value.items())
+    return str(value)
+
+
 def _bom_display_value(value, payload: dict) -> str:
 
 
@@ -5718,7 +5734,7 @@ def _bom_display_value(value, payload: dict) -> str:
     import os, re, html
 
 
-    text = "" if value is None else str(value)
+    text = _bom_scalar_text(value)
 
 
     if not text:
