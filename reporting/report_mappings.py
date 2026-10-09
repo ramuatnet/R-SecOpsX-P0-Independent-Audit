@@ -571,6 +571,60 @@ def humanize_enum(value) -> str:
     return STATUS_WORDING.get(text, text)
 
 
+# Tokens meaning "no version was established". Matched explicitly because
+# "UNKNOWN" is a truthy string: `if version` would happily print
+# "CVSS UNKNOWN — 7.5", which reads as though a version had been named.
+_CVSS_NO_VERSION = {"", "UNKNOWN", "NONE", "N/A", "NA", "NULL", "-"}
+
+
+def _cvss_number(score):
+    """A CVSS base score as a float, or None when the value is not one."""
+    if isinstance(score, bool) or score is None:
+        return None
+    if isinstance(score, (int, float)):
+        value = float(score)
+    else:
+        try:
+            value = float(str(score).strip())
+        except (TypeError, ValueError):
+            return None
+    return value if 0.0 <= value <= 10.0 else None
+
+
+def format_cvss_assessment(version, score, has_vulnerability: bool = True) -> str:
+    """Reader-facing CVSS cell: which version spoke, and what it said.
+
+    All five outcomes come from real advisory data:
+
+      --                                  nothing to score here
+      CVSS 4.0 — 6.9                      version and score agree
+      CVSS version unknown — 7.5          a number published with no version
+      CVSS 4.0 — score unavailable        a version with no score for it
+      CVSS score unavailable              neither
+
+    The last two must not collapse into "--": "--" means no vulnerability
+    exists, whereas "score unavailable" means one does and its severity is
+    simply not published. Conflating them would understate a real finding.
+    """
+    if not has_vulnerability:
+        return "--"
+
+    if version is None:
+        text = ""
+    else:
+        text = str(version).strip().upper().removeprefix("CVSS:").strip()
+    stated = text not in _CVSS_NO_VERSION
+    value = _cvss_number(score)
+
+    if stated and value is not None:
+        return f"CVSS {text} — {value:.1f}"
+    if value is not None:
+        return "CVSS version unknown — {0:.1f}".format(value)
+    if stated:
+        return f"CVSS {text} — score unavailable"
+    return "CVSS score unavailable"
+
+
 def format_attack_path_label(is_confirmed: bool) -> str:
     return ('CONFIRMED — Source-to-sink evidence validated.' if is_confirmed else
             'PATTERN-ONLY — Candidate attack path. Manual validation is required before exploitability is established.')
