@@ -46,7 +46,7 @@ from core.config import TOOL_NAME, TOOL_FULL, CLASSIFICATION
 from pathlib import Path
 
 
-from reporting.report_mappings import clean_mojibake, normalize_fixed_versions, format_attack_path_label, normalize_report_insights, humanize_enum
+from reporting.report_mappings import clean_mojibake, normalize_fixed_versions, format_attack_path_label, format_cvss_assessment, normalize_report_insights, humanize_enum
 # Attack-path records come in two shapes: the current one from
 # core/attack_graph.py (path/source/sink/attack_path_status) and the legacy
 # one still present in three corpus artifacts (steps/narrative/risk_score/
@@ -1593,9 +1593,17 @@ def _sca_remediation_priority_section(payload):
         except (TypeError, ValueError):
             epss = str(epss) if epss else "--"
 
-        cvss = pkg.get("cvss")
-        if cvss in (None, ""):
-            cvss = pkg.get("cvss_score", "--")
+        # Which standard spoke, and what it said. The legacy `cvss` scalar
+        # drives severity and risk, so it is deliberately not what this
+        # column prints: where the primary assessment is CVSS 4.0 the number
+        # beside it has to be 4.0's own score, not its 3.1 sibling's.
+        score = pkg.get("cvss_preferred_score")
+        if score is None:
+            # Both keys are written by the same enrichment pass. A missing
+            # preferred score means the record claimed no version, so the
+            # legacy scalar is the only number there is.
+            score = pkg.get("cvss")
+        cvss = format_cvss_assessment(pkg.get("cvss_version"), score)
 
         reachable = (
             pkg.get("reachability_priority") == "REACHABLE_VULNERABLE"
@@ -1672,7 +1680,11 @@ def _sca_remediation_priority_section(payload):
         rows,
         colWidths=[
             1.55*cm, 2.75*cm, 1.35*cm, 3.35*cm,
-            1.0*cm, 0.9*cm, 1.65*cm, 2.85*cm
+            # CVSS widened 1.0 -> 2.0cm out of this table's 2.0cm of slack
+            # (15.4cm of columns in a 17.4cm frame) so the cell can carry
+            # "CVSS 4.0 — 6.9" instead of a bare number whose version is
+            # anyone's guess.
+            2.0*cm, 0.9*cm, 1.65*cm, 2.85*cm
         ],
         repeatRows=1,
         splitByRow=1
@@ -4653,6 +4665,23 @@ def _sbom_section(payload):
         fixed = _v17923_fixed_text(pkg)
 
 
+        # Same predicate the section's own vulnerability count uses, so a
+        # cell can never claim a vulnerability the prose did not count, nor
+        # omit one that it did.
+        has_vulnerability = bool(
+            pkg.get("vulnerabilities") or pkg.get("cve") or pkg.get("advisory_id")
+        )
+        score = pkg.get("cvss_preferred_score")
+        if score is None:
+            # Both keys are written by the same enrichment pass. A missing
+            # preferred score means the record claimed no version, so the
+            # legacy scalar is the only number there is.
+            score = pkg.get("cvss")
+        cvss_cell = html.escape(format_cvss_assessment(
+            pkg.get("cvss_version"), score, has_vulnerability
+        ))
+
+
         rows.append([
 
 
@@ -4668,7 +4697,7 @@ def _sbom_section(payload):
             Paragraph(str(id_str), S["TDSm"]),
 
 
-            Paragraph(str(pkg.get("cvss") or "--"), S["TDC"]),
+            Paragraph(cvss_cell, S["TDC"]),
 
 
             Paragraph(epss_str, S["TDC"]),
@@ -4689,7 +4718,14 @@ def _sbom_section(payload):
         ])
 
 
-    t=Table(rows,colWidths=[3.08*cm,1.49*cm,1.0*cm,3.04*cm,1.14*cm,1.13*cm,1.5*cm,1.64*cm,1.75*cm,1.63*cm],
+    # Widest table in the report and it must still total exactly the 17.4cm
+    # frame. The CVSS cell now names a version as well as a score, so it
+    # needs 1.14 -> 2.04cm; that comes out of "Type" (1.0 -> 0.7, which holds
+    # a single D or T) and "Reachable" (1.75 -> 1.15, which holds Yes or No).
+    # Package and advisory columns are never shaved - breaking a token there
+    # hurts far more than a wrapped score.  3.08+1.49+0.7+3.04+2.04+1.13+1.5+
+    # 1.64+1.15+1.63 = 17.40cm, unchanged.
+    t=Table(rows,colWidths=[3.08*cm,1.49*cm,0.7*cm,3.04*cm,2.04*cm,1.13*cm,1.5*cm,1.64*cm,1.15*cm,1.63*cm],
 
 
             repeatRows=1, splitByRow=1)
@@ -4739,6 +4775,28 @@ def _sbom_section(payload):
         "<b>Type:</b> D = declared directly in a manifest "
         "(dependencies / devDependencies); T = transitive, pulled in by "
         "another dependency.",
+        S["BodySmall"]))
+
+
+    story.append(Spacer(1, 0.1*cm))
+
+
+    # The CVSS column names the standard that produced its number, so the
+    # reader needs to know why two cells in it can look like the same
+    # admission and mean opposite things: a dash denies the finding exists,
+    # "score unavailable" affirms it does and declines to rate it. Without
+    # this, a missing score reads as a clean result.
+    story.append(Paragraph(
+        "<b>CVSS:</b> the version and score of the advisory's preferred "
+        "assessment - where an advisory publishes both a 4.0 and a 3.x "
+        "assessment of the same flaw, 4.0 is shown and each assessment "
+        "keeps its own score, so the number beside a version label is "
+        "always that version's number. <i>version unknown</i> means the "
+        "source published a score without saying which standard produced "
+        "it, and no version has been guessed from the number. "
+        "<i>score unavailable</i> means the vulnerability exists but no "
+        "score is published for it - it is not an absence of risk. "
+        "<b>--</b> means no vulnerability was recorded against that package.",
         S["BodySmall"]))
 
 
