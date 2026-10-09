@@ -245,9 +245,12 @@ def _is_terraform_file(text: str, path: Path) -> bool:
 
 def _report_path(file_path: Path, target_root: Path) -> str:
     try:
-        return str(Path(target_root.name) / file_path.relative_to(target_root))
+        # as_posix(): report paths are a display contract.  str(Path(...)) uses
+        # the OS separator, so on Windows this table showed bare names,
+        # "a/b" paths and "a\b" paths side by side.
+        return (Path(target_root.name) / file_path.relative_to(target_root)).as_posix()
     except Exception:
-        return str(file_path)
+        return str(file_path).replace("\\", "/")
 
 
 def _priority(severity: str) -> str:

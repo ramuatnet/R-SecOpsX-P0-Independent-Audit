@@ -228,9 +228,12 @@ def _finding(
     target_root: Path,
 ) -> dict[str, Any]:
     try:
-        rel_path = str(Path(target_root.name) / file_path.relative_to(target_root))
+        # as_posix(): report paths are a display contract.  str(Path(...)) uses
+        # the OS separator, so on Windows this table showed bare names,
+        # "a/b" paths and "a\b" paths side by side.
+        rel_path = (Path(target_root.name) / file_path.relative_to(target_root)).as_posix()
     except Exception:
-        rel_path = str(file_path)
+        rel_path = str(file_path).replace("\\", "/")
 
     severity = rule["severity"]
     absolute_path = str(file_path.resolve())
