@@ -37,6 +37,7 @@ from reporting.report_mappings import (
     clean_mojibake,
     normalize_fixed_versions,
     format_attack_path_label,
+    format_cvss_assessment,
     normalize_report_insights,
 )
 
@@ -117,6 +118,24 @@ def _first_value(pkg, *keys, default="--"):
         if val not in (None, "", [], {}, "Unknown"):
             return val
     return default
+
+
+def _cvss_cell(pkg, has_vulnerability=True):
+    """Version + score of the package's preferred CVSS assessment.
+
+    ``cvss_preferred_score`` is the primary assessment's own score. The
+    legacy ``cvss`` scalar is a fallback for payloads written before that
+    key existed -- those carry no version either, so the cell reads
+    "version unknown" instead of inventing one. Where a record does state a
+    version it always has a preferred score alongside it, the two written by
+    the same enrichment pass, so they cannot disagree.
+    """
+    score = pkg.get("cvss_preferred_score")
+    if score is None:
+        score = _first_value(pkg, "cvss", "cvss_score", default=None)
+    return format_cvss_assessment(
+        pkg.get("cvss_version"), score, has_vulnerability
+    )
 
 
 def _is_reachable_vulnerable(pkg):
@@ -761,7 +780,9 @@ def _sbom(ws, payload):
         "Published Date", "Age Days", "Age Bucket", "Fixed Version", "Description",
         "Vulnerability Reference Link", "Additional CVEs",
     ]
-    widths = [28, 16, 48, 12, 18, 30, 8, 8, 8, 18, 24, 16, 12, 18, 12, 20, 24, 70, 58, 28]
+    # CVSS widened 8 -> 26 so "CVSS 4.0 — 6.9" and the longer
+    # "score unavailable" variants are read in full rather than clipped.
+    widths = [28, 16, 48, 12, 18, 30, 26, 8, 8, 18, 24, 16, 12, 18, 12, 20, 24, 70, 58, 28]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -804,7 +825,7 @@ def _sbom(ws, payload):
             pkg_type,
             parent,
             ", ".join(cves) or "--",
-            _fmt_float(_first_value(pkg, "cvss", "cvss_score", default="--"), 1),
+            _cvss_cell(pkg, has_vulnerability),
             epss_s,
             "Yes" if pkg.get("kev_status") else "No",
             reachable_vulnerable,
@@ -853,7 +874,8 @@ def _sbom(ws, payload):
 def _sca_findings(ws, payload):
     ws.title = "SCA Findings"
     headers = ["#", "Component", "Current Version", "PURL", "Dependency Type", "Dependency Path", "CVE / Advisory", "CVSS", "EPSS", "KEV", "Reachability", "Exploitability Decision", "Patch Urgency", "Severity", "Fixed Version", "Description", "Vulnerability Reference Link"]
-    widths = [4, 26, 16, 46, 16, 52, 32, 8, 8, 8, 16, 24, 16, 12, 24, 70, 58]
+    # CVSS widened 8 -> 26; see the SBOM sheet for why.
+    widths = [4, 26, 16, 46, 16, 52, 32, 26, 8, 8, 16, 24, 16, 12, 24, 70, 58]
     for i, w in enumerate(widths, 1): ws.column_dimensions[get_column_letter(i)].width = w
     _title_row(ws, "SCA VULNERABILITY FINDINGS FIRST-CLASS PACKAGE RECORDS", len(headers))
     _hdr(ws, 2, headers); ws.freeze_panes = "A3"
@@ -863,7 +885,7 @@ def _sca_findings(ws, payload):
         dep_type = pkg.get("dependency_type") or pkg.get("type", "Direct")
         dep_path = pkg.get("dependency_path") or pkg.get("path") or pkg.get("introduced_by") or "--"
         vals = [idx, _sbom_component(pkg), _sbom_current_version(pkg), _sbom_purl(pkg), dep_type, dep_path,
-                ", ".join(cves) or "--", _fmt_float(_first_value(pkg, "cvss", "cvss_score", default="--"), 1),
+                ", ".join(cves) or "--", _cvss_cell(pkg, bool(cves)),
                 _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3), "Yes" if pkg.get("kev_status") else "No",
                 "Yes" if _is_reachable_vulnerable(pkg) else "No",
                 _first_value(pkg, "exploitability_decision", "exploitability_action", default="Review"),
@@ -1246,7 +1268,8 @@ def _exploitable_cves(ws, payload):
         "KEV", "Reachable Vulnerable", "Exploitability Decision", "Patch Urgency",
         "Published Date", "Age Days", "Age Bucket", "Fixed In", "Evidence / Reason",
     ]
-    widths = [4, 24, 14, 16, 30, 8, 8, 8, 18, 24, 16, 18, 18, 12, 20, 18, 52]
+    # CVSS widened 8 -> 26; see the SBOM sheet for why.
+    widths = [4, 24, 14, 16, 30, 26, 8, 8, 18, 24, 16, 18, 18, 12, 20, 18, 52]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     _title_row(ws, "TOP REACHABLE / EXPLOITABLE CVES AND ADVISORIES", len(headers))
@@ -1287,7 +1310,7 @@ def _exploitable_cves(ws, payload):
             pkg.get("version", ""),
             pkg.get("dependency_type") or pkg.get("type", ""),
             ", ".join(_pkg_cve_list(pkg)[:6]),
-            _fmt_float(_first_value(pkg, "cvss", "cvss_score", default="--"), 1),
+            _cvss_cell(pkg),
             _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3),
             "Yes" if pkg.get("kev_status") else "No",
             "Yes" if _is_reachable_vulnerable(pkg) else "No",
