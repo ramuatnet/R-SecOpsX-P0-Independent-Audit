@@ -12,11 +12,18 @@ validation to scanner/taint_engine.py. Offline static analysis only.
 """
 from __future__ import annotations
 
+import logging
 import re
 import tokenize
 from pathlib import Path
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Namespaced under the tool's own logger tree so these records reach both the
+# console and the durable scan.log that main.py installs.  A bare
+# "scanner.sast" would fall through to root and disappear unless --debug had
+# configured it.
+_LOG = logging.getLogger("rsx.scanner.sast")
 
 try:
     from core.mapper import get_mapping
@@ -1206,7 +1213,16 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
                         _sf["file"] = str(_jp)
                         _servlet_findings.append(_sf)
             except Exception as _servlet_error:  # fail open, never silently empty
-                _safe_print(f"       ! servlet rules unavailable: {_servlet_error}")
+                # This handler has to actually report.  It used to call
+                # _safe_print(), which is not defined in this module, so the
+                # NameError raised here escaped to the outer `except Exception:
+                # pass` further down.  Two things went with it: the
+                # diagnostic, and the `_servlet_findings = []` below --
+                # without which the J5 merge raised UnboundLocalError and
+                # every cross-file Java finding was dropped as well.  Measured
+                # before the fix: a forced servlet failure returned zero
+                # findings and printed nothing.
+                _LOG.warning("       ! servlet rules unavailable: %s", _servlet_error)
                 _servlet_findings = []
 
             _existing_j5_keys = {
@@ -1232,9 +1248,11 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
                     all_findings.append(_jf)
                     _existing_j5_keys.add(_jk)
 
-        except Exception:
+        except Exception as _semantic_error:
             # Optional semantic layer must never break the baseline scanner.
-            pass
+            # It must also not vanish: this is the handler the servlet bug
+            # escaped through, so it is logged rather than left a bare pass.
+            _LOG.debug("optional semantic layer skipped: %s", _semantic_error)
     grouped = group_findings(all_findings)
     return grouped
 
