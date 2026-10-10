@@ -892,6 +892,18 @@ def _security_gate(findings, fail_on):
     }
 
 
+def _record_security_gate(payload, fail_on):
+    """Attach the gate to the payload's metadata and return it.
+
+    It is written beside the other metadata rather than bolted on afterwards,
+    and returned so the exit code can use the identical object -- the file and
+    the caller must never report different answers about the same scan.
+    """
+    gate = _security_gate(payload.get("findings") or [], fail_on)
+    payload.setdefault("metadata", {})["security_gate"] = gate
+    return gate
+
+
 def _banner():
     banner_title = f"{TOOL_FULL}  --  Security Scanner"
     line1 = f"|    {banner_title:<60}|"
@@ -5424,6 +5436,21 @@ def main():
     except Exception as exc:
         _safe_print(f"       => scan_timing persistence failed: {exc}")
 
+    # ------------------------------------------------------------------
+    # Security gate metadata.  Same boundary as scan_timing above: after
+    # every renderer has run, so payload["findings"] is the population the
+    # artefacts actually describe and the gate is measured against the same
+    # list the reader is given.  Computed once here and reused for the exit
+    # code, so the file and the caller can never disagree.
+    # ------------------------------------------------------------------
+    security_gate = _record_security_gate(payload, args.fail_on)
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, default=str)
+        _safe_print(f"       => security gate persisted to {json_path}")
+    except Exception as exc:
+        _safe_print(f"       => security gate persistence failed: {exc}")
+
     # ---------------------------------------------------------------
     # Persist authoritative scan-performance artifact
     # ---------------------------------------------------------------
@@ -5557,7 +5584,9 @@ def main():
     # Security gate.  Deliberately after the FINAL RESULTS block: the exit
     # code is for the caller (CI), the scroll above is for the reader.
     # ------------------------------------------------------------------
-    gate = _security_gate(_final_findings, args.fail_on)
+    # The very object written into clean_report.json, so the exit code and the
+    # artefact cannot report different answers about the same scan.
+    gate = security_gate
     if gate["threshold"] is None:
         _safe_print(
             "  SECURITY GATE: not requested -- pass --fail-on "
