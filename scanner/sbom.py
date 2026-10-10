@@ -595,7 +595,14 @@ def _parse_package_json(filepath: str) -> list[dict]:
     except Exception:
         return pkgs
 
-    top_license = str(data.get("license") or "unknown")
+    # `data["license"]` is the licence of THIS project, not of its
+    # dependencies.  package.json does not record a dependency's licence, and
+    # node_modules is in EXCLUDED_DIRS, so every package.json reached here is
+    # a project manifest.  It used to be stamped onto all 113 dependencies of
+    # juice-shop, which is how the report published MIT for glob, graceful-fs
+    # and semver (all ISC) and for typescript (Apache-2.0).  The catalogue in
+    # core.license_catalog can only correct a value that is honestly absent,
+    # because infer_package_license() returns early on any non-UNKNOWN.
 
     for section in ("dependencies", "devDependencies"):
         for name, ver in data.get(section, {}).items():
@@ -616,7 +623,7 @@ def _parse_package_json(filepath: str) -> list[dict]:
                 "name": name,
                 "version": version,
                 "ecosystem": "npm",
-                "license": top_license,
+                "license": "unknown",
                 "direct": True,
                 "manifest_file": filepath,
                 "manifest_line": _find_line(filepath, name),
@@ -693,10 +700,19 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
         ns = re.match(r"\{.*\}", root.tag)
         prefix = ns.group(0) if ns else ""
 
-        project_license = "unknown"
-        lic = root.find(f".//{prefix}licenses/{prefix}license/{prefix}name")
-        if lic is not None and lic.text:
-            project_license = lic.text.strip()
+        # The root <licenses> block describes THIS project, never its
+        # dependencies.  It used to be read here and stamped onto every entry
+        # below, so a GPL-2.0 project reported all 44 of its Maven
+        # dependencies as GPL-2.0 -- including commons-codec and
+        # jackson-databind, which are Apache-2.0, and hsqldb, which is
+        # BSD-3-Clause.  Maven does not declare a dependency's licence in the
+        # consuming pom, so the honest value for a dependency is "unknown",
+        # which is what lets core.license_catalog consult its package table.
+        # That table is skipped whenever a value is already present
+        # (infer_package_license returns early on any non-UNKNOWN), which is
+        # exactly why the wrong value could never be corrected downstream.
+        #
+        # A dependency's licence is simply not knowable from this manifest.
 
         for dep in root.iter(f"{prefix}dependency"):
             group = dep.find(f"{prefix}groupId")
@@ -731,7 +747,10 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
                 "name": f"{group_id}:{artifact_id}",
                 "version": ver_str,
                 "ecosystem": "Maven",
-                "license": project_license,
+                # "unknown", not the root project's licence -- see the note
+                # above.  infer_package_license() fills this from the package
+                # catalogue, or leaves it honestly unknown.
+                "license": "unknown",
                 "direct": True,
                 "manifest_file": filepath,
                 "manifest_line": _find_line(filepath, artifact_id),
