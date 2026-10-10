@@ -6,6 +6,7 @@ from datetime import datetime
 
 import argparse
 import json
+import logging
 import multiprocessing
 import os
 import re
@@ -680,11 +681,99 @@ def _filter_findings_to_target(findings: list[dict], target_root: str) -> tuple[
     return kept, dropped
 
 
+# ---------------------------------------------------------------------------
+# Console logging
+# ---------------------------------------------------------------------------
+# R-SecOpsX used to print through _safe_print() and nothing else: every message
+# was unconditional, there was no way to raise or lower detail, and a failure
+# inside a worker pool left no trace anywhere.  Phase 0 adopts the stdlib
+# logging module so verbosity is a runtime choice and a durable record exists
+# after the run (the file handler is added in main(), next to the reports).
+#
+# The console handler is attached at import time rather than inside main(),
+# because _safe_print() is reachable before main() configures anything -- from
+# module-level code and from the tests that import this module.  A logger with
+# no handler would drop those messages entirely.
+_LOG = logging.getLogger("rsx")
+_LOG.propagate = False  # ours alone; root must not double-print it
+
+
+class _ConsoleHandler(logging.Handler):
+    """Write records to the *current* sys.stdout, ascii-safe.
+
+    logging.StreamHandler captures its stream once, at construction time.
+    That breaks under pytest's capture machinery -- capsys swaps sys.stdout
+    after the handler already exists -- and under any late redirect, so the
+    output would skip the capture and land on the real terminal.  Resolving
+    the stream on every emit keeps both working, and keeps the ascii-replace
+    fallback the original _safe_print() carried for consoles that cannot
+    encode the text.
+    """
+
+    def emit(self, record):
+        try:
+            text = self.format(record)
+            stream = sys.stdout
+            try:
+                stream.write(text + "\n")
+            except UnicodeEncodeError:
+                stream.write(text.encode("ascii", errors="replace").decode("ascii") + "\n")
+            stream.flush()
+        except Exception:  # a logger must never take the tool down
+            self.handleError(record)
+
+
+def _install_console_logging():
+    if any(isinstance(h, _ConsoleHandler) for h in _LOG.handlers):
+        return
+    handler = _ConsoleHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    _LOG.addHandler(handler)
+    _LOG.setLevel(logging.INFO)  # default == the old unconditional print
+
+
+_install_console_logging()
+
+# Verbosity rungs, named so the CLI, the security gate and the tests agree.
+VERBOSITY_LEVELS = {
+    "quiet": logging.WARNING,
+    "info": logging.INFO,
+    "verbose": logging.DEBUG,
+    "debug": logging.DEBUG,
+}
+
+
+def _setup_logging(verbosity):
+    """Apply the --quiet/--verbose/--debug choice.
+
+    --verbose and --debug both sit at DEBUG, but they are not the same thing:
+    --verbose raises the level of this tool's own logger only, while --debug
+    additionally opens the root logger so third-party diagnostics (HTTP
+    retries, PDF layout, advisory fetches) appear too, each timestamped so a
+    line can be placed in the run's timeline.
+    """
+    _LOG.setLevel(VERBOSITY_LEVELS.get(verbosity, logging.INFO))
+    if verbosity == "debug":
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+            stream=sys.stdout,
+            force=True,
+        )
+        _LOG.setLevel(logging.DEBUG)
+
+
 def _safe_print(text):
-    try:
-        print(text, flush=True)
-    except UnicodeEncodeError:
-        print(text.encode("ascii", errors="replace").decode("ascii"), flush=True)
+    _LOG.info(text)
+
+
+def _safe_print_error(text):
+    """For messages that must survive --quiet.
+
+    Usage errors and export failures are the one thing a quiet console still
+    has to show, so they ride a level above the progress traffic.
+    """
+    _LOG.error(text)
 
 
 def _banner():
@@ -2610,19 +2699,34 @@ def main():
         default=50,
         help="Maximum number of detected secrets to live validate per scan. Default: 50.",
     )
+    _verbosity = parser.add_mutually_exclusive_group()
+    _verbosity.add_argument(
+        "--quiet", "-q", dest="verbosity", action="store_const", const="quiet",
+        help="console shows only warnings and errors",
+    )
+    _verbosity.add_argument(
+        "--verbose", dest="verbosity", action="store_const", const="verbose",
+        help="add this tool's own debug diagnostics (third-party stays quiet)",
+    )
+    _verbosity.add_argument(
+        "--debug", dest="verbosity", action="store_const", const="debug",
+        help="add this tool's and third-party debug diagnostics, timestamped",
+    )
+    parser.set_defaults(verbosity="info")
     args = parser.parse_args()
 
+    _setup_logging(args.verbosity)
     _banner()
 
     target_path = Path(os.path.abspath(args.target))
     target = str(target_path)
 
     if not os.path.exists(target):
-        _safe_print(f"  [ERROR] Target path does not exist: {target}")
+        _safe_print_error(f"  [ERROR] Target path does not exist: {target}")
         sys.exit(2)
 
     if not os.path.isdir(target):
-        _safe_print(f"  [ERROR] Target path is not a directory: {target}")
+        _safe_print_error(f"  [ERROR] Target path is not a directory: {target}")
         sys.exit(2)
 
     # V17.9.x: project-isolated report output. By default every scan gets its
