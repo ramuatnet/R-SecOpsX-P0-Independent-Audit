@@ -836,6 +836,62 @@ def _safe_print_error(text):
     _LOG.error(text)
 
 
+# ---------------------------------------------------------------------------
+# Security gate
+# ---------------------------------------------------------------------------
+# The five severities the report itself uses.  core.analyzer's
+# severity_distribution() and _print_dist() already agree on these, so the
+# gate counts in the vocabulary the reader sees instead of inventing a second
+# one alongside it.
+_REPORT_SEVERITIES = ("critical", "high", "medium", "low", "info")
+
+# Thresholds --fail-on can be set to.  A finding at the chosen rung *or above*
+# fails the gate, so --fail-on high fails on Critical as well.
+_GATE_RUNGS = ("critical", "high", "medium")
+
+
+def _security_gate(findings, fail_on):
+    """Read the findings and decide whether the --fail-on threshold is met.
+
+    With no threshold the gate is recorded as not requested and passes, so a
+    plain run exits exactly as it did before the flag existed.  Severity is
+    only ever *read* here -- no finding's own severity, risk score or
+    remediation ranking is touched.
+    """
+    counts = {sev: 0 for sev in _REPORT_SEVERITIES}
+    unrecognised = {}
+    for f in findings or []:
+        if not isinstance(f, dict):
+            continue
+        sev = str(f.get("severity") or "").strip().lower()
+        if sev in counts:
+            counts[sev] += 1
+        else:
+            key = sev or "(blank)"
+            unrecognised[key] = unrecognised.get(key, 0) + 1
+
+    rung = str(fail_on or "").strip().lower() or None
+    if rung is not None and rung not in _GATE_RUNGS:
+        raise ValueError(f"--fail-on must be one of {_GATE_RUNGS}, got {fail_on!r}")
+
+    if rung is None:
+        blocking = {}
+    else:
+        above = _REPORT_SEVERITIES[:_REPORT_SEVERITIES.index(rung) + 1]
+        blocking = {sev: counts[sev] for sev in above if counts[sev]}
+
+    return {
+        "threshold": rung,                 # null when no gate was requested
+        "security_gate_passed": not blocking,
+        "blocking_counts": blocking,
+        "total_blocking": sum(blocking.values()),
+        "severity_counts": counts,
+        # Never folded into the five above: an unseen spelling has to stay
+        # visible rather than quietly counted as clean.
+        "unrecognised_severities": unrecognised,
+    }
+
+
 def _banner():
     banner_title = f"{TOOL_FULL}  --  Security Scanner"
     line1 = f"|    {banner_title:<60}|"
@@ -2771,6 +2827,15 @@ def main():
     _verbosity.add_argument(
         "--debug", dest="verbosity", action="store_const", const="debug",
         help="add this tool's and third-party debug diagnostics, timestamped",
+    )
+    parser.add_argument(
+        "--fail-on", dest="fail_on", choices=list(_GATE_RUNGS), default=None,
+        help=(
+            "exit 1 when the report holds a finding at or above this severity "
+            "(--fail-on high fails on Critical too). Omitted, the tool exits 0 "
+            "whatever it finds. This only decides the exit code -- no "
+            "severity, risk score or ranking is changed by it."
+        ),
     )
     parser.set_defaults(verbosity="info")
     args = parser.parse_args()
@@ -5487,6 +5552,45 @@ def main():
     _safe_print(f"       => Report: {json_path}")
     _safe_print("=" * 74)
     _safe_print("")
+
+    # ------------------------------------------------------------------
+    # Security gate.  Deliberately after the FINAL RESULTS block: the exit
+    # code is for the caller (CI), the scroll above is for the reader.
+    # ------------------------------------------------------------------
+    gate = _security_gate(_final_findings, args.fail_on)
+    if gate["threshold"] is None:
+        _safe_print(
+            "  SECURITY GATE: not requested -- pass --fail-on "
+            "critical|high|medium to fail the run on findings at or above a "
+            "severity"
+        )
+    elif gate["security_gate_passed"]:
+        _safe_print(
+            f"  SECURITY GATE: PASSED -- no finding at or above "
+            f"{gate['threshold']}"
+        )
+    else:
+        detail = ", ".join(
+            f"{n} {sev}" for sev, n in gate["blocking_counts"].items()
+        )
+        _safe_print(
+            f"  SECURITY GATE: FAILED -- {gate['total_blocking']} finding(s) "
+            f"at or above {gate['threshold']} ({detail})"
+        )
+    if gate["unrecognised_severities"]:
+        _safe_print(
+            f"  SECURITY GATE: "
+            f"{sum(gate['unrecognised_severities'].values())} finding(s) "
+            f"carried a severity this gate does not recognise and were not "
+            f"counted: {gate['unrecognised_severities']}"
+        )
+    _safe_print("")
+
+    if not gate["security_gate_passed"]:
+        # 1 = "findings at or above the requested severity".  2 stays reserved
+        # for usage errors, so a caller can tell a failing scan from a
+        # mistyped command line.
+        sys.exit(1)
 
 
 if __name__ == "__main__":
