@@ -81,3 +81,39 @@ def test_the_servlet_guard_does_not_call_an_undefined_name():
 def test_the_bare_swallow_in_the_semical_layer_is_logged():
     lines = list(_code_lines(ROOT / "scanner" / "sast.py"))
     assert [l for l in lines if "_LOG.debug(" in l]
+
+
+# ------------------------------------------- the wiring, not the rules ------
+VULNERABLE_SERVLET = (
+    'import javax.servlet.http.Cookie;\n'
+    'public class T {\n'
+    '  void f(javax.servlet.http.HttpServletResponse response, String str) {\n'
+    '    Cookie cookie = new Cookie("Session", str);\n'
+    '    response.addCookie(cookie);\n'
+    '  }\n'
+    '}\n'
+)
+
+
+def test_scan_directory_actually_reaches_the_servlet_rules(tmp_path, capsys):
+    """The rules were always fine; the wiring was not.
+
+    scan_directory() called .rglob() on target_path, which is a str, so the
+    Java servlet layer raised AttributeError on every run and was reported as
+    "servlet rules unavailable".  It had therefore never executed on any
+    target.  This test reaches it through the real entry point rather than by
+    calling the rule module directly, which is why the existing rule tests
+    passed throughout.
+    """
+    (tmp_path / "T.java").write_text(VULNERABLE_SERVLET, encoding="utf-8")
+    findings = sast.scan_directory(str(tmp_path), workers=1)
+    ids = {f.get("rule_id") for f in findings}
+    assert "JAVA_WEB_COOKIE_MISSING_SECURITY_FLAGS" in ids, ids
+    assert "servlet rules unavailable" not in capsys.readouterr().out
+
+
+def test_the_servlet_wiring_walks_the_resolved_path(tmp_path, capsys):
+    """Pin the fix itself: the loop must use the Path, not the str."""
+    (tmp_path / "T.java").write_text(VULNERABLE_SERVLET, encoding="utf-8")
+    sast.scan_directory(str(tmp_path), workers=1)
+    assert "'str' object has no attribute 'rglob'" not in capsys.readouterr().out

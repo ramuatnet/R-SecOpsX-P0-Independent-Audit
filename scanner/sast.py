@@ -1200,7 +1200,12 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
                 from scanner.java_web_servlets import scan_java_web_servlets
 
                 _servlet_findings = []
-                for _jp in target_path.rglob("*.java"):
+                # `target`, not `target_path`: the parameter is a str and has
+                # no rglob, so this raised AttributeError on every single run
+                # and the guard below reported "servlet rules unavailable".
+                # The rules themselves were fine -- they simply never
+                # executed, on any target, until now.
+                for _jp in target.rglob("*.java"):
                     if any(seg in {".git", "target", "build", "__pycache__",
                                    "node_modules", "test", "tests"}
                            for seg in _jp.parts):
