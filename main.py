@@ -8,6 +8,7 @@ import argparse
 import json
 import logging
 import multiprocessing
+from logging.handlers import RotatingFileHandler
 import os
 import re
 import sys
@@ -723,13 +724,23 @@ class _ConsoleHandler(logging.Handler):
             self.handleError(record)
 
 
+_CONSOLE_HANDLER = None
+
+
 def _install_console_logging():
-    if any(isinstance(h, _ConsoleHandler) for h in _LOG.handlers):
+    global _CONSOLE_HANDLER
+    if _CONSOLE_HANDLER is not None and _CONSOLE_HANDLER in _LOG.handlers:
         return
     handler = _ConsoleHandler()
     handler.setFormatter(logging.Formatter("%(message)s"))
+    handler.setLevel(logging.INFO)  # clean until _setup_logging says otherwise
     _LOG.addHandler(handler)
-    _LOG.setLevel(logging.INFO)  # default == the old unconditional print
+    _CONSOLE_HANDLER = handler
+    # The logger sits at DEBUG, not at the default verbosity.  The verbosity
+    # is applied to the console handler instead, so a DEBUG record is always
+    # *created* and is able to reach the durable scan.log even when the
+    # operator has not asked to see it on screen.
+    _LOG.setLevel(logging.DEBUG)
 
 
 _install_console_logging()
@@ -747,12 +758,17 @@ def _setup_logging(verbosity):
     """Apply the --quiet/--verbose/--debug choice.
 
     --verbose and --debug both sit at DEBUG, but they are not the same thing:
-    --verbose raises the level of this tool's own logger only, while --debug
-    additionally opens the root logger so third-party diagnostics (HTTP
-    retries, PDF layout, advisory fetches) appear too, each timestamped so a
-    line can be placed in the run's timeline.
+    --verbose shows this tool's own diagnostics, while --debug additionally
+    opens the root logger so third-party ones (HTTP retries, PDF layout,
+    advisory fetches) appear too, each timestamped so a line can be placed on
+    the run's timeline.
+
+    The level is applied to the *console handler*, never to the logger: the
+    logger stays at DEBUG so every record exists and can reach scan.log, and
+    only the screen is thinned by the operator's flag.
     """
-    _LOG.setLevel(VERBOSITY_LEVELS.get(verbosity, logging.INFO))
+    if _CONSOLE_HANDLER is not None:
+        _CONSOLE_HANDLER.setLevel(VERBOSITY_LEVELS.get(verbosity, logging.INFO))
     if verbosity == "debug":
         logging.basicConfig(
             level=logging.DEBUG,
@@ -760,7 +776,51 @@ def _setup_logging(verbosity):
             stream=sys.stdout,
             force=True,
         )
-        _LOG.setLevel(logging.DEBUG)
+
+
+# The run's durable record.  Held globally so a second main() in the same
+# process (the tests import this module) can swap the handler instead of
+# stacking another one and printing every record twice.
+_SCAN_LOG_HANDLER = None
+
+
+def _attach_scan_log(output_dir):
+    """Give the run a complete record next to the other artefacts.
+
+    The console is for the operator and moves with --quiet/--verbose/--debug.
+    This file is for whoever reads the run afterwards, so it is written at
+    DEBUG whatever the console is set to, and it is rotated rather than left
+    to grow without bound -- a scanner that can run for hours must not fill a
+    disk with its own log.
+    """
+    global _SCAN_LOG_HANDLER
+    if _SCAN_LOG_HANDLER is not None:
+        _LOG.removeHandler(_SCAN_LOG_HANDLER)
+        try:
+            _SCAN_LOG_HANDLER.close()
+        except Exception:
+            pass
+        _SCAN_LOG_HANDLER = None
+    try:
+        path = Path(output_dir) / "scan.log"
+        # Opened eagerly rather than delay=True.  A deferred handler only
+        # fails on first emit, by which point the record is lost and the
+        # operator has been told the log exists; opening here raises OSError
+        # up front, so an unusable path is reported instead of silently
+        # swallowing the whole run's diagnostics.
+        handler = RotatingFileHandler(
+            path, maxBytes=5 * 1024 * 1024, backupCount=3,
+            encoding="utf-8",
+        )
+        handler.setLevel(logging.DEBUG)  # the operator's flags must not thin it
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)-7s %(name)s: %(message)s"))
+        _LOG.addHandler(handler)
+        _SCAN_LOG_HANDLER = handler
+        return path
+    except OSError as exc:  # a missing log must not stop a scan
+        _LOG.warning("       ! scan.log unavailable: %s", exc)
+        return None
 
 
 def _safe_print(text):
@@ -2741,6 +2801,7 @@ def main():
     else:
         output_dir = target_path.parent / "reports" / project_name
     output_dir.mkdir(parents=True, exist_ok=True)
+    scan_log_path = _attach_scan_log(output_dir)
 
     _safe_print(f"  Tool root : {_HERE}")
     _safe_print(f"  Project   : {project_name}")
