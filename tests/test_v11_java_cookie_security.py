@@ -26,6 +26,7 @@ from scanner.java_web_servlets import (  # noqa: E402
     scan_java_cookie_security,
     scan_java_web_servlets,
 )
+from core.analyzer import CONFIDENCE_RANK, SEVERITY_ORDER  # noqa: E402
 
 BENCHMARK_ROOT = pathlib.Path(r"D:\Data\Code test\prodtest\BenchmarkJava-master")
 TESTCODE = (BENCHMARK_ROOT / "src" / "main" / "java" / "org" / "owasp"
@@ -182,7 +183,13 @@ def test_finding_never_claims_browser_reachability():
     hit = scan_java_cookie_security(src, "T.java")[0]
     blob = (hit["description"] + hit["note"] + hit["title"]).lower()
     assert "does not claim the cookie reaches a browser" in blob
-    assert hit["confidence"] == "MEDIUM"
+    # Assert membership in the real vocabulary rather than a literal this test
+    # happened to share with the rule. CONFIDENCE_RANK and SEVERITY_ORDER are
+    # title-case; a value they do not recognise silently scores 0, sorts to
+    # rank 99, and -- for severity -- leaks a stray non-canonical key into
+    # metadata.severity_distribution.
+    assert hit["confidence"] in CONFIDENCE_RANK, hit["confidence"]
+    assert hit["severity"] in SEVERITY_ORDER, hit["severity"]
     assert hit["semantic_scope"] == "VARIABLE_SCOPED"
 
 
@@ -271,3 +278,82 @@ def test_real_declared_vulnerable_cookie_cases_are_detected():
     fp = sum(1 for t in ben if fired(t))
     assert tp == len(vul), f"recall {tp}/{len(vul)} -- a declared-vulnerable case missed"
     assert fp == 0, f"{fp} false positives on {len(ben)} declared-benign cases"
+
+
+# ===========================================================================
+# Intake contract: the rule must be REPRESENTABLE by the report
+# ===========================================================================
+#
+# This section exists because the rule measured 36/36 recall against that
+# oracle and still shipped ZERO findings.  The rules ran and produced 36 true
+# positives; the report discarded every one.  Three causes, fixed together:
+#
+#   1. no `snippet`  -> occurrences carried an empty snippet ->
+#      _apply_evidex_validation set evidence_valid=False -> enrich_finding()
+#      returned {} at core/analyzer.py -> the finding was discarded at intake.
+#   2. no `snippet`  -> _root_cause_key degraded to `vuln_type|` (empty sink)
+#      -> all 36 cookie findings, across 36 files, merged into ONE root cause.
+#   3. "MEDIUM"      -> outside SEVERITY_ORDER / CONFIDENCE_RANK -> a stray
+#      non-canonical key in metadata.severity_distribution, sort rank 99, and
+#      confidence rank 0 instead of 2.
+#
+# Each test below pins exactly one of them, through the real entry points
+# rather than by asserting on a literal the rule happens to emit.
+
+_COOKIE_SRC = ('void f(){\n  Cookie c = new Cookie("n","v");\n'
+               '  response.addCookie(c);\n}')
+
+
+def test_the_finding_carries_the_snippet_the_report_requires():
+    """Cause 1.  An empty snippet is dropped at intake, silently, by design."""
+    hit = scan_java_cookie_security(_COOKIE_SRC, "T.java")[0]
+    assert hit.get("snippet"), "finding has no snippet -- it cannot survive intake"
+    assert "Cookie" in hit["snippet"], hit["snippet"]
+    assert hit["snippet"] == hit["snippet"].strip(), "snippet must be stripped"
+
+
+def test_the_root_cause_key_is_scoped_to_file_and_line():
+    """Cause 2.  Without a group_key all 36 findings shared one key."""
+    from core.analyzer import _root_cause_key
+    a = scan_java_cookie_security(_COOKIE_SRC, "A.java")[0]
+    b = scan_java_cookie_security(_COOKIE_SRC, "B.java")[0]
+    assert a["group_key"] and b["group_key"]
+    assert _root_cause_key(a) != _root_cause_key(b), (
+        "cookie findings in different files collapsed into one root cause")
+    # The contract sast.py's wiring comment states: (vuln_type, file, line).
+    assert "A.java" in a["group_key"] and "B.java" in b["group_key"]
+
+
+def test_severity_and_confidence_are_in_the_canonical_vocabulary():
+    """Cause 3, and the one a literal assertion in this file used to hide."""
+    hit = scan_java_cookie_security(_COOKIE_SRC, "T.java")[0]
+    assert hit["severity"] in SEVERITY_ORDER, hit["severity"]
+    assert hit["confidence"] in CONFIDENCE_RANK, hit["confidence"]
+    # Non-zero, not merely present: "MEDIUM" would score 0 and lose the tie.
+    assert CONFIDENCE_RANK[hit["confidence"]] > 0, hit["confidence"]
+
+
+def test_the_finding_survives_enrichment():
+    """THE regression.  enrich_finding() returned {} and the rule's entire
+    output was discarded before the report was ever built."""
+    from core.analyzer import deduplicate, enrich_finding
+    hits = scan_java_cookie_security(_COOKIE_SRC, "T.java")
+    enriched = enrich_finding(deduplicate([dict(h) for h in hits])[0])
+    assert enriched, "enrich_finding returned {} -- finding discarded at intake"
+    assert enriched.get("vuln_type"), enriched
+    assert enriched.get("evidence_valid") is not False, enriched.get("evidence_valid")
+
+
+def test_the_finding_reaches_the_report_payload():
+    """End to end: rules -> deduplicate -> build_report_payload -> findings."""
+    from core.analyzer import build_report_payload
+    hits = scan_java_cookie_security(_COOKIE_SRC, "T.java")
+    payload = build_report_payload([dict(h) for h in hits], [], "T")
+    ids = {f.get("rule_id") for f in payload["findings"]}
+    assert "JAVA_WEB_COOKIE_MISSING_SECURITY_FLAGS" in ids, ids
+
+    dist = payload["metadata"]["severity_distribution"]
+    stray = set(dist) - set(SEVERITY_ORDER)
+    assert not stray, f"severity_distribution carries non-canonical keys: {stray}"
+    assert dist["Medium"] == 1, dist
+    assert payload["metadata"]["sast_findings"] == 1, payload["metadata"]

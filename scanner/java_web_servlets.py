@@ -97,6 +97,32 @@ def _line_of(source: str, pos: int) -> int:
     return source.count("\n", 0, max(0, pos)) + 1
 
 
+def _line_text(source: str, pos: int) -> str:
+    """The source line containing `pos`, stripped.
+
+    Every other engine ships the offending source line as `snippet`, and the
+    report pipeline depends on it in two separate places:
+
+      * `_root_cause_key()` falls back to `vuln_type|_normalise_sink(snippet)`,
+        so a finding without a snippet has an empty sink and shares one root
+        cause with every other finding of its type -- in this file's case, all
+        36 cookie findings collapsed into a single key.
+      * `_apply_evidex_validation()` checks each occurrence's snippet; an empty
+        one marks the occurrence `evidence_valid = False`, and `enrich_finding()`
+        then returns `{}` at core/analyzer.py, discarding the finding entirely.
+
+    The second is the reason this rule shipped while reporting nothing: the
+    rules ran, produced 36 true positives, and every one was dropped at intake.
+    """
+    if pos < 0 or pos >= len(source):
+        return ""
+    start = source.rfind("\n", 0, pos) + 1
+    end = source.find("\n", pos)
+    if end < 0:
+        end = len(source)
+    return source[start:end].strip()
+
+
 def scan_java_cookie_security(source: str, path: str = "") -> list:
     """Per-variable cookie hardening check. CWE-614 / CWE-1004."""
     if not source:
@@ -130,19 +156,36 @@ def scan_java_cookie_security(source: str, path: str = "") -> list:
                 f"setSecure(true) on that variable")
 
             line = base_line + body.count("\n", 0, m.start())
+            # Absolute position of this match, so the snippet is the line the
+            # cookie is actually constructed on rather than some other line of
+            # the same method.
+            snippet = _line_text(source, offset + m.start() if offset >= 0
+                                 else m.start())
             out.append({
                 "rule_id": "JAVA_WEB_COOKIE_MISSING_SECURITY_FLAGS",
                 "vuln_type": "insecure_cookie_configuration",
                 "cwe": "CWE-614",
                 "cwe_ids": ["CWE-614", "CWE-1004"],
                 "title": "Response cookie set without the Secure flag",
-                "severity": "MEDIUM",
+                # SEVERITY_ORDER and CONFIDENCE_RANK are title-case.  Shipping
+                # "MEDIUM" put a stray non-canonical key into
+                # severity_distribution, sorted the finding to rank 99 in
+                # group_by_severity, and made CONFIDENCE_RANK miss (0, not 2).
+                "severity": "Medium",
                 "file": path,
                 "line": line,
+                # Required for intake: see _line_text above.
+                "snippet": snippet,
+                # Deduplicate on (vuln_type, file, line) -- the contract the
+                # wiring comment in sast.py states.  Without a group_key the
+                # root-cause key is `vuln_type|sink`, so every cookie finding
+                # in every file merges into a single root cause.
+                "group_key": (f"java-web-servlet|insecure_cookie_configuration"
+                              f"|{path}|{line}"),
                 "description": f"method {name}(): {reason}",
                 "evidence_type": "pattern-detected",
                 "evidence": reason,
-                "confidence": "MEDIUM",
+                "confidence": "Medium",
                 "semantic_scope": "VARIABLE_SCOPED",
                 "note": (
                     "ABSENCE OF HARDENING, not proven exploitability. This reports "
