@@ -95,3 +95,66 @@ def test_the_cli_offers_the_three_rungs():
                        capture_output=True, cwd=str(ROOT))
     out = r.stdout.decode("utf-8", "replace")
     assert "--fail-on {critical,high,medium}" in out
+
+
+# --------------------------------------- the SCA population ----------------
+def P(*sevs):
+    """Vulnerable dependency packages, as the report itself models them."""
+    return [{"vulnerabilities": [{"id": f"CVE-{i}"}], "severity": s}
+            for i, s in enumerate(sevs)]
+
+
+def test_vulnerable_dependency_packages_are_counted():
+    # The report scopes its own distribution as "SAST findings plus unique
+    # vulnerable dependency packages"; the gate has to use the same
+    # population or it describes a different scan than the artefact does.
+    gate = M._security_gate([], "critical", P("Critical"))
+    assert gate["security_gate_passed"] is False
+    assert gate["severity_counts"]["critical"] == 1
+
+
+def test_a_clean_sast_run_with_a_critical_package_still_fails():
+    # This is the regression the acceptance run caught.  Counting findings
+    # alone reported PASSED here -- a false negative in a security gate,
+    # and the one failure mode a gate must never have.
+    gate = M._security_gate(F("Low", "Low"), "critical", P("Critical"))
+    assert gate["security_gate_passed"] is False
+    assert gate["total_blocking"] == 1
+
+
+def test_a_package_without_any_advisory_is_not_counted():
+    safe = [{"severity": "Critical", "name": "clean", "version": "1.0"}]
+    gate = M._security_gate([], "critical", safe)
+    assert gate["security_gate_passed"] is True
+    assert gate["total_blocking"] == 0
+
+
+def test_package_severity_falls_back_the_same_way_the_report_does():
+    pkg = [{"vulnerabilities": [{"id": "CVE-1"}],
+            "highest_vulnerability_severity": "High"}]
+    gate = M._security_gate([], "high", pkg)
+    assert gate["severity_counts"]["high"] == 1
+
+
+def test_an_unclassifiable_package_severity_is_reported_not_folded():
+    pkg = [{"vulnerabilities": [{"id": "CVE-1"}], "severity": "Unknown"}]
+    gate = M._security_gate([], "critical", pkg)
+    assert gate["unrecognised_severities"] == {"sca:unknown": 1}
+    assert gate["severity_counts"]["critical"] == 0
+    assert gate["security_gate_passed"] is True
+
+
+def test_the_gate_agrees_with_the_report_it_ships_next_to():
+    """The acceptance that caught the defect: the gate must describe the same
+    population as metadata.severity_distribution, or a CI job reading the
+    artefact and one reading the exit code get different answers."""
+    findings = [{"severity": "High"}, {"severity": "Medium"}, {"severity": "Low"}]
+    sbom = [{"vulnerabilities": [{"id": "CVE-1"}], "severity": "Critical"},
+            {"vulnerabilities": [{"id": "CVE-2"}], "severity": "High"},
+            {"severity": "High", "name": "not-vulnerable"}]  # no advisory
+    dist = {"Critical": 1, "High": 2, "Medium": 1, "Low": 1, "Info": 0}
+
+    gate = M._security_gate(findings, "high", sbom)
+    for sev, n in dist.items():
+        assert gate["severity_counts"][sev.lower()] == n, sev
+    assert sum(gate["severity_counts"].values()) == sum(dist.values())

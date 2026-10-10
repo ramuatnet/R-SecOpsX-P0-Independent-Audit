@@ -82,3 +82,15 @@ def test_threshold_is_null_so_absence_is_explicit_not_a_missing_key():
     assert "threshold" in gate
     assert gate["threshold"] is None
     assert gate["security_gate_passed"] is True
+
+
+def test_the_recorded_gate_covers_the_sbom_population():
+    # metadata.severity_distribution is scoped SAST + vulnerable packages, so
+    # the gate published beside it must cover both or the two disagree.
+    payload = {"findings": [{"severity": "Low"}],
+               "sbom": [{"vulnerabilities": [{"id": "CVE-1"}],
+                         "severity": "Critical"}]}
+    gate = M._record_security_gate(payload, "critical")
+    assert gate["security_gate_passed"] is False
+    assert gate["severity_counts"]["critical"] == 1
+    assert payload["metadata"]["security_gate"] is gate

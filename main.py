@@ -849,9 +849,27 @@ _REPORT_SEVERITIES = ("critical", "high", "medium", "low", "info")
 # fails the gate, so --fail-on high fails on Critical as well.
 _GATE_RUNGS = ("critical", "high", "medium")
 
+# How a dependency package declares itself vulnerable, and where its severity
+# lives.  These mirror the predicate main.py already uses when it builds
+# metadata.severity_distribution, whose scope string is
+# "SAST_findings_plus_unique_vulnerable_dependency_packages".
+def _is_vulnerable_package(pkg):
+    return bool(pkg.get("vulnerabilities") or pkg.get("cve") or pkg.get("advisory_id"))
 
-def _security_gate(findings, fail_on):
-    """Read the findings and decide whether the --fail-on threshold is met.
+
+def _package_severity(pkg):
+    return str(pkg.get("severity") or pkg.get("highest_vulnerability_severity")
+               or "Unknown").title()
+
+
+def _security_gate(findings, fail_on, sbom=None):
+    """Read the scan and decide whether the --fail-on threshold is met.
+
+    The population is the one the report itself describes: SAST findings
+    *plus* vulnerable dependency packages, the same scope as
+    metadata.severity_distribution.  Counting findings alone under-reports
+    exactly the severities a gate exists to catch -- a clean SAST run with a
+    Critical vulnerable dependency would otherwise report PASSED.
 
     With no threshold the gate is recorded as not requested and passes, so a
     plain run exits exactly as it did before the flag existed.  Severity is
@@ -860,15 +878,27 @@ def _security_gate(findings, fail_on):
     """
     counts = {sev: 0 for sev in _REPORT_SEVERITIES}
     unrecognised = {}
-    for f in findings or []:
-        if not isinstance(f, dict):
-            continue
-        sev = str(f.get("severity") or "").strip().lower()
-        if sev in counts:
-            counts[sev] += 1
+
+    def _tally(raw, source=None):
+        key = str(raw or "").strip().lower()
+        if key in counts:
+            counts[key] += 1
         else:
-            key = sev or "(blank)"
-            unrecognised[key] = unrecognised.get(key, 0) + 1
+            # Tagged with its source so an unrecognisable package severity
+            # cannot be mistaken for an unrecognisable finding severity.
+            label = f"{source}:{key or '(blank)'}" if source else (key or "(blank)")
+            unrecognised[label] = unrecognised.get(label, 0) + 1
+
+    for f in findings or []:
+        if isinstance(f, dict):
+            _tally(f.get("severity"))
+    for pkg in sbom or []:
+        if isinstance(pkg, dict) and _is_vulnerable_package(pkg):
+            # "Unknown" is deliberately not a rung -- the report's own table
+            # skips it for the same reason.  It is reported here so an
+            # unclassifiable package can never be read as "nothing at this
+            # severity".
+            _tally(_package_severity(pkg), "sca")
 
     rung = str(fail_on or "").strip().lower() or None
     if rung is not None and rung not in _GATE_RUNGS:
@@ -899,7 +929,8 @@ def _record_security_gate(payload, fail_on):
     and returned so the exit code can use the identical object -- the file and
     the caller must never report different answers about the same scan.
     """
-    gate = _security_gate(payload.get("findings") or [], fail_on)
+    gate = _security_gate(payload.get("findings") or [], fail_on,
+                          payload.get("sbom") or [])
     payload.setdefault("metadata", {})["security_gate"] = gate
     return gate
 
