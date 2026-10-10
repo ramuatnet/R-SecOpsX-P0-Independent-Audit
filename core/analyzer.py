@@ -35,7 +35,16 @@ from reporting.report_mappings import (
 
 SEVERITY_ORDER  = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3, "Info": 4}
 PRIORITY_MAP    = {"Critical": "P1", "High": "P2", "Medium": "P3", "Low": "P4", "Info": "P4"}
-CONFIDENCE_RANK = {"High": 3, "Medium": 2, "Low": 1, "": 0}
+# Title-case is the canonical vocabulary, but enrich_finding() overwrites
+# `confidence` with the uppercase `confidence_label` (analyzer.py ~700).  By the
+# time group_by_severity() sorts, every finding reads HIGH/MEDIUM/LOW, so
+# ranking only the title-case spellings left that tiebreak inert: all findings
+# scored 0 and the order within a severity band fell back to insertion order.
+# Both spellings now rank identically.  Nothing else in this map changes, and
+# enrich_finding() itself reads CONFIDENCE_RANK only BEFORE that overwrite
+# (deduplicate(), lines 234-235), where the engine's own casing still applies.
+CONFIDENCE_RANK = {"High": 3, "HIGH": 3, "Medium": 2, "MEDIUM": 2,
+                   "Low": 1, "LOW": 1, "": 0}
 
 
 def _occurrence_from_finding(f: dict) -> dict:

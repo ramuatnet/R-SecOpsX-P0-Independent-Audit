@@ -333,6 +333,26 @@ def test_severity_and_confidence_are_in_the_canonical_vocabulary():
     assert CONFIDENCE_RANK[hit["confidence"]] > 0, hit["confidence"]
 
 
+def test_confidence_ranking_survives_the_label_overwrite():
+    """enrich_finding() replaces `confidence` with the uppercase
+    `confidence_label`, so group_by_severity()'s tiebreak must rank both
+    spellings -- otherwise it is inert for every finding in every report, and
+    the order inside a severity band silently falls back to insertion order.
+
+    The list below is deliberately ordered LOW-confidence-first, so the
+    assertion only holds if the tiebreak actually re-sorts.
+    """
+    from core.analyzer import group_by_severity
+    assert CONFIDENCE_RANK["HIGH"] == CONFIDENCE_RANK["High"] > 0
+    assert CONFIDENCE_RANK["MEDIUM"] == CONFIDENCE_RANK["Medium"] > 0
+    assert CONFIDENCE_RANK["LOW"] == CONFIDENCE_RANK["Low"] > 0
+
+    low_conf  = {"severity": "Medium", "confidence": "LOW"}
+    high_conf = {"severity": "Medium", "confidence": "HIGH"}
+    ordered = group_by_severity([low_conf, high_conf])
+    assert [f["confidence"] for f in ordered] == ["HIGH", "LOW"], ordered
+
+
 def test_the_finding_survives_enrichment():
     """THE regression.  enrich_finding() returned {} and the rule's entire
     output was discarded before the report was ever built."""
