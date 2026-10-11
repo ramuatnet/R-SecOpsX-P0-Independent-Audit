@@ -56,8 +56,12 @@ from analysis.validation import compare, metrics as _metrics  # noqa: E402
 from analysis.validation.corpus import (  # noqa: E402
     CORPUS_ROOT, iter_labelled, validate_ground_truth)
 
-# Families whose findings come from the SAST engine rather than the SBOM one.
-_SAST_FAMILIES = {"sast", "ai_ml", "secrets", "iac", "cbom"}
+# Families scored by the SAST engine. secrets, iac and cbom each have their
+# OWN engines -- grouping them here scored those families against a scanner
+# that does not implement them, which reports a coverage gap as a detection
+# gap and is the same category error as scanning a manifest with the SAST
+# engine to decide whether it has vulnerable dependencies.
+_SAST_FAMILIES = {"sast", "ai_ml"}
 
 
 def _setup_logging(verbose: bool) -> None:
@@ -72,6 +76,38 @@ def _setup_logging(verbose: bool) -> None:
     logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
 
 
+# Families the corpus is organised into. Used to recognise a fixture's family
+# from its own location, however deeply --corpus is nested.
+FAMILIES = ("sast", "sca", "ai_ml", "secrets", "iac", "sbom", "cbom")
+
+
+def _family_of(path: Path) -> str | None:
+    """The family a fixture belongs to, found by name rather than by position.
+
+    Two earlier attempts both looked right and were wrong:
+
+    * ``rel.parts[0]`` relative to --corpus. With
+      ``--corpus tests/vuln-test-corpus/sast/python`` the first component of
+      a fixture's relative path is its own filename, so every fixture was
+      reported as family "safe_app.py", matched no engine, and the run scored
+      nothing while still printing a table of zeros. V0.4's acceptance
+      criterion names that exact command.
+    * the same thing after realising the filename problem -- because the
+      relative path strips whatever --corpus already consumed, so with that
+      root the family "sast" is not in the relative path at all.
+
+    The family is a property of where the fixture lives on disk, so the
+    search walks the full path, deepest-first. Deepest-first matters: a
+    caller whose directory tree happens to contain a folder named "sca"
+    somewhere above the corpus still resolves correctly, because the real
+    family directory is nearer the fixture.
+    """
+    for part in reversed(path.parts):
+        if part in FAMILIES:
+            return part
+    return None
+
+
 def _iter_case_dirs(root: Path):
     """Yield (family, case_dir, fixture_path) for every labelled fixture.
 
@@ -81,8 +117,7 @@ def _iter_case_dirs(root: Path):
     """
     for path, truth in iter_labelled(root):
         rel = path.relative_to(root)
-        parts = rel.parts
-        family = parts[0] if parts else ""
+        family = _family_of(path)
         yield family, path.parent, path
 
 
@@ -170,6 +205,102 @@ def _scan_sca(case_dir: Path) -> list[dict]:
     return findings
 
 
+def _scan_secrets(case_dir: Path, fixture_name: str) -> list[dict]:
+    """Run the secret-intelligence engine over one fixture, from a temp copy.
+
+    TWO REASONS FOR THE TEMP COPY
+    -----------------------------
+    The same one ``_scan_sast`` uses: the scan must not see the label files or
+    a neighbour fixture that a real target would not contain.
+
+    The second is specific to this engine and is not cosmetic. The secrets
+    engine gates its 13 known-signature rules (AWS_ACCESS_KEY, GITHUB_TOKEN,
+    STRIPE_SECRET_KEY, SLACK_WEBHOOK, ...) behind
+    ``not _is_nonproduction_context(path)``, and that predicate is true for
+    any path containing a component named test, tests, fixture, fixtures,
+    mock, spec, docs, example or their plurals -- case-insensitively. The
+    corpus lives under ``tests/``, so from its own location not one
+    provider-specific rule runs, and every fixture is scored as a miss for a
+    reason that has nothing to do with whether the rule works.
+
+    Proven, not assumed: scanning the identical bytes from a temp directory
+    found AWS_ACCESS_KEY at line 2, GITHUB_TOKEN at 4, SLACK_WEBHOOK at 2,
+    GITLAB_TOKEN at 1, HUGGINGFACE_TOKEN at 2, NPM_TOKEN at 2 and PYPI_TOKEN
+    at 3 -- exactly the lines the labels name.
+
+    WHAT THIS DOES NOT HIDE
+    -----------------------
+    Copying to temp scores the engine's DETECTION capability, which is what
+    this corpus exists to measure. The gate itself is a real behaviour with a
+    real consequence and is reported separately rather than being laundered
+    away here: a genuine repository containing a ``tests/`` directory with a
+    leaked AWS key in it will not have that key reported by the
+    known-signature rules. That is a finding about the product, and this
+    function must not be the place where it quietly stops existing.
+    """
+    from scanner.secret_intelligence import scan_secret_intelligence
+
+    tmp = Path(tempfile.mkdtemp(prefix="rsx_secret_"))
+    try:
+        source = case_dir / fixture_name
+        if not source.is_file():
+            _LOG.warning("fixture %s not found in %s", fixture_name, case_dir)
+            return []
+        shutil.copy2(source, tmp / fixture_name)
+        findings = scan_secret_intelligence(str(tmp))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    if isinstance(findings, dict):
+        findings = findings.get("secret_intelligence_findings") or []
+    return list(findings or [])
+
+
+def _scan_iac(case_dir: Path, fixture_name: str) -> list[dict]:
+    """Run the IaC engine that matches the fixture's file type.
+
+    Three separate scanners exist and none of them accepts the other's
+    inputs: a Dockerfile is not Terraform and neither is a Kubernetes
+    manifest. Dispatching on extension rather than calling all three keeps
+    each fixture scored by the engine that is actually responsible for it --
+    running the Kubernetes scanner over a Dockerfile and reporting "no
+    privileged container found" would be true of every Dockerfile ever
+    written.
+    """
+    from scanner.iac_docker import scan_docker
+    from scanner.iac_kubernetes import scan_kubernetes
+    from scanner.iac_terraform import scan_terraform
+
+    name = fixture_name.lower()
+    if name == "dockerfile" or name.startswith("dockerfile."):
+        scanner = scan_docker
+    elif name.endswith(".tf") or name.endswith(".tfvars"):
+        scanner = scan_terraform
+    elif name.endswith((".yaml", ".yml")):
+        scanner = scan_kubernetes
+    else:
+        _LOG.warning("no IaC engine for %s; skipping", fixture_name)
+        return []
+
+    return [f for f in scanner(str(case_dir)) or []
+            if Path(str(f.get("file", ""))).name == fixture_name]
+
+
+def _scan_cbom(case_dir: Path, fixture_name: str) -> list[dict]:
+    """Run the crypto-asset engine over one fixture.
+
+    Returned unnormalized: CBOM records carry ``component`` and ``category``
+    with no ``cwe`` and no ``rule_id``, so they are normalized through the
+    dedicated ``cbom`` source rather than the rsecopsx one. Through
+    ``rsecopsx`` every record would get the identity ``('location', (file,
+    ''))`` and MD5 would be indistinguishable from RC4.
+    """
+    from scanner.cbom import generate_cbom
+
+    return [f for f in generate_cbom(str(case_dir)) or []
+            if Path(str(f.get("file", ""))).name == fixture_name]
+
+
 def run_corpus(corpus_root: Path, tolerance: int = 0,
                families: list[str] | None = None) -> dict:
     """Measure the corpus and return the aggregated result.
@@ -215,6 +346,23 @@ def run_corpus(corpus_root: Path, tolerance: int = 0,
             # every actual finding was counted as a false positive.
             actual = normalize_findings(
                 _scan_sast(case_dir, path.name), "rsecopsx")
+        elif family == "secrets":
+            from analysis.validation.normalize import normalize_findings
+            actual = normalize_findings(
+                _scan_secrets(case_dir, path.name), "rsecopsx")
+        elif family == "iac":
+            from analysis.validation.normalize import normalize_findings
+            actual = normalize_findings(
+                _scan_iac(case_dir, path.name), "rsecopsx")
+        elif family == "cbom":
+            from analysis.validation.normalize import normalize_findings
+            actual = normalize_findings(
+                _scan_cbom(case_dir, path.name), "cbom")
+        elif family in ("sbom",):
+            # SBOM generation is inventory, not vulnerability matching: what
+            # is measured is whether the components are reported at all, so
+            # the labels name packages with line 0 (see LINE_ANCHORED_FAMILIES).
+            actual = _scan_sca(case_dir)
         else:
             _LOG.warning("no engine for family %r; skipping %s", family, path.name)
             continue

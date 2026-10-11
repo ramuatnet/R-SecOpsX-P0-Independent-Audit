@@ -120,6 +120,23 @@ _CWE_TO_CLASS = {
     "CWE-798": "SAST-HARDCRED",
     "CWE-79": "SAST-XSS",
     "CWE-215": "SAST-DEBUG",
+    # IaC. The shipped rules carry these CWEs, and grouping by them is what
+    # keeps the two sides of a comparison in agreement: a label stating
+    # IAC-PUBLIC-EXPOSURE and a finding carrying only CWE-284 would otherwise
+    # key on different strings and never match -- reporting a correct
+    # detection as a miss and a miss as a hit, which is the same failure that
+    # dropped measured recall from 44% to 11% in V0.2.
+    "CWE-284": "IAC-PUBLIC-EXPOSURE",
+    "CWE-311": "IAC-UNENCRYPTED-STORAGE",
+    "CWE-732": "IAC-OVERBROAD-PERMISSIONS",
+    "CWE-266": "IAC-OVERBROAD-PERMISSIONS",
+    "CWE-250": "IAC-PRIVILEGED-CONTAINER",
+    "CWE-269": "IAC-PRIVILEGED-CONTAINER",
+    "CWE-1104": "IAC-UNPINNED-IMAGE",
+    "CWE-494": "IAC-INSECURE-DOWNLOAD",
+    "CWE-668": "IAC-HOST-NAMESPACE-SHARING",
+    "CWE-1008": "IAC-EXPOSED-SERVICE",
+    "CWE-200": "IAC-EXPOSED-SERVICE",
 }
 
 
@@ -440,6 +457,61 @@ def _flatten_kics(findings: list) -> list[dict]:
     return flat
 
 
+_CBOM_CATEGORY_TO_CLASS = {
+    "Weak Hashing": "CBOM-WEAK-HASH",
+    "Weak Encryption": "CBOM-WEAK-CIPHER",
+    "Approved Encryption": "CBOM-APPROVED-CIPHER",
+    "Asymmetric Cryptography": "CBOM-ASYMMETRIC-KEY",
+    "Transport Cryptography": "CBOM-TRANSPORT-CRYPTO",
+    "Key Material": "CBOM-HARDCODED-KEY",
+    "Certificate Material": "CBOM-HARDCODED-CERT",
+}
+
+_CBOM_RISK_TO_SEVERITY = {
+    "CRITICAL": "Critical",
+    "HIGH": "High",
+    "MEDIUM": "Medium",
+    "LOW": "Low",
+}
+
+
+def _from_cbom(f: dict) -> dict:
+    """One CBOM asset record.
+
+    The CBOM engine reports a crypto component, its category and a risk level
+    -- and nothing else of the usual shape. There is no ``cwe``, no
+    ``rule_id`` and no ``severity`` field, so without this normalizer every
+    CBOM finding in a file would carry the identity ``('location', (file, ''))``
+    and MD5 would be indistinguishable from RC4. The comparator would then
+    report one of them as matched and the other as a duplicate, for findings
+    that have nothing to do with each other.
+
+    ``category`` is therefore the identity, mapped onto the canonical
+    vocabulary. ``risk`` is the engine's own four-value scale and is mapped
+    literally rather than interpreted -- it is not a CVSS score, and treating
+    it as one would apply thresholds the engine never chose.
+
+    Note that CBOM inventories healthy crypto too (AES, RSA, TLS). Reporting
+    an approved cipher is not a false positive: a BOM's job is to list what is
+    in use. Those classes exist so an inventory entry and a weakness can be
+    told apart in the metrics rather than being summed together.
+    """
+    category = _first(f.get("category"))
+    return {
+        "rule_id": _first(f.get("component"), category),
+        "class": _CBOM_CATEGORY_TO_CLASS.get(str(category).strip()) if category else None,
+        "file": _relpath(f.get("file")),
+        "basename": _basename(f.get("file")),
+        "line": _int_or_none(f.get("line")),
+        "severity": _CBOM_RISK_TO_SEVERITY.get(str(f.get("risk") or "").strip().upper()),
+        "cwe": None,
+        "evidence": _first(f.get("evidence"), f.get("component")),
+        "cve": None,
+        "package": None,
+        "version": None,
+    }
+
+
 def _from_semgrep(f: dict) -> dict:
     """One semgrep ``result``.
 
@@ -542,6 +614,7 @@ _NORMALIZERS = {
     "checkov": _from_checkov,
     "gitleaks": _from_gitleaks,
     "kics": _from_kics,
+    "cbom": _from_cbom,
 }
 
 

@@ -1,0 +1,2 @@
+OPENAI_API_KEY = "sk-proj-0123456789abcdefghij0123456789abcd"
+DEFAULT_MODEL = "gpt-4o"

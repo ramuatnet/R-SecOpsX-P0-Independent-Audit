@@ -1,0 +1,2 @@
+GITLAB_CI_TOKEN = "glpat-0123456789abcdefghij0123"
+HF_TOKEN = "hf_0123456789abcdefghij0123"

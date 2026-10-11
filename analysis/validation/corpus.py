@@ -119,7 +119,33 @@ CANONICAL_RULES = frozenset({
     "SECRET-PROVIDER-KEY",  # a key whose format identifies its provider
     "SECRET-CONFIG-PASSWORD",  # a credential literal in a config/connection string
     "SECRET-DECOY",     # a placeholder that must NOT be reported as a live secret
-    # IaC -- the shipped rule IDs are already a stable vocabulary for these.
+    # IaC -- named by the CONDITION, not by the rule that detects it, for the
+    # same reason the SAST classes are. Several rules detect one condition
+    # (TF_OPEN_SECURITY_GROUP_INGRESS and TF_OPEN_IPV6_INGRESS are both
+    # "reachable from the internet"), so a vocabulary of rule IDs would report
+    # them as separate classes and hide that the condition is covered twice.
+    # Each class below groups the rules that share a CWE, and the CWE is what
+    # the shipped rules already carry -- so the grouping is read off the
+    # scanner's own table rather than invented here.
+    "IAC-PUBLIC-EXPOSURE",        # CWE-284  resource reachable from the internet
+    "IAC-UNENCRYPTED-STORAGE",    # CWE-311  data at rest not encrypted
+    "IAC-OVERBROAD-PERMISSIONS",  # CWE-732/266  grant wider than the task needs
+    "IAC-PRIVILEGED-CONTAINER",   # CWE-250/269  runs elevated, or as root
+    "IAC-UNPINNED-IMAGE",         # CWE-1104  base image not fixed to a version
+    "IAC-INSECURE-DOWNLOAD",      # CWE-494  remote content fetched unchecked
+    "IAC-HOST-NAMESPACE-SHARING", # CWE-668  pod shares the host network/PID/IPC
+    "IAC-EXPOSED-SERVICE",        # CWE-1008/200  a management service in the image
+    # CBOM -- the engine reports a crypto component and a CATEGORY, with no
+    # CWE and no rule id at all, so these classes are the only identity a CBOM
+    # finding has. Without them every CBOM finding in a file would share one
+    # empty identity and the comparator could not tell MD5 from RC4.
+    "CBOM-WEAK-HASH",             # a broken hash (MD5, SHA-1)
+    "CBOM-WEAK-CIPHER",           # a broken cipher (DES/3DES, RC4)
+    "CBOM-APPROVED-CIPHER",       # a healthy cipher, inventoried not flagged
+    "CBOM-ASYMMETRIC-KEY",        # an asymmetric algorithm in use
+    "CBOM-TRANSPORT-CRYPTO",      # a TLS/SSL configuration in use
+    "CBOM-HARDCODED-KEY",         # key material embedded in the source
+    "CBOM-HARDCODED-CERT",        # a certificate embedded in the source
 })
 
 # Families whose findings are anchored to a source line. SCA and SBOM findings
