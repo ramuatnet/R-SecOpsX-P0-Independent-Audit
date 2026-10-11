@@ -1,0 +1,407 @@
+"""Run the golden corpus through the real engines and score it (Phase V0.2).
+
+    python -m analysis.validation.run --corpus tests/vuln-test-corpus/sast/python
+    python -m analysis.validation.run --corpus tests/vuln-test-corpus --tolerance 1
+
+WHAT THIS DOES AND DOES NOT DO
+------------------------------
+It measures. It does not fix, and it does not adjust a label to match a tool.
+
+That distinction is the whole point of the phase, so it is worth being blunt
+about the failure this is designed to prevent. If scoring a corpus could
+rewrite the corpus, then every detection gap would close itself: the tool
+misses it, the label drops it, the next run is clean. A harness that does
+that is not measuring anything -- it is recording what the tool happened to
+do and calling it ground truth. Labels here are read-only, and a miss is
+reported as a miss.
+
+EACH FAMILY IS SCORED BY ITS OWN ENGINE
+---------------------------------------
+This is the correction that changed the V0.1 headline from 33% to 44%.
+
+SAST and AI/ML findings come from ``scanner.sast.scan_directory``. SCA
+findings do not exist in that engine at all -- they come from
+``scanner.sbom.generate_sbom`` plus ``scanner.vulnerability_intel.query_osv_batch``.
+Scanning a manifest with the SAST engine and reporting "no advisory found" is
+true for every tool ever written, including a perfect one, so it measures
+nothing. Two of the first measurement's four SCA "misses" were exactly that,
+and the fixtures had to be renamed before the SBOM path could even see them.
+
+EXIT CODES
+----------
+    0   scored something, gate passed
+    1   scored something, gate failed
+    2   scored nothing
+
+Exit 2 exists so an empty corpus cannot read as a passing run. A gate that
+returns success because it found nothing to check is worse than no gate.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+_LOG = logging.getLogger("rsx.analysis.validation.run")
+
+if __package__ in (None, ""):  # allow `python -m analysis.validation.run`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from analysis.validation import compare, metrics as _metrics  # noqa: E402
+from analysis.validation.corpus import (  # noqa: E402
+    CORPUS_ROOT, iter_labelled, validate_ground_truth)
+
+# Families whose findings come from the SAST engine rather than the SBOM one.
+_SAST_FAMILIES = {"sast", "ai_ml", "secrets", "iac", "cbom"}
+
+
+def _setup_logging(verbose: bool) -> None:
+    """Console handler only, at WARNING unless asked for more.
+
+    The harness prints its table to stdout; logging to the console as well
+    would interleave and make the table unreadable. File handlers are not
+    added here because this is a measurement tool, not a scan -- it should
+    leave no artefacts behind.
+    """
+    level = logging.DEBUG if verbose else logging.WARNING
+    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
+
+
+def _iter_case_dirs(root: Path):
+    """Yield (family, case_dir, fixture_path) for every labelled fixture.
+
+    SCA cases are directories: each holds one manifest under its canonical
+    filename, because ``generate_sbom`` locates manifests by glob and a file
+    named ``vulnerable_package.json`` matches no glob at all.
+    """
+    for path, truth in iter_labelled(root):
+        rel = path.relative_to(root)
+        parts = rel.parts
+        family = parts[0] if parts else ""
+        yield family, path.parent, path
+
+
+def _scan_sast(case_dir: Path, fixture_name: str) -> list[dict]:
+    """Run the SAST engine over one case directory, in a temp copy.
+
+    A temp copy is used so the scan cannot see the label files or anything
+    else in the corpus that a real target would not contain. Scanning the
+    corpus in place would let a fixture's own neighbour change its result.
+
+    ``fixture_name`` restricts the result to that fixture. Without it, a
+    directory holding both a safe and a vulnerable fixture scores each one
+    against the other's findings: the safe fixture inherits every real bug
+    beside it as a false positive, and the vulnerable fixture inherits the
+    safe one's clean results as credit. One case directory holds two files,
+    so this filter is load-bearing, not cosmetic.
+    """
+    from scanner.sast import scan_directory
+
+    tmp = Path(tempfile.mkdtemp(prefix="rsx_val_"))
+    try:
+        for p in case_dir.rglob("*"):
+            if not p.is_file() or p.name.endswith(".ground_truth.json"):
+                continue
+            # Copy only the fixture under test. Scanning the whole directory
+            # and filtering afterwards would work too, but then the scan has
+            # seen a neighbour file that a real target would not contain, and
+            # any directory-wide rule could fire because of it.
+            shutil.copy2(p, tmp / p.name)
+        findings = scan_directory(str(tmp))
+        return [f for f in findings
+                if Path(str(f.get("file", ""))).name == fixture_name]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _scan_sca(case_dir: Path) -> list[dict]:
+    """Run the SBOM + OSV path over one case directory.
+
+    Returns canonical-shaped findings carrying package, version and CVE.
+    Those three are the identity for SCA comparisons: an advisory is a claim
+    about a component, not about a line, so ``line`` is deliberately left as
+    whatever the manifest parser reports rather than being forced to match.
+    """
+    from scanner.sbom import generate_sbom
+    from scanner.vulnerability_intel import query_osv_batch
+
+    packages = generate_sbom(str(case_dir))
+    if not packages:
+        _LOG.warning("generate_sbom found no packages in %s", case_dir)
+        return []
+
+    findings: list[dict] = []
+    results = query_osv_batch(packages)
+    if not isinstance(results, dict):
+        _LOG.warning("query_osv_batch returned %s, expected a dict",
+                     type(results).__name__)
+        return []
+
+    for key, vulns in results.items():
+        if not vulns:
+            continue
+        try:
+            _eco, name, version = key.split("|", 2)
+        except ValueError:
+            continue
+        for v in vulns:
+            if not isinstance(v, dict):
+                continue
+            findings.append({
+                "rule_id": v.get("id"),
+                "class": None,
+                "file": None,
+                "basename": None,
+                "line": None,
+                "severity": v.get("severity"),
+                "cwe": None,
+                "evidence": v.get("summary") or v.get("id"),
+                "cve": v.get("cve"),
+                "package": name,
+                "version": version,
+                "_source": "rsecopsx",
+                "_source_finding": v,
+            })
+    return findings
+
+
+def run_corpus(corpus_root: Path, tolerance: int = 0,
+               families: list[str] | None = None) -> dict:
+    """Measure the corpus and return the aggregated result.
+
+    Returns the metrics dict plus a ``details`` list carrying one entry per
+    fixture, so the CLI can print misses and the caller can inspect them
+    without re-running the engines.
+    """
+    root = Path(corpus_root)
+    if not root.is_dir():
+        raise FileNotFoundError("corpus root does not exist: %s" % root)
+
+    comparisons: list[dict] = []
+    details: list[dict] = []
+    problems: list[str] = []
+
+    for family, case_dir, path in _iter_case_dirs(root):
+        if families and family not in families:
+            continue
+
+        truth = dict(_load_truth(path))
+        for problem in validate_ground_truth(truth, path, root):
+            problems.append(problem)
+            _LOG.error("invalid label: %s", problem)
+
+        expected_raw = truth.get("expected_findings") or []
+        from analysis.validation.normalize import normalize_corpus_finding
+        expected = [normalize_corpus_finding(f, path.name) for f in expected_raw]
+
+        if family == "sca":
+            # _scan_sca already emits canonical records; re-normalizing them
+            # through "rsecopsx" would be harmless but would drop the package
+            # and version fields that SCA identity depends on.
+            actual = _scan_sca(case_dir)
+        elif family in _SAST_FAMILIES:
+            from analysis.validation.normalize import normalize_findings
+            # The SAST engine returns its own rich finding shape: absolute
+            # Windows paths, `snippet` rather than `evidence`, and no
+            # canonical `class`. Passing those to the comparator raw is what
+            # dropped measured recall from 44% to 11% -- the labels bucket by
+            # canonical class (SAST-SQLI) while raw findings bucket by their
+            # CWE (CWE-89), so the two sides never shared an identity and
+            # every actual finding was counted as a false positive.
+            actual = normalize_findings(
+                _scan_sast(case_dir, path.name), "rsecopsx")
+        else:
+            _LOG.warning("no engine for family %r; skipping %s", family, path.name)
+            continue
+
+        result = compare.compare_findings(actual, expected,
+                                          line_tolerance=tolerance)
+        fp_split = compare.classify_false_positives(result)
+        result["fp_classification"] = fp_split
+        result["fixture"] = path.name
+        result["family"] = family
+        result["language"] = _metrics.language_of(expected[0]) if expected \
+            else _metrics.language_of(actual[0] if actual else {})
+
+        sevs = {e.get("severity") for e in expected if e.get("severity")}
+        result["severity_context"] = sorted(sevs)[0] if len(sevs) == 1 else None
+
+        comparisons.append(result)
+        details.append({
+            "fixture": path.name,
+            "family": family,
+            "expected": len(expected),
+            "actual": len(actual),
+            "tp": result["counts"]["tp"],
+            "fp": result["counts"]["fp"],
+            "fn": result["counts"]["fn"],
+            "missed": [
+                {"line": e.get("line"), "cwe": e.get("cwe"),
+                 "rule_id": e.get("rule_id"), "package": e.get("package"),
+                 "cve": e.get("cve")}
+                for e in expected
+                if not any(compare.identity(e) == compare.identity(a)
+                           and (compare._distance(e, a) is None
+                                or compare._distance(e, a) <= tolerance)
+                           for a in actual)
+            ],
+            "extra": [
+                {"line": a.get("line"), "rule_id": a.get("rule_id"),
+                 "cwe": a.get("cwe"), "severity": a.get("severity")}
+                for a in actual
+                if not any(compare.identity(e) == compare.identity(a)
+                           and (compare._distance(e, a) is None
+                                or compare._distance(e, a) <= tolerance)
+                           for e in expected)
+            ],
+            "duplicates": fp_split["duplicates"],
+            "spurious": fp_split["spurious"],
+            "duplicate_count": fp_split["duplicate_count"],
+            "spurious_count": fp_split["spurious_count"],
+        })
+
+    result = _metrics.metrics(comparisons)
+    result["details"] = details
+    result["problems"] = problems
+    result["tolerance"] = tolerance
+    return result
+
+
+def _load_truth(path: Path) -> dict:
+    label = path.with_name(path.name + ".ground_truth.json")
+    if not label.is_file():
+        label = path.with_name("ground_truth.json")
+    if not label.is_file():
+        return {}
+    try:
+        data = json.loads(label.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        _LOG.error("cannot read %s: %s", label, exc)
+        return {}
+    if isinstance(data, dict) and "expected_findings" not in data:
+        return data.get(path.name) or {}
+    return data
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="analysis.validation.run",
+        description="Score the golden corpus against the real engines.")
+    parser.add_argument("--corpus", default=str(CORPUS_ROOT),
+                        help="corpus root, or a subdirectory of it")
+    parser.add_argument("--tolerance", type=int, default=0,
+                        help="line tolerance for location matches (default 0)")
+    parser.add_argument("--family", action="append", dest="families",
+                        help="restrict to a family; repeatable")
+    parser.add_argument("--json", action="store_true",
+                        help="emit the full result as JSON")
+    parser.add_argument("--max-gaps", type=int, default=12,
+                        help="how many gap classes to name")
+    parser.add_argument("-v", "--verbose", action="store_true")
+    args = parser.parse_args(argv)
+
+    _setup_logging(args.verbose)
+    root = Path(args.corpus)
+    if not root.is_absolute():
+        root = (Path.cwd() / root).resolve()
+
+    try:
+        result = run_corpus(root, tolerance=args.tolerance,
+                            families=args.families)
+    except FileNotFoundError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(_jsonable(result), indent=2, default=str))
+        return _exit_code(result)
+
+    print("Golden corpus: %s" % root)
+    if result["problems"]:
+        print("\n%d INVALID LABELS -- these are corpus defects, not detection"
+              " gaps:" % len(result["problems"]))
+        for p in result["problems"][:20]:
+            print("  %s" % p)
+
+    print()
+    print(_metrics.format_table(result))
+
+    gaps = _metrics.summarise_gaps(result, max_items=args.max_gaps)
+    if gaps:
+        print()
+        print(gaps)
+
+    dup_total = sum(d.get("duplicate_count", 0) for d in result["details"])
+    spur_total = sum(d.get("spurious_count", 0) for d in result["details"])
+    if dup_total or spur_total:
+        print()
+        print("false positives, split by cause:")
+        print("  duplicates   %3d   the defect WAS found; a second rule or a" % dup_total)
+        print("               %3s   second line reports it again" % "")
+        print("  spurious     %3d   the rule fired where the defect is not" % spur_total)
+        print()
+        print("  duplicates are a reporting problem -- the detection was")
+        print("  right. Spurious findings are a rule problem -- deduplication")
+        print("  would not make them correct.")
+        for d in result["details"]:
+            if not d.get("duplicate_count") and not d.get("spurious_count"):
+                continue
+            print()
+            print("  %s" % d["fixture"])
+            for dup in d.get("duplicates", [])[:5]:
+                print("    duplicate L%-4s %-42s same as L%s (%s apart)"
+                      % (dup.get("line"), dup.get("rule_id"),
+                         dup.get("duplicates_line"), dup.get("line_delta")))
+            for spur in d.get("spurious", [])[:5]:
+                print("    spurious  L%-4s %-42s %s"
+                      % (spur.get("line"), spur.get("rule_id"), spur.get("cwe")))
+
+    if result["details"]:
+        missed = [d for d in result["details"] if d["fn"]]
+        if missed:
+            print()
+            print("misses by fixture:")
+            for d in missed:
+                print("  %-30s %d of %d missed" % (d["fixture"], d["fn"],
+                                                   d["expected"]))
+                for m in d["missed"][:6]:
+                    if m.get("package"):
+                        print("      %-30s %s" % (m["package"], m.get("cve")))
+                    else:
+                        print("      L%-5s %-10s %s"
+                              % (m.get("line"), m.get("cwe"), m.get("rule_id")))
+
+    return _exit_code(result)
+
+
+def _exit_code(result: dict) -> int:
+    """2 when nothing was scored, 1 when the gate failed, 0 otherwise.
+
+    An empty run exits 2 rather than 0. A gate that succeeds because it found
+    nothing to check is worse than no gate: it reports health that was never
+    established, and it keeps reporting it after the corpus breaks.
+    """
+    if not _metrics.has_expectations(result):
+        print("\nNOTHING SCORED -- the corpus root contains no labelled"
+              " fixtures. This is not a pass.", file=sys.stderr)
+        return 2
+    if result["problems"]:
+        return 1
+    return 0
+
+
+def _jsonable(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: _jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_jsonable(v) for v in obj]
+    return obj
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
