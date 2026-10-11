@@ -1,0 +1,14 @@
+{
+  "fixture": "privileged_pod.yaml",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-PRIVILEGED-CONTAINER",
+      "file": "privileged_pod.yaml",
+      "line": 11,
+      "severity": "High",
+      "cwe": "CWE-250",
+      "evidence": "privileged: true"
+    }
+  ]
+}

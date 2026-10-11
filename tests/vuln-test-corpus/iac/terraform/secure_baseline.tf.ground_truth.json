@@ -1,0 +1,5 @@
+{
+  "fixture": "secure_baseline.tf",
+  "expected_count": 0,
+  "expected_findings": []
+}

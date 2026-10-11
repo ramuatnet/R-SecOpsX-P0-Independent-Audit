@@ -1,0 +1,14 @@
+{
+  "fixture": "curl_pipe_shell.Dockerfile",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-INSECURE-DOWNLOAD",
+      "file": "curl_pipe_shell.Dockerfile",
+      "line": 3,
+      "severity": "High",
+      "cwe": "CWE-494",
+      "evidence": "RUN curl -fsSL"
+    }
+  ]
+}

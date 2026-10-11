@@ -1,0 +1,14 @@
+{
+  "fixture": "iam_wildcard.tf",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-OVERBROAD-PERMISSIONS",
+      "file": "iam_wildcard.tf",
+      "line": 1,
+      "severity": "High",
+      "cwe": "CWE-732",
+      "evidence": "resource \"aws_iam_role_policy\" \"deployer\""
+    }
+  ]
+}

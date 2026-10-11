@@ -272,10 +272,14 @@ def _scan_iac(case_dir: Path, fixture_name: str) -> list[dict]:
     from scanner.iac_terraform import scan_terraform
 
     name = fixture_name.lower()
-    if name == "dockerfile" or name.startswith("dockerfile."):
-        scanner = scan_docker
-    elif name.endswith(".tf") or name.endswith(".tfvars"):
+    if name.endswith(".tf") or name.endswith(".tfvars"):
         scanner = scan_terraform
+    elif "dockerfile" in name:
+        # Matched as a substring, not a prefix: real Dockerfiles are routinely
+        # named prod.Dockerfile or app.dockerfile, and a prefix test would
+        # route those to the Kubernetes scanner, which would find no
+        # privileged container in a Dockerfile and report a clean result.
+        scanner = scan_docker
     elif name.endswith((".yaml", ".yml")):
         scanner = scan_kubernetes
     else:

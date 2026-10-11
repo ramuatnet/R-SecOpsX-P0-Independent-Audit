@@ -1,0 +1,5 @@
+{
+  "fixture": "pod_level_nonroot.yaml",
+  "expected_count": 0,
+  "expected_findings": []
+}

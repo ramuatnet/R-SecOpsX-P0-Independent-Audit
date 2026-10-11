@@ -1,0 +1,22 @@
+{
+  "fixture": "root_user.Dockerfile",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-PRIVILEGED-CONTAINER",
+      "file": "root_user.Dockerfile",
+      "line": 1,
+      "severity": "Medium",
+      "cwe": "CWE-250",
+      "evidence": "FROM node:18-slim"
+    },
+    {
+      "rule_id": "IAC-PRIVILEGED-CONTAINER",
+      "file": "root_user.Dockerfile",
+      "line": 5,
+      "severity": "High",
+      "cwe": "CWE-250",
+      "evidence": "USER root"
+    }
+  ]
+}

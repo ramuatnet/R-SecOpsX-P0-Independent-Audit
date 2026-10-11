@@ -1,0 +1,14 @@
+{
+  "fixture": "latest_tag.Dockerfile",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-UNPINNED-IMAGE",
+      "file": "latest_tag.Dockerfile",
+      "line": 1,
+      "severity": "Medium",
+      "cwe": "CWE-1104",
+      "evidence": "FROM node:latest"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: inherited-context
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: acme/app:1.0.0
+      securityContext:
+        readOnlyRootFilesystem: true
+      resources:
+        limits:
+          cpu: "250m"
+          memory: "128Mi"

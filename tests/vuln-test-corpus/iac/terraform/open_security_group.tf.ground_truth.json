@@ -1,0 +1,14 @@
+{
+  "fixture": "open_security_group.tf",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-PUBLIC-EXPOSURE",
+      "file": "open_security_group.tf",
+      "line": 1,
+      "severity": "Critical",
+      "cwe": "CWE-284",
+      "evidence": "resource \"aws_security_group\" \"ssh\""
+    }
+  ]
+}

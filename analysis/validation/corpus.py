@@ -135,6 +135,7 @@ CANONICAL_RULES = frozenset({
     "IAC-INSECURE-DOWNLOAD",      # CWE-494  remote content fetched unchecked
     "IAC-HOST-NAMESPACE-SHARING", # CWE-668  pod shares the host network/PID/IPC
     "IAC-EXPOSED-SERVICE",        # CWE-1008/200  a management service in the image
+    "IAC-RESOURCE-EXHAUSTION",    # CWE-770  no CPU/memory limits on the container
     # CBOM -- the engine reports a crypto component and a CATEGORY, with no
     # CWE and no rule id at all, so these classes are the only identity a CBOM
     # finding has. Without them every CBOM finding in a file would share one

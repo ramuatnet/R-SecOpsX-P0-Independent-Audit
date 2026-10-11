@@ -1,0 +1,14 @@
+{
+  "fixture": "host_network.yaml",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-HOST-NAMESPACE-SHARING",
+      "file": "host_network.yaml",
+      "line": 6,
+      "severity": "High",
+      "cwe": "CWE-668",
+      "evidence": "hostNetwork: true"
+    }
+  ]
+}

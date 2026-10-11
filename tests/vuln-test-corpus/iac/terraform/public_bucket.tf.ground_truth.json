@@ -1,0 +1,22 @@
+{
+  "fixture": "public_bucket.tf",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "IAC-PUBLIC-EXPOSURE",
+      "file": "public_bucket.tf",
+      "line": 1,
+      "severity": "High",
+      "cwe": "CWE-284",
+      "evidence": "resource \"aws_s3_bucket\" \"artifacts\""
+    },
+    {
+      "rule_id": "IAC-UNENCRYPTED-STORAGE",
+      "file": "public_bucket.tf",
+      "line": 1,
+      "severity": "Medium",
+      "cwe": "CWE-311",
+      "evidence": "resource \"aws_s3_bucket\" \"artifacts\""
+    }
+  ]
+}
