@@ -1,0 +1,7 @@
+{
+  "fixture": "requirements.txt",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "OSV lists 8.3.3 as the fix for CVE-2026-7246, so this pin is unaffected. Any finding here is a false positive."
+}

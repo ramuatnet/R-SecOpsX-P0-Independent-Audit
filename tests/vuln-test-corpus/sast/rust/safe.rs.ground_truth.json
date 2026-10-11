@@ -1,0 +1,7 @@
+{
+  "fixture": "safe.rs",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "rusqlite params![user] binding (L14-15), argv whitelist before Command (L33-37), '..'/leading-'/' rejection (L50-52). Any finding here is a false positive."
+}

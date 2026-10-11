@@ -1,0 +1,54 @@
+{
+  "fixture": "vulnerable.php",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-HARDCRED",
+      "file": "vulnerable.php",
+      "line": 5,
+      "severity": "High",
+      "cwe": "CWE-798",
+      "evidence": "$pass = \"hardcoded_password\"",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "vulnerable.php",
+      "line": 16,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "$mysqli->query($sql)",
+      "cve": null,
+      "note": "$sql is interpolated at L15 with $_GET['name']"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "vulnerable.php",
+      "line": 23,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "system(\"echo \" . $cmd)",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-PATH",
+      "file": "vulnerable.php",
+      "line": 27,
+      "severity": "High",
+      "cwe": "CWE-22",
+      "evidence": "include(\"/var/www/includes/\" . $file)",
+      "cve": null,
+      "note": "local file inclusion with no path validation"
+    },
+    {
+      "rule_id": "SAST-CODEINJ",
+      "file": "vulnerable.php",
+      "line": 31,
+      "severity": "Critical",
+      "cwe": "CWE-94",
+      "evidence": "eval($code)",
+      "cve": null
+    }
+  ],
+  "expected_count": 5,
+  "expected_cves": []
+}

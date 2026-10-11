@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_model.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "SavedModel format instead of pickle (L13), strict payload type checks (L21-25), and retrain accepts data rather than code (L34). Any finding here is a false positive."
+}

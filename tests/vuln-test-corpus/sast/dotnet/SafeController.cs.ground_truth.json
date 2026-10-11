@@ -1,0 +1,7 @@
+{
+  "fixture": "SafeController.cs",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "SqlCommand is parameterised (L26-27), the command is whitelisted (L40-43), and filename is checked for '..' and rooted paths (L66-67). Any finding here is a false positive."
+}

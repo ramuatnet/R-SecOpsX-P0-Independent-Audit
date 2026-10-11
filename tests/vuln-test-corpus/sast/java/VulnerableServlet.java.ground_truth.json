@@ -1,0 +1,48 @@
+{
+  "fixture": "VulnerableServlet.java",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "VulnerableServlet.java",
+      "line": 23,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "stmt.executeQuery(sql)",
+      "cve": null,
+      "note": "sql is built at L20 by concatenating userInput from getParameter"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "VulnerableServlet.java",
+      "line": 32,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "Runtime.getRuntime().exec(cmd)",
+      "cve": null,
+      "note": "cmd is 'echo ' + userInput with no validation"
+    },
+    {
+      "rule_id": "SAST-PATH",
+      "file": "VulnerableServlet.java",
+      "line": 38,
+      "severity": "High",
+      "cwe": "CWE-22",
+      "evidence": "new File(\"/var/www/uploads/\" + fileName)",
+      "cve": null,
+      "note": "fileName comes from getParameter with no traversal check"
+    },
+    {
+      "rule_id": "SAST-DESER",
+      "file": "VulnerableServlet.java",
+      "line": 50,
+      "severity": "Critical",
+      "cwe": "CWE-502",
+      "evidence": "ois.readObject()",
+      "cve": null,
+      "note": "object stream is fed the X-Serialized-Data header verbatim"
+    }
+  ],
+  "expected_count": 4,
+  "expected_cves": [],
+  "notes": "USER=\"root\" (L10) and PASS=\"***\" (L11) are not labelled: \"root\" is an account name rather than a secret, and *** is a redaction marker."
+}

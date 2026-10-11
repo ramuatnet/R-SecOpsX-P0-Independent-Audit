@@ -1,0 +1,7 @@
+{
+  "name": "sca-npm-golden",
+  "version": "1.0.0",
+  "dependencies": {
+    "@adobe/css-tools": "4.3.1"
+  }
+}

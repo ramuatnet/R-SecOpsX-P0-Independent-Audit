@@ -1,0 +1,45 @@
+{
+  "fixture": "vulnerable.cpp",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-HARDCRED",
+      "file": "vulnerable.cpp",
+      "line": 11,
+      "severity": "High",
+      "cwe": "CWE-798",
+      "evidence": "\"hardcoded_password\"",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "vulnerable.cpp",
+      "line": 33,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "sqlite3_exec(db, sql",
+      "cve": null,
+      "note": "sql is snprintf'd at L32 with '%s' <- getenv(\"QUERY_STRING\")"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "vulnerable.cpp",
+      "line": 41,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "std::system(cmd)",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-PATH",
+      "file": "vulnerable.cpp",
+      "line": 48,
+      "severity": "High",
+      "cwe": "CWE-22",
+      "evidence": "/var/www/uploads/%s",
+      "cve": null,
+      "note": "file from getenv is interpolated with no '..' rejection"
+    }
+  ],
+  "expected_count": 4,
+  "expected_cves": []
+}

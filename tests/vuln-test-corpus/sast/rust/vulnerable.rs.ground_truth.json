@@ -1,0 +1,46 @@
+{
+  "fixture": "vulnerable.rs",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-HARDCRED",
+      "file": "vulnerable.rs",
+      "line": 9,
+      "severity": "High",
+      "cwe": "CWE-798",
+      "evidence": "const DB_PASS: &str = \"hardcoded_pass\"",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "vulnerable.rs",
+      "line": 14,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "conn.prepare(&sql)",
+      "cve": null,
+      "note": "sql is a format! at L13 interpolating the 'user' query param"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "vulnerable.rs",
+      "line": 33,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "Command::new(\"sh\")",
+      "cve": null,
+      "note": "'sh -c' with format!-interpolated query input at L35"
+    },
+    {
+      "rule_id": "SAST-PATH",
+      "file": "vulnerable.rs",
+      "line": 45,
+      "severity": "High",
+      "cwe": "CWE-22",
+      "evidence": "/var/www/uploads/{}",
+      "cve": null,
+      "note": "filename formatted straight into the path, no '..' rejection"
+    }
+  ],
+  "expected_count": 4,
+  "expected_cves": []
+}

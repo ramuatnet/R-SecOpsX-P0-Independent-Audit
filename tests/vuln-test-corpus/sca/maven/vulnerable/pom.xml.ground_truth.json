@@ -1,0 +1,26 @@
+{
+  "fixture": "pom.xml",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "pom.xml",
+      "line": 11,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "<version>2.6</version>",
+      "cve": "CVE-2025-48924",
+      "advisory_id": "GHSA-j288-q9x7-2f5v",
+      "package": "commons-lang:commons-lang",
+      "version": "2.6",
+      "fixed_versions": [
+        "3.18.0"
+      ],
+      "source": "OSV",
+      "note": "CVE and severity copied verbatim from OSV record GHSA-j288-q9x7-2f5v"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": [
+    "CVE-2025-48924"
+  ]
+}

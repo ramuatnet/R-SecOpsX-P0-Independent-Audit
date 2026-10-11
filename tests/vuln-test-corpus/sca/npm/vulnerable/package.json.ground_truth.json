@@ -1,0 +1,26 @@
+{
+  "fixture": "package.json",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "package.json",
+      "line": 5,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "\"@adobe/css-tools\": \"4.3.1\"",
+      "cve": "CVE-2023-48631",
+      "advisory_id": "GHSA-prr3-c3m5-p7q2",
+      "package": "@adobe/css-tools",
+      "version": "4.3.1",
+      "fixed_versions": [
+        "4.3.2"
+      ],
+      "source": "OSV",
+      "note": "CVE and severity copied verbatim from OSV record GHSA-prr3-c3m5-p7q2"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": [
+    "CVE-2023-48631"
+  ]
+}

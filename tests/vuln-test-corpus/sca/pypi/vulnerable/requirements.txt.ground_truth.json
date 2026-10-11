@@ -1,0 +1,45 @@
+{
+  "fixture": "requirements.txt",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "requirements.txt",
+      "line": 4,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "click==8.1.7",
+      "cve": "CVE-2026-7246",
+      "advisory_id": "PYSEC-2026-2132",
+      "package": "click",
+      "version": "8.1.7",
+      "fixed_versions": [
+        "8.3.3"
+      ],
+      "source": "OSV",
+      "note": "CVE and severity copied verbatim from OSV record PYSEC-2026-2132"
+    },
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "requirements.txt",
+      "line": 5,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "fastapi==0.88.0",
+      "cve": "CVE-2024-24762",
+      "advisory_id": "PYSEC-2024-38",
+      "package": "fastapi",
+      "version": "0.88.0",
+      "fixed_versions": [
+        "0.109.1",
+        "9d34ad0ee8a0dfbbcce06f76c2d5d851085024fc"
+      ],
+      "source": "OSV",
+      "note": "CVE and severity copied verbatim from OSV record PYSEC-2024-38"
+    }
+  ],
+  "expected_count": 2,
+  "expected_cves": [
+    "CVE-2026-7246",
+    "CVE-2024-24762"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "fixture": "vulnerable_model.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-DESER",
+      "file": "vulnerable_model.py",
+      "line": 14,
+      "severity": "Critical",
+      "cwe": "CWE-502",
+      "evidence": "pickle.load(f)",
+      "cve": null,
+      "note": "model file is loaded from a path an attacker could supply"
+    },
+    {
+      "rule_id": "SAST-CODEINJ",
+      "file": "vulnerable_model.py",
+      "line": 33,
+      "severity": "Critical",
+      "cwe": "CWE-94",
+      "evidence": "exec(code",
+      "cve": null,
+      "note": "code arrives as JSON from a POST body"
+    }
+  ],
+  "expected_count": 2,
+  "expected_cves": [],
+  "notes": "API_KEY=\"***\" (L9) is NOT labelled -- a redaction marker exposes no credential. L23 np.array(data[\"features\"]) with no validation is a resource-exhaustion risk that is not line-addressable as a CWE-94."
+}

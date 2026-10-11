@@ -1,0 +1,57 @@
+{
+  "fixture": "vulnerable_app.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "vulnerable_app.py",
+      "line": 17,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "cursor.execute(query)",
+      "cve": null,
+      "note": "query is built by f-string interpolation of request.args at line 16"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "vulnerable_app.py",
+      "line": 27,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "subprocess.check_output(cmd, shell=True",
+      "cve": null,
+      "note": "cmd is request.args.get('cmd'); shell=True passes it to a shell"
+    },
+    {
+      "rule_id": "SAST-DESER",
+      "file": "vulnerable_app.py",
+      "line": 34,
+      "severity": "Critical",
+      "cwe": "CWE-502",
+      "evidence": "pickle.loads(data)",
+      "cve": null,
+      "note": "data is request.get_data(), wholly attacker-controlled"
+    },
+    {
+      "rule_id": "SAST-CODEINJ",
+      "file": "vulnerable_app.py",
+      "line": 42,
+      "severity": "Critical",
+      "cwe": "CWE-94",
+      "evidence": "render_string(tpl)",
+      "cve": null,
+      "note": "tpl is an f-string over request.args; SSTI despite the comment"
+    },
+    {
+      "rule_id": "SAST-DEBUG",
+      "file": "vulnerable_app.py",
+      "line": 45,
+      "severity": "High",
+      "cwe": "CWE-215",
+      "evidence": "debug=True",
+      "cve": null
+    }
+  ],
+  "expected_count": 5,
+  "expected_cves": [],
+  "notes": "SECRET_KEY=\"***\" at line 7 is deliberately NOT labelled: a redaction marker exposes no credential, so reporting it would be a finding a reviewer cannot act on."
+}

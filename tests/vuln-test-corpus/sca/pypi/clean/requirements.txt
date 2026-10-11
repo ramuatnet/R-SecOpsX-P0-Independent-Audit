@@ -1,0 +1,2 @@
+# Golden-corpus SCA fixture: the FIXED release named by the advisory.
+click==8.3.3

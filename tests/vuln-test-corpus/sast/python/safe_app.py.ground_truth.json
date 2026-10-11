@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_app.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Every sink is mitigated: parameterised query (L14), command whitelist + no shell (L25-28), deserialization refused (L34), Jinja2 auto-escape on by default (L40). Any finding here is a false positive."
+}

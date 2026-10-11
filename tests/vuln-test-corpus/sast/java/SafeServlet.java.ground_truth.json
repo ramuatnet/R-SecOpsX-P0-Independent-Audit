@@ -1,0 +1,7 @@
+{
+  "fixture": "SafeServlet.java",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Parameterised query, command whitelist, '..'-check before File(), and the deserialization header is ignored outright. Any finding here is a false positive. NOTE: line 11 was corrupt (PASS=System...S\");) and was repaired to System.getenv(\"DB_PASS\") to match the file's own '// from env' intent."
+}

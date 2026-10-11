@@ -1,0 +1,46 @@
+{
+  "fixture": "VulnerableController.cs",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-HARDCRED",
+      "file": "VulnerableController.cs",
+      "line": 12,
+      "severity": "High",
+      "cwe": "CWE-798",
+      "evidence": "Password=hardcoded_password",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "VulnerableController.cs",
+      "line": 21,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "cmd.ExecuteReader()",
+      "cve": null,
+      "note": "SQL is an interpolated string at L20 carrying the 'name' query param"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "VulnerableController.cs",
+      "line": 38,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "\"/c \" + cmd",
+      "cve": null,
+      "note": "ProcessStartInfo arguments concatenated with the query parameter"
+    },
+    {
+      "rule_id": "SAST-PATH",
+      "file": "VulnerableController.cs",
+      "line": 54,
+      "severity": "High",
+      "cwe": "CWE-22",
+      "evidence": "Path.Combine(@\"C:\\Uploads\", filename)",
+      "cve": null,
+      "note": "filename is used with no '..' or rooted-path rejection"
+    }
+  ],
+  "expected_count": 4,
+  "expected_cves": []
+}

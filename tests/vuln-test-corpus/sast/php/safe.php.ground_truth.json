@@ -1,0 +1,7 @@
+{
+  "fixture": "safe.php",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Prepared statement + bind_param (L15-16), command whitelist plus escapeshellarg (L26-33), '..'/leading-'/' rejection before include (L38-41), eval refused (L47-49). Any finding here is a false positive."
+}

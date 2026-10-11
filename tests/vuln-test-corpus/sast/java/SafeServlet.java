@@ -8,7 +8,7 @@ import java.sql.*;
 public class SafeServlet extends HttpServlet {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/testdb";
     private static final String USER = System.getenv("DB_USER"); // from env
-    private static final String PASS=System...S"); // from env
+    private static final String PASS = System.getenv("DB_PASS"); // from env
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)

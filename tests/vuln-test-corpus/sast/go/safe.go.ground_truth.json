@@ -1,0 +1,7 @@
+{
+  "fixture": "safe.go",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Parameterised query (L35-36), regex whitelist before exec (L49-53), '..'/leading-'/' rejection (L64). Any finding here is a false positive."
+}

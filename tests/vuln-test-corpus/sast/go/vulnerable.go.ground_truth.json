@@ -1,0 +1,46 @@
+{
+  "fixture": "vulnerable.go",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-HARDCRED",
+      "file": "vulnerable.go",
+      "line": 25,
+      "severity": "High",
+      "cwe": "CWE-798",
+      "evidence": "root:hardcoded_pass@tcp",
+      "cve": null
+    },
+    {
+      "rule_id": "SAST-SQLI",
+      "file": "vulnerable.go",
+      "line": 35,
+      "severity": "Critical",
+      "cwe": "CWE-89",
+      "evidence": "db.Query(q)",
+      "cve": null,
+      "note": "q is concatenated at L34 from the 'name' query parameter"
+    },
+    {
+      "rule_id": "SAST-CMDI",
+      "file": "vulnerable.go",
+      "line": 48,
+      "severity": "Critical",
+      "cwe": "CWE-78",
+      "evidence": "exec.Command(\"sh\", \"-c\", \"echo \"+input)",
+      "cve": null,
+      "note": "'sh -c' with concatenated query input"
+    },
+    {
+      "rule_id": "SAST-PATH",
+      "file": "vulnerable.go",
+      "line": 60,
+      "severity": "High",
+      "cwe": "CWE-22",
+      "evidence": "path := \"/var/www/uploads/\" + name",
+      "cve": null,
+      "note": "name comes from the query string with no validation"
+    }
+  ],
+  "expected_count": 4,
+  "expected_cves": []
+}
