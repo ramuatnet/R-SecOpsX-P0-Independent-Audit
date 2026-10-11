@@ -1,0 +1,22 @@
+{
+  "fixture": "mixed_crypto.py",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-WEAK-HASH",
+      "file": "mixed_crypto.py",
+      "line": 7,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "return hashlib.md5(data).hexdigest()"
+    },
+    {
+      "rule_id": "CBOM-WEAK-CIPHER",
+      "file": "mixed_crypto.py",
+      "line": 11,
+      "severity": "Critical",
+      "cwe": null,
+      "evidence": "return DES.new(key, DES.MODE_ECB).encrypt(data)"
+    }
+  ]
+}

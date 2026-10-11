@@ -1,0 +1,14 @@
+{
+  "fixture": "asymmetric_rsa.py",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-ASYMMETRIC-KEY",
+      "file": "asymmetric_rsa.py",
+      "line": 6,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "return RSA.generate(bits)"
+    }
+  ]
+}

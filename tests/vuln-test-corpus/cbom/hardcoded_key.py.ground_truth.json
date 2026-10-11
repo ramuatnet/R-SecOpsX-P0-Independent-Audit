@@ -1,0 +1,14 @@
+{
+  "fixture": "hardcoded_key.py",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-HARDCODED-KEY",
+      "file": "hardcoded_key.py",
+      "line": 1,
+      "severity": "Critical",
+      "cwe": null,
+      "evidence": "-----BEGIN RSA PRIVATE KEY-----"
+    }
+  ]
+}

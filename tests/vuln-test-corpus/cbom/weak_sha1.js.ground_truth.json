@@ -1,0 +1,14 @@
+{
+  "fixture": "weak_sha1.js",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-WEAK-HASH",
+      "file": "weak_sha1.js",
+      "line": 5,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "return crypto.createHash(\"sha1\").update(contents).digest(\"hex\");"
+    }
+  ]
+}

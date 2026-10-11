@@ -1,0 +1,14 @@
+{
+  "fixture": "weak_hash.py",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-WEAK-HASH",
+      "file": "weak_hash.py",
+      "line": 6,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "return hashlib.md5(path).hexdigest()"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "fixture": "transport_tls.py",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-TRANSPORT-CRYPTO",
+      "file": "transport_tls.py",
+      "line": 7,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "context = ssl.create_default_context(cafile=\"corporate-ca.pem\")"
+    }
+  ]
+}

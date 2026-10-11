@@ -1,0 +1,14 @@
+{
+  "fixture": "weak_des.py",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-WEAK-CIPHER",
+      "file": "weak_des.py",
+      "line": 8,
+      "severity": "Critical",
+      "cwe": null,
+      "evidence": "return DES.new(key, DES.MODE_ECB).encrypt(data)"
+    }
+  ]
+}

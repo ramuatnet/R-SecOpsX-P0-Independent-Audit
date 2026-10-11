@@ -1,0 +1,14 @@
+{
+  "fixture": "approved_aes.py",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-APPROVED-CIPHER",
+      "file": "approved_aes.py",
+      "line": 6,
+      "severity": "Low",
+      "cwe": null,
+      "evidence": "cipher = AES.new(key, AES.MODE_GCM)"
+    }
+  ]
+}

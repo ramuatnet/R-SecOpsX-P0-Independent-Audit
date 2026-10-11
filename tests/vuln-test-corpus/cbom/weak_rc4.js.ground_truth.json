@@ -1,0 +1,22 @@
+{
+  "fixture": "weak_rc4.js",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "CBOM-WEAK-CIPHER",
+      "file": "weak_rc4.js",
+      "line": 2,
+      "severity": "Critical",
+      "cwe": null,
+      "evidence": "const { RC4 } = require("
+    },
+    {
+      "rule_id": "CBOM-WEAK-CIPHER",
+      "file": "weak_rc4.js",
+      "line": 5,
+      "severity": "Critical",
+      "cwe": null,
+      "evidence": "const cipher = new RC4(key);"
+    }
+  ]
+}
