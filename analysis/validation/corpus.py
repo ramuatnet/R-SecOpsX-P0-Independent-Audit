@@ -147,6 +147,11 @@ CANONICAL_RULES = frozenset({
     "CBOM-TRANSPORT-CRYPTO",      # a TLS/SSL configuration in use
     "CBOM-HARDCODED-KEY",         # key material embedded in the source
     "CBOM-HARDCODED-CERT",        # a certificate embedded in the source
+    # SBOM -- an inventory entry is a claim that a component is present, which
+    # is neither a weakness nor a line. Without a class of its own every
+    # inventory label would have to borrow a vulnerability class and assert a
+    # defect the manifest does not have.
+    "SBOM-COMPONENT-INVENTORY",   # a declared component, reported as present
 })
 
 # Families whose findings are anchored to a source line. SCA and SBOM findings
@@ -342,10 +347,24 @@ def validate_ground_truth(truth, fixture: Path, root: Path | None = None) -> lis
                             f"{line_no!r}")
             continue
 
+        declared_file = str(f["file"])
+        if family != "sca" and Path(declared_file).name != fixture.name:
+            problems.append(
+                f"{tag}: file {declared_file!r} does not match the fixture "
+                f"it labels")
+
         # A SAST/secrets/iac label names a line in source it must be able to
         # point at. SCA and SBOM findings are properties of a manifest or of
         # the dependency graph as a whole, so line 0 legitimately means
-        # "not line-addressable" -- see the schema note in the module docstring.
+        # "not line-addressable" -- see the schema note in the module
+        # docstring.
+        #
+        # The fixture-name check above deliberately runs BEFORE this branch.
+        # It used to sit after, so a line-0 label -- which every SCA and SBOM
+        # label is -- skipped it along with the evidence and duplicate checks.
+        # A label could then name a file that does not exist beside it and be
+        # reported as sound, because the only check that would have caught it
+        # was unreachable for exactly the families that use line 0.
         if line_no == 0:
             if family in LINE_ANCHORED_FAMILIES:
                 problems.append(
@@ -376,12 +395,6 @@ def validate_ground_truth(truth, fixture: Path, root: Path | None = None) -> lis
                 f"{tag}: duplicate label for {key} -- one vulnerable line "
                 f"must not be counted twice")
         seen_keys.add(key)
-
-        declared_file = str(f["file"])
-        if family != "sca" and Path(declared_file).name != fixture.name:
-            problems.append(
-                f"{tag}: file {declared_file!r} does not match the fixture "
-                f"it labels")
 
     expected_cves = truth.get("expected_cves", [])
     if not isinstance(expected_cves, list):

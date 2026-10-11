@@ -1,0 +1,46 @@
+{
+  "fixture": "requirements.txt",
+  "expected_count": 4,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "click",
+      "package": "click",
+      "version": "8.3.3"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "six",
+      "package": "six",
+      "version": "1.16.0"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "iniconfig",
+      "package": "iniconfig",
+      "version": "2.0.0"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "colorama",
+      "package": "colorama",
+      "version": "0.4.6"
+    }
+  ]
+}

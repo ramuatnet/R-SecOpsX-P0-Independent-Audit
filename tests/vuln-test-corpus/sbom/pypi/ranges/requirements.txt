@@ -1,0 +1,2 @@
+packaging>=23.0
+pluggy>=1.0,<2.0

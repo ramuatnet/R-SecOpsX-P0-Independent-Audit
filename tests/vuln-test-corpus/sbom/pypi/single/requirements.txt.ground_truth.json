@@ -1,0 +1,16 @@
+{
+  "fixture": "requirements.txt",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "click",
+      "package": "click",
+      "version": "8.3.3"
+    }
+  ]
+}

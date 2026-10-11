@@ -1,0 +1,66 @@
+{
+  "fixture": "requirements.txt",
+  "expected_count": 6,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "flask",
+      "package": "flask",
+      "version": "3.0.0"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "Werkzeug",
+      "package": "Werkzeug",
+      "version": "unknown"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "Jinja2",
+      "package": "Jinja2",
+      "version": "unknown"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "itsdangerous",
+      "package": "itsdangerous",
+      "version": "unknown"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "click",
+      "package": "click",
+      "version": "unknown"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "blinker",
+      "package": "blinker",
+      "version": "unknown"
+    }
+  ]
+}

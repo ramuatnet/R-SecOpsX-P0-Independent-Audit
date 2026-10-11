@@ -1,0 +1,26 @@
+{
+  "fixture": "requirements.txt",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "packaging",
+      "package": "packaging",
+      "version": "unknown"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "pluggy",
+      "package": "pluggy",
+      "version": "unknown"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "fixture": "pom.xml",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "pom.xml",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "commons-lang:commons-lang",
+      "package": "commons-lang:commons-lang",
+      "version": "2.6"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "pom.xml",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "com.google.code.gson:gson",
+      "package": "com.google.code.gson:gson",
+      "version": "2.10.1"
+    }
+  ]
+}

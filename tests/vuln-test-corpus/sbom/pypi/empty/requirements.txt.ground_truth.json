@@ -1,0 +1,5 @@
+{
+  "fixture": "requirements.txt",
+  "expected_count": 0,
+  "expected_findings": []
+}

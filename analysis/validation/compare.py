@@ -58,6 +58,7 @@ _LOG = logging.getLogger("rsx.analysis.validation.compare")
 # Identity kinds. A finding is either a claim about a component (CVE-backed)
 # or a claim about a place in code (location-backed).
 _KIND_CVE = "cve"
+_KIND_COMPONENT = "component"
 _KIND_LOCATION = "location"
 
 
@@ -82,11 +83,22 @@ def identity(finding: dict) -> tuple[str, tuple]:
     all. Requiring a line match there would score every SCA finding a miss
     against a tool that simply does not report lines -- which is what the
     first measurement did, and it was wrong for that reason.
+
+    A package WITHOUT a CVE is a component inventory entry, and it gets its
+    own kind rather than falling through to location. Location identity is
+    ``(basename, class)``, so every component declared in one manifest shares
+    a single key: ten packages would collapse to one identity, the dict below
+    would keep only the last, and a nine-package manifest would be scored as
+    one finding with eight unexplained extras. Two versions of the same
+    package are separate claims too, which is why the version is in the key.
     """
     cve = _norm(finding.get("cve"))
     package = _norm(finding.get("package"))
     if cve and package:
         return (_KIND_CVE, (package, _norm(finding.get("version")), cve))
+    if package and finding.get("version"):
+        return (_KIND_COMPONENT,
+                (package, _norm(finding.get("version"))))
 
     anchor = _norm(finding.get("class")) or _norm(finding.get("cwe")) \
         or _norm(finding.get("rule_id"))

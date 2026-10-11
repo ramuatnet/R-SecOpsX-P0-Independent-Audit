@@ -305,6 +305,62 @@ def _scan_cbom(case_dir: Path, fixture_name: str) -> list[dict]:
             if Path(str(f.get("file", ""))).name == fixture_name]
 
 
+def _scan_sbom(case_dir: Path, fixture_name: str) -> list[dict]:
+    """Inventory every component ``generate_sbom`` derives from one manifest.
+
+    This is a different question from the SCA family's. SCA asks "does this
+    dependency have an advisory?"; SBOM asks "is this dependency reported at
+    all?". Mixing them would score an inventory tool against a vulnerability
+    corpus, and a component with no advisory -- correctly absent from an SCA
+    run -- would then read as a miss.
+
+    The CVE is therefore deliberately NOT copied through, even though
+    ``generate_sbom`` has already resolved one for most packages. Carrying it
+    would switch the finding's identity from component to CVE, while the label
+    for an inventory entry carries no CVE at all; the two sides would then key
+    on different things and every entry would score as both a miss and an
+    extra. The advisory itself is measured by the sca family, which keeps it.
+
+    ``manifest_line`` is where the declaration sits, but it is deliberately
+    NOT carried into the finding. The comparator's line check would then
+    compare a transitive dependency against the line its PARENT happens to be
+    declared on -- ``generate_sbom`` reports jinja2 and werkzeug at line 1 of
+    a requirements.txt whose line 1 reads ``flask==3.0.0`` -- and a correct
+    inventory entry would fail for a line it has no business being on. Line 0
+    is the schema's spelling for "not line-addressable", which is the honest
+    description of an inventory entry: identity comes from the component, and
+    two components declared on one line stay distinct without a line to tell
+    them apart.
+    """
+    from scanner.sbom import generate_sbom
+
+    packages = generate_sbom(str(case_dir))
+    out: list[dict] = []
+    for pkg in packages or []:
+        if not isinstance(pkg, dict):
+            continue
+        manifest = Path(str(pkg.get("manifest_file") or "")).name
+        if manifest != fixture_name:
+            # A case directory may hold more than one manifest. Counting a
+            # neighbour's components against this fixture would credit it with
+            # findings it does not contain.
+            continue
+        out.append({
+            "rule_id": "SBOM-COMPONENT-INVENTORY",
+            "class": "SBOM-COMPONENT-INVENTORY",
+            "file": fixture_name,
+            "basename": fixture_name,
+            "line": 0,
+            "severity": None,
+            "cwe": None,
+            "evidence": pkg.get("name"),
+            "cve": None,
+            "package": pkg.get("name"),
+            "version": pkg.get("version"),
+        })
+    return out
+
+
 def run_corpus(corpus_root: Path, tolerance: int = 0,
                families: list[str] | None = None) -> dict:
     """Measure the corpus and return the aggregated result.
@@ -362,11 +418,11 @@ def run_corpus(corpus_root: Path, tolerance: int = 0,
             from analysis.validation.normalize import normalize_findings
             actual = normalize_findings(
                 _scan_cbom(case_dir, path.name), "cbom")
-        elif family in ("sbom",):
-            # SBOM generation is inventory, not vulnerability matching: what
-            # is measured is whether the components are reported at all, so
-            # the labels name packages with line 0 (see LINE_ANCHORED_FAMILIES).
-            actual = _scan_sca(case_dir)
+        elif family == "sbom":
+            # Inventory, not vulnerability matching. _scan_sca would report
+            # only packages WITH advisories, so a component that is correctly
+            # present but currently unvulnerable would read as a miss.
+            actual = _scan_sbom(case_dir, path.name)
         else:
             _LOG.warning("no engine for family %r; skipping %s", family, path.name)
             continue

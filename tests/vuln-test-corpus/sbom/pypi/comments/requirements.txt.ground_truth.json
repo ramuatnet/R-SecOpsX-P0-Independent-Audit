@@ -1,0 +1,26 @@
+{
+  "fixture": "requirements.txt",
+  "expected_count": 2,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "idna",
+      "package": "idna",
+      "version": "3.6"
+    },
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "requirements.txt",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "certifi",
+      "package": "certifi",
+      "version": "2024.2.2"
+    }
+  ]
+}

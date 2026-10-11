@@ -1,0 +1,5 @@
+# Pinned for the 2026.1 release.
+
+idna==3.6        # RFC 3490
+
+certifi==2024.2.2

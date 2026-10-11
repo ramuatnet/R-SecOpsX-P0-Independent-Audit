@@ -1,0 +1,2 @@
+# No third-party dependencies: this service uses the standard
+# library only.

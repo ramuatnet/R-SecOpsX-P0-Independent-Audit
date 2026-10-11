@@ -1,0 +1,16 @@
+{
+  "fixture": "package.json",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "package.json",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "lodash",
+      "package": "lodash",
+      "version": "4.17.21"
+    }
+  ]
+}

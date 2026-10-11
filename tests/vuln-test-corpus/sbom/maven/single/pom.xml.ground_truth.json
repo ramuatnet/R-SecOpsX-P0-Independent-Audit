@@ -1,0 +1,16 @@
+{
+  "fixture": "pom.xml",
+  "expected_count": 1,
+  "expected_findings": [
+    {
+      "rule_id": "SBOM-COMPONENT-INVENTORY",
+      "file": "pom.xml",
+      "line": 0,
+      "severity": "Info",
+      "cwe": null,
+      "evidence": "commons-lang:commons-lang",
+      "package": "commons-lang:commons-lang",
+      "version": "2.6"
+    }
+  ]
+}
