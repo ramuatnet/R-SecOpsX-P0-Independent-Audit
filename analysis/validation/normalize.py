@@ -94,7 +94,20 @@ _GITLEAKS_SEVERITY = {
     # would make the tool look decisive while saying nothing.
 }
 
-SOURCES = ("rsecopsx", "sarif", "grype", "semgrep", "checkov", "gitleaks")
+_TRIVY_SEVERITY = {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "negligible": "Info",
+    # trivy uses "Unknown" for an advisory whose severity the source never
+    # stated. That is an absence of information, not a low-severity finding,
+    # so it maps to None rather than being filed as a grade.
+    "unknown": None,
+}
+
+SOURCES = ("rsecopsx", "sarif", "grype", "trivy", "semgrep", "checkov",
+           "gitleaks", "kics")
 
 # Canonical class for a CWE. This is the vocabulary V0.1's labels use, and
 # the only place a CWE becomes a comparable identifier.
@@ -275,6 +288,26 @@ def _from_grype(f: dict) -> dict:
                 cve = aid
                 break
 
+    # grype does NOT always carry the CVE in relatedVulnerabilities -- on the
+    # corpus SBOM that field is null and advisories is [], while the CVE sits
+    # in `cwes[].cve`:
+    #
+    #   "cwes": [{"cve": "CVE-2023-48631", "cwe": "CWE-20", ...}]
+    #
+    # Checking only the two conventional places left grype reporting
+    # GHSA-prr3-c3m5-p7q2 where R-SecOpsX reports CVE-2023-48631 for the same
+    # advisory, so a shared finding was reported as two disagreements. The
+    # rule ID still carries grype's own id -- only the canonical CVE field is
+    # aliased, which is what the field is for.
+    if not cve or not str(cve).startswith("CVE-"):
+        for entry in vuln.get("cwes") or []:
+            if not isinstance(entry, dict):
+                continue
+            candidate = entry.get("cve")
+            if candidate and str(candidate).upper().startswith("CVE-"):
+                cve = candidate
+                break
+
     sev = str(vuln.get("severity") or "").lower()
     # A severity grype does not define must stay None. Coercing an unknown
     # value to Medium would move findings upward and make recall look better.
@@ -293,6 +326,118 @@ def _from_grype(f: dict) -> dict:
         "package": _first(artifact.get("name")),
         "version": _first(artifact.get("version")),
     }
+
+
+def _from_trivy(f: dict) -> dict:
+    """One trivy ``Vulnerabilities`` entry.
+
+    trivy reports a package, not a line: ``PkgName`` / ``InstalledVersion``
+    take the place of a file and line, so ``line`` stays None and the finding
+    matches on component identity instead -- the same way a grype finding
+    does. Forcing a line here would be inventing one.
+
+    Severity arrives in title case ("Critical") or upper case ("CRITICAL")
+    depending on version and output format, so it is lower-cased before the
+    lookup rather than being matched on one spelling and dropped on the
+    other. A dropped severity would read as "trivy did not say", which is a
+    different claim from "trivy said Critical".
+    """
+    sev_raw = str(f.get("Severity") or "").strip().lower()
+    sev = _TRIVY_SEVERITY.get(sev_raw)
+
+    cve = _first(f.get("VulnerabilityID"))
+    if cve and not str(cve).upper().startswith("CVE-"):
+        # trivy also reports GHSA- and TEMP- ids. Keep the tool's own id as
+        # the rule id, and leave cve None unless it really is a CVE, so the
+        # comparator never treats a GHSA identifier as if it were a CVE.
+        for key in ("PrimaryURL", "VendorID"):
+            candidate = f.get(key)
+            if candidate and str(candidate).upper().startswith("CVE-"):
+                cve = candidate
+                break
+        else:
+            cve = None
+
+    path = _first(f.get("PkgPath"), f.get("PkgIdentifier", {}).get("PkgID")
+                  if isinstance(f.get("PkgIdentifier"), dict) else None,
+                  f.get("Target"))
+
+    return {
+        "rule_id": _first(f.get("VulnerabilityID")),
+        "class": None,
+        "file": _relpath(path),
+        "basename": _basename(path),
+        "line": None,
+        "severity": sev,
+        "cwe": None,
+        "evidence": _first(f.get("Title"), f.get("Description"),
+                           f.get("VulnerabilityID")),
+        "cve": cve,
+        "package": _first(f.get("PkgName")),
+        "version": _first(f.get("InstalledVersion")),
+    }
+
+
+def _from_kics(f: dict) -> dict:
+    """One kics ``files`` entry, reached through its parent query.
+
+    kics nests each finding under ``queries[].files[]``, so a flattening step
+    in ``normalize_findings`` would be needed to reach it directly. This
+    normalizer therefore takes one already-flattened file record, which is
+    what ``_flatten_kics`` produces.
+
+    PROVENANCE OF THIS SHAPE
+    ------------------------
+    kics is not installed on this machine, so unlike the grype and trivy
+    normalizers this one was written from kics's documented JSON output
+    rather than captured from a run. The invariant it satisfies is that a
+    tool declared in PEER_TOOLS must be normalizable -- without this, a kics
+    run would skip every finding as "unknown source" and report the peer as
+    finding nothing, which reads as agreement. The first real kics run must
+    confirm the field names; until then this is documented, not verified.
+    """
+    sev_raw = str(f.get("severity") or "").strip().lower()
+    return {
+        "rule_id": _first(f.get("query_id"), f.get("query_name")),
+        "class": None,
+        "file": _relpath(f.get("file_name")),
+        "basename": _basename(f.get("file_name")),
+        "line": _int_or_none(f.get("line")),
+        "severity": _CHECKOV_SEVERITY.get(sev_raw.upper()),
+        "cwe": None,
+        "evidence": _first(f.get("search_key"), f.get("description"),
+                           f.get("query_name")),
+        "cve": None,
+        "package": None,
+        "version": None,
+    }
+
+
+def _flatten_kics(findings: list) -> list[dict]:
+    """Expand kics's nested ``queries[].files[]`` into one record per file.
+
+    Without this every kics query would be counted once no matter how many
+    files it flags, understating the peer and making our own count look
+    inflated by comparison.
+    """
+    flat: list[dict] = []
+    for query in findings or []:
+        if not isinstance(query, dict):
+            continue
+        files = query.get("files")
+        if not isinstance(files, list) or not files:
+            continue
+        for entry in files:
+            if not isinstance(entry, dict):
+                continue
+            merged = dict(entry)
+            # The query carries the identity and severity; the file carries
+            # the location. Both are needed for one canonical record.
+            for key in ("query_id", "query_name", "severity", "description"):
+                if query.get(key) is not None:
+                    merged.setdefault(key, query.get(key))
+            flat.append(merged)
+    return flat
 
 
 def _from_semgrep(f: dict) -> dict:
@@ -392,9 +537,11 @@ _NORMALIZERS = {
     "rsecopsx": _from_rsecopsx,
     "sarif": _from_sarif,
     "grype": _from_grype,
+    "trivy": _from_trivy,
     "semgrep": _from_semgrep,
     "checkov": _from_checkov,
     "gitleaks": _from_gitleaks,
+    "kics": _from_kics,
 }
 
 
@@ -442,7 +589,14 @@ def normalize_findings(findings: list, source: str) -> list[dict]:
     One malformed peer record must not discard the other 400, because the
     report then understates what the peer found and the diff reads as
     agreement that was never established.
+
+    kics is flattened first: its findings are nested as
+    ``queries[].files[]``, and one query may span several files. Feeding the
+    query straight through would produce one record for all of them.
     """
+    if source == "kics":
+        findings = _flatten_kics(findings)
+
     out = []
     for f in findings or []:
         try:
