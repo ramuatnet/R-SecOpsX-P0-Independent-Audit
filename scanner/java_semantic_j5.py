@@ -905,6 +905,42 @@ def _j5_split_paren(text: str, open_idx: int):
     return None, None
 
 
+def _j5_inline_assignment(s):
+    """``(lhs, rhs)`` of an assignment written AFTER an inline control
+    keyword: ``if (cond) bar = rhs;``, ``else bar = rhs;``, and their
+    nested / ``else if`` spellings.
+
+    The anchored assignment regex sees the keyword first and fails, so
+    the main loop used to leave ``bar`` untainted through
+    ``if (param != null) bar = param.split(" ")[0];`` (BenchmarkJava
+    01179's shape) -- the callee then looked constant-returning to
+    every consumer of its ``returns``: knowledge called the helper
+    clean and killed a REAL flow in the caller. Callers treat the
+    stripped write as unconditional: propagation-only sites taint
+    ``lhs`` when ``rhs`` is tainted (the branch MIGHT run), while kill
+    sites must pass ``can_kill=False`` -- a write behind a control
+    prefix is never unconditional. Braced forms return
+    ``(None, None)``: those statements arrive as their own lines.
+    """
+    probe = s
+    for _ in range(6):
+        im = re.match(r"if\s*\(", probe)
+        if im:
+            cond, probe = _j5_split_paren(probe, im.end() - 1)
+            if cond is None:
+                return None, None
+        elif re.match(r"else\b", probe):
+            probe = re.sub(r"^else\s+", "", probe, count=1)
+        else:
+            break
+        if not probe or probe.startswith("{"):
+            return None, None
+        lhs, rhs = _j5_assignment(probe)
+        if lhs:
+            return lhs, rhs
+    return None, None
+
+
 def _j5_balanced_close(text: str, open_idx: int):
     """Index of the ``)`` closing the ``(`` at ``open_idx``; None if it
     never closes. Quote-aware so a paren inside a string or char
@@ -1154,7 +1190,11 @@ _JAVA_SANITIZERS: dict = {
             re.I,
         ),
         re.compile(r"\bhtmlEscape\s*\(", re.I),
-        re.compile(r"\bescapeHtml[34]\s*\(", re.I),
+        # escapeHtml3/escapeHtml4 (commons-lang3) and commons-lang's plain
+        # escapeHtml (BenchmarkTest00389 uses StringEscapeUtils.escapeHtml).
+        # The \b also blocks unescapeHtml -- an unescaper is the opposite
+        # of a sanitizer.
+        re.compile(r"\bescapeHtml\d*\s*\(", re.I),
         re.compile(r"\bJsoup\s*\.\s*clean\s*\(", re.I),
     ),
 }
@@ -1582,10 +1622,18 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
                 continue
             if rest and not rest.startswith("{"):
                 lhs, rhs = _j5_assignment(rest)
+                kill = can_kill
+                if not lhs:
+                    # ``else if (...) x = y;`` chains: strip the second
+                    # control prefix too, and the write stays
+                    # conditional -- kill rights belong to the else
+                    # branch only when its OWN statement is the write.
+                    lhs, rhs = _j5_inline_assignment(rest)
+                    kill = False
                 if mode == "folded_false":
                     # The THEN branch was the dead one; this else is the
                     # taken branch and carries full kill rights.
-                    record(lhs, rhs, rest, can_kill=can_kill)
+                    record(lhs, rhs, rest, can_kill=kill)
                 else:
                     record(lhs, rhs, rest, can_kill=False)
             continue
@@ -1600,11 +1648,20 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
                 if folded is None:
                     pending_else = "unknown"
                     lhs, rhs = _j5_assignment(then_stmt)
+                    if not lhs:
+                        lhs, rhs = _j5_inline_assignment(then_stmt)
                     record(lhs, rhs, then_stmt, can_kill=False)
                 elif bool(folded):
                     pending_else = "folded_true"
                     lhs, rhs = _j5_assignment(then_stmt)
-                    record(lhs, rhs, then_stmt, can_kill=can_kill)
+                    kill = can_kill
+                    if not lhs:
+                        # Nested inline write (``if (t) if (c) x = y``):
+                        # behind a second control prefix it never gets
+                        # kill rights, even though this branch runs.
+                        lhs, rhs = _j5_inline_assignment(then_stmt)
+                        kill = False
+                    record(lhs, rhs, then_stmt, can_kill=kill)
                 else:
                     # Condition folds to FALSE: the then-branch is dead
                     # code and the (possible) else branch is the taken
@@ -1620,7 +1677,8 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
     return dead
 
 
-def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
+def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None,
+                       san_calls=None):
     lines = source.splitlines()
     start = method["body_start_line"]
     end = min(len(lines), method["body_end_line"])
@@ -1680,6 +1738,11 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
                     changed = True
 
             lhs, rhs = _j5_assignment(s)
+            if not lhs:
+                # Inline ``if (cond) bar = rhs;`` / ``else bar = rhs;``:
+                # propagation-only here, so the stripped write is
+                # treated as unconditional (the branch MIGHT run).
+                lhs, rhs = _j5_inline_assignment(s)
             if lhs and rhs and not _j5_sink_return(rhs):
                 # RSECOPSX_J6B_INLINE_COMMENT_TAINT_FIX_STRUCTURAL_V2_20260907
                 # Ignore Java comments when deriving taint from an assignment RHS.
@@ -1832,6 +1895,17 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
                 )
                 hits = []
                 for arg in args:
+                    # A sanitizer wrap DIRECTLY at the sink counts like an
+                    # assignment-side kill: print(encodeForHTML(fileName))
+                    # cannot carry the vuln even though fileName is live --
+                    # the walk only sees wraps that are right-hand sides of
+                    # assignments. Blanking removes the wrap's arguments
+                    # too, so what remains is what can actually reach the
+                    # response; None (no wrap / unbalanced) keeps the raw
+                    # arg, the conservative direction.
+                    covered = _j5_blank_sanitizer_spans(arg, vuln)
+                    if covered is not None:
+                        arg = covered
                     hits.extend(_j5_expr_hits(arg, taint))
                 if hits:
                     # Order-aware refinement: a name whose last write
@@ -1841,8 +1915,21 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
                     # sink's vuln class also lets the walk treat a
                     # class-correct sanitizer wrap (encodeForHTML at an
                     # xss sink) as a kill.
+                    #
+                    # ``san_calls`` is the per-vuln twin of the agnostic
+                    # ``safe_calls``: a helper whose every return is
+                    # sanitizer-clean FOR THIS CLASS
+                    # (``bar = htmlEscape(param); return bar``) drops
+                    # taint at an xss sink, while an HTML escape says
+                    # nothing about path traversal -- so the union is
+                    # built per sink, never stored globally.
+                    eff_safe = safe_calls
+                    if san_calls and vuln:
+                        vset = san_calls.get(vuln)
+                        if vset:
+                            eff_safe = (safe_calls or set()) | set(vset)
                     dead = _j5_dead_names(
-                        body, start, taint, line_no, safe_calls, vuln)
+                        body, start, taint, line_no, eff_safe, vuln)
                     hits = [h for h in hits if h not in dead]
 
                 if hits:
@@ -1903,6 +1990,145 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
         "sink_flows": sink_flows,
     }
 
+
+def _j5_returns_clean_for(state, source, safe_calls, vuln) -> bool:
+    """True when every still-tainted return of ``state`` is clean for
+    ``vuln`` once dead-refined with the walk given ``vuln``.
+
+    ``state["returns"]`` already holds the AGNOSTIC refinement's
+    survivors -- entries whose every name died before the ``return``
+    were dropped when the state was built. Re-running the walk with
+    ``vuln`` adds only the class-correct sanitizer kills: ``return
+    htmlEscape(param)``'s taint survives an HTML escape as far as path
+    traversal is concerned and dies for xss, and only the vuln-keyed
+    walk can tell the two apart. Used by both knowledge computations
+    (project-wide ``_compute_san_calls`` and the line layers' file-local
+    ``_j5_file_call_knowledge``).
+    """
+    pending = [r for r in state.get("returns", []) if r.get("tainted")]
+    if not pending:
+        return True
+    lines_ = source.splitlines()
+    m = state["method"]
+    bstart = m["body_start_line"]
+    bend = min(len(lines_), m["body_end_line"])
+    body = lines_[bstart - 1:bend]
+    for r in pending:
+        dead = _j5_dead_names(
+            body, bstart, set(state["taint"]), r.get("line"),
+            safe_calls, vuln)
+        live = [
+            h for h in _j5_expr_hits(r.get("expr", r["origin"]),
+                                     state["taint"])
+            if h not in dead
+        ]
+        if live:
+            return False
+    return True
+
+
+# File-local call knowledge for the LINE layers (JAVA_TAINT_* /
+# JAVA_J3_*). Their dead-walk used to be delegated with
+# ``safe_calls=None``, so every helper shape the J5 layer quiets through
+# interprocedural return knowledge still fired there: BenchmarkJava's
+# dominant JAVA_TAINT_XSS negatives put the fold (``bar = cond ?
+# "const" : param``) or the HTML escape inside ``doSomething`` and the
+# caller's ``println(bar)`` at the sink.
+_J5_CALL_KNOWLEDGE_CACHE: dict = {}
+
+
+def _j5_file_call_knowledge(source: str, filepath: str = "<file>"):
+    """``(safe_calls, san_calls)`` computed from ONE file's own helpers.
+
+    The line layers are file-global by design and have no project-wide
+    method states, so this analyzes the file alone: every method once
+    with ALL its parameters tainted -- a passthrough helper must never
+    look clean -- then one settle iteration so a helper that calls
+    another helper in the same file inherits its knowledge. Keys are
+    ``(name, arity)`` exactly like ``analyze_java_project``'s, and a key
+    is only added when EVERY local resolution is clean, so an unsafe
+    overload poisons the pair conservatively.
+
+    Scoped to local definitions: a call resolved here is either a bare
+    ``helper(...)`` or ``new Inner().helper(...)`` in the same file --
+    the BenchmarkJava and golden-corpus shape. A qualified cross-class
+    call whose target lives elsewhere simply is not in this index and
+    keeps today's behavior (no kill). Cached by content hash; the walk
+    is invoked once per sink hit.
+    """
+    import hashlib
+    digest = hashlib.sha1(
+        source.encode("utf-8", "replace")).hexdigest()
+    hit = _J5_CALL_KNOWLEDGE_CACHE.get(digest)
+    if hit is not None:
+        return hit
+    safe: set = set()
+    san: dict = {v: set() for v in _JAVA_SANITIZERS}
+    try:
+        methods = _j5_methods(source, filepath)
+        if methods:
+            index: dict = {}
+            states: dict = {}
+            for m in methods:
+                mkey = _j5_method_key(m)
+                index.setdefault(mkey, []).append(m)
+                states[(m["start_line"], mkey)] = _j5_analyze_method(
+                    filepath, source, m, set(m["params"]))
+
+            def _local_compute():
+                s = set()
+                for key, ms in index.items():
+                    ok = True
+                    for m in ms:
+                        st = states.get((m["start_line"], key))
+                        if st is None or any(
+                                r.get("tainted")
+                                for r in st.get("returns", [])):
+                            ok = False
+                            break
+                    if ok:
+                        s.add(key)
+                sd = {}
+                for v in _JAVA_SANITIZERS:
+                    vs = set()
+                    for key, ms in index.items():
+                        if key in s:
+                            # Agnostic-clean implies clean for every
+                            # class -- it dropped taint unconditionally.
+                            vs.add(key)
+                            continue
+                        ok = True
+                        for m in ms:
+                            st = states.get((m["start_line"], key))
+                            if st is None or not _j5_returns_clean_for(
+                                    st, source, s, v):
+                                ok = False
+                                break
+                        if ok:
+                            vs.add(key)
+                    sd[v] = vs
+                return s, sd
+
+            for _ in range(2):
+                prev = (set(safe),
+                        {k: set(x) for k, x in san.items()})
+                safe, san = _local_compute()
+                if (safe, san) == prev:
+                    break
+                for skey, st in list(states.items()):
+                    states[skey] = _j5_analyze_method(
+                        filepath, source, st["method"],
+                        set(st["taint"]), safe, san)
+    except Exception:
+        # Any analysis failure degrades to today's behavior: no call
+        # knowledge, no kills from it.
+        safe, san = set(), {v: set() for v in _JAVA_SANITIZERS}
+    result = (frozenset(safe),
+              {k: frozenset(vv) for k, vv in san.items()})
+    if len(_J5_CALL_KNOWLEDGE_CACHE) >= 4096:
+        _J5_CALL_KNOWLEDGE_CACHE.clear()
+    _J5_CALL_KNOWLEDGE_CACHE[digest] = result
+    return result
 
 
 # J5_SINK_CATEGORY_EVIDEX_COMPATIBILITY_20260905

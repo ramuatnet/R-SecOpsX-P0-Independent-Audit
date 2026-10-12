@@ -574,3 +574,246 @@ def test_j5_paren_inside_string_literal_does_not_truncate_args():
 }
 """
     assert len(path_flows(src)) >= 1
+
+
+# ---------------------------------------------------------------------------
+# 9. Sanitizer wrap DIRECTLY at the sink: the assignment-side walk never
+#    sees it, so the sink extraction must blank the wrap itself. Plus the
+#    commons-lang `escapeHtml` table entry (00389) and its unescaper twin.
+# ---------------------------------------------------------------------------
+
+def test_j5_sink_direct_sanitizer_is_quiet():
+    # Single line deliberately: a non-assignment line yields as its own
+    # (possibly unbalanced) statement, and empty args would make this
+    # pass vacuously instead of exercising the sink-side blanking.
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        response.getWriter().print(org.owasp.esapi.ESAPI.encoder().encodeForHTML(param));
+    }
+}
+"""
+    assert xss_flows(src) == []
+
+
+def test_j5_sink_unsanitized_twin_fires():
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        response.getWriter().print(param);
+    }
+}
+"""
+    assert len(xss_flows(src)) >= 1
+
+
+def test_taint_layer_sink_direct_sanitizer_is_quiet():
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        response.getWriter().write(org.owasp.esapi.ESAPI.encoder().encodeForHTML(param));
+    }
+}
+"""
+    assert [f for f in taint_rules(src)
+            if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+def test_taint_layer_sink_unsanitized_twin_fires():
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        response.getWriter().write(param);
+    }
+}
+"""
+    assert "JAVA_TAINT_XSS" in {f["rule_id"] for f in taint_rules(src)}
+
+
+def test_commons_lang_escapeHtml_kills_for_both_layers():
+    """00389: org.apache.commons.lang.StringEscapeUtils.escapeHtml --
+    the plain name, neither [34]."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = org.apache.commons.lang.StringEscapeUtils.escapeHtml(param);
+        response.getWriter().println(bar);
+    }
+}
+"""
+    assert xss_flows(src) == []
+    assert [f for f in taint_rules(src)
+            if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+def test_unescapeHtml_does_not_kill():
+    """An unescaper is the opposite of a sanitizer: the table pattern
+    must not match escapeHtml inside unescapeHtml."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = org.apache.commons.lang.StringEscapeUtils.unescapeHtml(param);
+        response.getWriter().println(bar);
+    }
+}
+"""
+    assert len(xss_flows(src)) >= 1
+    assert "JAVA_TAINT_XSS" in {f["rule_id"] for f in taint_rules(src)}
+
+
+# ---------------------------------------------------------------------------
+# 10. File-local call knowledge for the line layer
+#     (_j5_file_call_knowledge): the helper decides, the caller's
+#     sink receives.  BenchmarkJava's dominant JAVA_TAINT_XSS negatives
+#     (01053 folded ternary, 01048/01659 helper-contained htmlEscape)
+#     put the fold or the escape INSIDE doSomething; the J5 layer had
+#     safe_calls for them, the line layer was called with None.
+# ---------------------------------------------------------------------------
+
+_TAINT_CALLER = """        String param = request.getParameter("q");
+        String bar = new Test().doSomething(request, param);
+        response.getWriter().println(bar);
+    }
+
+"""
+
+_TAINT_FOLDED = """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar;
+            int num = 86;
+            if ((7 * 42) - num > 200) bar = "This_should_always_happen";
+            else bar = param;
+            return bar;
+        }
+    }
+}
+"""
+
+_TAINT_PASSTHROUGH = """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar;
+            bar = param;
+            return bar;
+        }
+    }
+}
+"""
+
+_TAINT_SANITIZE = """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar = org.apache.commons.lang.StringEscapeUtils.escapeHtml(param);
+            return bar;
+        }
+    }
+}
+"""
+
+_KNOWN = ("doSomething", 2)
+
+
+def test_file_knowledge_fold_helper_is_safe_everywhere():
+    from scanner.java_semantic_j5 import _j5_file_call_knowledge
+    safe, san = _j5_file_call_knowledge(_TAINT_PRELUDE + _TAINT_CALLER + _TAINT_FOLDED)
+    assert _KNOWN in safe
+    # Agnostic-clean implies clean for every class.
+    assert _KNOWN in san["xss"]
+
+
+def test_file_knowledge_passthrough_helper_knows_nothing():
+    from scanner.java_semantic_j5 import _j5_file_call_knowledge
+    safe, san = _j5_file_call_knowledge(
+        _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_PASSTHROUGH)
+    assert _KNOWN not in safe
+    assert _KNOWN not in san["xss"]
+
+
+def test_file_knowledge_sanitizer_helper_is_xss_only():
+    """htmlEscape drops taint for xss and only for xss: path traversal
+    must keep the helper's return live."""
+    from scanner.java_semantic_j5 import _j5_file_call_knowledge
+    safe, san = _j5_file_call_knowledge(
+        _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_SANITIZE)
+    assert _KNOWN not in safe
+    assert _KNOWN in san["xss"]
+
+
+def test_taint_layer_fold_helper_return_is_quiet():
+    """01053: the fold lives in the callee; the caller's println(bar)
+    must be quieted by the callee's dead-refined returns."""
+    src = _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_FOLDED
+    assert [f for f in taint_rules(src)
+            if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+def test_taint_layer_fold_helper_twin_fires():
+    """One edit in the helper: it returns its parameter."""
+    src = _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_PASSTHROUGH
+    assert "JAVA_TAINT_XSS" in {f["rule_id"] for f in taint_rules(src)}
+
+
+def test_taint_layer_sanitizer_helper_return_is_quiet():
+    """01048/01659: htmlEscape sits in the callee's return path."""
+    src = _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_SANITIZE
+    assert [f for f in taint_rules(src)
+            if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+def test_taint_layer_sanitizer_helper_twin_fires():
+    """The unsanitized callee keeps firing."""
+    src = _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_PASSTHROUGH
+    assert "JAVA_TAINT_XSS" in {f["rule_id"] for f in taint_rules(src)}
+
+
+def test_taint_layer_sanitizer_helper_still_taints_path_sink():
+    """Per-vuln guard: the SAME htmlEscape helper cannot silence a path
+    sink -- the knowledge union is rebuilt with the sink's class, and
+    'xss' is the only class the helper proved."""
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String bar = new Test().doSomething(request, param);
+        java.nio.file.Path p = java.nio.file.Paths.get(org.owasp.benchmark.helpers.Utils.TESTFILES_DIR + bar);
+    }
+
+""" + _TAINT_SANITIZE
+    assert "JAVA_TAINT_PATH_TRAVERSAL" in {
+        f["rule_id"] for f in taint_rules(src)}
+
+
+# ---------------------------------------------------------------------------
+# 11. The inline-control assignment strip (_j5_inline_assignment): a write
+#     behind ``if (cond)`` / ``else`` on ONE line must keep the callee's
+#     return -- and therefore the caller's sink -- alive. Without it the
+#     main loop never tainted the local, returns looked empty, and
+#     knowledge called the helper clean (01179: knowledge killed a real
+#     flow that only J5's different scope happened to keep reporting).
+# ---------------------------------------------------------------------------
+
+_TAINT_INLINE_IF_HELPER = """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar = "";
+            if (param != null) bar = param.split(" ")[0];
+            return bar;
+        }
+    }
+}
+"""
+
+
+def test_file_knowledge_inline_if_helper_knows_nothing():
+    from scanner.java_semantic_j5 import _j5_file_call_knowledge
+    safe, san = _j5_file_call_knowledge(
+        _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_INLINE_IF_HELPER)
+    assert _KNOWN not in safe
+    assert _KNOWN not in san["xss"]
+
+
+def test_taint_layer_inline_if_helper_return_fires():
+    """The same helper, end to end: the split still carries the payload
+    (01179 is an xss POSITIVE -- a space-free payload survives)."""
+    src = _TAINT_PRELUDE + _TAINT_CALLER + _TAINT_INLINE_IF_HELPER
+    assert "JAVA_TAINT_XSS" in {f["rule_id"] for f in taint_rules(src)}
+
+
+def test_folded_inline_if_else_helper_still_quiet():
+    """Strip must not break the fold: when the condition folds TRUE the
+    else-write is dead code and the helper still returns a constant."""
+    src = _TAINT_PRELUDE + _TAINT_CALLER + """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar;
+            int num = 86;
+            if ((7 * 42) - num > 200) bar = "This_should_always_happen";
+            else bar = param;
+            return bar;
+        }
+    }
+}
+"""
+    assert [f for f in taint_rules(src)
+            if f["rule_id"] == "JAVA_TAINT_XSS"] == []

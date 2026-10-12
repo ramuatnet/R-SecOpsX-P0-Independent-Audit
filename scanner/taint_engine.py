@@ -2189,10 +2189,26 @@ def _java_dead_names(masked_lines: list[str], taint: set, sink_idx: int,
     SQL / 37 CMD findings on negative tests). Results only ever REMOVE
     names; a name with no provably-safe last write before the sink keeps
     its hit.
+
+    The delegation also carries FILE-LOCAL call knowledge
+    (``_j5_file_call_knowledge``): when the last write is a helper call
+    -- ``bar = new Test().doSomething(request, param)`` -- the callee's
+    own dead-refined returns decide, exactly as the J5 layer's
+    project-wide ``safe_calls`` does for it: constant-folding helpers
+    enter the agnostic set, sanitizer-returning helpers enter the set
+    for their class only (``htmlEscape`` counts at an xss sink, never at
+    a path sink). Without this the line layer re-reported every helper
+    shape the J5 layer had already quieted (BenchmarkTest01053's folded
+    ternary, 01048/01659's helper-contained htmlEscape).
     """
     try:
-        from scanner.java_semantic_j5 import _j5_dead_names
-        return _j5_dead_names(masked_lines, 1, taint, sink_idx, None, vuln)
+        from scanner.java_semantic_j5 import (
+            _j5_dead_names, _j5_file_call_knowledge)
+        safe, san = _j5_file_call_knowledge("\n".join(masked_lines))
+        eff = set(safe)
+        if vuln:
+            eff |= set(san.get(vuln, ()))
+        return _j5_dead_names(masked_lines, 1, taint, sink_idx, eff, vuln)
     except Exception:
         return set()
 
@@ -2325,6 +2341,18 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
 
             # Extract a conservative call argument from the sink line.
             call_text = line[m.start():]
+            # A sanitizer wrap DIRECTLY at the sink is as good as an
+            # assignment-side kill: print(encodeForHTML(param)) cannot
+            # carry the vuln even though the wrap never appears as an
+            # assignment the dead-walk could kill on. Blank the wrap
+            # (its arguments included) before extracting names; None
+            # (no wrap for this class / unbalanced extent) keeps the
+            # raw text -- the conservative direction. Import is lazy to
+            # mirror _java_dead_names (avoids the module import cycle).
+            from scanner.java_semantic_j5 import _j5_blank_sanitizer_spans
+            covered = _j5_blank_sanitizer_spans(call_text, vuln)
+            if covered is not None:
+                call_text = covered
             names = _java_taint_in_expr(call_text, tainted)
             # Order-aware refinement: a name whose last write before this
             # sink line is provably safe is not a live carrier here, even
