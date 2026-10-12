@@ -84,9 +84,26 @@ jobs:
       - name: Run detection mutation testing
         run: python -m analysis.validation.mutation
 
+  owasp-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Clone OWASP BenchmarkJava (shallow)
+        run: git clone --depth 1 https://github.com/OWASP-Benchmark/BenchmarkJava.git "$RUNNER_TEMP/BenchmarkJava"
+      # Report-only by design: absolute recall against an external oracle is
+      # a measurement, not a pass/fail contract -- the job surfaces metric
+      # drift in the log (per-category recall and false-positive rate) and
+      # fails only when the harness itself errors. Add --min-recall to turn
+      # it into a regression gate once a floor is agreed.
+      - name: Score R-SecOpsX against BenchmarkJava
+        run: python -m analysis.validation.owasp_benchmark --benchmark-dir "$RUNNER_TEMP/BenchmarkJava"
+
   ci-matrix:
     runs-on: ubuntu-latest
-    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing]
+    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing, owasp-benchmark]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

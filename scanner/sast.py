@@ -660,6 +660,31 @@ def _is_intentional_dynamic_import_function(source: str, match: re.Match) -> boo
     ))
 
 
+# Explicit XXE hardening the file already applies to its parser. Measured
+# against OWASP BenchmarkJava: all 35 files constructing a
+# DocumentBuilderFactory setFeature("...disallow-doctype-decl", true)
+# immediately afterwards, and the XXE rule -- matching only the
+# newInstance() constructor -- reported all 35 as High XXE, 20 of them on
+# tests the oracle labels negative. Every XXE finding the rule produced
+# against that benchmark was against a file carrying the canonical
+# mitigation. Whole-file matching rather than bounded context: hardening
+# is a rare, deliberate API call, and a parser factory built next to a
+# hardened one in the same file is beyond what this regex layer models.
+_JAVA_XXE_HARDENED_RE = re.compile(
+    r"disallow-doctype-decl"
+    r"|load-external-dtd"
+    r"|FEATURE_SECURE_PROCESSING"
+    r"|setExpandEntityReferences\s*\(\s*false"
+    r"|IS_SUPPORTING_EXTERNAL_ENTITIES\s*[\"']?\s*,\s*false",
+    re.I,
+)
+
+
+def _java_xxe_parser_hardened(source: str) -> bool:
+    """True when the file already hardens its XML parser against XXE."""
+    return bool(_JAVA_XXE_HARDENED_RE.search(source))
+
+
 def _is_client_side_ssrf_context(filepath: str, line: str) -> bool:
     """Return True when an SSRF candidate is clearly browser/client-side code.
 
@@ -1142,7 +1167,11 @@ def scan_file(filepath: str) -> list[dict]:
 
             # Do not suppress JAVA_XXE_PARSER because an unrelated XPath
             # evaluate()/compile() call exists elsewhere in the file. XML parser
-            # construction remains an independent XXE risk signal.
+            # construction remains an independent XXE risk signal -- unless the
+            # file hardens the parser itself, which is not a signal but the fix.
+            if rule.get("id") == "JAVA_XXE_PARSER" and _java_xxe_parser_hardened(source):
+                continue
+
             lineno, snippet = _snippet_for_match(rule, source, lines, match.start(), match.end())
             if _is_comment(snippet, language):
                 continue
