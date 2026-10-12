@@ -18,10 +18,21 @@ if str(ROOT) not in sys.path:
 
 
 def test_validation_modules_import():
-    from analysis.validation import ci_matrix, corpus, fuzz_versions, metrics, normalize, run, sbom_conformance  # noqa: F401
+    from analysis.validation import ci_matrix, corpus, e2e, fuzz_versions, metrics, normalize, run, sbom_conformance  # noqa: F401
     assert hasattr(fuzz_versions, "fuzz_versions")
     assert hasattr(sbom_conformance, "validate_sbom_conformance")
     assert hasattr(ci_matrix, "run_ci_matrix")
+    assert hasattr(e2e, "run_e2e")
+
+
+def test_e2e_targets_layout_is_intact():
+    # The E2E harness discovers targets by directory, so a renamed or missing
+    # fixture silently shrinks the suite rather than failing it. Pin the names.
+    from analysis.validation.e2e import REQUIRED_ARTIFACTS, TARGETS
+    assert REQUIRED_ARTIFACTS and "clean_report.json" in REQUIRED_ARTIFACTS
+    names = sorted(p.name for p in TARGETS.iterdir() if p.is_dir())
+    assert names == ["clean_app", "flask_sql", "iam_wildcard"]
+    assert (TARGETS / "flask_sql" / "requirements.txt").is_file()
 
 
 def test_run_module_exposes_families():
