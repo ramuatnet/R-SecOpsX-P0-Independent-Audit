@@ -47,9 +47,36 @@ jobs:
       - name: Run Phase 0 security gate tests
         run: pytest tests/test_phase0_security_gate.py tests/test_phase0_gate_metadata.py -v --tb=short
 
+  phase4-bom-conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install BOM schema validation dependencies
+        run: pip install jsonschema requests
+      - name: Run Phase 4 CBOM/AI-BOM conformance tests
+        run: pytest tests/test_phase4_cbom_conformance.py -v --tb=short
+
+  e2e-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # No dependencies: the CLI is stdlib-only at import time (PDF/Excel
+      # renderers import lazily and the harness scans with --no-pdf
+      # --no-excel), and the harness copies each fixture to a temp dir so
+      # the secrets scanner's known-signature layer runs as it would on a
+      # real target.
+      - name: Run end-to-end pipeline validation
+        run: python -m analysis.validation.e2e
+
   ci-matrix:
     runs-on: ubuntu-latest
-    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests]
+    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -60,6 +60,8 @@ REQUIRED_ARTIFACTS = (
     "Security_Report.vex.json",
     "Security_CycloneDX.json",
     "Security_SPDX.spdx.json",
+    "Security_CBOM.cdx.json",
+    "Security_AIBOM.cdx.json",
     "scan.log",
 )
 
@@ -69,6 +71,8 @@ JSON_ARTIFACTS = (
     "Security_Report.vex.json",
     "Security_CycloneDX.json",
     "Security_SPDX.spdx.json",
+    "Security_CBOM.cdx.json",
+    "Security_AIBOM.cdx.json",
 )
 
 
@@ -112,6 +116,52 @@ def _findings_signature(report: dict) -> list[tuple]:
     return sorted(out)
 
 
+def _check_bom_structure(outdir: Path, result: dict) -> None:
+    """Offline conformance check for the CycloneDX 1.6 BOM artifacts.
+
+    E2E stays offline on purpose: analysis/validation/sbom_conformance.py
+    also validates against the official schemas over the network, and a
+    suite that fails because githubusercontent was unreachable would train
+    people to ignore it. What is checked here is everything that does not
+    need a fetch -- document identity (bomFormat/specVersion), and for
+    non-empty inventories the cbomkit structural contract (every
+    cryptographic-asset carries cryptoProperties with a valid assetType and
+    its asset-specific sub-object; every ML component carries provider
+    provenance). Empty inventories skip the content check: a clean target
+    has no crypto to inventory, and that is a valid document, not a
+    malformed one.
+    """
+    from analysis.validation.sbom_conformance import (
+        _aibom_schema_check,
+        _cbomkit_parse_check,
+    )
+
+    ok = True
+    for name, checker in (
+        ("Security_CBOM.cdx.json", _cbomkit_parse_check),
+        ("Security_AIBOM.cdx.json", _aibom_schema_check),
+    ):
+        doc = _read_json(outdir / name)
+        if not isinstance(doc, dict):
+            result["problems"].append("%s unreadable: %s" % (name, doc))
+            ok = False
+            continue
+        if doc.get("bomFormat") != "CycloneDX" or doc.get("specVersion") != "1.6":
+            result["problems"].append(
+                "%s is not a CycloneDX 1.6 doc (bomFormat=%r specVersion=%r)"
+                % (name, doc.get("bomFormat"), doc.get("specVersion")))
+            ok = False
+            continue
+        if not (doc.get("components") or []):
+            continue
+        check = checker(doc)
+        if not check.get("valid"):
+            result["problems"].append(
+                "%s: %s" % (name, (check.get("errors") or [])[:3]))
+            ok = False
+    result["checks"]["bom_structure"] = ok
+
+
 def _check_target(target: Path, fail_on: str | None = None) -> dict:
     """Run one target and return a structured result.
 
@@ -151,6 +201,9 @@ def _check_target(target: Path, fail_on: str | None = None) -> dict:
         result["checks"]["artifacts_parse"] = not broken
         if broken:
             result["problems"].append("unparseable artifacts: %s" % broken)
+
+        # 2b. The two 1.6 BOM artifacts are well-formed CycloneDX.
+        _check_bom_structure(outdir, result)
 
         report = _read_json(outdir / "clean_report.json")
         if isinstance(report, Exception):

@@ -365,10 +365,21 @@ def _bom_items(payload: dict, aliases: tuple) -> list:
 
 
 def _bom_asset_components(payload: dict) -> list[dict]:
+    from core.redaction import redact_pem_deep
+
     assets = []
     for key, aliases, ctype in BOM_ASSET_SOURCES:
         for i, item in enumerate(_bom_items(payload, aliases), 1):
             name = str(item.get("name") or item.get("id") or item.get("endpoint") or f"{key}-{i}")
+            # Redact per-value BEFORE dumps, never on the serialized text:
+            # an unterminated PEM header redacted after dumps would swallow
+            # closing quotes and braces out of the JSON string, corrupting
+            # the document. The CBOM private-key rule's evidence is the PEM
+            # block itself, and rsecopsx:raw reproduces it verbatim -- so
+            # the main SBOM was republishing the very key material the scan
+            # found. A BOM is the artifact most likely to be handed to
+            # third parties, which makes it the worst place for that leak.
+            safe_item = redact_pem_deep(dict(item))
             assets.append({
                 "type": "data" if ctype == "cryptographic-asset" else "application",
                 "bom-ref": f"rsecopsx:{key}:{i}:{name}".replace(" ", "_"),
@@ -377,7 +388,7 @@ def _bom_asset_components(payload: dict) -> list[dict]:
                 "properties": [
                     {"name": "rsecopsx:bom_type", "value": key},
                     {"name": "rsecopsx:asset_type", "value": ctype},
-                    {"name": "rsecopsx:raw", "value": json.dumps(item, default=str)},
+                    {"name": "rsecopsx:raw", "value": json.dumps(safe_item, default=str)},
                 ],
             })
     return assets

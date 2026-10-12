@@ -30,8 +30,10 @@ def test_e2e_targets_layout_is_intact():
     # fixture silently shrinks the suite rather than failing it. Pin the names.
     from analysis.validation.e2e import REQUIRED_ARTIFACTS, TARGETS
     assert REQUIRED_ARTIFACTS and "clean_report.json" in REQUIRED_ARTIFACTS
+    assert "Security_CBOM.cdx.json" in REQUIRED_ARTIFACTS
+    assert "Security_AIBOM.cdx.json" in REQUIRED_ARTIFACTS
     names = sorted(p.name for p in TARGETS.iterdir() if p.is_dir())
-    assert names == ["clean_app", "flask_sql", "iam_wildcard"]
+    assert names == ["clean_app", "crypto_ai", "flask_sql", "iam_wildcard"]
     assert (TARGETS / "flask_sql" / "requirements.txt").is_file()
 
 

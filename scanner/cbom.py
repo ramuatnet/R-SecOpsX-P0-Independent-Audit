@@ -201,10 +201,20 @@ def scan_file(filepath: str) -> list[dict]:
 
     findings = []
     lines = source.splitlines()
+    # One crypto observation per (component, line): a single source line can
+    # satisfy one rule's pattern several times (ssl.PROTOCOL_TLS_CLIENT on
+    # line 39 of the fixture matched three alternatives), and three copies
+    # of the same observation in a BOM are a schema-valid way to overstate
+    # inventory size -- the same duplicate-rule inflation the corpus counts
+    # as false positives.
+    seen: set[tuple[str, int]] = set()
 
     for rule in CRYPTO_RULES:
         for match in rule["pattern"].finditer(source):
             line_no = source[:match.start()].count("\n") + 1
+            dedupe_key = (str(rule["component"]), line_no)
+            if dedupe_key in seen:
+                continue
             source_line = lines[line_no - 1] if 0 <= line_no - 1 < len(lines) else ""
 
             if source_line.lstrip().startswith(("#", "//", "*")):
@@ -219,6 +229,7 @@ def scan_file(filepath: str) -> list[dict]:
             ):
                 continue
 
+            seen.add(dedupe_key)
             findings.append(
                 _make_cbom_item(
                     rule,

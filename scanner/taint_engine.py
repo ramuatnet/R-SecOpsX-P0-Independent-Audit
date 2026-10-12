@@ -1056,6 +1056,8 @@ ARTIFACT_FILE_NAMES = {
     "security_qbom.pq.json", "security_qbom.qbom.json",
     "security_cyclonedx.json", "security_report.vex.json",
     "security_spdx.spdx.json", "scan_performance.json",
+    # Phase 4: CycloneDX 1.6 CBOM/AI-BOM artifacts.
+    "security_cbom.cdx.json", "security_aibom.cdx.json",
 }
 
 

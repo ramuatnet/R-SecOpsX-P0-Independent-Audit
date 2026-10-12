@@ -62,6 +62,10 @@ EXCLUDED_FILES = {
     "security_qbom.pq.json", "security_qbom.qbom.json",
     "security_cyclonedx.json", "security_report.vex.json",
     "security_spdx.spdx.json", "scan_performance.json",
+    # Phase 4: the CycloneDX 1.6 CBOM/AI-BOM artifacts. Same hazard as every
+    # entry above -- written into output_dir, then read back as scan input on
+    # a re-scan of the same directory.
+    "security_cbom.cdx.json", "security_aibom.cdx.json",
 }
 
 # qbom.json added with the Quantum BOM artifact (CERT-In v2.0 Table 8). The handoff

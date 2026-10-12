@@ -214,12 +214,21 @@ def _normalize_evidence(value: Any) -> list[dict[str, Any]]:
     A bare string is not a finding, so it is wrapped with its own shape rather
     than discarded -- dropping it would strip the only field the real schema
     actually provides.
+
+    Every string is PEM-redacted first. The CBOM private-key rule's evidence
+    is the PEM block itself, and this list is serialized verbatim into
+    Security_QBOM.pq.json -- without redaction the PQ migration document
+    republished the key material the scan exists to report, which the leak
+    audit (probe_leak_audit) caught scanning every artifact a run produces.
     """
+    from core.redaction import redact_pem_deep
+
     if value is None:
         return []
     if isinstance(value, list):
-        return [v if isinstance(v, dict) else {"detail": str(v)} for v in value]
-    return [{"detail": str(value)}]
+        return [redact_pem_deep(v) if isinstance(v, dict)
+                else {"detail": redact_pem_deep(str(v))} for v in value]
+    return [{"detail": redact_pem_deep(str(value))}]
 
 
 def summarize_quantum_exposure(

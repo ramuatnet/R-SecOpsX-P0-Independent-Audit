@@ -5455,6 +5455,39 @@ def main():
     except Exception as exc:
         _safe_print(f"       => SPDX failed: {exc}")
 
+    # ------------------------------------------------------------------
+    # CycloneDX 1.6 CBOM / AI-BOM (Phase 4).
+    #
+    # The main SBOM above is specVersion 1.5, which predates the
+    # cryptographic-asset component type and the cryptoProperties object;
+    # embedding the crypto inventory there yields opaque data components.
+    # These two documents use 1.6 so a CBOM/AI-BOM consumer sees real
+    # algorithm/protocol/material assets. They are separate artifacts for
+    # the same reason the CERT-In QBOM is: distinct BOM types with
+    # distinct consumers.
+    # ------------------------------------------------------------------
+    _step("Generating CycloneDX CBOM report")
+    try:
+        from reporting.cyclonedx_bom_export import write_cbom_report
+
+        cbom_cdx_path = output_dir / "Security_CBOM.cdx.json"
+        write_cbom_report(payload.get("cbom") or [], str(cbom_cdx_path))
+        generated_files.append(cbom_cdx_path.name)
+        _safe_print(f"       => {cbom_cdx_path}")
+    except Exception as exc:
+        _safe_print(f"       => CBOM (CycloneDX 1.6) failed: {exc}")
+
+    _step("Generating CycloneDX AI-BOM report")
+    try:
+        from reporting.cyclonedx_bom_export import write_aibom_report
+
+        aibom_cdx_path = output_dir / "Security_AIBOM.cdx.json"
+        write_aibom_report(payload.get("aibom") or [], str(aibom_cdx_path))
+        generated_files.append(aibom_cdx_path.name)
+        _safe_print(f"       => {aibom_cdx_path}")
+    except Exception as exc:
+        _safe_print(f"       => AI-BOM (CycloneDX 1.6) failed: {exc}")
+
     scan_timing = _finish_scan_timing()
     payload.setdefault("metadata", {})["scan_timing"] = scan_timing
 
