@@ -2174,6 +2174,29 @@ def _java_make_finding(vuln: str, cwe: str, title: str, filepath: str,
     }
 
 
+def _java_dead_names(masked_lines: list[str], taint: set, sink_idx: int,
+                     vuln: str | None = None) -> set:
+    """Names whose LAST write before ``sink_idx`` is provably safe.
+
+    Delegates to the J5 order-aware walk so the two Java layers share one
+    kill discipline (constant-folded branches, try-frame kills, J6B
+    collection resolution, and -- when ``vuln`` is given -- class-correct
+    sanitizer wraps such as ``encodeForHTML`` at an xss sink). This
+    layer's ``tainted`` dict is flow-insensitive and file-global, so a
+    name assigned a request value and later overwritten with a safe
+    constant stayed tainted forever -- the exact BenchmarkJava negative
+    idiom behind most of the JAVA_TAINT_* false positives (53 XSS / 44
+    SQL / 37 CMD findings on negative tests). Results only ever REMOVE
+    names; a name with no provably-safe last write before the sink keeps
+    its hit.
+    """
+    try:
+        from scanner.java_semantic_j5 import _j5_dead_names
+        return _j5_dead_names(masked_lines, 1, taint, sink_idx, None, vuln)
+    except Exception:
+        return set()
+
+
 def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
     lines = source.splitlines()
     masked = _java_mask_comments(lines)
@@ -2303,6 +2326,15 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
             # Extract a conservative call argument from the sink line.
             call_text = line[m.start():]
             names = _java_taint_in_expr(call_text, tainted)
+            # Order-aware refinement: a name whose last write before this
+            # sink line is provably safe is not a live carrier here, even
+            # though the flow-insensitive dict kept it since its
+            # (long-overwritten) assignment -- see _java_dead_names.
+            # _j5_dead_names takes a 1-BASED sink line and stops strictly
+            # before it, so idx (0-based) must be converted.
+            if names:
+                dead = _java_dead_names(masked, set(tainted), idx + 1, vuln)
+                names = [n for n in names if n not in dead]
             source_expr = _java_source_in_expr(call_text)
             if not names and not source_expr:
                 continue
@@ -2728,6 +2760,15 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
             if kind=='xpath' and not re.search(r'\b(?:XPath|xp|xpath)\b|javax\.xml\.xpath', line, re.I): continue
             call=line[m.start():]
             names=_java_taint_in_expr(call,tainted)
+            # Order-aware refinement (shared with the line layer and J5):
+            # a name whose last write before this sink line is provably
+            # safe -- constant, class-correct sanitizer wrap, folded
+            # branch -- is not a live carrier, even though this layer's
+            # flow-insensitive dict kept it. 1-based sink line; the walk
+            # stops strictly before it.
+            if names:
+                dead=_java_dead_names(masked,set(tainted),idx+1,vuln)
+                names=[n for n in names if n not in dead]
             src=_java_source_in_expr(call)
             selected=None
             if names:

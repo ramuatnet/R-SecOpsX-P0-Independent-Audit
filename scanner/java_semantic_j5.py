@@ -978,7 +978,105 @@ def _j5_const_expr(expr: str, env: dict):
         return None
 
 
-def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None):
+# Java output-escaping sanitizers: each escape is correct ONLY for the
+# vuln class it is listed under (the per-class model of
+# taint_engine.SANITIZERS). Measured on BenchmarkJava: these patterns
+# cover 28/53 JAVA_TAINT_XSS and 34/52 JAVA_J5_XSS negative-oracle tests,
+# all of the shape ``bar = encodeForHTML(param)`` with the encode between
+# the source and the response sink. Deliberately absent: encodeForURL
+# (URL encoding is not HTML encoding -- mirrors the Python table's
+# ``urllib.parse.quote`` exclusion) and context-dependent ``escape`` names.
+_JAVA_SANITIZERS: dict = {
+    "xss": (
+        re.compile(
+            r"\bencodeFor(?:HTML|HTMLAttribute|JavaScript|JavaScriptAttribute"
+            r"|CSS|XPath)\s*\(",
+            re.I,
+        ),
+        re.compile(
+            r"\bEncode\s*\.\s*for(?:Html|HtmlAttribute|UnquotedHtmlAttribute"
+            r"|JavaScript|CssString|XPath)\s*\(",
+            re.I,
+        ),
+        re.compile(r"\bhtmlEscape\s*\(", re.I),
+        re.compile(r"\bescapeHtml[34]\s*\(", re.I),
+        re.compile(r"\bJsoup\s*\.\s*clean\s*\(", re.I),
+    ),
+}
+
+
+def _j5_blank_sanitizer_spans(eff: str, vuln: str):
+    """``eff`` with every sanitizer call for ``vuln`` removed, its
+    arguments included (balanced parens).
+
+    Returns None when the class has no sanitizer patterns, nothing
+    matched, or a wrap is unbalanced -- the caller then falls back to
+    the unblanked text, which is the conservative direction for source
+    detection and refuses coverage claims for unknown extents.
+    """
+    patterns = _JAVA_SANITIZERS.get(vuln)
+    if not patterns:
+        return None
+    spans = []
+    for pat in patterns:
+        spans.extend(pat.finditer(eff))
+    if not spans:
+        return None
+    spans.sort(key=lambda m: m.start())
+    out = []
+    last = 0
+    for m in spans:
+        if m.start() < last:
+            continue
+        # Walk from the open paren the pattern ended on to its match.
+        depth = 0
+        i = m.end() - 1
+        closed = False
+        while i < len(eff):
+            ch = eff[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    closed = True
+                    i += 1
+                    break
+            i += 1
+        if not closed:
+            return None
+        out.append(eff[last:m.start()])
+        last = i
+    out.append(eff[last:])
+    return "".join(out)
+
+
+def _j5_sanitizer_covers(eff: str, vuln: str, live) -> bool:
+    """True when every live contribution to ``eff`` sits INSIDE a
+    sanitizer wrap that is correct for ``vuln``.
+
+    The wrap spans (arguments included) are blanked out; if what remains
+    -- the contributions outside any wrap -- holds a request source or a
+    live tainted name, the value can still carry the vuln and coverage
+    fails. Names the positional walk has already proven safe are not
+    live and cannot break coverage, so the result composes with ``dead``
+    propagation downstream. An unbalanced wrap (malformed input) fails
+    closed: coverage cannot be claimed for a span whose extent is
+    unknown.
+    """
+    outside = _j5_blank_sanitizer_spans(eff, vuln)
+    if outside is None:
+        return False
+    if (
+        _J5_SOURCE_RE.search(outside)
+        or _J5_COOKIE_VALUE_RE.search(outside)
+        or _J5_WRAPPER_SOURCE_RE.search(outside)
+    ):
+        return False
+    return not _j5_expr_hits(outside, live)
+
+
+def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=None):
     """Names whose LAST write before ``sink_line`` is provably safe.
 
     The fixed-point taint set answers "was this name ever tainted in this
@@ -1077,12 +1175,21 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None):
         # Source check on the (possibly folded) right-hand side: a request
         # source always lives there, and searching the whole statement
         # would resurrect a variable whose source call sits in an untaken
-        # ternary branch.
+        # ternary branch. A source INSIDE a class-correct sanitizer wrap
+        # (Encode.forHtml(request.getParameter("x"))) is not a carrier of
+        # this sink's vuln -- it is blanked before the search; sources
+        # outside any wrap still resurrect, as do all sources when the
+        # sink class has no sanitizer model.
         eff = _j6b_strip_java_comments(rhs)
+        src_probe = eff
+        if vuln is not None:
+            blanked = _j5_blank_sanitizer_spans(eff, vuln)
+            if blanked is not None:
+                src_probe = blanked
         if (
-            _J5_SOURCE_RE.search(eff)
-            or _J5_COOKIE_VALUE_RE.search(eff)
-            or _J5_WRAPPER_SOURCE_RE.search(eff)
+            _J5_SOURCE_RE.search(src_probe)
+            or _J5_COOKIE_VALUE_RE.search(src_probe)
+            or _J5_WRAPPER_SOURCE_RE.search(src_probe)
         ):
             dead.discard(lhs)
             return
@@ -1118,6 +1225,14 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None):
                 hits = []
         elif exact_safe:
             hits = []
+        if hits and vuln and can_kill and _j5_sanitizer_covers(eff, vuln, live):
+            # Every live carrier of this value sits inside a sanitizer
+            # wrap that is correct for THIS sink's class (00278:
+            # ``bar = HtmlUtils.htmlEscape(param)`` then print(bar)):
+            # the written value cannot carry this vuln, so the write
+            # kills exactly like a constant. Conditional frames are
+            # excluded (can_kill) -- the wrap may not run on other paths.
+            hits = []
         if hits:
             dead.discard(lhs)
         elif can_kill and not _j5_sink_return(rhs):
@@ -1140,14 +1255,19 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None):
                 frames.pop()
         # A method signature -- possibly split so the ``{`` lands on a
         # ``throws ...`` continuation line -- opens the body and must not
-        # nest it. Block continuations (``} catch (E e) {``) and anonymous
-        # class openers do open real frames.
-        sig_like = (
-            re.search(
+        # nest it. Class-like declarations do the same for whole-file
+        # walks (the taint_engine line layer passes the entire file), and
+        # block continuations (``} catch (E e) {``) and anonymous class
+        # openers do open real frames.
+        sig_like = bool(
+            (re.search(
                 r"(?:\)\s*(?:throws\s+[^{]*)?|^throws\s+[^{]*)\{\s*$", head)
-            and not re.match(r"(?:if|for|while|switch|catch|synchronized|else|do|new)",
-                             head)
-            and not head.startswith("}")
+             and not re.match(r"(?:if|for|while|switch|catch|synchronized|else|do|new)",
+                              head)
+             and not head.startswith("}"))
+            or re.match(
+                r"(?:(?:public|private|protected|static|final|abstract|strictfp)\s+)*"
+                r"(?:class|interface|enum|record)\b", head)
         )
         if not sig_like:
             for i in range(masked_raw.count("{")):
@@ -1396,9 +1516,12 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
                     # Order-aware refinement: a name whose last write
                     # before this sink is provably safe is not a live
                     # carrier here, even though it was tainted somewhere
-                    # earlier in the method (see _j5_dead_names).
+                    # earlier in the method (see _j5_dead_names). The
+                    # sink's vuln class also lets the walk treat a
+                    # class-correct sanitizer wrap (encodeForHTML at an
+                    # xss sink) as a kill.
                     dead = _j5_dead_names(
-                        body, start, taint, line_no, safe_calls)
+                        body, start, taint, line_no, safe_calls, vuln)
                     hits = [h for h in hits if h not in dead]
 
                 if hits:

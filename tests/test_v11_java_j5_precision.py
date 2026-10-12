@@ -265,3 +265,153 @@ def test_switch_helper_with_runtime_discriminant_fires():
 }
 """
     assert len(xpath_flows(src)) >= 1
+
+
+# ---------------------------------------------------------------------------
+# 5. The taint_engine line layer (JAVA_TAINT_*) shares the same discipline
+#    through _java_dead_names -> _j5_dead_names.
+# ---------------------------------------------------------------------------
+
+def taint_rules(java_source: str) -> list:
+    from scanner.taint_engine import _scan_java_semantic
+    with tempfile.TemporaryDirectory(prefix="rsx_tainttest_") as tmp:
+        path = pathlib.Path(tmp, "T.java")
+        path.write_text(java_source, encoding="utf-8")
+        return [f for f in _scan_java_semantic(str(path), java_source)
+                if f.get("rule_id", "").startswith("JAVA_TAINT_")]
+
+
+_TAINT_PRELUDE = """import javax.servlet.http.HttpServletResponse;
+import java.io.PrintWriter;
+
+class T {
+    void doGet(HttpServletResponse response) throws Exception {
+"""
+
+
+def test_taint_layer_overwrite_quiet():
+    """The line layer's tainted dict is flow-insensitive and file-global;
+    the shared dead-walk must still silence the overwritten variable."""
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String out2 = param;
+        out2 = "hardcoded-safe";
+        response.getWriter().write("<p>" + out2 + "</p>");
+    }
+}
+"""
+    assert taint_rules(src) == []
+
+
+def test_taint_layer_overwrite_fires():
+    """One edit from the quiet negative: the last write is the source."""
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String out2 = "safe";
+        out2 = param;
+        response.getWriter().write("<p>" + out2 + "</p>");
+    }
+}
+"""
+    ids = {f["rule_id"] for f in taint_rules(src)}
+    assert "JAVA_TAINT_XSS" in ids
+
+
+def test_taint_layer_direct_source_at_sink_fires():
+    """A source expression directly in the sink args bypasses the
+    name-based dead-set entirely and must keep firing."""
+    src = _TAINT_PRELUDE + """        response.getWriter().write("<p>" + request.getParameter("q") + "</p>");
+    }
+}
+"""
+    ids = {f["rule_id"] for f in taint_rules(src)}
+    assert "JAVA_TAINT_XSS" in ids
+
+
+# ---------------------------------------------------------------------------
+# 6. Class-correct sanitizer recognition (_JAVA_SANITIZERS / vuln-keyed walk).
+#    BenchmarkJava: encodeForHTML/htmlEscape/escapeHtml sit between source
+#    and sink in 28/53 JAVA_TAINT_XSS and 34/52 JAVA_J5_XSS negative tests.
+# ---------------------------------------------------------------------------
+
+_XSS_PRELUDE = """import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+class T {
+    void doPost(HttpServletRequest request, HttpServletResponse response) throws Exception {
+"""
+
+
+def xss_flows(java_source: str) -> list:
+    """Run the full J5 project analysis, keeping only the J5 XSS sink."""
+    with tempfile.TemporaryDirectory(prefix="rsx_j5xss_") as tmp:
+        pathlib.Path(tmp, "T.java").write_text(java_source, encoding="utf-8")
+        return [f for f in analyze_java_project(tmp)
+                if f.get("rule_id") == "JAVA_J5_XSS"]
+
+
+def test_j5_sanitized_value_is_quiet():
+    """bar = encodeForHTML(param) then print(bar): the wrap is correct
+    for xss, so the write kills exactly like a constant."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = org.owasp.esapi.ESAPI.encoder().encodeForHTML(param);
+        response.getWriter().print(bar);
+    }
+}
+"""
+    assert xss_flows(src) == []
+
+
+def test_j5_unsanitized_twin_fires():
+    """One edit from the quiet negative: the wrap is gone."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = param;
+        response.getWriter().print(bar);
+    }
+}
+"""
+    assert len(xss_flows(src)) >= 1
+
+
+def test_j5_wrong_context_encoder_still_fires():
+    """URL encoding is deliberately NOT an xss sanitizer (mirrors the
+    Python table's urllib.parse.quote exclusion): javascript: and
+    percent-sequences survive it."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = java.net.URLEncoder.encode(param, "UTF-8");
+        response.getWriter().print(bar);
+    }
+}
+"""
+    assert len(xss_flows(src)) >= 1
+
+
+def test_j5_source_wrapped_at_declaration_is_quiet():
+    """The source call sits INSIDE the wrap, so it is blanked before the
+    source-resurrection check: the written value is encoded output."""
+    src = _XSS_PRELUDE + """        String bar = org.owasp.esapi.ESAPI.encoder().encodeForHTML(
+                request.getParameter("q"));
+        response.getWriter().print(bar);
+    }
+}
+"""
+    assert xss_flows(src) == []
+
+
+def test_taint_layer_sanitized_value_is_quiet():
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String bar = org.springframework.web.util.HtmlUtils.htmlEscape(param);
+        response.getWriter().write("<p>" + bar + "</p>");
+    }
+}
+"""
+    assert [f for f in taint_rules(src) if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+def test_taint_layer_unsanitized_twin_fires():
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String bar = param;
+        response.getWriter().write("<p>" + bar + "</p>");
+    }
+}
+"""
+    ids = {f["rule_id"] for f in taint_rules(src)}
+    assert "JAVA_TAINT_XSS" in ids
