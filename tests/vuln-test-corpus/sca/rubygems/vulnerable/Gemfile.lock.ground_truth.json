@@ -1,0 +1,20 @@
+{
+  "fixture": "Gemfile.lock",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "Gemfile.lock",
+      "line": 0,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "rails",
+      "cve": "CVE-2024-26143",
+      "package": "rails",
+      "version": "7.0.3.1",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV record GHSA-9822-6m93-xqf4"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": ["CVE-2024-26143"]
+}

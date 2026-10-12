@@ -1,0 +1,20 @@
+{
+  "fixture": "Cargo.lock",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "Cargo.lock",
+      "line": 0,
+      "severity": "Critical",
+      "cwe": null,
+      "evidence": "smallvec",
+      "cve": "CVE-2021-25900",
+      "package": "smallvec",
+      "version": "1.6.0",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV records GHSA-43w2-9j62-hq99 / RUSTSEC-2021-0003"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": ["CVE-2021-25900"]
+}

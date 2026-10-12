@@ -1,0 +1,14 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rails (7.0.3.1)
+      actioncable (= 7.0.3.1)
+      actionpack (= 7.0.3.1)
+    actioncable (7.0.3.1)
+    actionpack (7.0.3.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  rails

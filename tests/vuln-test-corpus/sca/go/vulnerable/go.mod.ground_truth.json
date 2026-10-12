@@ -1,0 +1,46 @@
+{
+  "fixture": "go.mod",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "go.mod",
+      "line": 0,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "github.com/gin-gonic/gin",
+      "cve": "CVE-2023-29401",
+      "package": "github.com/gin-gonic/gin",
+      "version": "v1.6.3",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV records GHSA-2c4m-59x9-fr2g / GO-2023-1737"
+    },
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "go.mod",
+      "line": 0,
+      "severity": "Medium",
+      "cwe": null,
+      "evidence": "github.com/gin-gonic/gin",
+      "cve": "CVE-2023-26125",
+      "package": "github.com/gin-gonic/gin",
+      "version": "v1.6.3",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV record GHSA-3vp4-m3rf-835h"
+    },
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "go.mod",
+      "line": 0,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "github.com/gin-gonic/gin",
+      "cve": "CVE-2020-28483",
+      "package": "github.com/gin-gonic/gin",
+      "version": "v1.6.3",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV record GHSA-h395-qcrw-5vmq (also GO-2021-0052)"
+    }
+  ],
+  "expected_count": 3,
+  "expected_cves": ["CVE-2023-29401", "CVE-2023-26125", "CVE-2020-28483"]
+}

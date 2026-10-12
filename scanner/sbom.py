@@ -17,6 +17,14 @@ from scanner.vulnerability_intel import (
     enrich_packages_with_external_vulns,
 )
 from analysis.intelligence_provenance import STATIC_REFERENCE
+from scanner.manifests import (
+    parse_poetry_lock, parse_pipfile_lock,
+    parse_pnpm_lock, parse_yarn_lock, parse_bun_lock, parse_deno_lock,
+    parse_go_mod, parse_go_sum,
+    parse_cargo_lock,
+    parse_composer_lock,
+    parse_gemfile_lock,
+)
 
 # Set when advisory enrichment itself raised, as distinct from the service being
 # unreachable (which ADVISORY_SERVICE_STATUS records). Both are disclosures; they
@@ -50,7 +58,7 @@ from pathlib import Path
 
 from core.license_catalog import infer_package_license
 
-EXCLUDED_DIRS = {"venv", ".venv", "env", "node_modules", ".git", "dist", "build"}
+EXCLUDED_DIRS = {"venv", ".venv", "env", "node_modules", ".git", "dist", "build", "vendor", "target", "__pycache__"}
 
 
     
@@ -391,7 +399,7 @@ KNOWN_VULNS: dict[str, list[dict]] = {
 }
 
 TRANSITIVE_DEPS: dict[str, list[str]] = {
-    "flask":    ["jinja2", "werkzeug"],
+    "flask":    ["jinja2", "werkzeug", "itsdangerous", "click", "blinker"],
     "django":   ["sqlparse"],
     "requests": ["urllib3", "certifi"],
     "express":  ["qs", "path-to-regexp"],
@@ -580,8 +588,12 @@ def _resolve_npm_version(ver) -> str:
         return "unknown"
 
     # An exact pin is major.minor.patch (optionally a pre-release/build).
+    # Pre-release and build metadata are separate optional groups:
+    # ``1.0.0-alpha+build1`` must match, and ``[-+]`` alone would consume
+    # only one of the two, so the fullmatch failed and the version resolved
+    # to "unknown" -- a real npm pin was then skipped by the advisory query.
     m = re.fullmatch(r"v?([0-9]+(?:\.[0-9]+){2,}"
-                     r"(?:[-+][A-Za-z0-9.\-]+)?)", raw)
+                     r"(?:-[A-Za-z0-9.\-]+)?(?:\+[A-Za-z0-9.\-]+)?)", raw)
     if not m:
         return "unknown"
     return m.group(1)
@@ -970,6 +982,27 @@ def generate_sbom(target_path: str) -> list[dict]:
     for f in target.rglob("pom.xml"):
         if not any(p in EXCLUDED_DIRS for p in f.parts):
             packages.extend(_parse_pom_xml(str(f)))
+
+    # Phase 1: additional lockfile formats (poetry, pnpm, yarn, bun, deno,
+    # go, cargo, composer, gemfile). Each parser returns the same dict shape
+    # so the dedupe and transitive logic below applies uniformly.
+    _LOCKFILE_PATTERNS = (
+        ("poetry.lock", parse_poetry_lock),
+        ("Pipfile.lock", parse_pipfile_lock),
+        ("pnpm-lock.yaml", parse_pnpm_lock),
+        ("yarn.lock", parse_yarn_lock),
+        ("bun.lock", parse_bun_lock),
+        ("deno.lock", parse_deno_lock),
+        ("go.mod", parse_go_mod),
+        ("go.sum", parse_go_sum),
+        ("Cargo.lock", parse_cargo_lock),
+        ("composer.lock", parse_composer_lock),
+        ("Gemfile.lock", parse_gemfile_lock),
+    )
+    for pattern, parser in _LOCKFILE_PATTERNS:
+        for f in target.rglob(pattern):
+            if not any(p in EXCLUDED_DIRS for p in f.parts):
+                packages.extend(parser(str(f)))
 
     # Deduplicate
     seen: set = set()

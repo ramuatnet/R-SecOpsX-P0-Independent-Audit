@@ -1,0 +1,33 @@
+{
+  "fixture": "composer.lock",
+  "expected_findings": [
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "composer.lock",
+      "line": 0,
+      "severity": "High",
+      "cwe": null,
+      "evidence": "symfony/http-foundation",
+      "cve": "CVE-2025-64500",
+      "package": "symfony/http-foundation",
+      "version": "4.4.49",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV record GHSA-3rg7-wf37-54rm; composer.lock pins v4.4.49, parser strips the leading v"
+    },
+    {
+      "rule_id": "SCA-VULN-DEP",
+      "file": "composer.lock",
+      "line": 0,
+      "severity": "Low",
+      "cwe": null,
+      "evidence": "symfony/http-foundation",
+      "cve": "CVE-2024-50345",
+      "package": "symfony/http-foundation",
+      "version": "4.4.49",
+      "source": "OSV",
+      "note": "CVE copied verbatim from OSV record GHSA-mrqx-rp3w-jpjp"
+    }
+  ],
+  "expected_count": 2,
+  "expected_cves": ["CVE-2025-64500", "CVE-2024-50345"]
+}

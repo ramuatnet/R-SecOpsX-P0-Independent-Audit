@@ -1,26 +1,14 @@
 {
   "fixture": "pom.xml",
   "expected_findings": [
-    {
-      "rule_id": "SCA-VULN-DEP",
-      "file": "pom.xml",
-      "line": 11,
-      "severity": "Medium",
-      "cwe": null,
-      "evidence": "<version>2.6</version>",
-      "cve": "CVE-2025-48924",
-      "advisory_id": "GHSA-j288-q9x7-2f5v",
-      "package": "commons-lang:commons-lang",
-      "version": "2.6",
-      "fixed_versions": [
-        "3.18.0"
-      ],
-      "source": "OSV",
-      "note": "CVE and severity copied verbatim from OSV record GHSA-j288-q9x7-2f5v"
-    }
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "Critical", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2021-44228", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "Critical", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2021-45046", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "High", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2021-45105", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "Medium", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2021-44832", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "Medium", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2025-68161", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "Medium", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2026-34477", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "pom.xml", "line": 0, "severity": "Medium", "cwe": null, "evidence": "log4j-core", "cve": "CVE-2026-34480", "package": "org.apache.logging.log4j:log4j-core", "version": "2.14.1"}
   ],
-  "expected_count": 1,
-  "expected_cves": [
-    "CVE-2025-48924"
-  ]
+  "expected_count": 7,
+  "expected_cves": ["CVE-2021-44228", "CVE-2021-45046", "CVE-2021-45105", "CVE-2021-44832", "CVE-2025-68161", "CVE-2026-34477", "CVE-2026-34480"]
 }

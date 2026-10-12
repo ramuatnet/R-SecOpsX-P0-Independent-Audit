@@ -1,26 +1,13 @@
 {
   "fixture": "package.json",
   "expected_findings": [
-    {
-      "rule_id": "SCA-VULN-DEP",
-      "file": "package.json",
-      "line": 5,
-      "severity": "Medium",
-      "cwe": null,
-      "evidence": "\"@adobe/css-tools\": \"4.3.1\"",
-      "cve": "CVE-2023-48631",
-      "advisory_id": "GHSA-prr3-c3m5-p7q2",
-      "package": "@adobe/css-tools",
-      "version": "4.3.1",
-      "fixed_versions": [
-        "4.3.2"
-      ],
-      "source": "OSV",
-      "note": "CVE and severity copied verbatim from OSV record GHSA-prr3-c3m5-p7q2"
-    }
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "express", "cve": "CVE-2024-43796", "package": "express", "version": "4.17.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "express", "cve": "CVE-2024-29041", "package": "express", "version": "4.17.1"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "lodash", "cve": "CVE-2020-28500", "package": "lodash", "version": "4.17.15"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "lodash", "cve": "CVE-2021-23337", "package": "lodash", "version": "4.17.15"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "lodash", "cve": "CVE-2025-13465", "package": "lodash", "version": "4.17.15"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "lodash", "cve": "CVE-2020-8203", "package": "lodash", "version": "4.17.15"}
   ],
-  "expected_count": 1,
-  "expected_cves": [
-    "CVE-2023-48631"
-  ]
+  "expected_count": 6,
+  "expected_cves": ["CVE-2024-43796", "CVE-2024-29041", "CVE-2020-28500", "CVE-2021-23337", "CVE-2025-13465", "CVE-2020-8203"]
 }
