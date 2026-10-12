@@ -125,6 +125,17 @@ RULES = [
         "framework": "CIS AWS Foundations Benchmark",
         "control": "IAM Least Privilege",
     },
+    {
+        "rule_id": "TF_IAM_JSONENCODE_WILDCARD",
+        "title": "IAM Policy JSON-encoded Wildcard Action/Resource",
+        "severity": "High",
+        "pattern": re.compile(r'(?:Action|Resource)\s*=\s*"\*"', re.IGNORECASE),
+        "description": "IAM policy allows wildcard action or resource via jsonencode.",
+        "remediation": "Replace wildcard actions/resources with least-privilege values.",
+        "cwe": "CWE-732",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "IAM Least Privilege",
+    },
     
     {
     "rule_id": "TF_ADMIN_POLICY_ATTACHED",

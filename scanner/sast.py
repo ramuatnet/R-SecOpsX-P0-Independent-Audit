@@ -48,7 +48,7 @@ _F = re.IGNORECASE | re.MULTILINE | re.DOTALL
 
 SCANNABLE_EXT = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".kt", ".scala", ".go",
-    ".rb", ".php", ".cs", ".vb", ".cpp", ".c", ".h", ".hpp", ".sh",
+    ".rb", ".php", ".cs", ".vb", ".cpp", ".c", ".h", ".hpp", ".rs", ".sh",
     ".env", ".yml", ".yaml", ".properties", ".xml", ".json", ".graphql", ".gql",
     ".gradle", ".csproj", ".config", ".tf", ".Dockerfile", "Dockerfile",
 }
@@ -77,6 +77,7 @@ LANG_BY_EXT = {
     ".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
     ".java": "java", ".kt": "kotlin", ".scala": "scala", ".go": "go", ".php": "php",
     ".cs": "csharp", ".vb": "vbnet", ".xml": "xml", ".properties": "properties",
+    ".rs": "rust",
     ".yml": "yaml", ".yaml": "yaml", ".json": "json", ".graphql": "graphql", ".gql": "graphql",
 }
 
@@ -141,6 +142,10 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"DOTNET_OPEN_REDIRECT","title":"ASP.NET Open Redirect","vuln":"open_redirect","sev":"High","langs":["csharp"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"Redirect\s*\(\s*(?:returnUrl|url|Request\.)"},
     {"id":"DOTNET_CERT_VALIDATION_BYPASS","title":"HttpClient Certificate Validation Bypass","vuln":"tls_bypass","sev":"Critical","langs":["csharp"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"ServerCertificateCustomValidationCallback\s*=\s*.*=>\s*true|DangerousAcceptAnyServerCertificateValidator"},
     {"id":"DOTNET_LOG_INJECTION","title":"ILogger Raw User Input Log Injection","vuln":"log_injection","sev":"Medium","langs":["csharp"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"ILogger|_logger\.(?:Information|Error|Warning|Debug)\s*\([^)]*(?:Request|Query|Form|Headers|userInput)"},
+    {"id":"DOTNET_HARDCODED_CREDENTIAL","title":".NET Hardcoded Credential in String Declaration","vuln":"hardcoded_secret","sev":"High","langs":["csharp"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:string|var|const\s+string)\s+\w+\s*=\s*\"[^\"]{8,}\""},
+    {"id":"DOTNET_PROCESS_START_INFO","title":".NET ProcessStartInfo with User-Controlled Arguments","vuln":"command_injection","sev":"Critical","langs":["csharp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"ProcessStartInfo\s*\([^)]*\w+|\.Start\s*\(\s*\)"},
+    {"id":"DOTNET_COMMAND_CONCAT","title":".NET Command Arguments String Concatenation","vuln":"command_injection","sev":"Critical","langs":["csharp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"Arguments\s*=\s*\"[^\"]*(?:/c |/k |cmd\.exe|powershell|bash)[^\"]*\"\s*\+\s*\w+"},
+    {"id":"DOTNET_SQL_INTERPOLATED","title":".NET SqlCommand with Interpolated SQL String","vuln":"sql_injection","sev":"High","langs":["csharp"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"SqlCommand\s*\(\s*\$\"|\.ExecuteReader\s*\(\s*\)|\.ExecuteScalar\s*\(\s*\)"},
 
     # Node / TypeScript
     {"id":"NODE_PROTOTYPE_POLLUTION_MERGE","title":"Node Prototype Pollution Merge","vuln":"prototype_pollution","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-1321","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"Object\.assign\s*\([^)]*(?:req\.|body|query)|(?:lodash|_|deepmerge|merge)\.merge\s*\([^)]*(?:req\.|body|query)|qs\.parse\s*\("},
@@ -164,6 +169,9 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"GO_SHARED_MAP_RACE","title":"Go Shared Map/Slice Race Indicator","vuln":"race_condition","sev":"High","langs":["go"],"cwe":"CWE-362","owasp":"A04:2021 - Insecure Design","pat":r"var\s+\w+\s+map\[|go\s+func\s*\(|\w+\s*\[.*\]\s*=\s*"},
     {"id":"GO_UNBOUNDED_READALL","title":"Go Unbounded io.ReadAll / ioutil.ReadAll","vuln":"resource_exhaustion","sev":"High","langs":["go"],"cwe":"CWE-400","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?:io|ioutil)\.ReadAll\s*\(\s*r\.Body\s*\)(?![\s\S]{0,200}MaxBytesReader)"},
     {"id":"GO_TLS_INSECURE_SKIP_VERIFY","title":"Go TLS InsecureSkipVerify true","vuln":"tls_bypass","sev":"Critical","langs":["go"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"InsecureSkipVerify\s*:\s*true"},
+    {"id":"GO_HARDCODED_CREDENTIAL","title":"Go Hardcoded Credential in Connection String","vuln":"hardcoded_secret","sev":"High","langs":["go"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/"},
+    {"id":"GO_SQL_CONCAT_INTERMEDIATE","title":"Go SQL Concatenation via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
+    {"id":"GO_PATH_CONCAT","title":"Go Path String Concatenation with Absolute Prefix","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
 
     # PHP
     {"id":"PHP_LFI_RFI_INCLUDE","title":"PHP LFI/RFI include/require","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-98","owasp":"A03:2021 - Injection","pat":r"(?:include|require)(?:_once)?\s*\(?\s*\$_(?:GET|POST|REQUEST|COOKIE)"},
@@ -175,6 +183,22 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"PHP_PHAR_DESERIALIZATION","title":"PHP PHAR Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["php"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"phar://|Phar\s*\("},
     {"id":"PHP_RAW_ECHO_XSS","title":"PHP Raw echo/print XSS","vuln":"xss","sev":"High","langs":["php"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"(?:echo|print)\s+\$_(?:GET|POST|REQUEST)(?![\s\S]{0,80}htmlspecialchars)"},
     {"id":"PHP_CURL_SSL_VERIFY_DISABLED","title":"PHP curl TLS Verification Disabled","vuln":"tls_bypass","sev":"Critical","langs":["php"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"CURLOPT_SSL_VERIFYPEER\s*,\s*(?:false|0)|CURLOPT_SSL_VERIFYHOST\s*,\s*0"},
+    {"id":"PHP_HARDCODED_CREDENTIAL","title":"PHP Hardcoded Credential Assignment","vuln":"hardcoded_secret","sev":"High","langs":["php"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\$\w+\s*=\s*\"[^\"]{8,}\"|\$\w+\s*=\s*'[^']{8,}'"},
+    {"id":"PHP_INCLUDE_CONCAT_PATH","title":"PHP Include/Require with Concatenated Path","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?:include|require)(?:_once)?\s*\(?\s*\"(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\.\s*[\w$]+"},
+
+    # C/C++
+    {"id":"CPP_HARDCODED_CREDENTIAL","title":"C/C++ Hardcoded Credential in String Declaration","vuln":"hardcoded_secret","sev":"High","langs":["cpp","c"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"const\s+char\s*\*?\s*\w+\s*=\s*\"[^\"]{8,}\"|char\s+\w+\[\]\s*=\s*\"[^\"]{8,}\""},
+    {"id":"CPP_SQLITE3_EXEC_VARIABLE","title":"C/C++ sqlite3_exec with Variable SQL","vuln":"sql_injection","sev":"High","langs":["cpp","c"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"sqlite3_exec\s*\([^,]+,\s*\w+\s*,"},
+    {"id":"CPP_SYSTEM_VARIABLE","title":"C/C++ std::system with Variable","vuln":"command_injection","sev":"Critical","langs":["cpp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"std::system\s*\(\s*\w+\s*\)|std::system\s*\(\s*\w+\s*\+|\b_system\s*\(\s*\w+\s*\)"},
+    {"id":"CPP_PATH_SNPRINTF_INTERP","title":"C/C++ Path Interpolation via snprintf/sprintf","vuln":"path_traversal","sev":"High","langs":["cpp","c"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?:snprintf|sprintf)\s*\([^,]+,\s*[^,]+,\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*%s[^\"]*\"\s*,\s*\w+\s*\)"},
+
+    # Rust
+    {"id":"RUST_HARDCODED_CREDENTIAL","title":"Rust Hardcoded Credential in String Binding","vuln":"hardcoded_secret","sev":"High","langs":["rust"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:let|const|static)\s+\w+\s*:\s*&str\s*=\s*\"[^\"]{8,}\"|let\s+mut\s+\w+\s*=\s*\"[^\"]{8,}\""},
+    {"id":"RUST_SQL_CONCAT","title":"Rust SQL String Concatenation","vuln":"sql_injection","sev":"High","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
+    {"id":"RUST_COMMAND_EXEC","title":"Rust Command Execution with Variable","vuln":"command_injection","sev":"Critical","langs":["rust"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?:std::process::Command|Command::new)\s*\([^)]*\w+"},
+    {"id":"RUST_PATH_CONCAT","title":"Rust Path String Concatenation","vuln":"path_traversal","sev":"High","langs":["rust"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
+    {"id":"RUST_SQL_FORMAT","title":"Rust SQL via format! Macro","vuln":"sql_injection","sev":"High","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"format!\s*\(\s*\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\""},
+    {"id":"RUST_PATH_FORMAT","title":"Rust Path via format! Macro","vuln":"path_traversal","sev":"High","langs":["rust"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"format!\s*\(\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\""},
 
     # Generic / GraphQL / messaging / abuse
     {"id":"GENERIC_NOSQL_INJECTION","title":"NoSQL Injection Indicator","vuln":"nosql_injection","sev":"High","langs":["javascript","typescript","python","java","php"],"cwe":"CWE-943","owasp":"A03:2021 - Injection","pat":r"(?:\b(?:db|database|collection|collections|mongo|mongodb|mongoose)\b[^\n;]{0,120}\.(?:find|findOne|findOneAnd(?:Update|Delete)|updateOne|updateMany|deleteOne|deleteMany)\s*\(|\$(?:where|regex)\b)"},
@@ -224,6 +248,9 @@ REGEX_RULES: list[dict] = [
     {"id":"OS_SYSTEM","name":"os.system Call","pattern":re.compile(r"os\.system\s*\(", _F),"vuln_type":"command_injection","note":"os.system executes shell commands.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
     {"id":"EVAL_CALL","name":"eval() Call","pattern":re.compile(r"\beval\s*\(", _F),"vuln_type":"code_injection","note":"eval() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection"},
     {"id":"PYTHON_EXEC_CALL","name":"Python exec() Call","pattern":re.compile(r"(?<![.\w])exec\s*\(", _F),"vuln_type":"code_injection","note":"Python exec() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
+    {"id":"PYTHON_PICKLE_LOADS","name":"Python pickle.loads Insecure Deserialization","pattern":re.compile(r"pickle\.loads\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.loads deserializes untrusted data.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
+    {"id":"PYTHON_PICKLE_LOAD","name":"Python pickle.load Insecure Deserialization","pattern":re.compile(r"pickle\.load\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.load deserializes untrusted data from a file.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
+    {"id":"PYTHON_RENDER_STRING","name":"Python Flask render_string Template Injection","pattern":re.compile(r"render_string\s*\(", _F),"vuln_type":"template_injection","note":"render_string with user-controlled template enables SSTI.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
 ]
 
 

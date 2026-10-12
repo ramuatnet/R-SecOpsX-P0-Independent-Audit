@@ -46,6 +46,7 @@ _DOTTED_SOURCES = frozenset(s for s in TAINT_SOURCES if "." in s)
 DANGEROUS_SINKS: dict[str, str] = {
     "execute": "sql_injection", "executemany": "sql_injection", "raw": "sql_injection", "cursor.execute": "sql_injection",
     "subprocess.call": "command_injection", "subprocess.run": "command_injection", "subprocess.Popen": "command_injection", "os.system": "command_injection", "os.popen": "command_injection",
+    "subprocess.check_output": "command_injection", "subprocess.check_call": "command_injection", "subprocess.getoutput": "command_injection", "subprocess.getstatusoutput": "command_injection",
     "open": "path_traversal", "os.path.join": "path_traversal", "os.listdir": "path_traversal", "os.remove": "path_traversal", "os.rename": "path_traversal",
     # Vector-store / KV-store write primitives take the destination as a path
     # keyword (``kv.persist(persist_path=p)``, ``ctx.persist(persist_dir=d)``).
