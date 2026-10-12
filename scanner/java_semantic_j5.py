@@ -634,6 +634,31 @@ _J6B_MAP_GET_RE = re.compile(
     r"^\s*([A-Za-z_$][\w$]*)\s*\.\s*get\s*\(\s*(.+?)\s*\)\s*$", re.I
 )
 
+# A leading Java cast: ``(String) x``, ``(java.lang.Object) y``. Only a
+# parenthesised type-ish name immediately followed by an identifier counts,
+# so grouping parens such as ``((7 * 42)) x`` or ``(a + b) * c`` are left
+# alone.
+_J5_CAST_PREFIX_RE = re.compile(
+    r"^\s*\(\s*(?:[A-Za-z_$][\w$]*\s*\.\s*)*[A-Za-z_$][\w$]*"
+    r"(?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s*\)\s*(?=[A-Za-z_$])"
+)
+
+
+def _j5_strip_casts(text: str) -> str:
+    """Drop leading casts so ``expr.get(k)`` resolution can see the call.
+
+    BenchmarkJava writes collection round-trips as ``bar = (String)
+    map.get(key)``; ``_J6B_MAP_GET_RE`` is anchored at ``^``, so the cast
+    made every such get unresolvable -- the exact-element guard could
+    neither prove the safe write safe nor reach the tainted one, on both
+    the positive and the negative side of the oracle.
+    """
+    prev = None
+    while text != prev:
+        prev = text
+        text = _J5_CAST_PREFIX_RE.sub("", text, count=1)
+    return text.lstrip()
+
 def _j6b_literal_value(expr):
     text = (expr or "").strip().rstrip(";").strip()
     if re.fullmatch(r"-?\d+", text):
@@ -656,7 +681,9 @@ def _j6b_constant_value(expr, constants):
 def _j6b_exact_selected_safe(rhs, logical_body, start_line, constants, taint, return_detail=False):
     # Only prove exact constant list/map selection when every relevant
     # collection mutation can be reconstructed. Unknown access stays unsafe.
-    rhs_text = _j6b_strip_java_comments(rhs or "").strip().rstrip(";").strip()
+    rhs_text = _j5_strip_casts(
+        _j6b_strip_java_comments(rhs or "").strip().rstrip(";").strip()
+    )
     list_get = _J6B_LIST_GET_RE.match(rhs_text)
     map_get = _J6B_MAP_GET_RE.match(rhs_text)
 
@@ -847,7 +874,339 @@ def _j5_sink_return(rhs):
     return bool(_J5_SECURITY_RETURN_CALLS.search(rhs or ""))
 
 
-def _j5_analyze_method(filepath, source, method, incoming):
+# Block-opening statements whose frames preserve kill rights: inside
+# try/finally, if execution reached a later statement then every earlier
+# statement of the frame ran (an exception would have left it).
+_J5_TRY_HEAD_RE = re.compile(r"^(?:try|finally)\b")
+
+# A right-hand side that IS a single call -- ``doSomething(a, b)``,
+# ``obj.doSomething(a)``, ``new Test().doSomething(a)`` -- anchored so a
+# larger expression (``helper(a) + b``) never masks. Mirrors the
+# call-site pattern the interprocedural loop uses, so (name, arity)
+# resolution agrees.
+_J5_CALL_SHAPE_RE = re.compile(
+    r'^(?:(?:new\s+[A-Za-z_$][\w$<>,.?]*\s*\(\s*\)\s*\.\s*)'
+    r'|(?:(?:[A-Za-z_$][\w$]*\s*\.\s*)*))'
+    r'([A-Za-z_$][\w$]*)\s*\((.*)\)$',
+    re.S
+)
+
+
+def _j5_split_paren(text: str, open_idx: int):
+    """Split ``cond) rest`` at the paren opened at ``open_idx``."""
+    depth_p = 0
+    for i in range(open_idx, len(text)):
+        if text[i] == "(":
+            depth_p += 1
+        elif text[i] == ")":
+            depth_p -= 1
+            if depth_p == 0:
+                return text[open_idx + 1:i], text[i + 1:].strip()
+    return None, None
+
+
+def _j5_split_ternary(expr: str):
+    """Split ``cond ? then : else`` at the top level.
+
+    Returns (cond, then, else) or None when the expression is not a
+    ternary. Nesting (a ternary inside a branch), parens and quoted
+    strings are tracked so the split lands on the outermost pair.
+    """
+    text = (expr or "").strip()
+    depth = 0
+    quote = None
+    esc = False
+    q_mark = None
+    tern_depth = 0
+    colon_for: dict[int, int] = {}
+    for i, ch in enumerate(text):
+        if quote:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        elif depth == 0 and ch == "?":
+            if tern_depth == 0:
+                q_mark = i
+            tern_depth += 1
+        elif depth == 0 and ch == ":" and tern_depth:
+            tern_depth -= 1
+            colon_for[tern_depth] = i
+            if tern_depth == 0 and q_mark is not None:
+                return text[:q_mark].strip(), \
+                    text[q_mark + 1:colon_for[0]].strip(), \
+                    text[colon_for[0] + 1:].strip()
+    return None
+
+
+def _j5_const_expr(expr: str, env: dict):
+    """Evaluate a Java integer/boolean expression against constant ``env``.
+
+    Returns the value when every identifier is a known constant and the
+    syntax is arithmetic only, else None. Calls, field reads, ``null``,
+    hex/octal literals and unknown names all refuse to evaluate: a wrong
+    constant is a wrong branch decision, which is a silent miss, so the
+    contract is "fold only what is provable".
+    """
+    if not expr:
+        return None
+    text = re.sub(r"\btrue\b", "True", expr, flags=re.I)
+    text = re.sub(r"\bfalse\b", "False", text, flags=re.I)
+    for name in re.findall(r"[A-Za-z_$][\w$]*", text):
+        if name in ("True", "False"):
+            continue
+        if name not in env:
+            return None
+        text = re.sub(r"\b%s\b" % re.escape(name), str(env[name]), text)
+    text = text.replace("&&", " and ").replace("||", " or ")
+    if not re.fullmatch(
+        r"(?:[0-9+\-*/%()<>=!\s]|and|or|not|True|False)+", text
+    ):
+        return None
+    try:
+        return eval(text, {"__builtins__": {}}, {})
+    except Exception:
+        return None
+
+
+def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None):
+    """Names whose LAST write before ``sink_line`` is provably safe.
+
+    The fixed-point taint set answers "was this name ever tainted in this
+    method"; it cannot answer "was it tainted HERE". Two shapes of the
+    benchmark's negative oracle fall into that gap and this walk closes
+    them, each measured on BenchmarkJava (xpathi 12/20 negative tests
+    still flagged without it, plus the cross-category J5_XSS hits that
+    followed the same overwritten variable into println()):
+
+    1. Overwrite: ``bar = param; ... bar = (String) map.get(safeKey);`` --
+       taint is only ever added, so ``bar`` stayed tainted forever. The
+       walk tracks a DEATH set: an unconditional write whose right-hand
+       side touches no live taint kills the name; a source write, or a
+       write touching live taint, resurrects it. Liveness is evaluated
+       positionally (``taint - dead`` at each statement), so
+       ``expression = "..." + bar`` no longer resurrects ``expression``
+       from a ``bar`` that its own final write had already proven safe.
+    2. Unreachable branch:
+       ``int num = 86; if ((7 * 42) - num > 200) bar = "const"; else
+       bar = param;`` and its ternary twin
+       ``bar = (7 * 18) + num > 200 ? "const" : param;`` (00683) -- in
+       both the tainted write is dead code, but the flow-insensitive set
+       cannot know that. Constant folding evaluates the condition against
+       the integers committed earlier in the walk; a folded condition
+       records which branch runs (skipping the other, or reducing the
+       ternary to its taken branch), an unfoldable one processes the
+       branch as conditional -- resurrect-only, never a kill, because a
+       wrong kill is a silent miss and a missed kill is a visible false
+       positive.
+
+    Nesting is a stack of classified frames rather than a scalar depth,
+    because only some frames deserve kill rights: inside ``try`` /
+    ``finally``, if execution reached the sink then every earlier
+    statement of the frame ran (an exception would have left it), so a
+    safe write there is a real kill -- benchmark code wraps the whole
+    sink path in ``try { ... }`` and a scalar-depth rule would refuse
+    to see through it. ``if``/``for``/``while``/``switch``/``catch``/
+    lambda frames can be skipped or unentered, so their writes only
+    resurrect. A method-signature line contributes no frame (its brace
+    opens the body, it does not nest it), and a stray closer on a body
+    that begins mid-method is ignored rather than driving the stack
+    negative.
+
+    The J6B exact-element resolution is mirrored exactly (including the
+    ``(String)`` cast benchmark code puts on round-trips), so the kill
+    can never suppress a flow the main analysis had proven through a
+    collection. Call arguments get the same treatment through
+    ``safe_calls``: when the right-hand side is a call and every project
+    method resolvable at (name, arity) has dead-refined returns with no
+    taint left, the tainted names inside the ARGUMENTS cannot reach this
+    lhs (01479 does ``bar = new Test().doSomething(request, param)`` where
+    the helper folds the constant and returns it -- syntactically
+    identical to a passthrough helper, and only the callee's refined
+    returns tell them apart). Unresolvable callees and callees that still
+    return taint keep their arguments live: never masking is the
+    conservative direction. Results refine -- never replace -- the
+    fixed-point state; ``returns`` are refined dead-aware before they
+    seed the caller, which only narrows interprocedural propagation.
+    """
+    safe_calls = safe_calls or set()
+    dead: set[str] = set()
+    int_env: dict[str, int] = {}
+    j6b_constants: dict = {}
+    frames: list[str] = []  # "try" frames grant kills; "cond" frames do not
+    pending_else = None  # None | "folded" | "unknown"
+    masked_body = _j5_mask("\n".join(body)).splitlines()
+    idx = 0
+
+    def record(lhs, rhs, s, can_kill):
+        if not lhs or not rhs or "." in lhs:
+            return
+        # Ternary: ``bar = cond ? "const" : param`` is the benchmark's
+        # other negative shape (00683). A constant-foldable condition
+        # reduces the write to its taken branch, so the untaken branch's
+        # taint (or safety) never reaches the variable; an unfoldable
+        # condition keeps the whole expression, so hits on ANY branch
+        # resurrect -- the conservative direction.
+        tern = _j5_split_ternary(rhs)
+        if tern is not None:
+            folded = _j5_const_expr(tern[0], int_env)
+            if folded is True:
+                rhs = tern[1]
+            elif folded is False:
+                rhs = tern[2]
+        # Constant environment: only a kill-capable write commits a value;
+        # anything conditional means the value differs per path and
+        # folding on it would invent a branch decision.
+        if can_kill:
+            val = _j5_const_expr(rhs, int_env)
+            if isinstance(val, int) and not isinstance(val, bool):
+                int_env[lhs] = val
+            else:
+                int_env.pop(lhs, None)
+        else:
+            int_env.pop(lhs, None)
+        # Source check on the (possibly folded) right-hand side: a request
+        # source always lives there, and searching the whole statement
+        # would resurrect a variable whose source call sits in an untaken
+        # ternary branch.
+        eff = _j6b_strip_java_comments(rhs)
+        if (
+            _J5_SOURCE_RE.search(eff)
+            or _J5_COOKIE_VALUE_RE.search(eff)
+            or _J5_WRAPPER_SOURCE_RE.search(eff)
+        ):
+            dead.discard(lhs)
+            return
+        # Positional liveness: a name whose last write up to this point
+        # was proven safe cannot carry taint into a later assignment.
+        live = taint - dead
+        probe = eff
+        if safe_calls:
+            es = eff.strip()
+            cm = _J5_CALL_SHAPE_RE.match(es)
+            if cm and (cm.group(1), len(_split_args(cm.group(2)))) in safe_calls:
+                # The callee's dead-refined returns prove it drops taint
+                # (see _j5_analyze_method), so tainted names inside its
+                # ARGUMENTS cannot reach this lhs; only the expression
+                # outside the call still counts as a carrier.
+                probe = es[:cm.start(2)] + es[cm.end(2):]
+        # Mirror the main loop's decision for this RHS exactly -- in
+        # particular the J6B exact-element resolution (which sees through
+        # the ``(String)`` cast benchmark code puts on round-trips), so
+        # the kill can never contradict a flow the analysis already
+        # proved through a collection.
+        hits = _j5_expr_hits(_j6b_strip_java_comments(probe), live)
+        exact_safe, selected_expr = _j6b_exact_selected_safe(
+            rhs, body, start_line, j6b_constants, live, return_detail=True
+        )
+        if selected_expr is not None:
+            selected_hits = _j5_expr_hits(
+                _j6b_strip_java_comments(selected_expr), live
+            )
+            if selected_hits:
+                hits = selected_hits
+            elif exact_safe:
+                hits = []
+        elif exact_safe:
+            hits = []
+        if hits:
+            dead.discard(lhs)
+        elif can_kill and not _j5_sink_return(rhs):
+            dead.add(lhs)
+
+    for line_no, raw in _j5_logical_statements(body, start_line):
+        if line_no >= sink_line:
+            break
+        # Frames are classified from the masked text so braces inside
+        # strings and comments cannot skew the stack.
+        nlines = raw.count("\n") + 1
+        masked_raw = "\n".join(masked_body[idx:idx + nlines])
+        idx += nlines
+        head = masked_raw.strip()
+        can_kill = all(f == "try" for f in frames)
+        # Closes pop before opens so ``} else {`` swaps frames instead of
+        # nesting; stray closers (a body beginning mid-method) are ignored.
+        for _ in range(masked_raw.count("}")):
+            if frames:
+                frames.pop()
+        # A method signature -- possibly split so the ``{`` lands on a
+        # ``throws ...`` continuation line -- opens the body and must not
+        # nest it. Block continuations (``} catch (E e) {``) and anonymous
+        # class openers do open real frames.
+        sig_like = (
+            re.search(
+                r"(?:\)\s*(?:throws\s+[^{]*)?|^throws\s+[^{]*)\{\s*$", head)
+            and not re.match(r"(?:if|for|while|switch|catch|synchronized|else|do|new)",
+                             head)
+            and not head.startswith("}")
+        )
+        if not sig_like:
+            for i in range(masked_raw.count("{")):
+                frames.append("try" if (i == 0 and _J5_TRY_HEAD_RE.match(head))
+                              else "cond")
+
+        s = re.sub(r"\s+", " ", raw).strip()
+        if not s or s.startswith("//") or s.startswith("/*"):
+            continue
+
+        if re.match(r"else\b", s):
+            rest = re.sub(r"^else\s*", "", s)
+            mode, pending_else = pending_else, None
+            if mode == "folded_true":
+                # The paired condition folded to a constant TRUE; this
+                # branch does not run (00117: ``else bar = param`` is
+                # exactly why the test is labelled negative).
+                continue
+            if rest and not rest.startswith("{"):
+                lhs, rhs = _j5_assignment(rest)
+                if mode == "folded_false":
+                    # The THEN branch was the dead one; this else is the
+                    # taken branch and carries full kill rights.
+                    record(lhs, rhs, rest, can_kill=can_kill)
+                else:
+                    record(lhs, rhs, rest, can_kill=False)
+            continue
+        if pending_else is not None:
+            pending_else = None  # no else followed; stale pairing dropped
+
+        m_if = re.match(r"if\s*\(", s)
+        if m_if:
+            cond, then_stmt = _j5_split_paren(s, m_if.end() - 1)
+            if then_stmt and not then_stmt.startswith("{"):
+                folded = _j5_const_expr(cond, int_env)
+                if folded is None:
+                    pending_else = "unknown"
+                    lhs, rhs = _j5_assignment(then_stmt)
+                    record(lhs, rhs, then_stmt, can_kill=False)
+                elif bool(folded):
+                    pending_else = "folded_true"
+                    lhs, rhs = _j5_assignment(then_stmt)
+                    record(lhs, rhs, then_stmt, can_kill=can_kill)
+                else:
+                    # Condition folds to FALSE: the then-branch is dead
+                    # code and the (possible) else branch is the taken
+                    # one -- recorded when it is seen below.
+                    pending_else = "folded_false"
+                continue
+            # Braced if: nesting is handled by frames, and an unreachable
+            # braced block is deliberately not skipped (see docstring).
+
+        lhs, rhs = _j5_assignment(s)
+        if lhs:
+            record(lhs, rhs, s, can_kill=can_kill)
+    return dead
+
+
+def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
     lines = source.splitlines()
     start = method["body_start_line"]
     end = min(len(lines), method["body_end_line"])
@@ -995,7 +1354,10 @@ def _j5_analyze_method(filepath, source, method, incoming):
             if rm:
                 hits = _j5_expr_hits(rm.group(1), taint)
                 if hits:
-                    returns.append({"line": line_no, "tainted": True, "origin": hits[0]})
+                    returns.append({
+                        "line": line_no, "tainted": True,
+                        "origin": hits[0], "expr": rm.group(1),
+                    })
 
             for vuln, cwe, title, rule_id, pattern in _J5_SINKS:
                 sm = pattern.search(s)
@@ -1030,6 +1392,14 @@ def _j5_analyze_method(filepath, source, method, incoming):
                 hits = []
                 for arg in args:
                     hits.extend(_j5_expr_hits(arg, taint))
+                if hits:
+                    # Order-aware refinement: a name whose last write
+                    # before this sink is provably safe is not a live
+                    # carrier here, even though it was tainted somewhere
+                    # earlier in the method (see _j5_dead_names).
+                    dead = _j5_dead_names(
+                        body, start, taint, line_no, safe_calls)
+                    hits = [h for h in hits if h not in dead]
 
                 if hits:
                     origin = hits[0]
@@ -1048,6 +1418,35 @@ def _j5_analyze_method(filepath, source, method, incoming):
 
         if not changed:
             break
+
+    # Dead-aware returns: a return whose every tainted-looking name had
+    # been overwritten with a proven-safe value before the ``return``
+    # does not actually carry taint to the caller (01479: the helper
+    # folds the constant through if/else and returns it, while the
+    # flow-insensitive set still lists ``param`` in scope -- propagating
+    # that was what lit up the caller's sink). Dropping such entries
+    # narrows only the interprocedural seeding; the local taint set is
+    # untouched.
+    if returns:
+        dead_by_line: dict[int, set] = {}
+        refined_returns = []
+        for r in returns:
+            if not r.get("tainted"):
+                refined_returns.append(r)
+                continue
+            rline = r.get("line")
+            if rline not in dead_by_line:
+                dead_by_line[rline] = _j5_dead_names(
+                    body, start, taint, rline, safe_calls)
+            live_hits = [
+                h for h in _j5_expr_hits(r.get("expr", r["origin"]), taint)
+                if h not in dead_by_line[rline]
+            ]
+            if live_hits:
+                nr = dict(r)
+                nr["origin"] = live_hits[0]
+                refined_returns.append(nr)
+        returns = refined_returns
 
     return {
         "method": method,
@@ -1170,8 +1569,33 @@ def analyze_java_project(project_root: str) -> list[dict]:
             key = (path_str, method["start_line"], method["name"], len(method["params"]))
             states[key] = _j5_analyze_method(path_str, text, method, set())
 
+    def _compute_safe_calls() -> set:
+        """(name, arity) pairs whose resolvable methods all drop taint.
+
+        Uses the dead-refined ``returns`` every state was built with, so
+        a helper that folds a constant through if/else/ternary and
+        returns it counts as safe while a passthrough helper never does.
+        A method that has no resolvable state, or still returns taint,
+        keeps its (name, arity) unsafe.
+        """
+        safe = set()
+        for key, methods in method_index.items():
+            ok = bool(methods)
+            for m in methods:
+                skey = (str(m["file"]), m["start_line"], m["name"],
+                        len(m["params"]))
+                st = states.get(skey)
+                if st is None or any(r.get("tainted")
+                                     for r in st.get("returns", [])):
+                    ok = False
+                    break
+            if ok:
+                safe.add(key)
+        return safe
+
     for _round in range(_J5_MAX_ROUNDS):
         changed = False
+        safe_calls = _compute_safe_calls()
 
         for caller_key, caller_state in list(states.items()):
             caller = caller_state["method"]
@@ -1241,7 +1665,8 @@ def analyze_java_project(project_root: str) -> list[dict]:
                                 str(callee["file"]),
                                 sources[str(callee["file"])],
                                 callee,
-                                set(state["taint"])
+                                set(state["taint"]),
+                                safe_calls
                             )
                             changed = True
 
@@ -1267,12 +1692,37 @@ def analyze_java_project(project_root: str) -> list[dict]:
                                     str(caller["file"]),
                                     caller_text,
                                     caller,
-                                    set(caller_state["taint"])
+                                    set(caller_state["taint"]),
+                                    safe_calls
                                 )
                                 changed = True
 
         if not changed:
             break
+
+    # Settling passes: the round loop propagates taint, but its
+    # re-analysis is one-directional -- a caller whose helper turns out
+    # to DROP taint is never revisited there, because its lhs was
+    # already tainted syntactically (the tainted argument in
+    # ``bar = new Test().doSomething(request, param)``). Re-analyze
+    # every method against the converged taint plus the converged
+    # safe-call knowledge, repeating while that knowledge still changes,
+    # so the states -- and the sink flows emitted from them -- reflect
+    # both. This is what quiets the benchmark's dominant negative shape
+    # (01479/02370: helper folds the constant and returns it) without
+    # touching passthrough helpers, whose (name, arity) never enters
+    # safe_calls.
+    prev_safe = None
+    for _ in range(3):
+        safe_calls = _compute_safe_calls()
+        if safe_calls == prev_safe:
+            break
+        prev_safe = safe_calls
+        for key, state in list(states.items()):
+            method = state["method"]
+            states[key] = _j5_analyze_method(
+                str(method["file"]), sources[str(method["file"])],
+                method, set(state["taint"]), safe_calls)
 
     findings = []
     for state in states.values():
