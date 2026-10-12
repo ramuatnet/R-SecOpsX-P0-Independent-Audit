@@ -415,3 +415,108 @@ def test_taint_layer_unsanitized_twin_fires():
 """
     ids = {f["rule_id"] for f in taint_rules(src)}
     assert "JAVA_TAINT_XSS" in ids
+
+
+# ---------------------------------------------------------------------------
+# 7. Folded switch: a constant discriminant (``guess.charAt(1)``) executes
+#    exactly one case group -- matching case, else default (javac). The
+#    taken group's writes kill; untaken groups neither resurrect nor kill.
+#    BenchmarkJava pathtraver negatives are built this way (00131/00136:
+#    ``String guess = "ABC"; char switchTarget = guess.charAt(1);``).
+# ---------------------------------------------------------------------------
+
+
+def _switch_src(guess: str, cases: str) -> str:
+    return _XSS_PRELUDE + f"""        String param = request.getParameter("q");
+        String bar;
+        String guess = "{guess}";
+        char switchTarget = guess.charAt(1); // condition 'B', safe
+        switch (switchTarget) {{
+{cases}
+        }}
+        response.getWriter().print(bar);
+    }}
+}}
+"""
+
+
+_CASES_STANDARD = """            case 'A':
+                bar = param;
+                break;
+            case 'B':
+                bar = "bob";
+                break;
+            default:
+                bar = "unknown";
+                break;"""
+
+
+def test_j5_folded_switch_const_group_kills():
+    """guess="ABC" -> charAt(1)='B' -> only case 'B' runs -> bar is a
+    constant at the sink. The trailing comment on the discriminant line
+    must not refuse the fold (masked statements)."""
+    assert xss_flows(_switch_src("ABC", _CASES_STANDARD)) == []
+
+
+def test_j5_folded_switch_taken_tainted_fires():
+    """One character from the quiet negative: guess="AAC" selects
+    case 'A', whose body assigns the tainted param."""
+    assert len(xss_flows(_switch_src("AAC", _CASES_STANDARD))) >= 1
+
+
+def test_j5_folded_switch_untaken_group_after_taken_does_not_resurrect():
+    """The untaken ``bar = param`` group comes AFTER the taken const
+    group: a naive linear walk would let it undo the kill."""
+    cases = """            case 'B':
+                bar = "bob";
+                break;
+            case 'A':
+                bar = param;
+                break;"""
+    assert xss_flows(_switch_src("ABC", cases)) == []
+
+
+def test_j5_unfoldable_switch_still_fires():
+    """Runtime discriminant: no group is provably taken, so no group
+    kills and the tainted branch keeps the finding (conservative)."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar;
+        switch (System.nanoTime()) {
+            case 1:
+                bar = param;
+                break;
+            default:
+                bar = "unknown";
+                break;
+        }
+        response.getWriter().print(bar);
+    }
+}
+"""
+    assert len(xss_flows(src)) >= 1
+
+
+def test_taint_layer_folded_switch_quiet():
+    """The line layers share the walk: flow-insensitive taint sees bar
+    tainted from case 'A', the dead-walk proves only case 'B' runs."""
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String bar;
+        String guess = "ABC";
+        char switchTarget = guess.charAt(1);
+        switch (switchTarget) {
+            case 'A':
+                bar = param;
+                break;
+            case 'B':
+                bar = "bob";
+                break;
+            default:
+                bar = "unknown";
+                break;
+        }
+        response.getWriter().write("<p>" + bar + "</p>");
+    }
+}
+"""
+    assert [f for f in taint_rules(src)
+            if f["rule_id"] == "JAVA_TAINT_XSS"] == []

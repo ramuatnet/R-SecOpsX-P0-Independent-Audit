@@ -948,23 +948,146 @@ def _j5_split_ternary(expr: str):
     return None
 
 
+def _j5_java_unescape(s: str):
+    """Unescape a Java string/char literal body; None on unknown escapes.
+
+    Unknown escapes refuse the fold rather than guessing -- a wrong
+    constant is a wrong branch decision.
+    """
+    out = []
+    i = 0
+    while i < len(s):
+        if s[i] != "\\":
+            out.append(s[i])
+            i += 1
+            continue
+        if i + 1 >= len(s):
+            return None
+        e = s[i + 1]
+        simple = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f",
+                  "\\": "\\", '"': '"', "'": "'"}
+        if e in simple:
+            out.append(simple[e])
+            i += 2
+        elif e == "u":
+            if i + 6 > len(s):
+                return None
+            try:
+                out.append(chr(int(s[i + 2:i + 6], 16)))
+            except ValueError:
+                return None
+            i += 6
+        else:
+            return None
+    return "".join(out)
+
+
+def _j5_string_receiver(recv: str, env: dict):
+    """Resolve ``recv`` to a constant string: a literal or a known name."""
+    recv = (recv or "").strip()
+    if re.fullmatch(r'"(?:[^"\\]|\\.)*"', recv):
+        return _j5_java_unescape(recv[1:-1])
+    if re.fullmatch(r"[A-Za-z_$][\w$]*", recv) and isinstance(env.get(recv), str):
+        return env[recv]
+    return None
+
+
+def _j5_java_char_literals(text: str):
+    """Replace Java char literals with their integer code (javac semantics).
+
+    Java chars are ints, so ``'B'`` folds to ``66`` and a folded switch
+    discriminant compares against its ``case 'B':`` labels the way the
+    runtime does. Double-quoted regions pass through untouched so
+    apostrophes inside strings survive. Unresolvable quotes return None
+    (refuse the fold).
+    """
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == '"':
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            if j >= n:
+                return None
+            out.append(text[i:j + 1])
+            i = j + 1
+            continue
+        if ch == "'":
+            j = i + 1
+            while j < n and text[j] != "'":
+                j += 2 if text[j] == "\\" else 1
+            if j >= n or j == i + 1:
+                return None
+            body = _j5_java_unescape(text[i + 1:j])
+            if body is None or len(body) != 1:
+                return None
+            out.append(str(ord(body)))
+            i = j + 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _j5_const_expr(expr: str, env: dict):
-    """Evaluate a Java integer/boolean expression against constant ``env``.
+    """Evaluate a Java integer/boolean/string expression against ``env``.
 
     Returns the value when every identifier is a known constant and the
     syntax is arithmetic only, else None. Calls, field reads, ``null``,
     hex/octal literals and unknown names all refuse to evaluate: a wrong
     constant is a wrong branch decision, which is a silent miss, so the
     contract is "fold only what is provable".
+
+    Constant string operations are resolved first: ``"ABC".charAt(1)``
+    and ``guess.length()`` on a literal or a KNOWN string constant, with
+    a literal integer index (the benchmark's switch discriminants are
+    ``char switchTarget = guess.charAt(1)``). A pure string literal
+    evaluates to its content so it can enter the environment; strings
+    otherwise refuse the numeric evaluator -- substituting ``"123"`` as
+    the number 123 would be a wrong fold.
     """
     if not expr:
         return None
-    text = re.sub(r"\btrue\b", "True", expr, flags=re.I)
+    text = expr.strip()
+    if re.fullmatch(r'"(?:[^"\\]|\\.)*"', text):
+        return _j5_java_unescape(text[1:-1])
+    while True:
+        m = re.search(r"\s*\.\s*charAt\s*\(\s*(\d+)\s*\)", text)
+        if m:
+            val = _j5_string_receiver(text[:m.start()], env)
+            if val is None:
+                return None
+            pos = int(m.group(1))
+            if pos >= len(val):
+                return None
+            # The prefix IS the receiver whenever it resolved (an
+            # expression in front of it refuses above), so the whole
+            # ``receiver.charAt(n)`` span collapses to the char code.
+            text = str(ord(val[pos])) + text[m.end():]
+            continue
+        m = re.search(r"\s*\.\s*length\s*\(\s*\)", text)
+        if m:
+            val = _j5_string_receiver(text[:m.start()], env)
+            if val is None:
+                return None
+            text = str(len(val)) + text[m.end():]
+            continue
+        break
+    text = _j5_java_char_literals(text)
+    if text is None:
+        return None
+    text = re.sub(r"\btrue\b", "True", text, flags=re.I)
     text = re.sub(r"\bfalse\b", "False", text, flags=re.I)
     for name in re.findall(r"[A-Za-z_$][\w$]*", text):
         if name in ("True", "False"):
             continue
         if name not in env:
+            return None
+        if isinstance(env[name], str):
+            # Strings only participate via charAt/length (resolved above).
             return None
         text = re.sub(r"\b%s\b" % re.escape(name), str(env[name]), text)
     text = text.replace("&&", " and ").replace("||", " or ")
@@ -1076,6 +1199,74 @@ def _j5_sanitizer_covers(eff: str, vuln: str, live) -> bool:
     return not _j5_expr_hits(outside, live)
 
 
+def _j5_switch_taken_labels(lines, start, value, env):
+    """0-based indices of the case/default label lines a switch whose
+    discriminant folds to ``value`` will actually execute.
+
+    Scans the switch body from ``start`` (the line after the opener)
+    with brace balance on masked text, evaluates every ``case`` label as
+    a constant, and selects the matching group -- or ``default`` when no
+    case matches (javac semantics: the POSITION of ``default`` in the
+    body does not matter). Fall-through chains are included: a case
+    label with no statements before the next label hands its body to
+    that label, so every label in the chain flips execution on.
+
+    Returns an empty set when nothing runs (no matching case and no
+    default), or None when the body cannot be parsed -- the caller then
+    falls back to the unfoldable path, which withholds kill rights.
+    Labels nested deeper than this switch (a switch inside a case body)
+    are excluded so a nested label can never turn execution on while an
+    untaken outer group contains it.
+    """
+    depth = 1
+    labels = []  # (line index, case expression or None for default)
+    end = None
+    i = start
+    while i < len(lines):
+        text = lines[i]
+        depth += text.count("{") - text.count("}")
+        if depth <= 0:
+            end = i
+            break
+        if depth == 1:
+            m = re.match(r"\s*case\s+(.+?)\s*:", text)
+            if m:
+                labels.append((i, m.group(1)))
+            elif re.match(r"\s*default\s*:", text):
+                labels.append((i, None))
+        i += 1
+    if end is None or not labels:
+        return None
+    matched = None
+    for k, (_li, expr) in enumerate(labels):
+        if expr is None:
+            continue
+        v = _j5_const_expr(expr, env)
+        if v is not None and v == value and not isinstance(v, bool):
+            matched = k
+            break
+    if matched is None:
+        for k, (_li, expr) in enumerate(labels):
+            if expr is None:
+                matched = k
+                break
+        if matched is None:
+            return set()  # no matching case and no default: nothing runs
+    taken = {labels[matched][0]}
+    k = matched
+    while k + 1 < len(labels):
+        between = lines[labels[k][0] + 1:labels[k + 1][0]]
+        if all(
+            not g.strip() or re.match(r"\s*(?:case\s+.+?|default)\s*:", g)
+            for g in between
+        ):
+            taken.add(labels[k + 1][0])
+            k += 1
+        else:
+            break
+    return taken
+
+
 def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=None):
     """Names whose LAST write before ``sink_line`` is provably safe.
 
@@ -1142,6 +1333,11 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
     j6b_constants: dict = {}
     frames: list[str] = []  # "try" frames grant kills; "cond" frames do not
     pending_else = None  # None | "folded" | "unknown"
+    # Active folded switches, outermost first: {"labels": set of label
+    # lines that turn execution on, "on": bool, "base": len(frames) at
+    # the opener}. A statement executes only when EVERY enclosing switch
+    # has its taken group on (see the gate below).
+    sw_stack: list[dict] = []
     masked_body = _j5_mask("\n".join(body)).splitlines()
     idx = 0
 
@@ -1163,13 +1359,19 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
                 rhs = tern[2]
         # Constant environment: only a kill-capable write commits a value;
         # anything conditional means the value differs per path and
-        # folding on it would invent a branch decision.
+        # folding on it would invent a branch decision. Strings enter the
+        # environment as well (``String guess = "ABC"`` feeds
+        # ``guess.charAt(1)`` below); bools stay excluded as before.
         if can_kill:
             val = _j5_const_expr(rhs, int_env)
-            if isinstance(val, int) and not isinstance(val, bool):
-                int_env[lhs] = val
-            else:
+            if (
+                isinstance(val, bool)
+                or not isinstance(val, (int, str))
+                or (isinstance(val, str) and len(val) > 64)
+            ):
                 int_env.pop(lhs, None)
+            else:
+                int_env[lhs] = val
         else:
             int_env.pop(lhs, None)
         # Source check on the (possibly folded) right-hand side: a request
@@ -1253,6 +1455,27 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
         for _ in range(masked_raw.count("}")):
             if frames:
                 frames.pop()
+        # A switch's own closing brace has now popped its frame: retire
+        # it so later statements are gated by the enclosing switch only
+        # (a nested switch retires independently of its outer one).
+        while sw_stack and len(frames) < sw_stack[-1]["base"]:
+            sw_stack.pop()
+        # A switch whose discriminant folds to a constant executes
+        # exactly one case group -- the matching case, else default
+        # (javac). Pre-scan the body for the label lines that group
+        # turns execution on; an unparseable body falls back to the
+        # unfoldable path (cond frame, no skipping).
+        new_sw = None
+        m_sw = re.match(r"switch\s*\(", head)
+        if m_sw and masked_raw.count("{"):
+            sw_cond, _rest = _j5_split_paren(head, m_sw.end() - 1)
+            if sw_cond is not None:
+                folded = _j5_const_expr(sw_cond, int_env)
+                if folded is not None:
+                    labels = _j5_switch_taken_labels(
+                        masked_body, idx, folded, int_env)
+                    if labels is not None:
+                        new_sw = {"labels": labels, "on": False, "base": 0}
         # A method signature -- possibly split so the ``{`` lands on a
         # ``throws ...`` continuation line -- opens the body and must not
         # nest it. Class-like declarations do the same for whole-file
@@ -1271,12 +1494,51 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
         )
         if not sig_like:
             for i in range(masked_raw.count("{")):
-                frames.append("try" if (i == 0 and _J5_TRY_HEAD_RE.match(head))
-                              else "cond")
+                if i == 0 and _J5_TRY_HEAD_RE.match(head):
+                    frames.append("try")
+                elif i == 0 and new_sw is not None:
+                    # Folded switch: untaken groups are skipped, so the
+                    # taken group's writes get kill rights exactly like
+                    # try/finally; an outer conditional frame still
+                    # withholds them.
+                    frames.append("try")
+                else:
+                    frames.append("cond")
+            if new_sw is not None:
+                new_sw["base"] = len(frames)
+                sw_stack.append(new_sw)
 
-        s = re.sub(r"\s+", " ", raw).strip()
+        # Masked statement (comments blanked, strings intact): a trailing
+        # ``// condition 'B', which is safe`` comment must not end up in
+        # the constant environment's rhs, where it would refuse the fold
+        # and silently disable the switch machinery below.
+        s = re.sub(r"\s+", " ", masked_raw).strip()
         if not s or s.startswith("//") or s.startswith("/*"):
             continue
+
+        # Folded-switch gate: a statement inside a group this switch
+        # will not execute is dead code -- skipped entirely, so its
+        # writes neither resurrect nor kill (the naive linear walk would
+        # otherwise let an untaken ``bar = param`` undo the taken
+        # group's ``bar = "bob"``). A label turns execution on only for
+        # the switch that owns it AND only when every enclosing switch
+        # is on: a nested switch inside an untaken outer group can never
+        # come alive. Statements before any label run for no switch.
+        if sw_stack:
+            si = idx - nlines
+            inner = sw_stack[-1]
+            outer_on = all(swi["on"] for swi in sw_stack[:-1])
+            lab = re.match(r"(?:case\s+.+?|default)\s*:\s*", s)
+            if lab:
+                if not outer_on or si not in inner["labels"]:
+                    inner["on"] = False
+                    continue
+                inner["on"] = True
+                s = s[lab.end():]
+                if not s:
+                    continue
+            elif not (inner["on"] and outer_on):
+                continue
 
         if re.match(r"else\b", s):
             rest = re.sub(r"^else\s*", "", s)
@@ -1331,6 +1593,9 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
     start = method["body_start_line"]
     end = min(len(lines), method["body_end_line"])
     body = lines[start - 1:end]
+    # Comment-blanked view of the body (strings intact) used for every
+    # statement the analysis evaluates -- see the mask note in the loop.
+    masked_body = _j5_mask("\n".join(body)).splitlines()
     # RSECOPSX_J6B_CONSTANTS_INIT_FIX_20260907
     # Initialize the constants mapping required by the J6-B exact-element guard.
     # Without this initialization the guard raises NameError at runtime.
@@ -1346,12 +1611,21 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
 
     for _ in range(_J5_LOCAL_ROUNDS):
         changed = False
+        m_idx = 0  # physical-line cursor into masked_body for this round
 
         for line_no, raw in _j5_logical_statements(body, start):
             # The logical statement may contain physical newlines. Flatten
             # only for the existing regex-based semantic checks so _J5_ASSIGN_RE
-            # can see the complete RHS as one expression.
-            s = re.sub(r"\s+", " ", raw).strip()
+            # can see the complete RHS as one expression. The statement is
+            # taken MASKED (comments blanked, strings intact): commented-out
+            # code must never taint or emit -- BenchmarkJava comments out the
+            # File constructor it asked authors to try (00135), and that
+            # comment used to match the sink pattern as a real finding.
+            nlines = raw.count("\n") + 1
+            s = re.sub(
+                r"\s+", " ",
+                "\n".join(masked_body[m_idx:m_idx + nlines])).strip()
+            m_idx += nlines
             if not s:
                 continue
 
