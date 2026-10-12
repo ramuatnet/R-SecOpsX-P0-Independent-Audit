@@ -1339,7 +1339,55 @@ def _j5_switch_taken_labels(lines, start, value, env):
     return taken
 
 
-def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=None):
+def _j5_local_types(source: str) -> set:
+    """Type names declared in ``source`` (class/interface/enum/record).
+
+    The receiver allow-list for file-local call knowledge: a
+    ``new Type().helper(...)`` call may only be killed with file-local
+    knowledge when ``Type`` is declared in the very file that computed
+    that knowledge.
+    """
+    return set(re.findall(
+        r"\b(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)",
+        source))
+
+
+def _j5_local_call_prefix(pre: str, local_types) -> bool:
+    """True when a call with prefix ``pre`` can only resolve to a method
+    declared in THIS file, so file-local call knowledge may mask its
+    arguments.
+
+    * bare ``helper(a)`` -- an in-file declaration of that name wins Java
+      resolution (a declared method shadows static imports; two
+      same-name-same-arity methods cannot coexist in one class);
+    * ``this.helper(a)`` -- explicitly the current class;
+    * a chain of ``new Type().`` receivers where EVERY type is declared
+      in this file (BenchmarkJava's ``new Test().doSomething`` inner-class
+      idiom).
+
+    Anything else -- ``Other.helper``, ``var.helper``, ``super.helper``,
+    ``utils.helper`` -- can resolve to a definition outside this file even
+    when an equally-named (name, arity) exists locally, so the caller
+    falls back to project-wide ``safe_calls``. Fails closed when the file
+    declares no types at all.
+    """
+    p = pre.strip()
+    if not p:
+        return True
+    if p == "this.":
+        return True
+    if not local_types:
+        return False
+    if not re.fullmatch(
+            r"(?:new\s+[A-Za-z_$][\w$<>,.?]*\s*\(\s*\)\s*\.\s*)+", p):
+        return False
+    return all(
+        t in local_types
+        for t in re.findall(r"new\s+([A-Za-z_$][\w$]*)", p))
+
+
+def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
+                   vuln=None, local_calls=None, local_types=None):
     """Names whose LAST write before ``sink_line`` is provably safe.
 
     The fixed-point taint set answers "was this name ever tainted in this
@@ -1398,8 +1446,19 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
     conservative direction. Results refine -- never replace -- the
     fixed-point state; ``returns`` are refined dead-aware before they
     seed the caller, which only narrows interprocedural propagation.
+
+    ``local_calls`` is FILE-LOCAL knowledge guarded by
+    ``_j5_local_call_prefix``: unlike project-wide ``safe_calls`` -- whose
+    (name, arity) is only ever added when EVERY resolution project-wide
+    is clean -- a key known clean inside one file must not mask a call
+    that could resolve outside it (``Other.helper(...)`` may be a
+    different class's method). The guard admits bare ``helper(...)``,
+    ``this.``, and ``new Type().`` chains whose types the same file
+    declares; everything else falls back to ``safe_calls`` alone.
+    ``local_types`` is that file's declared type names.
     """
     safe_calls = safe_calls or set()
+    local_calls = local_calls or set()
     dead: set[str] = set()
     int_env: dict[str, int] = {}
     j6b_constants: dict = {}
@@ -1471,15 +1530,25 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
         # was proven safe cannot carry taint into a later assignment.
         live = taint - dead
         probe = eff
-        if safe_calls:
+        if safe_calls or local_calls:
             es = eff.strip()
             cm = _J5_CALL_SHAPE_RE.match(es)
-            if cm and (cm.group(1), len(_split_args(cm.group(2)))) in safe_calls:
-                # The callee's dead-refined returns prove it drops taint
-                # (see _j5_analyze_method), so tainted names inside its
-                # ARGUMENTS cannot reach this lhs; only the expression
-                # outside the call still counts as a carrier.
-                probe = es[:cm.start(2)] + es[cm.end(2):]
+            if cm:
+                key = (cm.group(1), len(_split_args(cm.group(2))))
+                trusted = key in safe_calls
+                if not trusted and key in local_calls:
+                    # File-local knowledge only applies where Java
+                    # resolution is guaranteed to land inside this file
+                    # (see _j5_local_call_prefix).
+                    trusted = _j5_local_call_prefix(
+                        es[:cm.start(1)], local_types)
+                if trusted:
+                    # The callee's dead-refined returns prove it drops
+                    # taint (see _j5_analyze_method), so tainted names
+                    # inside its ARGUMENTS cannot reach this lhs; only
+                    # the expression outside the call still counts as a
+                    # carrier.
+                    probe = es[:cm.start(2)] + es[cm.end(2):]
         # Mirror the main loop's decision for this RHS exactly -- in
         # particular the J6B exact-element resolution (which sees through
         # the ``(String)`` cast benchmark code puts on round-trips), so
@@ -1678,8 +1747,17 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None, vuln=Non
 
 
 def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None,
-                       san_calls=None):
+                       san_calls=None, local_knowledge=None):
     lines = source.splitlines()
+    # File-local call knowledge (safe, san, declared types) computed
+    # ONCE by the caller -- see _j5_file_call_knowledge. Its inner
+    # analyses deliberately pass nothing here, which is what keeps the
+    # computation recursion-free.
+    lk_safe: set = set()
+    lk_san: dict = {}
+    lk_types = None
+    if local_knowledge:
+        lk_safe, lk_san, lk_types = local_knowledge
     start = method["body_start_line"]
     end = min(len(lines), method["body_end_line"])
     body = lines[start - 1:end]
@@ -1928,8 +2006,15 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None,
                         vset = san_calls.get(vuln)
                         if vset:
                             eff_safe = (safe_calls or set()) | set(vset)
+                    # File-local knowledge joins per sink (guarded by
+                    # prefix inside the walk); agnostic-clean first,
+                    # then the class-clean extras for THIS sink.
+                    local = set(lk_safe)
+                    if vuln:
+                        local |= set(lk_san.get(vuln, ()))
                     dead = _j5_dead_names(
-                        body, start, taint, line_no, eff_safe, vuln)
+                        body, start, taint, line_no, eff_safe, vuln,
+                        local or None, lk_types)
                     hits = [h for h in hits if h not in dead]
 
                 if hits:
@@ -1967,8 +2052,12 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None,
                 continue
             rline = r.get("line")
             if rline not in dead_by_line:
+                # Agnostic refinement: only the unconditional file-local
+                # drops count here (no ``vuln`` at this point), and the
+                # prefix guard still applies inside the walk.
                 dead_by_line[rline] = _j5_dead_names(
-                    body, start, taint, rline, safe_calls)
+                    body, start, taint, rline, safe_calls, None,
+                    lk_safe or None, lk_types)
             live_hits = [
                 h for h in _j5_expr_hits(r.get("expr", r["origin"]), taint)
                 if h not in dead_by_line[rline]
@@ -1991,7 +2080,8 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None,
     }
 
 
-def _j5_returns_clean_for(state, source, safe_calls, vuln) -> bool:
+def _j5_returns_clean_for(state, source, safe_calls, vuln,
+                          local_calls=None, local_types=None) -> bool:
     """True when every still-tainted return of ``state`` is clean for
     ``vuln`` once dead-refined with the walk given ``vuln``.
 
@@ -2001,9 +2091,8 @@ def _j5_returns_clean_for(state, source, safe_calls, vuln) -> bool:
     ``vuln`` adds only the class-correct sanitizer kills: ``return
     htmlEscape(param)``'s taint survives an HTML escape as far as path
     traversal is concerned and dies for xss, and only the vuln-keyed
-    walk can tell the two apart. Used by both knowledge computations
-    (project-wide ``_compute_san_calls`` and the line layers' file-local
-    ``_j5_file_call_knowledge``).
+    walk can tell the two apart. Used by the line layers' file-local
+    ``_j5_file_call_knowledge``.
     """
     pending = [r for r in state.get("returns", []) if r.get("tainted")]
     if not pending:
@@ -2016,7 +2105,7 @@ def _j5_returns_clean_for(state, source, safe_calls, vuln) -> bool:
     for r in pending:
         dead = _j5_dead_names(
             body, bstart, set(state["taint"]), r.get("line"),
-            safe_calls, vuln)
+            safe_calls, vuln, local_calls, local_types)
         live = [
             h for h in _j5_expr_hits(r.get("expr", r["origin"]),
                                      state["taint"])
@@ -2069,6 +2158,7 @@ def _j5_file_call_knowledge(source: str, filepath: str = "<file>"):
         if methods:
             index: dict = {}
             states: dict = {}
+            local_types = _j5_local_types(source)
             for m in methods:
                 mkey = _j5_method_key(m)
                 index.setdefault(mkey, []).append(m)
@@ -2101,7 +2191,7 @@ def _j5_file_call_knowledge(source: str, filepath: str = "<file>"):
                         for m in ms:
                             st = states.get((m["start_line"], key))
                             if st is None or not _j5_returns_clean_for(
-                                    st, source, s, v):
+                                    st, source, None, v, s, local_types):
                                 ok = False
                                 break
                         if ok:
@@ -2116,9 +2206,15 @@ def _j5_file_call_knowledge(source: str, filepath: str = "<file>"):
                 if (safe, san) == prev:
                     break
                 for skey, st in list(states.items()):
+                    # Settle with the file's own knowledge passed as the
+                    # GUARDED local form -- the unguarded (safe, san)
+                    # used to travel as project-wide safe_calls, which
+                    # would let ``Other.helper(...)`` inside a helper
+                    # body borrow a local helper's clean verdict.
                     states[skey] = _j5_analyze_method(
                         filepath, source, st["method"],
-                        set(st["taint"]), safe, san)
+                        set(st["taint"]), None, None,
+                        (safe, san, local_types))
     except Exception:
         # Any analysis failure degrades to today's behavior: no call
         # knowledge, no kills from it.
@@ -2234,10 +2330,23 @@ def analyze_java_project(project_root: str) -> list[dict]:
             method_index.setdefault(_j5_method_key(method), []).append(method)
 
     states = {}
+    # File-local call knowledge, computed once per unique source before
+    # any analysis runs: it depends only on the text (recursion-free by
+    # construction -- _j5_file_call_knowledge's inner analyses pass no
+    # local_knowledge) and is shared with the line layers through the
+    # content-hash cache when their masked text hashes the same.
+    local_knowledge = {}
+    for path_str, text in sources.items():
+        lk_safe, lk_san = _j5_file_call_knowledge(text, path_str)
+        local_knowledge[path_str] = (
+            lk_safe, lk_san, _j5_local_types(text))
+
     for path_str, text in sources.items():
         for method in _j5_methods(text, path_str):
             key = (path_str, method["start_line"], method["name"], len(method["params"]))
-            states[key] = _j5_analyze_method(path_str, text, method, set())
+            states[key] = _j5_analyze_method(
+                path_str, text, method, set(),
+                local_knowledge=local_knowledge.get(path_str))
 
     def _compute_safe_calls() -> set:
         """(name, arity) pairs whose resolvable methods all drop taint.
@@ -2336,7 +2445,9 @@ def analyze_java_project(project_root: str) -> list[dict]:
                                 sources[str(callee["file"])],
                                 callee,
                                 set(state["taint"]),
-                                safe_calls
+                                safe_calls,
+                                local_knowledge=local_knowledge.get(
+                                    str(callee["file"]))
                             )
                             changed = True
 
@@ -2363,7 +2474,9 @@ def analyze_java_project(project_root: str) -> list[dict]:
                                     caller_text,
                                     caller,
                                     set(caller_state["taint"]),
-                                    safe_calls
+                                    safe_calls,
+                                    local_knowledge=local_knowledge.get(
+                                        str(caller["file"]))
                                 )
                                 changed = True
 
@@ -2392,7 +2505,8 @@ def analyze_java_project(project_root: str) -> list[dict]:
             method = state["method"]
             states[key] = _j5_analyze_method(
                 str(method["file"]), sources[str(method["file"])],
-                method, set(state["taint"]), safe_calls)
+                method, set(state["taint"]), safe_calls,
+                local_knowledge=local_knowledge.get(str(method["file"])))
 
     findings = []
     for state in states.values():

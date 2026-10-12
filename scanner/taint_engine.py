@@ -2199,16 +2199,27 @@ def _java_dead_names(masked_lines: list[str], taint: set, sink_idx: int,
     for their class only (``htmlEscape`` counts at an xss sink, never at
     a path sink). Without this the line layer re-reported every helper
     shape the J5 layer had already quieted (BenchmarkTest01053's folded
-    ternary, 01048/01659's helper-contained htmlEscape).
+    ternary, 01048/01659's helper-contained htmlEscape). The knowledge
+    travels guarded (``_j5_local_call_prefix``): a qualified
+    ``Other.doSomething(...)`` can resolve outside this file even when
+    a same-named local helper exists, so it never gets the kill.
     """
     try:
         from scanner.java_semantic_j5 import (
-            _j5_dead_names, _j5_file_call_knowledge)
-        safe, san = _j5_file_call_knowledge("\n".join(masked_lines))
+            _j5_dead_names, _j5_file_call_knowledge, _j5_local_types)
+        src = "\n".join(masked_lines)
+        safe, san = _j5_file_call_knowledge(src)
         eff = set(safe)
         if vuln:
             eff |= set(san.get(vuln, ()))
-        return _j5_dead_names(masked_lines, 1, taint, sink_idx, eff, vuln)
+        # Travels as GUARDED local knowledge (prefix-checked inside the
+        # walk), never as project-wide safe_calls: a file-local
+        # (name, arity) must not mask ``Other.helper(...)`` whose target
+        # lives elsewhere. Bare / ``this.`` / ``new LocalType().`` calls
+        # -- the benchmark idiom -- still get their kills.
+        return _j5_dead_names(
+            masked_lines, 1, taint, sink_idx, None, vuln,
+            eff or None, _j5_local_types(src))
     except Exception:
         return set()
 

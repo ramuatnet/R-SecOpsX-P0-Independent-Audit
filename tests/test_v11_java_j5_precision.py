@@ -817,3 +817,90 @@ def test_folded_inline_if_else_helper_still_quiet():
 """
     assert [f for f in taint_rules(src)
             if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+# ---------------------------------------------------------------------------
+# 13. File-local knowledge inside J5 under PROJECT scope (V1.10): the
+#     project-wide (name, arity) verdict is poisoned by every other
+#     file's same-named helper, so the file-local set must carry the
+#     kill -- and the prefix guard must keep it from leaking onto
+#     cross-class calls that resolve outside the file.
+# ---------------------------------------------------------------------------
+
+_FOLDED_TEST_CLASS = """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar;
+            int num = 86;
+            if ((7 * 42) - num > 200) bar = "This_should_always_happen";
+            else bar = param;
+            return bar;
+        }
+    }
+}
+"""
+
+_PASSTHROUGH_TEST_CLASS = """    private class Test {
+        public String doSomething(HttpServletRequest request, String param) {
+            String bar;
+            bar = param;
+            return bar;
+        }
+    }
+}
+"""
+
+
+def xpath_flows_multi(files: dict) -> list:
+    """Run the full J5 project analysis over several Java source files."""
+    with tempfile.TemporaryDirectory(prefix="rsx_j5multi_") as tmp:
+        for name, text in files.items():
+            pathlib.Path(tmp, name).write_text(text, encoding="utf-8")
+        return [f for f in analyze_java_project(tmp)
+                if f.get("rule_id") == "JAVA_J5_XPATH"]
+
+
+def test_j5_local_knowledge_survives_project_dilution():
+    """A passthrough doSomething in a SECOND file poisons the
+    project-wide safe_calls verdict for (doSomething, 2); the fold
+    file's sink must still go quiet through the file-local set, while
+    the passthrough file keeps firing."""
+    flows = xpath_flows_multi({
+        "TFold.java": XPATH_PRELUDE + _CALLER + _FOLDED_TEST_CLASS,
+        "TPass.java": XPATH_PRELUDE + _CALLER + _PASSTHROUGH_TEST_CLASS,
+    })
+    assert [f for f in flows if "TFold.java" in str(f.get("file"))] == []
+    assert [f for f in flows if "TPass.java" in str(f.get("file"))] != []
+
+
+def test_j5_local_knowledge_refuses_qualified_cross_class_call():
+    """``Other.doSomething(...)`` may resolve to a different class's
+    method even though THIS file declares a clean doSomething -- the
+    prefix guard must refuse the kill (the passthrough sibling keeps
+    the project-wide verdict poisoned, so only the guard can be
+    credited for the finding)."""
+    src = XPATH_PRELUDE + """        String param = request.getParameter("emplid");
+        String bar = Other.doSomething(request, param);
+        String expression = "/Employees/Employee[@emplid='" + bar + "']";
+        XPath xp = XPathFactory.newInstance().newXPath();
+        xp.compile(expression).evaluate(doc, javax.xml.xpath.XPathConstants.NODESET);
+    }
+
+""" + _FOLDED_HELPER
+    flows = xpath_flows_multi({
+        "A.java": src,
+        "TPass.java": XPATH_PRELUDE + _CALLER + _PASSTHROUGH_TEST_CLASS,
+    })
+    assert [f for f in flows if "A.java" in str(f.get("file"))] != []
+
+
+def test_taint_layer_local_knowledge_refuses_qualified_call():
+    """The same guard on the line layer, where knowledge is always
+    file-local: a clean local doSomething must not silence
+    ``Other.doSomething(request, param)`` at the sink."""
+    src = _TAINT_PRELUDE + """        String param = request.getParameter("q");
+        String bar = Other.doSomething(request, param);
+        response.getWriter().println(bar);
+    }
+
+""" + _TAINT_FOLDED
+    assert "JAVA_TAINT_XSS" in {f["rule_id"] for f in taint_rules(src)}
