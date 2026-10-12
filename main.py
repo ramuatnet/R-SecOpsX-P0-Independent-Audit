@@ -1870,6 +1870,7 @@ def _build_dependency_reporting_views(payload: dict) -> None:
             "ecosystem": pkg.get("ecosystem"),
             "dependency_type": pkg.get("dependency_type"),
             "purl": pkg.get("purl"),
+            "cpe": pkg.get("cpe"),
             "primary_vulnerability_id": primary_id,
             "cve": pkg.get("cve"),
             "cve_list": cves,

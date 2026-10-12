@@ -39,15 +39,23 @@ def _purl(pkg: dict) -> str | None:
     if not name:
         return None
 
+    # Keys must include the strings the manifest parsers actually EMIT
+    # (scanner/sbom.py and scanner/manifests/*): "crates.io", "Packagist",
+    # "RubyGems", "Go". The legacy aliases (cargo/composer/gem/golang) stay
+    # for records that arrived from other paths.
     purl_type = {
         "pypi": "pypi",
         "npm": "npm",
         "maven": "maven",
         "go": "golang",
+        "golang": "golang",
         "cargo": "cargo",
+        "crates.io": "cargo",
         "nuget": "nuget",
         "composer": "composer",
+        "packagist": "composer",
         "gem": "gem",
+        "rubygems": "gem",
     }.get(ecosystem)
 
     if not purl_type:
@@ -97,6 +105,12 @@ def _component(pkg: dict) -> dict:
     if licenses:
         comp["licenses"] = licenses
 
+    # Native CDX CPE field (gap plan 1.4): emitted only when the value is a
+    # well-formed CPE 2.3 URI so a malformed override cannot poison the BOM.
+    cpe = str(pkg.get("cpe") or "").strip()
+    if cpe.startswith("cpe:2.3:"):
+        comp["cpe"] = cpe
+
     return comp
 
 
@@ -105,7 +119,35 @@ def _vulnerability_id(pkg: dict) -> str | None:
 
 
 def _vulnerability_source(pkg: dict) -> dict:
+    """Source block for one advisory record.
+
+    The record's own provenance wins over the id-prefix guess. OSV MIRRORS
+    several databases, so a record served by OSV may carry ``GHSA-...``
+    (the GitHub Advisory DB owns it) or a CVE id the NVD owns -- deriving
+    the source from the displayed id alone used to relabel every advisory
+    "NVD" the moment a CVE alias existed, hiding which database the data
+    actually came from. The prefix guess remains the fallback for records
+    that predate the provenance fields.
+    """
     vuln_id = _vulnerability_id(pkg) or ""
+    origin = str(pkg.get("advisory_origin") or pkg.get("source") or "").strip()
+
+    if origin == "GitHub":
+        gid = pkg.get("advisory_id") or pkg.get("id") or vuln_id
+        return {"name": "GitHub Security Advisory",
+                "url": f"https://github.com/advisories/{gid}"}
+
+    if origin == "NVD":
+        return {"name": "NVD", "url": f"https://nvd.nist.gov/vuln/detail/{vuln_id}"}
+
+    if origin in {"PyPA", "RustSec", "Go"}:
+        aid = pkg.get("advisory_id") or pkg.get("id") or vuln_id
+        return {"name": f"{origin} Advisory Database",
+                "url": f"https://osv.dev/vulnerability/{aid}"}
+
+    if origin == "OSV":
+        aid = pkg.get("advisory_id") or pkg.get("id") or vuln_id
+        return {"name": "OSV", "url": f"https://osv.dev/vulnerability/{aid}"}
 
     if vuln_id.startswith("CVE-"):
         return {"name": "NVD", "url": f"https://nvd.nist.gov/vuln/detail/{vuln_id}"}

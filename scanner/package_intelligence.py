@@ -338,7 +338,31 @@ def normalize_ecosystem(ecosystem: str) -> str:
     if value in {"nuget", ".net", "dotnet"}:
         return "nuget"
 
+    if value in {"rubygems", "gem", "ruby"}:
+        return "rubygems"
+
+    if value in {"crates.io", "crates-io", "crates", "cargo"}:
+        return "crates.io"
+
+    if value in {"packagist", "composer"}:
+        return "packagist"
+
     return value or "unknown"
+
+
+# Ecosystem name -> purl TYPE (the purl spec's type, which is NOT the same
+# as the ecosystem string for several ecosystems: crates.io's purl type is
+# ``cargo``, Packagist's is ``composer``, RubyGems' is ``gem``).
+_PURL_TYPE = {
+    "pypi": "pypi",
+    "npm": "npm",
+    "maven": "maven",
+    "golang": "golang",
+    "nuget": "nuget",
+    "rubygems": "gem",
+    "crates.io": "cargo",
+    "packagist": "composer",
+}
 
 
 def build_purl(name: str, version: str, ecosystem: str) -> str:
@@ -353,17 +377,12 @@ def build_purl(name: str, version: str, ecosystem: str) -> str:
         group, artifact = name.split(":", 1)
         return f"pkg:maven/{quote(group)}/{quote(artifact)}@{quote(version)}"
 
-    if ecosystem == "npm":
-        return f"pkg:npm/{quote(name)}@{quote(version)}"
-
-    if ecosystem == "pypi":
-        return f"pkg:pypi/{quote(name.lower())}@{quote(version)}"
-
-    if ecosystem == "golang":
-        return f"pkg:golang/{quote(name)}@{quote(version)}"
-
-    if ecosystem == "nuget":
-        return f"pkg:nuget/{quote(name)}@{quote(version)}"
+    purl_type = _PURL_TYPE.get(ecosystem)
+    if purl_type:
+        if purl_type == "pypi":
+            # purl spec: PyPI name normalization is lowercase.
+            name = name.lower()
+        return f"pkg:{purl_type}/{quote(name)}@{quote(version)}"
 
     return f"pkg:{quote(ecosystem)}/{quote(name)}@{quote(version)}"
 

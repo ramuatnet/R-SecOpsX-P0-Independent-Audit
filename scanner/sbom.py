@@ -1073,7 +1073,19 @@ def generate_sbom(target_path: str) -> list[dict]:
         ADVISORY_ENRICHMENT_ERROR.clear()
 
     enriched = apply_vulnerability_overrides(enriched)
-    
+
+    # CPE correlation keys (gap plan 1.4): every named component gets a
+    # best-effort CPE 2.3 identifier so consumers can re-query the NVD CPE
+    # dictionary. Computed AFTER enrichment/overrides so an override can
+    # carry its own authoritative CPE (setdefault: never overwrite).
+    from scanner.cpe_builder import build_cpe
+    for pkg in enriched:
+        if str(pkg.get("name") or "").strip() and not pkg.get("cpe"):
+            cpe = build_cpe(pkg.get("name", ""), pkg.get("version", ""),
+                            pkg.get("ecosystem", ""))
+            if cpe:
+                pkg["cpe"] = cpe
+
     # ENH #4: sort direct first, then transitive, each alphabetically
     enriched.sort(key=lambda p: (0 if p.get("direct", True) else 1,
                                   p.get("name", "").lower()))

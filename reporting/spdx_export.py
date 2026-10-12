@@ -129,8 +129,14 @@ def _pkg_purl(pkg: dict) -> str | None:
     name = str(pkg.get("name") or pkg.get("package") or "").strip()
     ver = _real_version(pkg)
     if eco and name:
+        # Keys must cover the strings the manifest parsers emit
+        # (crates.io/Packagist/RubyGems/Go), not just the purl-spec types.
         prefix = {"npm": "pkg:npm", "pypi": "pkg:pypi", "maven": "pkg:maven",
-                  "go": "pkg:golang", "cargo": "pkg:cargo", "nuget": "pkg:nuget"}.get(
+                  "go": "pkg:golang", "golang": "pkg:golang",
+                  "cargo": "pkg:cargo", "crates.io": "pkg:cargo",
+                  "nuget": "pkg:nuget",
+                  "composer": "pkg:composer", "packagist": "pkg:composer",
+                  "gem": "pkg:gem", "rubygems": "pkg:gem"}.get(
             eco.lower(), f"pkg:{eco.lower()}")
         return f"{prefix}/{name}@{ver}" if ver else f"{prefix}/{name}"
     return None
@@ -173,6 +179,17 @@ def _external_refs(pkg: dict, spdx_id: str) -> list[dict]:
             "referenceType": "purl",
             "referenceLocator": purl,
             "comment": "Package URL as resolved from the dependency manifest.",
+        })
+    # CPE 2.3 correlation key (gap plan 1.4): lets any SPDX consumer match
+    # this component against the NVD CPE dictionary.
+    cpe = str(pkg.get("cpe") or "").strip()
+    if cpe.startswith("cpe:2.3:"):
+        refs.append({
+            "referenceCategory": "OTHER",
+            "referenceType": "cpe23Type",
+            "referenceLocator": cpe,
+            "comment": "Best-effort CPE derived from ecosystem conventions; "
+                       "the purl is the authoritative identity.",
         })
     cve = str(pkg.get("cve") or pkg.get("primary_vulnerability_id") or "").strip()
     if cve.upper().startswith("CVE-"):
