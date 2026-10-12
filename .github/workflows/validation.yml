@@ -74,9 +74,19 @@ jobs:
       - name: Run end-to-end pipeline validation
         run: python -m analysis.validation.e2e
 
+  mutation-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run detection mutation testing
+        run: python -m analysis.validation.mutation
+
   ci-matrix:
     runs-on: ubuntu-latest
-    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline]
+    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

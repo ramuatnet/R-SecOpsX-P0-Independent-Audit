@@ -98,6 +98,12 @@ def run_ci_matrix() -> dict:
          "-v", "--tb=short"]
     ))
 
+    # V1.3: mutation testing (one-edit defect pairs must be detected)
+    gates.append(_run(
+        "mutation_testing",
+        [sys.executable, "-m", "analysis.validation.mutation"]
+    ))
+
     passed = sum(1 for g in gates if g["passed"])
     failed = [g["name"] for g in gates if not g["passed"]]
 

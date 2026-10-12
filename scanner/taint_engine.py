@@ -233,6 +233,44 @@ def _route_param_map(tree: ast.AST) -> dict[str, set[str]]:
     return out
 
 
+_METHOD_DECORATORS = frozenset({"get", "post", "put", "delete", "patch",
+                                "head", "options", "route", "api_view"})
+
+
+def _route_handler_names(tree: ast.AST) -> set[str]:
+    """Names of functions decorated as HTTP route handlers.
+
+    Reflected XSS is a property of the response surface: returning attacker
+    data from a route handler is unsafe HTML, while the same return in a
+    library function or CLI says nothing about rendering. The decorator is
+    what makes a function a response surface, so it -- not the body's shape --
+    is the gate. Matches Flask/FastAPI/Django-ASGI shapes: ``@app.route``,
+    ``@app.get``/``@router.post`` (method decorators carrying a path), and
+    bare ``@route`` from ``from flask import route``.
+    """
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            target = dec.func if isinstance(dec, ast.Call) else dec
+            parts: list[str] = []
+            cur = target
+            while isinstance(cur, ast.Attribute):
+                parts.append(cur.attr.lower())
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                parts.append(cur.id.lower())
+            if not parts:
+                continue
+            leaf = parts[0]
+            if leaf == "route" or (leaf in _METHOD_DECORATORS
+                                   and (len(parts) >= 2 or leaf == "route")):
+                out.add(node.name)
+                break
+    return out
+
+
 def _function_map(tree: ast.AST) -> dict[str, tuple[list[str], list]]:
     """Same-file ``def`` names to (formal parameters, body statements).
 
@@ -311,7 +349,8 @@ class TaintFinding:
 class TaintVisitor(ast.NodeVisitor):
     def __init__(self, lines: list[str], filepath: str,
                  route_params: Optional[dict[str, set[str]]] = None,
-                 funcs: Optional[dict[str, tuple[list[str], list]]] = None):
+                 funcs: Optional[dict[str, tuple[list[str], list]]] = None,
+                 route_handlers: Optional[set[str]] = None):
         self.lines = lines
         self.filepath = filepath
         # Lexical scope stack.  Index 0 is module scope; every function pushes a
@@ -344,6 +383,11 @@ class TaintVisitor(ast.NodeVisitor):
         # the module AST by the caller and are empty for a bare visitor.
         self._funcs: dict[str, tuple[list[str], list]] = funcs or {}
         self._route_params: dict[str, set[str]] = route_params or {}
+        self._route_handlers: set[str] = route_handlers or set()
+        # Local name -> module-qualified path for names this file imports
+        # (`from markupsafe import escape` binds a bare "escape"; see
+        # _resolve_fn). Used only for sanitizer recognition.
+        self._import_alias: dict[str, str] = {}
         # Re-entrancy guard and depth cap for same-file call seeding: a
         # self-recursive or mutually recursive pair must terminate.
         self._active: list[str] = []
@@ -514,7 +558,8 @@ class TaintVisitor(ast.NodeVisitor):
         seen: list[str] = []
 
         def _walk(n):
-            if isinstance(n, ast.Call) and self._is_sanitizer_call(self._unparse(n.func), for_vuln):
+            if isinstance(n, ast.Call) and self._is_sanitizer_call(
+                    self._resolve_fn(self._unparse(n.func)), for_vuln):
                 return
             if isinstance(n, ast.Name) and n.id not in seen:
                 t = self._lookup(n.id)
@@ -531,7 +576,8 @@ class TaintVisitor(ast.NodeVisitor):
     def _source_exprs_in(self, node, for_vuln: Optional[str] = None) -> list[str]:
         sources: list[str] = []
         def _walk(n):
-            if isinstance(n, ast.Call) and self._is_sanitizer_call(self._unparse(n.func), for_vuln):
+            if isinstance(n, ast.Call) and self._is_sanitizer_call(
+                    self._resolve_fn(self._unparse(n.func)), for_vuln):
                 # The subtree feeding this call is escaped/quoted for the vuln
                 # class, so its sources are no longer dangerous in this context.
                 return
@@ -547,6 +593,48 @@ class TaintVisitor(ast.NodeVisitor):
         return t.full_chain() if t else [var_name]
 
     # -- sanitizer / constant helpers -------------------------------------
+    def _resolve_fn(self, fn: str) -> str:
+        """Resolve a call target through this file's imports.
+
+        ``from markupsafe import escape`` binds a bare ``escape`` that
+        ast.unparse renders as just "escape", while the sanitizer tables are
+        qualified ("markupsafe.escape"). Without import context every
+        from-imported sanitizer was invisible: ``escape(user_input)`` read as
+        an unknown function, values it purified were still treated as raw at
+        every sink, and -- as the V1 mutation harness showed when its safe
+        XSS fixture kept firing -- the engine reported the escaped form of
+        its own baseline. Only the head segment is rewritten, and only for
+        this match; an unrelated local ``escape()`` resolves to itself and
+        still fails the qualified lookup, so the resolution cannot mint a
+        sanitizer that the module did not import.
+        """
+        head, sep, tail = fn.partition(".")
+        target = self._import_alias.get(head)
+        if target and target != head:
+            return target + (sep + tail if sep else "")
+        return fn
+
+    def visit_ImportFrom(self, node: ast.ImportFrom):
+        # Star imports are deliberately not tracked: their bound names are
+        # unknowable without the source module, and guessing here would
+        # classify an arbitrary local name as a proven sanitizer.
+        if node.module and node.level == 0:
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                local = alias.asname or alias.name
+                self._import_alias[local] = f"{node.module}.{alias.name}"
+        self.generic_visit(node)
+
+    def visit_Import(self, node: ast.Import):
+        for alias in node.names:
+            local = alias.asname or alias.name.split(".")[0]
+            mod = alias.name if alias.asname else alias.name.split(".")[0]
+            # Plain assignment, not setdefault: rebinding a name is legal and
+            # the runtime resolves to the last binding.
+            self._import_alias[local] = mod
+        self.generic_visit(node)
+
     @staticmethod
     def _is_sanitizer_call(fn: str, for_vuln: Optional[str]) -> bool:
         # Without a vuln class there is nothing to be "safe for".
@@ -560,7 +648,7 @@ class TaintVisitor(ast.NodeVisitor):
         """Vuln classes for which the outermost call of ``node`` sanitizes."""
         if not isinstance(node, ast.Call):
             return frozenset()
-        fn = self._unparse(node.func)
+        fn = self._resolve_fn(self._unparse(node.func))
         return frozenset(cls for cls, names in SANITIZERS.items()
                          if any(fn == s or fn.endswith("." + s) for s in names))
     @staticmethod
@@ -807,6 +895,55 @@ class TaintVisitor(ast.NodeVisitor):
                 src = self._match_source(node.value)
                 if src and "[returns tainted" not in src:
                     self._tainted_returns[self._cur_func] = src
+        # Reflected XSS on the raw-response surface (CWE-79).
+        #
+        # A route handler returning an f-string (or a literal-string
+        # concatenation) IS the response body: Flask/Django/FastAPI do not
+        # auto-escape anything outside their template engines, so request
+        # data interpolated here is served as text/html and reflected back
+        # to the browser. Before this shape was modelled, the only Python
+        # XSS sinks were render_template_string/Markup -- so a mutation
+        # that simply deleted escape() from a returned f-string survived
+        # (V1 mutation harness, xss case), while the equivalent defect was
+        # caught in every other language the engine serves.
+        #
+        # Precision gates, each deliberate:
+        #   * handler gate -- only functions the decorator identifies as a
+        #     response surface; the same return in a library function or CLI
+        #     says nothing about rendering.
+        #   * shape gate -- JoinedStr is inherently a string surface; BinOp
+        #     additionally requires a str-literal side, because ``count +
+        #     offset`` with both tainted is integer arithmetic, not HTML.
+        #     Calls are excluded: jsonify()/json.dumps()/render_template()
+        #     encode or escape before writing, and flagging them is the
+        #     classic reflected-XSS false positive.
+        #   * class gate -- _tainted_names_in(..., "xss") already skips
+        #     values sanitized for xss and names inside a sanitizer call at
+        #     this very site (escape(name) within the f-string).
+        if (node.value is not None and self._cur_func
+                and self._cur_func in self._route_handlers
+                and (isinstance(node.value, ast.JoinedStr)
+                     or (isinstance(node.value, ast.BinOp)
+                         and isinstance(node.value.op, ast.Add)
+                         and any(isinstance(side, ast.Constant)
+                                 and isinstance(side.value, str)
+                                 for side in (node.value.left, node.value.right))))):
+            xss_names = self._tainted_names_in(node.value, "xss")
+            if xss_names:
+                tv = self._lookup(xss_names[0])
+                chain = tv.full_chain() if tv else [xss_names[0]]
+                sink = ("return f-string (raw HTML response)"
+                        if isinstance(node.value, ast.JoinedStr)
+                        else "return string concat (raw HTML response)")
+                key = ("xss", node.lineno, sink)
+                if key not in self._recorded:
+                    self._recorded.add(key)
+                    self.findings.append(TaintFinding(
+                        "xss", chain[0] if chain else xss_names[0],
+                        (tv.source if tv else xss_names[0]), sink,
+                        self.filepath, node.lineno, self._snippet(node.lineno),
+                        self._make_path(chain, sink), chain, self._cur_func,
+                        "", "", "python", "High", None, "CWE-79"))
         self.generic_visit(node)
     def _file_handle(self, receiver: str) -> Optional[dict]:
         """Resolve an open-file handle name to its registered record."""
@@ -1813,8 +1950,9 @@ def _python_ast_findings(filepath: str, source: str) -> list[dict]:
     # passes so the pre-pass and the reporting pass see identical topology.
     route_params = _route_param_map(tree)
     funcs = _function_map(tree)
-    pre = TaintVisitor(lines, filepath, route_params, funcs); pre.visit(tree)
-    visitor = TaintVisitor(lines, filepath, route_params, funcs)
+    route_handlers = _route_handler_names(tree)
+    pre = TaintVisitor(lines, filepath, route_params, funcs, route_handlers); pre.visit(tree)
+    visitor = TaintVisitor(lines, filepath, route_params, funcs, route_handlers)
     visitor._tainted_returns = dict(pre._tainted_returns)
     visitor.visit(tree)
     findings = []

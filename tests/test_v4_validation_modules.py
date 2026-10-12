@@ -18,11 +18,12 @@ if str(ROOT) not in sys.path:
 
 
 def test_validation_modules_import():
-    from analysis.validation import ci_matrix, corpus, e2e, fuzz_versions, metrics, normalize, run, sbom_conformance  # noqa: F401
+    from analysis.validation import ci_matrix, corpus, e2e, fuzz_versions, metrics, mutation, normalize, run, sbom_conformance  # noqa: F401
     assert hasattr(fuzz_versions, "fuzz_versions")
     assert hasattr(sbom_conformance, "validate_sbom_conformance")
     assert hasattr(ci_matrix, "run_ci_matrix")
     assert hasattr(e2e, "run_e2e")
+    assert hasattr(mutation, "run_mutations")
 
 
 def test_e2e_targets_layout_is_intact():
