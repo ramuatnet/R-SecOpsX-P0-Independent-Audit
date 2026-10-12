@@ -905,6 +905,38 @@ def _j5_split_paren(text: str, open_idx: int):
     return None, None
 
 
+def _j5_balanced_close(text: str, open_idx: int):
+    """Index of the ``)`` closing the ``(`` at ``open_idx``; None if it
+    never closes. Quote-aware so a paren inside a string or char
+    literal cannot end the scan early."""
+    if open_idx is None or open_idx < 0 or open_idx >= len(text):
+        return None
+    if text[open_idx] != "(":
+        return None
+    depth = 0
+    quote = None
+    esc = False
+    for i in range(open_idx, len(text)):
+        ch = text[i]
+        if quote:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return None
+
+
 def _j5_split_ternary(expr: str):
     """Split ``cond ? then : else`` at the top level.
 
@@ -1780,9 +1812,24 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None):
                     ):
                         continue
 
-                op = s.find("(")
-                cp = s.rfind(")")
-                args = _split_args(s[op + 1:cp]) if op >= 0 and cp > op else []
+                # Sink-local argument extraction: take the argument list
+                # of the MATCHED sink call itself, not the first/last
+                # paren of the whole statement. The loose extraction
+                # bled taint from sibling calls on the same line --
+                # "r.exec(args, argsEnv, new java.io.File(user.dir))"
+                # used to hand the File sink exec's tainted argsEnv
+                # (the dominant surviving JAVA_J5_PATH false shape).
+                # Quote-aware close so a paren inside a string literal
+                # cannot end the list early.
+                if sm.group(0)[-1:] == "(":
+                    op = sm.end() - 1
+                else:
+                    op = s.find("(", sm.end() - 1)
+                cp = _j5_balanced_close(s, op) if op >= 0 else None
+                args = (
+                    _split_args(s[op + 1:cp])
+                    if op >= 0 and cp is not None and cp > op else []
+                )
                 hits = []
                 for arg in args:
                     hits.extend(_j5_expr_hits(arg, taint))

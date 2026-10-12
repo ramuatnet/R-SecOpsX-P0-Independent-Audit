@@ -520,3 +520,57 @@ def test_taint_layer_folded_switch_quiet():
 """
     assert [f for f in taint_rules(src)
             if f["rule_id"] == "JAVA_TAINT_XSS"] == []
+
+
+# ---------------------------------------------------------------------------
+# 8. Sink-local argument extraction: the sink finding takes the argument
+#    list of the MATCHED call, not the first/last paren of the statement.
+#    "r.exec(args, env, new java.io.File(user.dir))" used to hand the File
+#    sink exec's tainted args (misattributed CWE-22 on cmdi tests).
+# ---------------------------------------------------------------------------
+
+def path_flows(java_source: str) -> list:
+    """Run the full J5 project analysis, keeping only the J5 path sink."""
+    with tempfile.TemporaryDirectory(prefix="rsx_j5path_") as tmp:
+        pathlib.Path(tmp, "T.java").write_text(java_source, encoding="utf-8")
+        return [f for f in analyze_java_project(tmp)
+                if f.get("rule_id") == "JAVA_J5_PATH"]
+
+
+def test_j5_sibling_call_taint_does_not_bleed_into_file_sink():
+    """bar is tainted, but only in exec's argument list; the File sink's
+    own argument is System.getProperty("user.dir") -- no path finding."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = param;
+        String[] args = {"ping", "-n", "1"};
+        Runtime r = Runtime.getRuntime();
+        r.exec(args, bar, new java.io.File(System.getProperty("user.dir")));
+    }
+}
+"""
+    assert path_flows(src) == []
+
+
+def test_j5_taint_inside_file_args_still_fires():
+    """Tight extraction must not over-tighten: taint in the File call's
+    own argument list still fires the path sink."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = param;
+        java.io.File f = new java.io.File(
+                org.owasp.benchmark.helpers.Utils.TESTFILES_DIR + bar);
+    }
+}
+"""
+    assert len(path_flows(src)) >= 1
+
+
+def test_j5_paren_inside_string_literal_does_not_truncate_args():
+    """The balanced close is quote-aware: a '(' inside a string literal
+    must not end the argument scan before bar is seen."""
+    src = _XSS_PRELUDE + """        String param = request.getParameter("q");
+        String bar = param;
+        java.io.File f = new java.io.File("(" + bar);
+    }
+}
+"""
+    assert len(path_flows(src)) >= 1
