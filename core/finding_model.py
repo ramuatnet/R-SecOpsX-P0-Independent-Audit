@@ -31,6 +31,22 @@ def _canonical_finding_id(f: dict) -> str:
     seed = '|'.join(parts)
     return str(uuid.uuid5(uuid.NAMESPACE_URL, _RSECOPSX_CANONICAL_FINDING_ID_V1 + seed))
 
+_IAC_RULE_PREFIXES = ('tf_', 'k8s_', 'docker_')
+
+
+def _is_iac_finding(f: dict[str, Any]) -> bool:
+    """True when the finding is a reading of declarative infrastructure config.
+
+    Checked via the issue_group the three IaC scanners all set, plus the
+    rule-id prefixes main.py itself uses to count them (_apply_iac_metadata),
+    so the definition stays consistent with the rest of the pipeline.
+    """
+    if str(f.get('issue_group') or '').strip().lower() == 'infrastructure / iac':
+        return True
+    rid = str(f.get('rule_id') or '').strip().lower()
+    return rid.startswith(_IAC_RULE_PREFIXES)
+
+
 def classify_finding(f: dict[str, Any]) -> str:
     explicit = str(f.get('classification') or '').strip().lower()
     if explicit in {'confirmed','control_gap','heuristic','informational'}:
@@ -62,6 +78,18 @@ def classify_finding(f: dict[str, Any]) -> str:
         return 'control_gap'
     if f.get('evidence_valid') is False:
         return 'informational'
+    # IaC findings are direct readings of declarative configuration, not
+    # guesses about data flow: the file states "Action = *" or "0.0.0.0/0"
+    # and the scanner reports what it read. There is no taint path to
+    # validate because the configuration itself is the evidence. Without
+    # this branch every TF_/K8S_/DOCKER_ rule fell through to 'heuristic'
+    # and normalize_finding then demotes heuristic findings from
+    # Critical/High to Low -- which reported a 0.0.0.0/0 security group
+    # (declared Critical, labelled Critical in the golden corpus) as Low.
+    # Placed last so an explicit classification, a control-gap term match
+    # or a failed evidence evaluation still wins.
+    if _is_iac_finding(f):
+        return 'confirmed'
     return 'heuristic'
 
 
