@@ -1195,6 +1195,9 @@ ARTIFACT_FILE_NAMES = {
     "security_spdx.spdx.json", "scan_performance.json",
     # Phase 4: CycloneDX 1.6 CBOM/AI-BOM artifacts.
     "security_cbom.cdx.json", "security_aibom.cdx.json",
+    # Phase 5.2/5.4 integration artifacts (see the sast.EXCLUDED_FILES note).
+    "security_jira_import.csv", "security_findings_webhook.json",
+    "security_defectdojo_import.json",
 }
 
 

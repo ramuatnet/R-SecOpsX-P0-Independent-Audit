@@ -9,6 +9,12 @@ relationship.
 This test derives the list of written artifacts from main.py's own write sites
 rather than from a hand-maintained duplicate, so adding a new artifact without
 excluding it fails here instead of silently polluting a later scan.
+
+The derivation spans helper modules too: reporting/ writes some artifacts under
+a local receiver name (`out / "Security_..."`) instead of `output_dir / "..."`.
+That blind spot shipped two unexcluded JSON artifacts once (Phase 5.2) -- the
+main.py-only regex could not see them and every assertion below passed
+vacuously. Helper write sites are now discovered alongside main.py's.
 """
 from __future__ import annotations
 
@@ -25,10 +31,20 @@ MAIN = REPO / "main.py"
 # scanned output directory.
 _WRITE_RE = re.compile(r'output_dir\s*/\s*"([^"]+)"')
 
+# Helper-module write sites: any receiver name (`out / "Security_..."`),
+# restricted to extensions that could ever be written as artifacts.
+_HELPER_WRITE_RE = re.compile(r'\w+\s*/\s*"([^"]+\.(?:json|csv|sarif|pdf|xlsx))"')
+
 
 def _written_artifacts() -> set[str]:
     source = MAIN.read_text(encoding="utf-8")
-    return set(_WRITE_RE.findall(source))
+    found = set(_WRITE_RE.findall(source))
+    for path in sorted((REPO / "reporting").glob("*.py")):
+        try:
+            found.update(_HELPER_WRITE_RE.findall(path.read_text(encoding="utf-8")))
+        except OSError:
+            continue
+    return found
 
 
 def _json_artifacts() -> set[str]:
@@ -59,6 +75,8 @@ def test_write_sites_are_discovered():
     """Guard against the discovery regex silently matching nothing.
 
     A test that passes because it inspected an empty set is worse than no test.
+    Both the main.py pass and the helper-module pass must fire: the helper pass
+    is what keeps reporting/-written artifacts (webhook JSONs) visible.
     """
     found = _written_artifacts()
     assert len(found) >= 10, (
@@ -66,6 +84,11 @@ def test_write_sites_are_discovered():
         "The discovery pattern no longer matches main.py."
     )
     assert "clean_report.json" in found
+    assert "Security_Findings_Webhook.json" in found, (
+        "the helper-module discovery pass found no webhook artifacts -- the "
+        "reporting/ write sites are invisible to the exclusion checks again"
+    )
+    assert "Security_DefectDojo_Import.json" in found
 
 
 def test_every_written_json_artifact_is_excluded_from_self_scan():

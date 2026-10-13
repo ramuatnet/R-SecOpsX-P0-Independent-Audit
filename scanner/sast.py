@@ -66,6 +66,14 @@ EXCLUDED_FILES = {
     # entry above -- written into output_dir, then read back as scan input on
     # a re-scan of the same directory.
     "security_cbom.cdx.json", "security_aibom.cdx.json",
+    # Phase 5.2/5.4 integration artifacts. The CSV is not a scannable
+    # extension but is listed per the "every name main.py writes" convention;
+    # the two JSONs ARE a self-scan hazard. They were missed when shipped
+    # because their write sites live inside reporting/webhook_export.py
+    # (helper-module writes), which the self-scan guard's discovery regex
+    # could not see -- the guard now scans reporting/ too.
+    "security_jira_import.csv", "security_findings_webhook.json",
+    "security_defectdojo_import.json",
 }
 
 # qbom.json added with the Quantum BOM artifact (CERT-In v2.0 Table 8). The handoff
