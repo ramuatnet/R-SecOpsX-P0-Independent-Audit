@@ -2720,6 +2720,7 @@ def _build_qbom_layers(payload):
     # conformance versus migration order -- and are built from different inputs.
     try:
         from scanner.crypto_quantum_analyzer import (
+            build_pqc_verdict_matrix,
             correlate_cbom_to_qbom,
             summarize_quantum_exposure,
         )
@@ -2779,6 +2780,12 @@ def _build_qbom_layers(payload):
                 "source states them, and are null otherwise."
             ),
         }
+        # Phase 4.5: multi-jurisdiction PQC verdicts over the same
+        # correlated assets. The matrix lives in the PQ document rather than
+        # the CERT-In Table 8 document because jurisdiction policy is a
+        # migration projection, and the CERT-In artifact models a fixed
+        # element list (its conformance contract does not grow new keys).
+        doc["pqc_policy_matrix"] = build_pqc_verdict_matrix(assets)
         docs["pq"] = doc
         payload["qbom_pq"] = doc
         payload["qbom_pq_summary"] = {
@@ -2793,6 +2800,12 @@ def _build_qbom_layers(payload):
             "migration_queue_length": len(exposure["migration_queue"]),
             "coverage_note": exposure["coverage_note"],
             "aggregation_note": exposure.get("aggregation_note"),
+            "pqc_policy": {
+                "jurisdictions": [
+                    p["id"] for p in doc["pqc_policy_matrix"]["packs"]
+                ],
+                "verdict_totals": doc["pqc_policy_matrix"]["rollup"],
+            },
         }
     except Exception as exc:  # noqa: BLE001 - deliberate: fail open, disclose
         errors["pq"] = f"{type(exc).__name__}: {exc}"[:300]

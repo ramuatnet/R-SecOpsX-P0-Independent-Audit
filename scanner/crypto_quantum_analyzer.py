@@ -46,6 +46,7 @@ from .qbom_model import (
     classify_quantum_status,
     create_qbom_asset,
     normalize_algorithm,
+    pqc_family_of,
     stable_qbom_id,
 )
 
@@ -294,9 +295,229 @@ def summarize_quantum_exposure(
     }
 
 
+# The quantum statuses a pack must cover. Semantic order (broken classes
+# first, then already-post-quantum, then impact-assessed, then unknown) so the
+# emitted status_grid reads the same way the migration queue does.
+_POLICY_STATUSES = (
+    "QUANTUM_VULNERABLE",
+    "QUANTUM_MARGIN_CRITICAL",
+    "PQC",
+    "QUANTUM_IMPACT_ASSESSED",
+    "UNKNOWN",
+)
+
+
+def _policy_token(normalized_algorithm: str | None) -> str:
+    """The token the policy packs match on.
+
+    Family-reduced for a PQC observation, so ML-KEM-768 and Kyber768 both
+    arrive as their family and a pack can rule on the family rather than on a
+    parameter spelling. Symmetric and hash tokens pass through unchanged --
+    their parameter IS the policy-relevant fact (AES-256 versus AES-128 is
+    precisely what CNSA and ANSSI care about), so it must never be stripped.
+    """
+    normalized = (normalized_algorithm or "").strip().lower()
+    return pqc_family_of(normalized) or normalized
+
+
+def _override_matches(token: str, entry: str) -> bool:
+    """Exact token match, or the token as a hyphen-separated prefix.
+
+    "aes" matches "aes" and "aes-128" but not "aesgcm"; "ml-kem" matches
+    "ml-kem-768". Packs relying on prefix shadowing (a generic "aes" REVIEW
+    row after a specific "aes-256" ACCEPTABLE row) depend on declaration
+    order -- see verdict_for_asset.
+    """
+    if not token or not entry:
+        return False
+    return token == entry or token.startswith(entry + "-")
+
+
+def verdict_for_asset(asset: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any]:
+    """One pack's verdict for one correlated QBOM asset.
+
+    Evaluation order is deliberate and documented in the artifact:
+    algorithm_overrides first (in declaration order, FIRST MATCH WINS), then
+    the pack's status grid. The override layer exists to prevent false
+    passes -- SHA-1 classifies QUANTUM_IMPACT_ASSESSED, which would read
+    ACCEPTABLE in a naive status-only matrix even though SHA-1 has been
+    collision-broken since 2017, and CNSA's suite is AES-256 specifically,
+    not "AES". The status grid alone would pass both.
+
+    The returned cell carries `rule` so a reader can always see WHICH layer
+    produced the verdict, and `matched` when an override fired.
+    """
+    token = _policy_token(asset.get("normalized_algorithm"))
+
+    for rule in pack.get("algorithm_overrides") or ():
+        if any(_override_matches(token, str(m).lower())
+               for m in rule.get("match_any") or ()):
+            return {
+                "verdict": rule["verdict"],
+                "note": rule["note"],
+                "rule": "algorithm",
+                "matched": token,
+            }
+
+    status = asset.get("quantum_status") or "UNKNOWN"
+    grid = pack.get("position_by_status") or {}
+    row = grid.get(status) or grid.get("UNKNOWN") or {
+        "verdict": "REVIEW",
+        "note": "Pack has no position for this status.",
+    }
+    return {"verdict": row["verdict"], "note": row["note"], "rule": "status"}
+
+
+def build_pqc_verdict_matrix(
+    correlated: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Multi-jurisdiction PQC verdict matrix over this scan's QBOM assets.
+
+    For every asset the correlator produced and every policy pack
+    (BSI/ANSSI/NIST IR 8547/CNSA 2.0 -- see core.qbom_mappings), one cell of
+    {verdict, note, rule}. The matrix also ships the status grid (pack x
+    quantum-status, computed without any asset) so the cross-product is
+    visible even for an empty inventory, the shared verdict vocabulary, the
+    rollup counts, and the citations for each pack.
+
+    Honesty properties, in the order they would fail if dropped:
+
+    * Packs are static transcriptions with document, date and URL. Nothing
+      is fetched at scan time; a date that could not be confirmed against
+      the primary document is absent rather than carried from secondary
+      reporting.
+    * A verdict is a DERIVATION of this scan's classification and a pack's
+      published position -- not a compliance certification, not legal
+      advice. The limits say so.
+    * UNKNOWN stays REVIEW everywhere. No pack is allowed to turn an
+      unclassifiable observation into a pass.
+    * Only identity fields travel (qbom_id, algorithm names, status, key
+      size, count). Evidence strings -- the place PEM lives -- are not
+      copied in, and the algorithm strings are PEM-redacted anyway on the
+      way in, so the matrix cannot republish key material even if an
+      upstream CBOM field carried some.
+    * Deterministic: pack order, asset order and rollup keys are fixed, so
+      two runs over the same payload produce byte-identical matrices.
+    """
+    from core.qbom_mappings import (  # local: avoids an import cycle with
+        PQC_POLICY_PACKS,             # core.qbom_mappings' own deferred
+        PQC_VERDICT_VOCABULARY,       # import of this module
+    )
+    from core.redaction import redact_pem_deep
+
+    packs = PQC_POLICY_PACKS
+    correlated = correlated or []
+
+    rollup: dict[str, dict[str, int]] = {
+        pack["id"]: {v: 0 for v in sorted(PQC_VERDICT_VOCABULARY)}
+        for pack in packs
+    }
+
+    asset_rows: list[dict[str, Any]] = []
+    for asset in correlated:
+        verdicts: dict[str, dict[str, Any]] = {}
+        for pack in packs:
+            cell = verdict_for_asset(asset, pack)
+            verdicts[pack["id"]] = cell
+            rollup[pack["id"]][cell["verdict"]] = rollup[pack["id"]].get(
+                cell["verdict"], 0) + 1
+
+        raw_algorithm = asset.get("algorithm")
+        raw_normalized = asset.get("normalized_algorithm")
+        asset_rows.append({
+            "qbom_id": asset.get("qbom_id"),
+            "algorithm": (redact_pem_deep(raw_algorithm)
+                          if isinstance(raw_algorithm, str)
+                          else raw_algorithm),
+            "normalized_algorithm": (redact_pem_deep(raw_normalized)
+                                     if isinstance(raw_normalized, str)
+                                     else raw_normalized),
+            "quantum_status": asset.get("quantum_status") or "UNKNOWN",
+            "key_size": asset.get("key_size"),
+            "occurrence_count": asset.get("occurrence_count"),
+            "verdicts": verdicts,
+        })
+
+    status_grid: dict[str, dict[str, dict[str, str]]] = {}
+    for pack in packs:
+        grid = pack.get("position_by_status") or {}
+        status_grid[pack["id"]] = {
+            status: dict(grid.get(status) or grid.get("UNKNOWN") or {
+                "verdict": "REVIEW",
+                "note": "Pack has no position for this status.",
+            })
+            for status in _POLICY_STATUSES
+        }
+
+    return {
+        "question": (
+            "For each cryptographic asset this scan observed, what does each "
+            "cited jurisdiction's published post-quantum policy position say "
+            "about it?"
+        ),
+        "derivation": (
+            "cell = this scan's quantum_status classification x each pack's "
+            "status grid, with pack-specific algorithm overrides applied "
+            "FIRST when the observed family or parameter is named by the "
+            "pack (first match wins, declaration order). Packs are static "
+            "transcriptions from the primary sources cited; no external "
+            "service is consulted at scan time."
+        ),
+        "packs": [
+            {
+                "id": pack["id"],
+                "jurisdiction": pack["jurisdiction"],
+                "authority": pack["authority"],
+                "document": pack["document"],
+                "document_status": pack["document_status"],
+                "published": pack["published"],
+                "source_url": pack["source_url"],
+                "related_sources": pack.get("related_sources") or [],
+                "scope": pack["scope"],
+                "hybrid_position": pack["hybrid_position"],
+                "key_dates": pack.get("key_dates") or {},
+                "approved_pqc": pack.get("approved_pqc") or [],
+            }
+            for pack in packs
+        ],
+        "vocabulary": PQC_VERDICT_VOCABULARY,
+        "status_grid": status_grid,
+        "assets": asset_rows,
+        "rollup": rollup,
+        "totals": {
+            "assets": len(asset_rows),
+            "verdict_cells": len(asset_rows) * len(packs),
+            "jurisdictions": len(packs),
+        },
+        "limits": [
+            "A derivation, not a compliance certification: verdicts combine "
+            "this scan's own quantum classification with each pack's "
+            "published position as transcribed on the pack's document date. "
+            "Not legal advice.",
+            "Packs are snapshots. Policy moves; verify against the cited "
+            "source before relying on a date or an algorithm list.",
+            "NIST IR 8547 is an INITIAL PUBLIC DRAFT (comments closed "
+            "2025-01-10): its dates are NIST's expected approach, not a "
+            "standard in force.",
+            "CNSA 2.0 binds US National Security Systems only; elsewhere it "
+            "is a direction-of-travel reference, not a requirement.",
+            "Hybrid usage (BSI, ANSSI) is not observable from static source "
+            "analysis: an ALIGNED PQC verdict does not confirm hybrid "
+            "deployment.",
+            "Verdicts cover the assets this scan observed, within the "
+            "CBOM's scope. Absence from this matrix is not evidence of "
+            "absence in the deployed system.",
+            "REVIEW is never a pass. It means the observation could not be "
+            "mapped to the pack's position and a human must decide.",
+        ],
+    }
+
+
 __all__ = [
+    "build_pqc_verdict_matrix",
     "correlate_cbom_to_qbom",
     "derive_algorithm",
     "summarize_quantum_exposure",
+    "verdict_for_asset",
     "classify_quantum_status",
 ]

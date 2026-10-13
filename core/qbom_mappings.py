@@ -238,6 +238,640 @@ QBOM_NOT_OBSERVABLE_ELEMENTS = sorted(
     k for k, v in QBOM_MINIMUM_ELEMENTS.items() if not v["observable"])
 
 # --------------------------------------------------------------------------
+# Phase 4.5 -- PQC policy packs: multi-jurisdiction verdicts on the QBOM.
+#
+# Each pack is a TRANSCRIPTION of one authority's published post-quantum
+# policy position, with a citation, a document date and the key dates the
+# document itself states. Nothing here is fetched at scan time and nothing
+# here is inferred: where a date could not be confirmed against the primary
+# document it is left out rather than carried from secondary reporting.
+# The verdict matrix (scanner/crypto_quantum_analyzer.build_pqc_verdict_matrix)
+# combines these packs with this scan's own quantum classification.
+#
+# WHY THE FOUR ARE NOT UNIFORM. The authorities genuinely disagree, and a
+# matrix that flattened them into one row per jurisdiction would be hiding
+# exactly the comparison it exists to show:
+#   * NIST IR 8547 is a DRAFT with calendar dates (deprecate 2030,
+#     disallow 2035) and keeps >=128-bit symmetric algorithms approved.
+#   * NSA CNSA 2.0 is a per-category timetable binding US National Security
+#     Systems only, with a small closed suite (AES-256, SHA-384/512,
+#     ML-KEM-1024, ML-DSA-87, LMS/XMSS) that excludes SLH-DSA.
+#   * BSI TR-02102-1 is a recommendation with a calendar anchor of its own
+#     (solo classical key establishment recommended only until end of 2031)
+#     and hybrid operation as the expected mode.
+#   * ANSSI has no closed algorithm list and no single deadline; it pushes
+#     hybridation hard and states a symmetric target (>= AES-256 level,
+#     >= SHA2-384 level) rather than a migration year.
+# A consumer comparing jurisdictions should see those differences, so the
+# notes and dates below differ per pack on purpose.
+# --------------------------------------------------------------------------
+
+# The shared verdict vocabulary. Every cell of the matrix uses one of these
+# five values and the matrix ships this legend so no cell needs decoding.
+PQC_VERDICT_VOCABULARY = {
+    "MIGRATE": (
+        "The pack establishes a transition expectation for this class of "
+        "algorithm: plan and execute migration within the pack's stated dates "
+        "or phases."
+    ),
+    "REPLACE": (
+        "The algorithm fails on its own terms -- broken or with its margin "
+        "destroyed -- independently of quantum computing. Replace it; this is "
+        "not a migration-to-PQC question."
+    ),
+    "ACCEPTABLE": (
+        "The pack's published position does not require a change for this "
+        "observation, given the parameters recorded by the scan."
+    ),
+    "ALIGNED": (
+        "The observed algorithm belongs to a family or parameter set the pack "
+        "approves or recommends for post-quantum use."
+    ),
+    "REVIEW": (
+        "The observation cannot be mapped to a pack position: unclassified "
+        "algorithm, parameter below or unconfirmable against the pack's rules, "
+        "a pre-standardisation spelling, or a family the pack does not list. "
+        "Human review required -- this is NOT a pass."
+    ),
+}
+
+# One shared UNKNOWN note. The verdict is pack-independent because the gap is
+# in the observation, not in the policy: no authority can map an unnamed
+# primitive, and inventing a mapping would be exactly the unverifiable claim
+# this product exists to avoid.
+_UNKNOWN_REVIEW_NOTE = (
+    "The scan could not classify this observation, so no pack position can "
+    "be reached from it. Human review required; this is NOT a pass, and it "
+    "is not evidence that the primitive is safe."
+)
+
+PQC_POLICY_PACKS: list[dict] = [
+    # ------------------------------------------------------------------
+    # United States / NIST -- IR 8547.
+    # ------------------------------------------------------------------
+    {
+        "id": "nist-ir-8547",
+        "jurisdiction": "United States",
+        "authority": "NIST",
+        "document": (
+            "NIST IR 8547 (Initial Public Draft): Transition to "
+            "Post-Quantum Cryptography Standards"
+        ),
+        "document_status": "initial-public-draft",
+        "published": "2024-11-12",
+        "source_url": "https://csrc.nist.gov/pubs/ir/8547/ipd",
+        "related_sources": [
+            "https://csrc.nist.gov/projects/post-quantum-cryptography",
+        ],
+        "scope": (
+            "Describes NIST's EXPECTED APPROACH to the transition and is meant "
+            "to inform federal agencies, industry and standards bodies. It is "
+            "an informative draft, not a FIPS mandate; its dates are NIST's "
+            "expected approach, not a standard in force."
+        ),
+        "hybrid_position": (
+            "IR 8547 does not require hybrid operation; it points to "
+            "FIPS 203/204/205 as standards that can and should be put into "
+            "use now."
+        ),
+        "key_dates": {
+            "quantum_vulnerable_112bit_deprecated_after": 2030,
+            "quantum_vulnerable_112bit_disallowed_after": 2035,
+            "quantum_vulnerable_128bit_disallowed_after": 2035,
+            "symmetric_112bit_level_disallowed_after": 2030,
+        },
+        "approved_pqc": [
+            "FIPS 203 ML-KEM",
+            "FIPS 204 ML-DSA",
+            "FIPS 205 SLH-DSA",
+            "SP 800-208 LMS/XMSS (single-tree use as specified there)",
+        ],
+        "position_by_status": {
+            "QUANTUM_VULNERABLE": {
+                "verdict": "MIGRATE",
+                "note": (
+                    "Deprecated after 2030 and disallowed after 2035 at the "
+                    "112-bit security strength (common RSA, ECDSA/ECDH, FFDH "
+                    "sizes); the >=128-bit variants are disallowed after "
+                    "2035. NIST states FIPS 203/204/205 can and should be "
+                    "put into use now."
+                ),
+            },
+            "QUANTUM_MARGIN_CRITICAL": {
+                "verdict": "REPLACE",
+                "note": (
+                    "Grover-depleted symmetric margin (DES/3DES class). "
+                    "NIST's few 112-bit-level symmetric standards are "
+                    "disallowed in 2030, and SP 800-131A retired 3DES for "
+                    "encryption before any quantum argument."
+                ),
+            },
+            "QUANTUM_IMPACT_ASSESSED": {
+                "verdict": "ACCEPTABLE",
+                "note": (
+                    "Symmetric primitives and hashes providing at least 128 "
+                    "bits of classical security remain approved under "
+                    "IR 8547. The scan records parameters only where the "
+                    "source states them; IR 8547's tables govern any "
+                    "individual security level."
+                ),
+            },
+            "PQC": {
+                "verdict": "ALIGNED",
+                "note": (
+                    "A recognised post-quantum family. IR 8547's finalised "
+                    "standards are FIPS 203/204/205 (plus SP 800-208 for "
+                    "LMS/XMSS); confirm this observation maps to one of them."
+                ),
+            },
+            "UNKNOWN": {
+                "verdict": "REVIEW",
+                "note": _UNKNOWN_REVIEW_NOTE,
+            },
+        },
+        # Evaluated in order, FIRST MATCH WINS, before the status grid.
+        "algorithm_overrides": [
+            {
+                "match_any": ["sha-1"],
+                "verdict": "REPLACE",
+                "note": (
+                    "Collision-broken since 2017 and disallowed by "
+                    "SP 800-131A Rev. 2 for digital signatures. The defect "
+                    "is classical; no quantum computer is needed to exploit "
+                    "it."
+                ),
+            },
+            {
+                "match_any": ["ml-kem", "ml-dsa", "slh-dsa"],
+                "verdict": "ALIGNED",
+                "note": (
+                    "FIPS 203/204/205. IR 8547 states these standards can "
+                    "and should be put into use now."
+                ),
+            },
+            {
+                "match_any": ["lms", "xmss"],
+                "verdict": "ALIGNED",
+                "note": (
+                    "Stateful hash-based signature schemes standardised by "
+                    "NIST SP 800-208 (single-tree variants as specified "
+                    "there)."
+                ),
+            },
+            {
+                "match_any": ["kyber", "dilithium", "sphincs"],
+                "verdict": "REVIEW",
+                "note": (
+                    "Pre-standardisation spelling. FIPS 203/204/205 "
+                    "standardise ML-KEM/ML-DSA/SLH-DSA; confirm the "
+                    "deployment uses the standardised variant rather than "
+                    "the research-stage one."
+                ),
+            },
+            {
+                "match_any": [
+                    "falcon", "mceliece", "hqc", "ntruprime",
+                    "frodkem", "saber",
+                ],
+                "verdict": "REVIEW",
+                "note": (
+                    "Not among NIST's finalised post-quantum standards "
+                    "(FIPS 203/204/205) as of the pack date. Verify current "
+                    "standardisation status before relying on this family."
+                ),
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # United States / NSA -- CNSA 2.0. Binds National Security Systems.
+    # ------------------------------------------------------------------
+    {
+        "id": "nsa-cnsa-2-0",
+        "jurisdiction": "United States (National Security Systems)",
+        "authority": "NSA",
+        "document": (
+            "Commercial National Security Algorithm Suite 2.0 (CNSA 2.0) "
+            "Cybersecurity Advisory"
+        ),
+        "document_status": "advisory-final",
+        "published": "2022-09-07",
+        "source_url": (
+            "https://media.defense.gov/2022/Sep/07/2003071834/-1/-1/0/"
+            "CSA_CNSA_2.0_ALGORITHMS_.PDF"
+        ),
+        "related_sources": [
+            ("https://media.defense.gov/2022/Sep/07/2003071836/-1/-1/1/"
+             "CSI_CNSA_2.0_FAQ_.PDF"),
+        ],
+        "scope": (
+            "Applies to US National Security Systems (NSS) -- networks with "
+            "classified information or otherwise critical to military and "
+            "intelligence activities. For non-NSS systems it is a "
+            "direction-of-travel reference, not a requirement."
+        ),
+        "hybrid_position": (
+            "Hybrid solutions may be allowed for interoperability, but the "
+            "post-quantum component must itself be CNSA 2.0 compliant "
+            "(CNSA 2.0 FAQ)."
+        ),
+        "key_dates": {
+            "software_firmware_signing_prefer_by": 2025,
+            "software_firmware_signing_exclusive_by": 2030,
+            "web_browsers_servers_cloud_prefer_by": 2025,
+            "web_browsers_servers_cloud_exclusive_by": 2033,
+            "networking_equipment_prefer_by": 2026,
+            "networking_equipment_exclusive_by": 2030,
+            "operating_systems_prefer_by": 2027,
+            "operating_systems_exclusive_by": 2033,
+            "niche_equipment_exclusive_by": 2033,
+            "custom_and_legacy_replace_by": 2033,
+            "new_nss_acquisitions_must_support_from": "2027-01-01",
+            "all_nss_quantum_resistant_by": 2035,
+        },
+        "approved_pqc": [
+            "ML-KEM-1024 (FIPS 203)",
+            "ML-DSA-87 (FIPS 204)",
+            "LMS (SP 800-208, single-tree, software/firmware signing)",
+            "XMSS (SP 800-208, single-tree, software/firmware signing)",
+        ],
+        "position_by_status": {
+            "QUANTUM_VULNERABLE": {
+                "verdict": "MIGRATE",
+                "note": (
+                    "Must move to the CNSA 2.0 suite on the category "
+                    "timetable: software/firmware signing and networking "
+                    "equipment exclusively by 2030; web browsers, servers, "
+                    "cloud services and operating systems exclusively by "
+                    "2033; all NSS quantum-resistant by 2035 (NSM-10). "
+                    "Binds NSS only."
+                ),
+            },
+            "QUANTUM_MARGIN_CRITICAL": {
+                "verdict": "REPLACE",
+                "note": (
+                    "CNSA 2.0's symmetric suite is AES-256. This margin "
+                    "class fails on classical terms too -- replace it; PQC "
+                    "does not apply to symmetric primitives."
+                ),
+            },
+            "QUANTUM_IMPACT_ASSESSED": {
+                "verdict": "REVIEW",
+                "note": (
+                    "CNSA 2.0's suite is AES-256 with SHA-384/512. The "
+                    "observed parameters are either below the suite or "
+                    "unrecorded; for NSS they must be upgraded, and for "
+                    "other systems CNSA 2.0 does not apply. See the "
+                    "parameter overrides for the exact split."
+                ),
+            },
+            "PQC": {
+                "verdict": "REVIEW",
+                "note": (
+                    "Not identified as part of the CNSA 2.0 suite. NSA's "
+                    "suite is closed -- everything not explicitly approved "
+                    "is not approved -- so an unlisted PQC family needs "
+                    "human review rather than an assumed pass."
+                ),
+            },
+            "UNKNOWN": {
+                "verdict": "REVIEW",
+                "note": _UNKNOWN_REVIEW_NOTE,
+            },
+        },
+        "algorithm_overrides": [
+            {
+                "match_any": ["sha-1"],
+                "verdict": "REPLACE",
+                "note": (
+                    "Collision-broken and not in the CNSA 2.0 suite. The "
+                    "defect is classical; replace it outright."
+                ),
+            },
+            {
+                "match_any": [
+                    "aes-256", "sha-384", "sha-512",
+                    "sha3-384", "sha3-512",
+                ],
+                "verdict": "ACCEPTABLE",
+                "note": (
+                    "In the CNSA 2.0 suite: AES-256 for symmetric "
+                    "encryption, SHA-384/512 for hashing (SHA-3 for "
+                    "internal hardware use)."
+                ),
+            },
+            {
+                "match_any": ["ml-kem", "ml-dsa", "lms", "xmss"],
+                "verdict": "ALIGNED",
+                "note": (
+                    "CNSA 2.0 names ML-KEM-1024, ML-DSA-87 and (for "
+                    "software and firmware signing) LMS/XMSS. Confirm the "
+                    "recorded parameter set matches the CNSA level."
+                ),
+            },
+            {
+                "match_any": ["kyber", "dilithium"],
+                "verdict": "REVIEW",
+                "note": (
+                    "Pre-standardisation spelling. CNSA 2.0 names the "
+                    "standardised variants ML-KEM-1024 (FIPS 203) and "
+                    "ML-DSA-87 (FIPS 204); confirm what is deployed."
+                ),
+            },
+            {
+                "match_any": [
+                    "slh-dsa", "sphincs", "falcon", "mceliece",
+                    "hqc", "ntruprime", "frodkem", "saber",
+                ],
+                "verdict": "REVIEW",
+                "note": (
+                    "Not part of the CNSA 2.0 suite -- NSA selected "
+                    "ML-KEM/ML-DSA (plus LMS/XMSS for signing) and left "
+                    "this family out. Not a NIST-security judgement; a "
+                    "suite-membership one."
+                ),
+            },
+            {
+                "match_any": [
+                    "aes", "aes-128", "aes-192",
+                    "sha-224", "sha-256", "md5",
+                ],
+                "verdict": "REVIEW",
+                "note": (
+                    "Not CNSA 2.0 suite parameters (suite: AES-256, "
+                    "SHA-384/512). For NSS this must be upgraded; for "
+                    "other systems CNSA 2.0 does not apply. A bare family "
+                    "name with no recorded parameter cannot be confirmed "
+                    "against the suite either."
+                ),
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Germany / BSI -- TR-02102-1.
+    # ------------------------------------------------------------------
+    {
+        "id": "bsi-tr-02102",
+        "jurisdiction": "Germany",
+        "authority": "BSI",
+        "document": (
+            "BSI TR-02102-1: Cryptographic Mechanisms: Recommendations and "
+            "Key Lengths (Kryptographische Verfahren: Empfehlungen und "
+            "Schlüssellängen), Version 2026-01"
+        ),
+        "document_status": "technical-guideline-final",
+        "published": "2026-01-23",
+        "source_url": (
+            "https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/"
+            "Publikationen/TechnischeRichtlinien/TR02102/BSI-TR-02102.pdf"
+            "?__blob=publicationFile"
+        ),
+        "related_sources": [
+            ("https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/"
+             "Publications/TechGuidelines/TG02102/BSI-TR-02102-2.pdf"
+             "?__blob=publicationFile"),
+            ("https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Krypto/"
+             "Post-Quanten-Kryptografie.pdf?__blob=publicationFile"),
+        ],
+        "scope": (
+            "German federal security authority guidance for new "
+            "cryptographic deployments: recommendations with a stated "
+            "120-bit security level, not a legal mandate. TR-02102-2 "
+            "records that solo classical key establishment is recommended "
+            "only until the end of 2031 (TR-02102-1 section 2.1)."
+        ),
+        "hybrid_position": (
+            "BSI intends to recommend quantum-safe procedures in HYBRID use "
+            "with recommended classical procedures as suitable standards "
+            "mature (TR-02102-2 section 3.1.3); hybridation is the "
+            "expected migration mode."
+        ),
+        "key_dates": {
+            "classical_key_establishment_solo_recommended_until_end_of": 2031,
+            "dsa_recommendation_withdrawn_from": 2029,
+        },
+        "approved_pqc": [
+            "LMS (RFC 8554 / SP 800-208) -- stateful hash-based signatures "
+            "long recommended by BSI (TR-02102, TR-03140)",
+            "XMSS (RFC 8391 / SP 800-208) -- as above",
+            "Current quantum-safe key-agreement and signature "
+            "recommendations: see TR-02102-1 itself (this pack does not "
+            "transcribe the guideline's algorithm tables)",
+        ],
+        "position_by_status": {
+            "QUANTUM_VULNERABLE": {
+                "verdict": "MIGRATE",
+                "note": (
+                    "Solo classical key establishment is recommended only "
+                    "until the end of 2031 (TR-02102-1 section 2.1, quoted "
+                    "in TR-02102-2 section 3.1.3), and the DSA "
+                    "recommendation is withdrawn from 2029. Hybrid "
+                    "operation with quantum-safe procedures is the "
+                    "expected mode."
+                ),
+            },
+            "QUANTUM_MARGIN_CRITICAL": {
+                "verdict": "REPLACE",
+                "note": (
+                    "Below BSI's 120-bit security level on classical terms "
+                    "(TR-02102-1). A classical weakness, not a quantum one "
+                    "-- replace it with a modern cipher."
+                ),
+            },
+            "QUANTUM_IMPACT_ASSESSED": {
+                "verdict": "ACCEPTABLE",
+                "note": (
+                    "The AES and SHA families at their common parameters "
+                    "meet or exceed the guideline's 120-bit security "
+                    "level. TR-02102-1's parameter tables govern the "
+                    "individual case."
+                ),
+            },
+            "PQC": {
+                "verdict": "ALIGNED",
+                "note": (
+                    "A recognised post-quantum family, consistent with "
+                    "BSI's direction. BSI points to TR-02102-1 for its "
+                    "current quantum-safe recommendations; this pack does "
+                    "not transcribe those tables, so confirm the exact "
+                    "family and parameter set there. Hybrid usage is not "
+                    "observable from source."
+                ),
+            },
+            "UNKNOWN": {
+                "verdict": "REVIEW",
+                "note": _UNKNOWN_REVIEW_NOTE,
+            },
+        },
+        "algorithm_overrides": [
+            {
+                "match_any": ["sha-1"],
+                "verdict": "REPLACE",
+                "note": (
+                    "Collision-broken and far below any acceptable "
+                    "security level; excluded by BSI's recommendation "
+                    "tables. Classical defect."
+                ),
+            },
+            {
+                "match_any": ["lms", "xmss"],
+                "verdict": "ALIGNED",
+                "note": (
+                    "Stateful hash-based signature schemes long "
+                    "recommended by BSI (TR-02102, TR-03140; RFC 8554/8391, "
+                    "NIST SP 800-208), subject to safe state management."
+                ),
+            },
+            {
+                "match_any": ["kyber", "dilithium", "sphincs"],
+                "verdict": "REVIEW",
+                "note": (
+                    "Pre-standardisation spelling. The standardised "
+                    "families are ML-KEM/ML-DSA/SLH-DSA (FIPS 203/204/205) "
+                    "-- confirm what is deployed before counting it."
+                ),
+            },
+            {
+                "match_any": ["falcon"],
+                "verdict": "REVIEW",
+                "note": (
+                    "Falcon/FN-DSA was not yet a finalised NIST standard "
+                    "as of the pack date (FIPS 206 in preparation); "
+                    "confirm current status against TR-02102-1."
+                ),
+            },
+        ],
+    },
+    # ------------------------------------------------------------------
+    # France / ANSSI -- 2022 avis + 2023 follow-up.
+    # ------------------------------------------------------------------
+    {
+        "id": "anssi-pqc-transition",
+        "jurisdiction": "France",
+        "authority": "ANSSI",
+        "document": (
+            "Avis scientifique et technique de l'ANSSI sur la migration "
+            "vers la cryptographie post-quantique (11 April 2022), with "
+            "ANSSI views on the PQC transition -- 2023 follow up "
+            "(21 December 2023)"
+        ),
+        "document_status": "position-paper-final",
+        "published": "2022-04-11",
+        "source_url": (
+            "https://messervices.cyber.gouv.fr/documents-guides/"
+            "anssi-avis-migration-vers-la-cryptographie-post-quantique.pdf"
+        ),
+        "related_sources": [
+            ("https://messervices.cyber.gouv.fr/documents-guides/"
+             "follow_up_position_paper_on_post_quantum_cryptography.pdf"),
+        ],
+        "scope": (
+            "French national cyber-security agency guidance shaping ANSSI "
+            "security visas: a phased transition agenda and a hybridation "
+            "recommendation, not a single calendar deadline."
+        ),
+        "hybrid_position": (
+            "ANSSI strongly emphasizes hybridation wherever post-quantum "
+            "mitigation is needed in the short and medium term -- "
+            "especially products aiming at confidentiality protection "
+            "lasting beyond 2030. Hybrid is mandatory for phase-2 visas; "
+            "phase 3 (after years of analysis, roughly post-2030) may make "
+            "it optional."
+        ),
+        "key_dates": {
+            "phase_2_runs_at_least_until_approx": 2030,
+            "phase_3_hybridation_optional_from": "after 2030 (indicative)",
+            "first_hybrid_pqc_visa_expected": "2024-2025",
+        },
+        "approved_pqc": [
+            "No closed list published: ANSSI accepts well-studied "
+            "candidates subject to its assurance criteria and states "
+            "selected algorithms may not exactly match NIST standards "
+            "(2022 avis, section 10)",
+        ],
+        "position_by_status": {
+            "QUANTUM_VULNERABLE": {
+                "verdict": "MIGRATE",
+                "note": (
+                    "Hybridate: ANSSI still strongly emphasizes hybridation "
+                    "wherever PQC mitigation is needed, short and medium "
+                    "term -- particularly for products whose confidentiality "
+                    "protection must last beyond 2030 (2022 avis; 2023 "
+                    "follow-up). Phase 2 runs at least until around 2030."
+                ),
+            },
+            "QUANTUM_MARGIN_CRITICAL": {
+                "verdict": "REPLACE",
+                "note": (
+                    "Weak on classical terms and far below ANSSI's "
+                    "encouraged post-quantum symmetric level of at least "
+                    "AES-256 security (2022 avis). Replace the cipher; PQC "
+                    "is not the answer for a symmetric primitive."
+                ),
+            },
+            "QUANTUM_IMPACT_ASSESSED": {
+                "verdict": "REVIEW",
+                "note": (
+                    "ANSSI encourages a post-quantum security level on "
+                    "symmetric primitives consistent with the selected PQC "
+                    "algorithm -- in practice at least AES-256 for block "
+                    "ciphers and SHA2-384 for hashes (2022 avis). The "
+                    "observed parameters are below or unconfirmable "
+                    "against that level; see the parameter overrides."
+                ),
+            },
+            "PQC": {
+                "verdict": "ALIGNED",
+                "note": (
+                    "A recognised post-quantum family. ANSSI publishes no "
+                    "closed algorithm list, so this is direction-consistent "
+                    "rather than an approved-list membership. Hybridation "
+                    "is ANSSI's strongest position and is not observable "
+                    "from source."
+                ),
+            },
+            "UNKNOWN": {
+                "verdict": "REVIEW",
+                "note": _UNKNOWN_REVIEW_NOTE,
+            },
+        },
+        "algorithm_overrides": [
+            {
+                "match_any": ["sha-1"],
+                "verdict": "REPLACE",
+                "note": (
+                    "Collision-broken and orders of magnitude below "
+                    "ANSSI's encouraged SHA2-384-level hash strength. "
+                    "Classical defect."
+                ),
+            },
+            {
+                "match_any": ["aes-256", "sha-384", "sha-512"],
+                "verdict": "ACCEPTABLE",
+                "note": (
+                    "Meets ANSSI's encouraged post-quantum symmetric "
+                    "level: at least AES-256 security for block ciphers, "
+                    "at least SHA2-384 for hashes (2022 avis)."
+                ),
+            },
+            {
+                "match_any": [
+                    "aes", "aes-128", "aes-192",
+                    "sha-224", "sha-256",
+                ],
+                "verdict": "REVIEW",
+                "note": (
+                    "Below, or unconfirmable against, ANSSI's encouraged "
+                    "post-quantum level (at least AES-256 for block "
+                    "ciphers, SHA2-384 for hashes). A bare family name "
+                    "with no recorded parameter cannot be confirmed at "
+                    "all."
+                ),
+            },
+        ],
+    },
+]
+
+# --------------------------------------------------------------------------
 # Scope statement. Published in the artifact so a reader cannot mistake the
 # absence of hardware fields for an oversight.
 # --------------------------------------------------------------------------
