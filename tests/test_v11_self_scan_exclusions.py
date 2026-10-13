@@ -35,11 +35,22 @@ _WRITE_RE = re.compile(r'output_dir\s*/\s*"([^"]+)"')
 # restricted to extensions that could ever be written as artifacts.
 _HELPER_WRITE_RE = re.compile(r'\w+\s*/\s*"([^"]+\.(?:json|csv|sarif|pdf|xlsx))"')
 
+# Modules outside reporting/ that write artifacts BESIDE a caller-supplied
+# report directory. Scoped per module rather than globbed across all of
+# analysis/: the benchmark/validation harnesses write fixtures and temp
+# comparisons that never land in a scanned directory, and sweeping those
+# in would demand exclusions for names no scan can ever read.
+_HELPER_PRODUCER_FILES = (
+    REPO / "analysis" / "continuous_engine.py",
+)
+
 
 def _written_artifacts() -> set[str]:
     source = MAIN.read_text(encoding="utf-8")
     found = set(_WRITE_RE.findall(source))
-    for path in sorted((REPO / "reporting").glob("*.py")):
+    helper_files = sorted((REPO / "reporting").glob("*.py"))
+    helper_files += [p for p in _HELPER_PRODUCER_FILES if p.exists()]
+    for path in helper_files:
         try:
             found.update(_HELPER_WRITE_RE.findall(path.read_text(encoding="utf-8")))
         except OSError:
@@ -89,6 +100,10 @@ def test_write_sites_are_discovered():
         "reporting/ write sites are invisible to the exclusion checks again"
     )
     assert "Security_DefectDojo_Import.json" in found
+    assert "Security_Continuous.json" in found, (
+        "the continuous engine writes an artifact beside the stored report; "
+        "if its write site is invisible, a re-scan hazard ships silently"
+    )
 
 
 def test_every_written_json_artifact_is_excluded_from_self_scan():

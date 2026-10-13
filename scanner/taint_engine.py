@@ -1198,6 +1198,9 @@ ARTIFACT_FILE_NAMES = {
     # Phase 5.2/5.4 integration artifacts (see the sast.EXCLUDED_FILES note).
     "security_jira_import.csv", "security_findings_webhook.json",
     "security_defectdojo_import.json",
+    # Phase 5.3: continuous re-evaluation artifact, written beside the
+    # stored report and therefore re-scannable input.
+    "security_continuous.json",
 }
 
 

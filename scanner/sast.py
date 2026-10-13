@@ -74,6 +74,10 @@ EXCLUDED_FILES = {
     # could not see -- the guard now scans reporting/ too.
     "security_jira_import.csv", "security_findings_webhook.json",
     "security_defectdojo_import.json",
+    # Phase 5.3: the continuous re-evaluation artifact writes BESIDE a
+    # caller-supplied clean_report.json by default, so it can land in a
+    # directory that is later re-scanned.
+    "security_continuous.json",
 }
 
 # qbom.json added with the Quantum BOM artifact (CERT-In v2.0 Table 8). The handoff
