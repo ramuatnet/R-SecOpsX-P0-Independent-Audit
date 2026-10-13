@@ -5672,6 +5672,18 @@ def main():
     except Exception as exc:
         _safe_print(f"       => Jira CSV failed: {exc}")
 
+    _step("Generating webhook / DefectDojo import JSON")
+    try:
+        from reporting.webhook_export import write_webhook_exports
+
+        write_webhook_exports(payload, str(output_dir))
+        generated_files.append("Security_Findings_Webhook.json")
+        generated_files.append("Security_DefectDojo_Import.json")
+        _safe_print("       => Security_Findings_Webhook.json")
+        _safe_print("       => Security_DefectDojo_Import.json")
+    except Exception as exc:
+        _safe_print(f"       => webhook JSON failed: {exc}")
+
     # ------------------------------------------------------------------
     # CycloneDX 1.6 CBOM / AI-BOM (Phase 4).
     #
