@@ -18,6 +18,7 @@ from scanner.cvss4 import cvss_v4_base_score
 from scanner.package_intelligence import (
     _normalize_vulnerability_record,
     enrich_package,
+    normalized_vulnerabilities,
 )
 from scanner.vulnerability_intel import (
     extract_cvss_assessments,
@@ -182,3 +183,36 @@ def test_extract_cvss_metadata_still_returns_exactly_two_keys():
         "cvss_version": None,
         "cvss_vector": None,
     }
+
+
+def test_records_collapsed_by_shared_cve_unite_their_alias_sets():
+    """A re-issued advisory shares its primary CVE with its predecessor;
+    merging on that key must not discard the loser's alias ids.
+
+    The V2.2 differential found grype reporting CVE-2026-4800 for lodash
+    where we reported nothing: OSV carries the sibling CVE as an alias of
+    an advisory we DO report, the records collapsed on the shared
+    primary, and only the survivor's alias list survived the merge --
+    so the sibling CVE reached neither the report records nor the
+    CycloneDX `references` a consumer searches.
+    """
+    pkg = {
+        "name": "lodash", "version": "4.17.15",
+        "vulnerabilities": [
+            {"id": "GHSA-35jh-r3h4-6jhm", "cve": "CVE-2021-23337",
+             "aliases": ["CVE-2021-23337"],
+             "severity": "High"},
+            {"id": "GHSA-r5fr-rjxr-66jc", "cve": "CVE-2021-23337",
+             "aliases": ["CVE-2021-23337", "CVE-2026-4800"],
+             "severity": "High"},
+        ],
+    }
+
+    out = normalized_vulnerabilities(pkg)
+
+    assert len(out) == 1, "records sharing a primary CVE must collapse once"
+    aliases = {str(a).upper() for a in out[0]["aliases"]}
+    assert "CVE-2026-4800" in aliases, (
+        "the merged record lost the sibling CVE the second advisory carried"
+    )
+    assert "CVE-2021-23337" in aliases

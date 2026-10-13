@@ -281,6 +281,21 @@ def normalized_vulnerabilities(pkg: dict) -> list[dict]:
         if existing.get("cvss") is None and rec.get("cvss") is not None:
             existing["cvss"] = rec.get("cvss")
         existing["fixed_versions"] = sorted(set((existing.get("fixed_versions") or []) + (rec.get("fixed_versions") or [])))
+        # The aliases are what make an advisory findable by any of its ids.
+        # Two records collapse here precisely because they share a primary
+        # CVE -- which is exactly when their alias sets can differ (a
+        # re-issued advisory keeps both its GHSA ids and both CVE ids
+        # listed on each record). Keeping only the survivor's aliases
+        # dropped the loser's sibling CVE from every downstream consumer
+        # of this list.
+        merged_aliases = list(existing.get("aliases") or [])
+        alias_seen = {str(a).strip().upper() for a in merged_aliases}
+        for alias in rec.get("aliases") or []:
+            text = str(alias).strip()
+            if text and text.upper() not in alias_seen:
+                alias_seen.add(text.upper())
+                merged_aliases.append(text)
+        existing["aliases"] = merged_aliases
         if rec.get("fallback_applied"):
             existing["fallback_applied"] = True
 

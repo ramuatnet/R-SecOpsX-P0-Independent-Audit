@@ -264,6 +264,29 @@ def _run_rsecopsx(sbom_path: Path) -> tuple[list[dict], str | None]:
             record["path"] = comp.get("name")
         raw.append(record)
 
+        # The exporter cross-links every CVE the advisory carries under
+        # `references`. Each alias CVE is a fact a consumer can search for
+        # and grype reports them as separate matches (one per CVE), so
+        # each gets an identity of its own here. Keying only on the
+        # primary CVE read CVE-2026-4800 and CVE-2026-2950 as
+        # "only_in_peer" when our own SBOM asserted the very same
+        # advisory cluster -- the disagreement was the reader's, not the
+        # product's. Non-CVE reference ids (a twin GHSA) stay out: the
+        # peer tools keep their GHSA in rule_id and key identity on the
+        # CVE, so admitting one here would invent a disagreement.
+        for ref_entry in vuln.get("references") or []:
+            rid = str(
+                ref_entry.get("id") if isinstance(ref_entry, dict)
+                else ref_entry or ""
+            ).strip()
+            if not rid.upper().startswith("CVE-"):
+                continue
+            if cve and rid.upper() == str(cve).upper():
+                continue
+            alias_record = dict(record)
+            alias_record["cve"] = rid
+            raw.append(alias_record)
+
     # Fallback: some exports put the advisory on the component itself.
     if not raw:
         for comp in bom.get("components") or []:

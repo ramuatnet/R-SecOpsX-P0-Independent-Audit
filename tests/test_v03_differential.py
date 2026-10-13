@@ -596,3 +596,80 @@ def test_the_diff_counts_reconcile():
     assert len(in_both) == 1
     assert len(only_ours) == 1
     assert len(only_peer) == 1
+
+
+# --------------------------------------------------------------------------
+# alias CVEs (V2.2): one advisory can carry several CVE ids
+# --------------------------------------------------------------------------
+
+
+def _cluster_sbom(tmp_path: Path) -> Path:
+    """A record shaped like the exporter's after the alias fix: the
+    cluster's primary CVE in ``id``/``rsecopsx:cve``, the sibling ids
+    cross-linked under ``references``."""
+    return _make_sbom(tmp_path, vulnerabilities=[
+        {"id": "CVE-2021-23337",
+         "ratings": [{"severity": "high"}],
+         "affects": [{"ref": "pkg:npm/@adobe/css-tools@4.3.1"}],
+         "properties": [
+             {"name": "rsecopsx:cve", "value": "CVE-2021-23337"},
+             {"name": "rsecopsx:advisory_id", "value": "GHSA-35jh-r3h4-6jhm"},
+             {"name": "rsecopsx:severity", "value": "High"},
+         ],
+         "references": [
+             {"source": {"name": "OSV"}, "id": "CVE-2026-4800"},
+             {"source": {"name": "OSV"}, "id": "GHSA-R5FR-RJXR-66JC"},
+         ],
+         "description": "x"},
+    ])
+
+
+def test_each_alias_cve_becomes_its_own_identity(tmp_path):
+    """The live V2.2 run found grype reporting CVE-2026-4800 and
+    CVE-2026-2950 on lodash where we reported nothing -- OSV carries the
+    sibling CVE as an alias of an advisory we DID report, and the SBOM
+    now cross-links it. Each alias CVE is a fact a consumer can search
+    for, so each gets its own identity."""
+    findings, error = differential._run_rsecopsx(_cluster_sbom(tmp_path))
+
+    assert error is None
+    assert {f["cve"] for f in findings} == {"CVE-2021-23337", "CVE-2026-4800"}
+    keys = {identity(f) for f in findings}
+    assert len(keys) == 2, "records collapsed into %r" % keys
+    assert all(k[0] == "cve" for k in keys), keys
+
+
+def test_a_twin_ghsa_reference_is_not_admitted_as_a_cve_identity(tmp_path):
+    """Peers key identity on the CVE and keep their GHSA in ``rule_id``;
+    admitting a GHSA string into the ``cve`` field would invent a
+    disagreement against every tool that reports the same advisory."""
+    findings, error = differential._run_rsecopsx(_cluster_sbom(tmp_path))
+
+    assert error is None
+    assert findings
+    assert all(str(f["cve"]).upper().startswith("CVE-") for f in findings)
+
+
+def test_the_sibling_cve_a_peer_reports_is_in_both_not_peer_only(tmp_path):
+    """End-to-end shape of the live disagreement: grype's two matches for
+    one advisory cluster must both land in ``in_both``, with neither
+    side left holding a finding the other never made."""
+    ours, error = differential._run_rsecopsx(_cluster_sbom(tmp_path))
+    assert error is None
+    theirs = normalize_findings([
+        {"vulnerability": {"id": "GHSA-35jh-r3h4-6jhm",
+                           "relatedVulnerabilities": [{"id": "CVE-2021-23337"}],
+                           "severity": "High"},
+         "artifact": {"name": "@adobe/css-tools", "version": "4.3.1"}},
+        {"vulnerability": {"id": "GHSA-r5fr-rjxr-66jc",
+                           "relatedVulnerabilities": [{"id": "CVE-2026-4800"}],
+                           "severity": "High"},
+         "artifact": {"name": "@adobe/css-tools", "version": "4.3.1"}},
+    ], "grype")
+
+    in_both, only_ours, only_peer = differential._diff(ours, theirs)
+
+    assert [f.get("cve") for f in only_peer] == [], \
+        "sibling CVE still reported as peer-only"
+    assert only_ours == []
+    assert len(in_both) == 2

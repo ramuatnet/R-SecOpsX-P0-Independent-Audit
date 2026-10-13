@@ -215,3 +215,37 @@ def test_file_has_no_bom_and_no_mixed_line_endings():
     assert not (crlf and bare_lf), (
         f"mixed line endings: {crlf} CRLF vs {bare_lf} bare LF"
     )
+
+
+# ------------------------------------------------------- alias references --
+def test_advisory_aliases_are_cross_linked_as_references():
+    """A sibling CVE must be findable in the emitted SBOM.
+
+    One advisory cluster can carry two CVE ids (a re-issued advisory
+    lists both as aliases and both GHSA ids). Publishing only the
+    primary left a consumer searching the SBOM for CVE-2026-4800 with
+    no hit, even though the very same record asserts the cluster's
+    primary CVE -- and the V2 differential could only report the sibling
+    as peer-only for that reason.
+    """
+    vuln = _vulnerability({
+        "cve": "CVE-2021-23337",
+        "advisory_id": "GHSA-35jh-r3h4-6jhm",
+        "aliases": ["CVE-2021-23337", "CVE-2026-4800", "GHSA-R5FR-RJXR-66JC"],
+        "severity": "High",
+    })
+    refs = {r["id"] for r in vuln.get("references") or []}
+    # The record's own id is already asserted by `id`; a reference back
+    # to it would say nothing new.
+    assert "CVE-2021-23337" not in refs
+    assert refs == {"CVE-2026-4800", "GHSA-R5FR-RJXR-66JC"}
+    for ref in vuln["references"]:
+        # CycloneDX 1.5 reference shape: {source:{name,url}, id, comment}
+        assert set(ref) <= {"source", "id", "comment"}, sorted(ref)
+        assert ref["source"]["name"], "the reference must name its source"
+        assert ref["id"]
+
+
+def test_a_record_without_aliases_carries_no_references_key():
+    vuln = _vulnerability({"cve": "CVE-2020-8203", "severity": "Low"})
+    assert "references" not in vuln

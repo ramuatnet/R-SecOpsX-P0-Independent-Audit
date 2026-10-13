@@ -332,6 +332,32 @@ def _vulnerability(pkg: dict, record: dict | None = None) -> dict | None:
         ],
     }
 
+    # Cross-link every other id the advisory carries. One advisory cluster
+    # can exist under two GHSA ids and two CVE ids (a re-issued advisory
+    # keeps the old ids as aliases), while the record above asserts only
+    # the primary CVE -- so a consumer searching this SBOM for the sibling
+    # CVE (CVE-2026-4800 beside CVE-2021-23337, for example) would find
+    # nothing even though OSV says the cluster affects this component.
+    # `references` is the CycloneDX-native channel for alternate ids, and
+    # it is what analysis/differential.py reads to give each alias CVE an
+    # identity of its own when diffing against a peer.
+    alias_ids: list[str] = []
+    for src in (record, pkg):
+        raw_aliases = src.get("aliases")
+        if isinstance(raw_aliases, (list, tuple)):
+            for alias in raw_aliases:
+                text = str(alias or "").strip()
+                if text and text.upper() != vuln_id.upper():
+                    alias_ids.append(text)
+    if alias_ids:
+        ref_source = str(record.get("source")
+                         or pkg.get("vulnerability_source")
+                         or "OSV")
+        vuln["references"] = [
+            {"source": {"name": ref_source}, "id": alias}
+            for alias in sorted(dict.fromkeys(alias_ids))
+        ]
+
     # No score is written back here.  ratings[0]["score"] was already set from
     # the preferred assessment above; re-assigning the legacy scalar over it
     # would put a 3.1 number beside a "CVSSv4" method -- the exact relabelling
