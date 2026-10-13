@@ -1559,6 +1559,12 @@ def _final_report_integrity_pass(payload: dict) -> dict:
     payload = _normalize_payload(payload)
     metadata = payload.setdefault("metadata", metadata)
     metadata["sast_findings"] = len(findings)
+    # Phase 3.2 disclosure: the AST precision layer is OPTIONAL. Its
+    # capability state travels with the payload so a run without the
+    # grammar wheels reads as "not available", never as "the code was
+    # clean" — the validators that did not run are named, not implied.
+    from scanner.tree_sitter_support import status as _ts_status
+    metadata["tree_sitter_status"] = _ts_status()
     # Do not treat every SBOM package as a finding. Keep existing SCA count,
     # but make total_findings mathematically agree with the two components.
     sca_count = int(metadata.get("sca_findings", 0) or 0)

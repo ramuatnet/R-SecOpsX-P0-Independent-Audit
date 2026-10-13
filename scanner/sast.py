@@ -1236,6 +1236,16 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
         # the code, so the regex findings are left exactly as they were.
         if taint_ok:
             results = _gate_shell_sink_findings(results)
+        # Phase 3.2: AST validation for the closed set of window rules whose
+        # line-shape guesses a syntax tree can disprove (kill), repair
+        # (re-anchor to the sink / unsafe-argument statement), or must leave
+        # alone. No grammar installed, unparseable file, or validator doubt
+        # all leave the findings exactly as the engines produced them.
+        try:
+            from scanner.ast_validators import apply_ast_validation
+            results = apply_ast_validation(results, str(fp))
+        except Exception:
+            pass
         return results
 
     with ThreadPoolExecutor(max_workers=max(1, int(workers or 1))) as pool:
