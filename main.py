@@ -5684,6 +5684,17 @@ def main():
     except Exception as exc:
         _safe_print(f"       => webhook JSON failed: {exc}")
 
+    _step("Generating PR decoration comment")
+    try:
+        from reporting.pr_decoration import write_pr_comment
+
+        pr_comment_path = output_dir / "Security_PR_Comment.md"
+        write_pr_comment(payload, str(pr_comment_path))
+        generated_files.append(pr_comment_path.name)
+        _safe_print(f"       => {pr_comment_path}")
+    except Exception as exc:
+        _safe_print(f"       => PR comment failed: {exc}")
+
     # ------------------------------------------------------------------
     # CycloneDX 1.6 CBOM / AI-BOM (Phase 4).
     #

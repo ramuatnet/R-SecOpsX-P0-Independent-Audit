@@ -1,0 +1,119 @@
+name: "R-SecOpsX security scan"
+description: >-
+  Run R-SecOpsX (SAST / SCA / secrets / IaC / BOM) over a checkout, upload the
+  SARIF to GitHub code scanning, publish the artifacts, and decorate the pull
+  request with a sticky summary comment.
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  target:
+    description: "Path to scan (the repository checkout by default)."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory the scan writes its artifacts to."
+    required: false
+    default: "rsecopsx-report"
+  fail-on:
+    description: >-
+      Fail the job on findings at or above this severity
+      (critical | high | medium). Empty = the job's verdict never depends
+      on findings; the comment still reports them.
+    required: false
+    default: ""
+  python-version:
+    description: "Python version for actions/setup-python."
+    required: false
+    default: "3.12"
+  comment:
+    description: "Post/update the sticky PR summary comment (pull_request events only)."
+    required: false
+    default: "true"
+  github-token:
+    description: "Token used to post the PR comment."
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # No pip install: the CLI is stdlib-only at import time, and the PDF/Excel
+    # renderers (the only optional-dependency code paths) import lazily and are
+    # disabled with --no-pdf/--no-excel below.
+    - name: Run R-SecOpsX scan
+      shell: bash
+      run: |
+        set -euo pipefail
+        gate=""
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          gate="--fail-on ${{ inputs.fail-on }}"
+        fi
+        python main.py "${{ inputs.target }}" \
+          -o "${{ inputs.output-dir }}" \
+          --no-pdf --no-excel $gate
+
+    # continue-on-error: code scanning upload needs GitHub Advanced Security
+    # on private repos and must never mask the scan's own verdict.
+    - name: Upload SARIF to GitHub code scanning
+      if: always()
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.output-dir }}/Security_Report.sarif
+
+    - name: Upload full report artifacts
+      if: always()
+      continue-on-error: true
+      uses: actions/upload-artifact@v4
+      with:
+        name: rsecopsx-report
+        path: ${{ inputs.output-dir }}
+
+    # Dumb pipe: the comment body was built offline by
+    # reporting/pr_decoration.py (Security_PR_Comment.md) and is pinned by
+    # tests; this step only upserts it, one sticky comment per PR via the
+    # embedded marker. If the run died before the report stage, a fallback
+    # body says so instead of silently posting nothing.
+    - name: Decorate the pull request
+      if: always() && github.event_name == 'pull_request' && inputs.comment == 'true'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- rsecopsx-scan-comment -->';
+          const file = '${{ inputs.output-dir }}/Security_PR_Comment.md';
+          let body;
+          try {
+            body = fs.readFileSync(file, 'utf8');
+          } catch (e) {
+            body = [
+              marker,
+              '## R-SecOpsX scan summary',
+              '',
+              'The scan did not produce a comment file — it failed before',
+              'the report stage. Check the job log for the failure.',
+            ].join('\n');
+          }
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const comments = await github.paginate(
+            github.rest.issues.listComments,
+            { owner, repo, issue_number, per_page: 100 }
+          );
+          const existing = comments.find(c => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner, repo, comment_id: existing.id, body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner, repo, issue_number, body
+            });
+          }
