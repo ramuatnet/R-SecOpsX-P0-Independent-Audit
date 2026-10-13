@@ -3146,6 +3146,19 @@ def main():
         aibom = generate_aibom(target)
         _safe_print(f"       => {len(aibom)} AI assets identified")
 
+        # Phase 4.3: HuggingFace hub metadata enrichment for detected
+        # model usages (fail-open, cached; RSX_HF_ENRICH=0 disables).
+        try:
+            from scanner.aibom import enrich_hf_metadata
+            aibom = enrich_hf_metadata(aibom)
+            hf_ok = sum(1 for i in aibom
+                        if (i.get("hf_enrichment") or {}).get("status") == "ok")
+            if hf_ok:
+                _safe_print(
+                    f"       => {hf_ok} HuggingFace model(s) enriched from the hub")
+        except Exception as exc:
+            _safe_print(f"       => HF enrichment skipped: {exc}")
+
         _step("Generating ML-BOM framework/model inventory")
         mlbom = generate_mlbom(target)
         _safe_print(f"       => {len(mlbom)} ML assets identified")

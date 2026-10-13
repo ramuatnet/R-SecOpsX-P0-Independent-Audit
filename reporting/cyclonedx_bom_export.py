@@ -424,6 +424,32 @@ def _aibom_component(item: dict, index: int) -> dict | None:
                            "value": str(item["detection_mode"])})
     for ev in sorted(set(item.get("evidence_type") or [])):
         properties.append({"name": "rsecopsx:evidence_type", "value": str(ev)})
+    # Phase 4.3: NTIA/G7 minimum-elements completeness (per model
+    # component) and any HuggingFace hub enrichment that refined it.
+    completeness = item.get("completeness")
+    if isinstance(completeness, dict):
+        properties.append(
+            {"name": "rsecopsx:completeness_score",
+             "value": str(completeness.get("score"))})
+        for key, prop in (
+            ("elements_present", "rsecopsx:completeness_elements"),
+            ("elements_missing", "rsecopsx:missing_elements"),
+            ("not_computable_from_source", "rsecopsx:not_computable_from_source"),
+        ):
+            values = completeness.get(key) or []
+            if values:
+                properties.append(
+                    {"name": prop,
+                     "value": ",".join(sorted(str(v) for v in values))})
+    hf = item.get("hf_enrichment")
+    if isinstance(hf, dict):
+        properties.append(
+            {"name": "rsecopsx:hf_status", "value": str(hf.get("status") or "")})
+        for key, prop in (("license", "rsecopsx:hf_license"),
+                          ("pipeline_tag", "rsecopsx:hf_pipeline_tag"),
+                          ("created_at", "rsecopsx:hf_created_at")):
+            if hf.get(key):
+                properties.append({"name": prop, "value": str(hf[key])})
 
     comp: dict = {
         "type": "machine-learning-model",

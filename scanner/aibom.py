@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import ast
+import json
+import os
 import re
 import hashlib
 from pathlib import Path
+from urllib.parse import quote
+from urllib.request import urlopen
+from urllib.error import HTTPError
+
 from scanner.sast import _skip
 
 
@@ -1329,6 +1335,258 @@ def _aibom_apply_model_resolution(path, source, findings):
 # END V11 AI-BOM P0.5
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Phase 4.3 -- AI-BOM completeness scoring (G7/NTIA minimum elements) and
+# HuggingFace hub metadata enrichment
+# ---------------------------------------------------------------------------
+# The minimum elements for an AI BOM, from the NTIA minimum-elements
+# work adapted for AI models: provider, model name, model version, model
+# type, release date, digital signature, training-data provenance,
+# license, dependencies, deployment environment. Every item is scored
+# present/total with an explicit breakdown, in the same spirit as the
+# Phase-2 quality scoring: what is missing is named, and what source
+# scanning can NEVER establish (digital signatures, training-data
+# provenance -- those live with the model artifact, not in application
+# code) is disclosed as not-computable rather than silently folded into
+# the denominator as ordinary misses.
+#
+# HuggingFace enrichment converts three otherwise-missing elements
+# (model type refinement, license, release date) into computable ones for
+# hub-hosted models, by asking the public hub API for the model card
+# metadata. It is fail-open and cached; RSX_HF_ENRICH=0 disables it.
+
+# Elements source scanning cannot establish from application code by any
+# amount of analysis. Disclosed, never guessed.
+_AIBOM_NOT_COMPUTABLE = (
+    "digital_signature",
+    "training_data_provenance",
+)
+
+_AIBOM_ELEMENTS_TOTAL = 10
+
+# Provider -> model-type element. HuggingFace models are refined to the
+# hub's pipeline_tag when enrichment succeeds.
+_AIBOM_PROVIDER_MODEL_TYPE = {
+    "OpenAI": "hosted-llm-api",
+    "Azure OpenAI": "hosted-llm-api",
+    "Anthropic": "hosted-llm-api",
+    "Google": "hosted-llm-api",
+    "Mistral": "hosted-llm-api",
+    "Cohere": "hosted-llm-api",
+    "DeepSeek": "hosted-llm-api",
+    "HuggingFace": "transformers",
+    "Ollama": "local-llm-runtime",
+    "LangChain": "agent-framework",
+    "LlamaIndex": "agent-framework",
+    "CrewAI": "agent-framework",
+    "AutoGen": "agent-framework",
+}
+
+# Provider -> deployment-environment element; default "vendor-api".
+_AIBOM_PROVIDER_ENVIRONMENT = {
+    "Azure OpenAI": "azure-cloud",
+    "Ollama": "local",
+}
+
+# A model version is only claimed when the name itself carries one:
+# dated snapshots ("gpt-4o-2024-05-13", "-20240613") or dotted versions
+# ("bert-base-uncased-v2.1"). "gpt-4o" is a NAME, not a version.
+_AIBOM_VERSION_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}|-\d{6,8}|\bv?\d+(?:\.\d+)+", re.IGNORECASE)
+
+# Strict charset for hub model ids coming out of scanned source -- the
+# scanned repository is untrusted input, so "../..", schemes and query
+# strings must never reach the URL builder.
+_HF_ID_RE = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)?$")
+
+_HF_API = "https://huggingface.co/api/models/"
+
+
+def _aibom_element_status(item: dict) -> dict:
+    """Score one AI-BOM item against the NTIA/G7 minimum elements."""
+    provider = str(item.get("provider") or "")
+    model = str(item.get("model_hint") or "").strip()
+    hf = item.get("hf_enrichment") if isinstance(
+        item.get("hf_enrichment"), dict) else {}
+
+    present: list[str] = ["provider", "dependencies", "deployment_environment"]
+
+    if model:
+        present.append("model_name")
+        if _AIBOM_VERSION_RE.search(model):
+            present.append("model_version")
+
+    model_type = hf.get("pipeline_tag") or _AIBOM_PROVIDER_MODEL_TYPE.get(provider)
+    if model_type:
+        present.append("model_type")
+
+    if hf.get("license"):
+        present.append("license")
+    if hf.get("created_at"):
+        present.append("release_date")
+
+    missing = [
+        element
+        for element in ("model_name", "model_version", "model_type",
+                        "release_date", "license")
+        if element not in present
+    ]
+
+    values = {
+        "provider": provider,
+        "deployment_environment": _AIBOM_PROVIDER_ENVIRONMENT.get(
+            provider, "vendor-api"),
+    }
+    if model:
+        values["model_name"] = model
+    if model_type:
+        values["model_type"] = str(model_type)
+    if hf.get("license"):
+        values["license"] = str(hf["license"])
+    if hf.get("created_at"):
+        values["release_date"] = str(hf["created_at"])
+
+    return {
+        "score": round(len(present) / _AIBOM_ELEMENTS_TOTAL, 3),
+        "elements_total": _AIBOM_ELEMENTS_TOTAL,
+        "elements_present": sorted(present),
+        "elements_missing": sorted(missing),
+        "elements_enriched": sorted(
+            e for e, filled in (
+                ("model_type", bool(hf.get("pipeline_tag"))),
+                ("license", bool(hf.get("license"))),
+                ("release_date", bool(hf.get("created_at"))),
+            ) if filled
+        ),
+        "not_computable_from_source": sorted(_AIBOM_NOT_COMPUTABLE),
+        "element_values": values,
+    }
+
+
+def _aibom_apply_completeness(items: list[dict]) -> list[dict]:
+    """Attach (or recompute) the completeness block on every item."""
+    for item in items:
+        if isinstance(item, dict):
+            item["completeness"] = _aibom_element_status(item)
+    return items
+
+
+def _hf_model_id(item: dict) -> str | None:
+    """The hub model id an item refers to, or None when unset/invalid."""
+    for value in (item.get("model_value"), item.get("model_hint")):
+        text = str(value or "").strip()
+        if text and ".." not in text and _HF_ID_RE.match(text):
+            return text
+    return None
+
+
+def _hf_fetch(model_id: str, *, timeout: float = 10.0,
+              opener=None) -> dict:
+    """Fetch one model card's public metadata from the hub. Fail-open."""
+    url = _HF_API + quote(model_id, safe="")
+    try:
+        if opener is None:
+            with urlopen(url, timeout=timeout) as resp:
+                raw = resp.read(1_000_000)
+        else:
+            raw = opener(url, timeout)
+        data = json.loads(raw.decode("utf-8", errors="replace"))
+        if not isinstance(data, dict):
+            return {"status": "unavailable"}
+    except HTTPError as exc:
+        return {"status": "not-found"} if exc.code == 404 else {
+            "status": "unavailable"}
+    except Exception:
+        return {"status": "unavailable"}
+
+    record: dict = {"status": "ok"}
+    if data.get("pipeline_tag"):
+        record["pipeline_tag"] = str(data["pipeline_tag"])
+    card = data.get("cardData") if isinstance(data.get("cardData"), dict) else {}
+    license_value = data.get("license") or card.get("license")
+    if license_value:
+        record["license"] = str(license_value)
+    if data.get("createdAt"):
+        record["created_at"] = str(data["createdAt"])[:10]
+    return record
+
+
+def enrich_hf_metadata(items: list[dict], *, timeout: float = 10.0,
+                       opener=None, cache_path: Path | None = None
+                       ) -> list[dict]:
+    """HuggingFace hub enrichment for detected HuggingFace model usages.
+
+    For every HuggingFace item with a concrete model id, ask the public
+    hub API for the model card metadata (pipeline tag, license, creation
+    date) and fold it into the item and its completeness score.
+
+    Contract:
+      * FAIL-OPEN -- network/parse failures mark the item's enrichment
+        status and the score stays source-only; a scan never breaks on
+        hub availability;
+      * CACHED -- reports/.hf_cache.json (dirty-by-convention, like
+        .vuln_cache.json) so repeated scans do not re-query;
+      * HOSTILE INPUT -- model ids come from scanned source; they are
+        validated against a strict charset, URL-quoted, and only the
+        huggingface.co API path is ever contacted;
+      * RSX_HF_ENRICH=0 disables enrichment entirely.
+    """
+    gate = os.environ.get("RSX_HF_ENRICH", "1").strip().lower()
+    if gate in {"0", "false", "off", "no"}:
+        return items
+
+    targets = [i for i in items
+               if isinstance(i, dict) and i.get("provider") == "HuggingFace"]
+    if not targets:
+        return items
+
+    cache_path = cache_path or (Path("reports") / ".hf_cache.json")
+    cache: dict = {}
+    try:
+        loaded = json.loads(cache_path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            cache = loaded
+    except Exception:
+        cache = {}
+
+    dirty = False
+    for item in targets:
+        model_id = _hf_model_id(item)
+        if not model_id:
+            continue
+
+        record = cache.get(model_id)
+        if not isinstance(record, dict):
+            record = _hf_fetch(model_id, timeout=timeout, opener=opener)
+            cache[model_id] = record
+            dirty = True
+
+        entry: dict = {"model_id": model_id,
+                       "status": str(record.get("status") or "unavailable")}
+        for key in ("pipeline_tag", "license", "created_at"):
+            if record.get(key):
+                entry[key] = record[key]
+        item["hf_enrichment"] = entry
+        # Recompute with the enriched elements folded in.
+        item["completeness"] = _aibom_element_status(item)
+
+    if dirty:
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(
+                json.dumps(cache, indent=2, sort_keys=True), encoding="utf-8")
+        except Exception:  # pragma: no cover - cache is best-effort
+            pass
+
+    return items
+
+
+# ---------------------------------------------------------------------------
+# END Phase 4.3 completeness / HF enrichment
+# ---------------------------------------------------------------------------
+
+
 def scan_file(filepath: str) -> list[dict]:
     path = Path(filepath)
 
@@ -1386,6 +1644,9 @@ def scan_file(filepath: str) -> list[dict]:
         _aibom_apply_identity_contract(_aibom_item)
 
     findings = _aibom_apply_model_resolution(path, source, findings)
+
+    # Phase 4.3: every item scores against the NTIA/G7 minimum elements.
+    findings = _aibom_apply_completeness(findings)
 
     return deduplicate(findings)
 
@@ -1525,7 +1786,9 @@ def generate_aibom(target_path: str) -> list[dict]:
         if _should_scan(path):
             results.extend(scan_file(str(path)))
 
-    return deduplicate(results)
+    # Phase 4.3: dedup can change which item survives a merge, so the
+    # completeness score is recomputed on the final set (idempotent).
+    return _aibom_apply_completeness(deduplicate(results))
 
 
 if __name__ == "__main__":
