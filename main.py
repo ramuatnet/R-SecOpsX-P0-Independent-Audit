@@ -5661,6 +5661,17 @@ def main():
     except Exception as exc:
         _safe_print(f"       => SPDX failed: {exc}")
 
+    _step("Generating Jira import CSV")
+    try:
+        from reporting.jira_export import write_jira_export
+
+        jira_path = output_dir / "Security_Jira_Import.csv"
+        write_jira_export(payload, str(jira_path))
+        generated_files.append(jira_path.name)
+        _safe_print(f"       => {jira_path}")
+    except Exception as exc:
+        _safe_print(f"       => Jira CSV failed: {exc}")
+
     # ------------------------------------------------------------------
     # CycloneDX 1.6 CBOM / AI-BOM (Phase 4).
     #
