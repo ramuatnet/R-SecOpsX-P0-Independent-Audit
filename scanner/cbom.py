@@ -134,6 +134,126 @@ CRYPTO_RULES = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Purpose model (Phase 4.2)
+# ---------------------------------------------------------------------------
+# cbomctl (lvlrSajjad/cbomctl -- one of the 240 CBOM-ecosystem tools in
+# cyclonedx_github_repositories.csv) evaluates a policy verdict per crypto
+# asset; an algorithm asset with NO cryptoFunctions list yields INDET
+# because there is nothing to evaluate. Two shapes hit that hole in our
+# inventory:
+#   * ECC -- one rule matches ECDSA (sign), ECDH (key-agree) and bare curve
+#     usage alike, so the old static map could not name a function set;
+#   * any future rule outside the exporter's map -- the fallback branch
+#     emitted primitive "unknown" and no functions.
+# _detect_purpose disambiguates the concrete algorithm and its function
+# set from the CALL SITE (the evidence text the rule already matched),
+# falling back to the family's capability set when the call site is
+# inconclusive. Every algorithm asset therefore leaves the scanner with a
+# non-empty cryptoFunctions list and an explicit purpose_source tag --
+# "no indeterminate verdicts" is the Phase 4.2 gate.
+#
+# Token sets are lower-case substrings of the evidence window. They are
+# matched against the same evidence line the finding already cites; the
+# tokens found are surfaced as detection keywords so a consumer can see
+# WHICH signal produced the purpose.
+
+_SIGNATURE_TOKENS = (
+    "signature", "createsign", "createverify", ".sign(", ".verify(",
+    "pss", "ecdsa", "eddsa", "withrsa",
+)
+_KEY_AGREEMENT_TOKENS = (
+    "ecdh", "createdh", "keyagreement", "key_agreement", "derive", "diffie",
+)
+_ENCRYPTION_TOKENS = (
+    "cipher", "encrypt", "decrypt", "oaep", "createcipher", "ecies", "pkcs1",
+)
+
+# Family -> (algorithm, primitive, crypto_functions, purpose).
+# Only algorithm families appear here; TLS/SSL and key/certificate material
+# are non-algorithm asset types and carry no cryptoFunctions field.
+_FAMILY_DEFAULTS = {
+    "MD5": ("MD5", "hash", ["digest"], "hashing"),
+    "SHA1": ("SHA-1", "hash", ["digest"], "hashing"),
+    "DES / 3DES": ("3DES", "block-cipher", ["encrypt", "decrypt"], "encryption"),
+    "RC4": ("RC4", "stream-cipher", ["encrypt", "decrypt"], "encryption"),
+    "AES": ("AES", "block-cipher", ["encrypt", "decrypt"], "encryption"),
+    "RSA": ("RSA", "pke", ["encrypt", "decrypt", "sign", "verify"], "public-key"),
+    # ECC deliberately broad: ECDSA, ECDH and bare curve usage all match
+    # one rule. When the call site does not say which, the union of the
+    # family's capabilities is the honest determinate answer -- present and
+    # conservative, rather than an empty list that reads as INDET.
+    "ECC": ("ECC", "unknown", ["keygen", "sign", "verify", "keyderive"],
+            "asymmetric (call-site inconclusive)"),
+}
+
+
+def _detect_purpose(component: str, evidence: str) -> dict | None:
+    """Disambiguate an algorithm family's purpose from its call site.
+
+    Returns None for non-algorithm components (TLS/SSL, key and
+    certificate material). For algorithm families the result always
+    carries a non-empty cryptoFunctions list: call-site tokens when the
+    evidence names the usage, the family capability set otherwise, with
+    purpose_source saying which one produced it.
+
+    RSA and ECC are the two genuinely ambiguous families (a bare RSA key
+    pair can sign or encrypt; bare ECC can be ECDSA or ECDH), so only
+    those two are re-classified by call site -- a hash is always a hash
+    and a block cipher is always a block cipher.
+    """
+    family = _FAMILY_DEFAULTS.get(component)
+    if family is None:
+        return None
+
+    algorithm, primitive, functions, purpose = family
+    text = (evidence or "").lower()
+    source = "family"
+    keywords: list[str] = []
+
+    def _hit(tokens: tuple[str, ...]) -> list[str]:
+        return [t for t in tokens if t in text]
+
+    if component == "ECC":
+        hits = _hit(_SIGNATURE_TOKENS)
+        if hits:
+            algorithm, primitive = "ECDSA", "signature"
+            functions, purpose = ["sign", "verify"], "signature"
+            source, keywords = "call-site", hits
+        else:
+            hits = _hit(_KEY_AGREEMENT_TOKENS)
+            if hits:
+                algorithm, primitive = "ECDH", "key-agree"
+                functions, purpose = ["keyderive", "keygen"], "key-agreement"
+                source, keywords = "call-site", hits
+            else:
+                hits = _hit(_ENCRYPTION_TOKENS)
+                if hits:
+                    algorithm, primitive = "ECIES", "pke"
+                    functions, purpose = ["encrypt", "decrypt"], "public-key-encryption"
+                    source, keywords = "call-site", hits
+    elif component == "RSA":
+        hits = _hit(_SIGNATURE_TOKENS)
+        if hits:
+            primitive, functions = "signature", ["sign", "verify"]
+            purpose, source, keywords = "signature", "call-site", hits
+        else:
+            hits = _hit(_ENCRYPTION_TOKENS)
+            if hits:
+                primitive, functions = "pke", ["encrypt", "decrypt"]
+                purpose, source, keywords = "encryption", "call-site", hits
+
+    return {
+        "algorithm": algorithm,
+        "primitive": primitive,
+        "crypto_functions": list(functions),
+        "purpose": purpose,
+        "purpose_source": source,
+        "detection_keywords": keywords,
+        "confidence": 3 if source == "call-site" else 2,
+    }
+
+
 def _should_scan(path: Path) -> bool:
     """
     CBOM source-scope filter.
@@ -153,7 +273,7 @@ def _should_scan(path: Path) -> bool:
 
 
 def _make_cbom_item(rule: dict, filepath: str, line: int, evidence: str) -> dict:
-    return {
+    item = {
         "bom_type": "CBOM",
         "component": rule["component"],
         "category": rule["category"],
@@ -163,6 +283,13 @@ def _make_cbom_item(rule: dict, filepath: str, line: int, evidence: str) -> dict
         "risk": rule["risk"],
         "recommendation": rule["recommendation"],
     }
+    # Purpose model (Phase 4.2): algorithm families carry a determinate
+    # primitive/cryptoFunctions/purpose derived from the call site; the
+    # exporter prefers these over its static family map.
+    purpose = _detect_purpose(rule["component"], evidence)
+    if purpose:
+        item.update(purpose)
+    return item
 
 
 def _extract_evidence(source: str, match, max_chars: int = 2000) -> str:

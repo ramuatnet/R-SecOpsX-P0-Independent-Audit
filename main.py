@@ -5651,7 +5651,8 @@ def main():
         from reporting.cyclonedx_bom_export import write_cbom_report
 
         cbom_cdx_path = output_dir / "Security_CBOM.cdx.json"
-        write_cbom_report(payload.get("cbom") or [], str(cbom_cdx_path))
+        write_cbom_report(payload.get("cbom") or [], str(cbom_cdx_path),
+                          target_name=project_name)
         generated_files.append(cbom_cdx_path.name)
         _safe_print(f"       => {cbom_cdx_path}")
     except Exception as exc:

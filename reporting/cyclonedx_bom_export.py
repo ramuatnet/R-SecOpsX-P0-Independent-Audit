@@ -111,20 +111,85 @@ def _metadata(tool_name: str, tool_version: str) -> dict:
     }
 
 
-def _algorithm_properties(spec: dict, evidence: str) -> dict:
+# Padding signals in evidence text, keyed by the 1.6 schema enum and
+# scoped to the primitives the padding can actually apply to. Scope
+# matters: the evidence window is up to 2000 chars of surrounding code,
+# so an RSA/PKCS1 mention nearby must never label a block cipher
+# "pkcs1v15" -- observed in the first real artifact before scoping.
+#   * PKCS#5/#7 paddings belong to block ciphers;
+#   * OAEP/PKCS#1 v1.5 belong to RSA (pke/signature) shapes;
+#   * PSS is a signature scheme with no enum value of its own, so it
+#     (and MGF1 outside an OAEP context) lands in "other";
+#   * NoPadding/ZeroPadding map to raw, the enum's no-padding value.
+_PADDING_SIGNALS = {
+    "block-cipher": (
+        ("pkcs7", ("pkcs7", "pkcs#7")),
+        ("pkcs5", ("pkcs5", "pkcs#5")),
+        ("raw", ("nopadding", "no padding", "zeropadding")),
+    ),
+    "ae": (
+        ("pkcs7", ("pkcs7", "pkcs#7")),
+        ("pkcs5", ("pkcs5", "pkcs#5")),
+        ("raw", ("nopadding", "no padding", "zeropadding")),
+    ),
+    "stream-cipher": (
+        ("raw", ("nopadding", "no padding", "zeropadding")),
+    ),
+    "pke": (
+        ("oaep", ("oaep",)),
+        ("pkcs1v15", ("pkcs1v15", "pkcs1", "pkcs#1")),
+        ("raw", ("nopadding", "no padding", "zeropadding")),
+        ("other", ("pss", "mgf1")),
+    ),
+    "signature": (
+        ("other", ("pss", "mgf1")),
+        ("pkcs1v15", ("pkcs1v15", "pkcs1", "pkcs#1")),
+    ),
+}
+
+
+def _infer_padding(evidence: str, primitive: str) -> str | None:
+    """Map evidence text to the 1.6 padding enum for this primitive.
+
+    Returns None when the evidence is silent OR when the only padding
+    names in the window belong to a different primitive family.
+    """
+    signals = _PADDING_SIGNALS.get(primitive)
+    if not signals:
+        return None
+    low = (evidence or "").lower()
+    if not low:
+        return None
+    for value, tokens in signals:
+        if any(token in low for token in tokens):
+            return value
+    return None
+
+
+def _algorithm_properties(item: dict, spec: dict, evidence: str) -> dict:
+    """cryptoProperties.algorithmProperties for one detected asset.
+
+    The scanner's purpose model (scanner/cbom.py::_detect_purpose) is
+    authoritative when present on the item: it disambiguates the concrete
+    algorithm, primitive and function set from the call site. The static
+    _ALGORITHM_MAP entry in ``spec`` is the family fallback for fixture
+    dicts. cbomctl yields INDET on any algorithm asset without a
+    cryptoFunctions list, so every branch here emits one.
+    """
     props: dict = {
-        "primitive": spec["primitive"],
+        "primitive": item.get("primitive") or spec.get("primitive") or "unknown",
         # Source-scanned crypto runs in the application's own process; the
         # schema's closest honest value is plain-RAM software.
         "executionEnvironment": "software-plain-ram",
     }
-    if spec.get("crypto_functions"):
-        props["cryptoFunctions"] = list(spec["crypto_functions"])
+    functions = (item.get("crypto_functions")
+                 or spec.get("crypto_functions") or ["unknown"])
+    props["cryptoFunctions"] = list(functions)
     if spec.get("classical") is not None:
         props["classicalSecurityLevel"] = spec["classical"]
     if spec.get("quantum") is not None:
         props["nistQuantumSecurityLevel"] = spec["quantum"]
-    if spec["name"] == "AES":
+    if spec.get("name") == "AES":
         low = (evidence or "").lower()
         for mode in _AES_MODES:
             # Word-boundary match: "gcm" must not fire inside e.g. a var
@@ -135,6 +200,13 @@ def _algorithm_properties(spec: dict, evidence: str) -> dict:
             if mode in low:
                 props["mode"] = mode
                 break
+        if props.get("mode") in ("gcm", "ccm") and "tag" not in props["cryptoFunctions"]:
+            # AEAD: GCM/CCM authenticate their ciphertext. The official
+            # CycloneDX AES-128-GCM example lists "tag" for the same reason.
+            props["cryptoFunctions"].append("tag")
+    padding = _infer_padding(evidence, props["primitive"])
+    if padding:
+        props["padding"] = padding
     return props
 
 
@@ -163,7 +235,7 @@ def _crypto_component(item: dict, index: int) -> dict | None:
         name = spec["name"]
         crypto_properties = {
             "assetType": "algorithm",
-            "algorithmProperties": _algorithm_properties(spec, evidence),
+            "algorithmProperties": _algorithm_properties(item, spec, evidence),
         }
     elif _MATERIAL_TYPES.get(component) == "private-key":
         crypto_properties = {
@@ -193,12 +265,13 @@ def _crypto_component(item: dict, index: int) -> dict | None:
             },
         }
     else:
+        # Unrecognised algorithm rule. Routed through the same builder so
+        # the INDET fix covers it too: the purpose model's fields (if the
+        # scanner attached any) or a present ["unknown"] function list
+        # replace the old empty-functions export.
         crypto_properties = {
             "assetType": "algorithm",
-            "algorithmProperties": {
-                "primitive": "unknown",
-                "executionEnvironment": "software-plain-ram",
-            },
+            "algorithmProperties": _algorithm_properties(item, {}, evidence),
         }
 
     properties = [
@@ -209,6 +282,25 @@ def _crypto_component(item: dict, index: int) -> dict | None:
         {"name": "rsecopsx:recommendation",
          "value": str(item.get("recommendation") or "")},
     ]
+    # Purpose model provenance (Phase 4.2). purpose/purpose_source say what
+    # the algorithm is used for and whether the call site said so or the
+    # family default applied; confidence is the IBM CBOM 0..3 detection
+    # confidence (3 = call-site tokens found, 2 = family scope); the
+    # keywords are the exact evidence tokens that produced the purpose.
+    if item.get("purpose"):
+        properties.append({"name": "rsecopsx:purpose",
+                           "value": str(item["purpose"])})
+    if item.get("purpose_source"):
+        properties.append({"name": "rsecopsx:purpose_source",
+                           "value": str(item["purpose_source"])})
+    if item.get("confidence") is not None:
+        properties.append({"name": "rsecopsx:confidence",
+                           "value": str(int(item["confidence"]))})
+    if item.get("detection_keywords"):
+        properties.append({
+            "name": "rsecopsx:detection-keywords",
+            "value": ",".join(sorted({str(k) for k in item["detection_keywords"]})),
+        })
     # Evidence is source text the finding already cites; it goes in as a
     # property rather than an attachment so the document stays
     # self-explanatory without embedding whole files.
@@ -220,41 +312,85 @@ def _crypto_component(item: dict, index: int) -> dict | None:
     # PEM blocks are also redacted from every other asset's evidence as
     # defence in depth, in case a future rule's context window ever spans
     # one.
+    redacted = ""
     if evidence and crypto_properties.get("assetType") != "related-crypto-material":
         # Redact BEFORE slicing: slicing first can cut a PEM block in half,
         # leaving a BEGIN header with no END for the pattern to match.
-        redacted = redact_pem(evidence)
-        properties.append({"name": "rsecopsx:evidence", "value": redacted[:500]})
+        redacted = redact_pem(evidence)[:500]
+        properties.append({"name": "rsecopsx:evidence", "value": redacted})
 
-    return {
+    out = {
         "type": "cryptographic-asset",
         "bom-ref": bom_ref,
         "name": name,
         "cryptoProperties": crypto_properties,
         "properties": properties,
     }
+    # detectionContext (IBM CBOM extension) has no core-schema field, but
+    # CDX 1.6's own component.evidence.occurrences[] -- {location, line,
+    # additionalContext} -- is exactly the per-finding detection context,
+    # and is what the official CBOM examples emit. Same redaction and cap
+    # as the property above: one guard, two carriers.
+    if redacted:
+        out["evidence"] = {
+            "occurrences": [{
+                "location": rel_file or "unknown",
+                "line": line,
+                "additionalContext": redacted,
+            }],
+        }
+    return out
 
 
 def build_cyclonedx_cbom(cbom_items: list[dict],
                          tool_name: str = "",
-                         tool_version: str = "") -> dict:
-    """Build a CycloneDX 1.6 CBOM document from scanner CBOM items."""
+                         tool_version: str = "",
+                         target_name: str = "") -> dict:
+    """Build a CycloneDX 1.6 CBOM document from scanner CBOM items.
+
+    ``target_name``, when given, becomes metadata.component and the
+    subject of one dependency edge: the application dependsOn every crypto
+    asset found in its source. dependsOn is the core-schema "uses"
+    relationship (the CBOM guide: "an application depends on the algorithm
+    that it uses"); the IBM extension's dependencyType field does not
+    exist in core 1.6 or 1.7 (verified against both official schemas:
+    dependency is {ref, dependsOn, provides} with additionalProperties
+    false), so uses rides on dependsOn. "implements" edges have no
+    derivable instances here: they require an implementing library
+    component, and the CBOM source-scope filter deliberately excludes
+    third-party dependency trees -- that is SBOM territory.
+    """
     components = []
+    asset_refs = []
     for i, item in enumerate(cbom_items or [], 1):
         if not isinstance(item, dict):
             continue
         comp = _crypto_component(item, i)
         if comp is not None:
             components.append(comp)
+            asset_refs.append(comp["bom-ref"])
 
-    return {
+    metadata = _metadata(tool_name, tool_version)
+    doc = {
         "bomFormat": "CycloneDX",
         "specVersion": SPEC_VERSION,
         "serialNumber": f"urn:uuid:{uuid.uuid4()}",
         "version": 1,
-        "metadata": _metadata(tool_name, tool_version),
+        "metadata": metadata,
         "components": components,
     }
+    if components and target_name:
+        app_ref = f"rsecopsx:application:{target_name}"
+        metadata["component"] = {
+            "type": "application",
+            "name": target_name,
+            "bom-ref": app_ref,
+        }
+        doc["dependencies"] = [{
+            "ref": app_ref,
+            "dependsOn": sorted(asset_refs),
+        }]
+    return doc
 
 
 def _aibom_component(item: dict, index: int) -> dict | None:
@@ -342,9 +478,11 @@ def _tool_identity() -> tuple[str, str]:
         return "R-SecOpsX", ""
 
 
-def write_cbom_report(cbom_items: list[dict], output_path: str) -> str:
+def write_cbom_report(cbom_items: list[dict], output_path: str,
+                      target_name: str = "") -> str:
     tool_name, tool_version = _tool_identity()
-    doc = build_cyclonedx_cbom(cbom_items, tool_name, tool_version)
+    doc = build_cyclonedx_cbom(cbom_items, tool_name, tool_version,
+                               target_name=target_name)
     Path(output_path).write_text(
         json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     _LOG.info("CBOM written: %s (%d cryptographic assets)",
