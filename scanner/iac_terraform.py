@@ -6,8 +6,27 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scanner.iac_models import evaluate_terraform_rules, parse_hcl2
+
 
 TF_EXTENSIONS = {".tf", ".tfvars"}
+
+# Phase 3.1: rules whose evaluation moved to parsed HCL2 object models
+# (scanner/iac_models.py). For a file that PARSES, these ids are skipped
+# in the regex pass and evaluated structurally; for a file that does not
+# parse, the regex pass runs them exactly as before — structure degrades
+# to text, never to silence. IAM/heredoc-secret rules deliberately stay
+# on the regex path: jsonencode policy bodies are TEXT, not structure.
+STRUCTURED_RULE_IDS = frozenset({
+    "TF_OPEN_SECURITY_GROUP_INGRESS",
+    "TF_OPEN_IPV6_INGRESS",
+    "TF_PUBLIC_S3_ACL",
+    "TF_S3_BLOCK_PUBLIC_ACCESS_DISABLED",
+    "TF_UNENCRYPTED_S3_BUCKET",
+    "TF_RDS_PUBLICLY_ACCESSIBLE",
+    "TF_RDS_STORAGE_NOT_ENCRYPTED",
+    "TF_EBS_ENCRYPTION_DISABLED",
+})
 
 
 RULES = [
@@ -190,6 +209,11 @@ RULES = [
     },
 ]
 
+_RULE_BY_ID = {rule["rule_id"]: rule for rule in RULES}
+_STRUCTURED_RULES = [
+    rule for rule in RULES if rule["rule_id"] in STRUCTURED_RULE_IDS
+]
+
 
 def _iter_files(target: Path):
     """Yield only Terraform files physically contained by target root.
@@ -322,6 +346,22 @@ def _finding(
         "affected_files": [rel_path],
         "instances": 1,
     }
+
+
+def _structured_finding(match: dict, file_path: Path, target_root: Path) -> dict:
+    """Wrap a structured match in the SAME finding shape the regex path
+    emits, plus ``resource_path`` — the resource-path evidence the gap
+    plan asks for. Rule metadata comes from RULES, untouched."""
+    rule = _RULE_BY_ID[match["rule_id"]]
+    finding = _finding(
+        rule=rule,
+        file_path=file_path,
+        line=match["line"],
+        snippet=match["snippet"],
+        target_root=target_root,
+    )
+    finding["resource_path"] = match["resource_path"]
+    return finding
 
 
 def _is_literal_secret_assignment(line: str) -> bool:
@@ -572,7 +612,18 @@ def scan_terraform(target_path: str) -> list[dict[str, Any]]:
 
         logical_units = _terraform_logical_units(lines)
 
+        # Phase 3.1: parse into HCL2 object models. When the file parses,
+        # the structured rule ids skip the regex pass and are evaluated on
+        # resources/attributes below; when it does NOT parse (unbalanced
+        # braces, malformed header), the regex pass runs them exactly as
+        # before — structure degrades to text, never to silence.
+        parsed = parse_hcl2(text)
+        structured_ok = parsed.ok
+
         for rule in RULES:
+            if structured_ok and rule["rule_id"] in STRUCTURED_RULE_IDS:
+                continue
+
             absence = rule.get("requires_absence")
 
             # Whole-file secret rule: execute exactly once per file.
@@ -622,6 +673,14 @@ def scan_terraform(target_path: str) -> list[dict[str, Any]]:
                         snippet=logical_line,
                         target_root=target,
                     )
+                )
+
+        if structured_ok:
+            for match in evaluate_terraform_rules(
+                _STRUCTURED_RULES, text, parsed.blocks,
+            ):
+                findings.append(
+                    _structured_finding(match, file_path, target),
                 )
 
     return findings

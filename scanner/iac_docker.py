@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scanner.iac_models import evaluate_docker_rules, parse_dockerfile
+
 
 DOCKER_EXTENSIONS = {".dockerfile"}
 DOCKER_SPECIAL_NAMES = {
@@ -182,6 +184,8 @@ RULES = [
     },
 ]
 
+_RULE_BY_ID = {rule["rule_id"]: rule for rule in RULES}
+
 
 def _iter_files(target: Path):
     if target.is_file():
@@ -278,6 +282,22 @@ def _finding(
     }
 
 
+def _structured_finding(match: dict, file_path: Path, target_root: Path) -> dict:
+    """Wrap a structured match in the SAME finding shape the regex path
+    emits, plus ``resource_path`` — the resource-path evidence the gap
+    plan asks for. Rule metadata comes from RULES, untouched."""
+    rule = _RULE_BY_ID[match["rule_id"]]
+    finding = _finding(
+        rule=rule,
+        file_path=file_path,
+        line=match["line"],
+        snippet=match["snippet"],
+        target_root=target_root,
+    )
+    finding["resource_path"] = match["resource_path"]
+    return finding
+
+
 def scan_docker(target_path: str) -> list[dict[str, Any]]:
     target = Path(target_path)
     target_root = target if target.is_dir() else target.parent
@@ -290,6 +310,18 @@ def scan_docker(target_path: str) -> list[dict[str, Any]]:
             continue
 
         if not _is_dockerfile(text, file_path):
+            continue
+
+        # Phase 3.1: parse into instruction records (continuations joined,
+        # comment lines excluded). None signals an unexpected internal
+        # failure -> the ORIGINAL regex engine below runs for this file.
+        instructions = parse_dockerfile(text)
+
+        if instructions is not None:
+            for match in evaluate_docker_rules(RULES, instructions, text):
+                findings.append(
+                    _structured_finding(match, file_path, target_root),
+                )
             continue
 
         lines = text.splitlines()

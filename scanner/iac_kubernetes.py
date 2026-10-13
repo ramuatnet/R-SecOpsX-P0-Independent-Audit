@@ -6,6 +6,12 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scanner.iac_models import (
+    WORKLOAD_KINDS,
+    evaluate_k8s_rules,
+    parse_k8s_documents,
+)
+
 
 K8S_EXTENSIONS = {".yaml", ".yml", ".json"}
 
@@ -170,6 +176,10 @@ MISSING_RULES = [
     },
 ]
 
+_RULE_BY_ID = {
+    rule["rule_id"]: rule for rule in (list(RULES) + list(MISSING_RULES))
+}
+
 
 def _is_kubernetes_file(text: str) -> bool:
     markers = [
@@ -285,6 +295,22 @@ def _finding(
     }
 
 
+def _structured_finding(match: dict, file_path: Path, target_root: Path) -> dict:
+    """Wrap a structured match in the SAME finding shape the regex path
+    emits, plus ``resource_path`` — the resource-path evidence the gap
+    plan asks for. Rule metadata comes from RULES/MISSING_RULES, untouched."""
+    rule = _RULE_BY_ID[match["rule_id"]]
+    finding = _finding(
+        rule=rule,
+        file_path=file_path,
+        line=match["line"],
+        snippet=match["snippet"],
+        target_root=target_root,
+    )
+    finding["resource_path"] = match["resource_path"]
+    return finding
+
+
 def _scan_missing_controls(
     text: str,
     lines: list[str],
@@ -300,16 +326,7 @@ def _scan_missing_controls(
 
     line_offset = 0
 
-    workload_kinds = {
-        "Pod",
-        "Deployment",
-        "StatefulSet",
-        "DaemonSet",
-        "ReplicaSet",
-        "ReplicationController",
-        "Job",
-        "CronJob",
-    }
+    workload_kinds = WORKLOAD_KINDS
 
     def _strip_comments(document: str) -> str:
         cleaned: list[str] = []
@@ -540,6 +557,22 @@ def scan_kubernetes(target_path: str) -> list[dict[str, Any]]:
 
         lines = text.splitlines()
 
+        # Phase 3.1: parse into YAML object models (path -> line marks).
+        # Valid YAML -> every rule is evaluated structurally and the
+        # regex pass below is skipped; invalid YAML or PyYAML absent ->
+        # parse returns None and the ORIGINAL regex engine runs for this
+        # file — structure degrades to text, never to silence.
+        parsed_documents = parse_k8s_documents(text)
+
+        if parsed_documents is not None:
+            for match in evaluate_k8s_rules(
+                RULES, MISSING_RULES, parsed_documents, text,
+            ):
+                findings.append(
+                    _structured_finding(match, file_path, target_root),
+                )
+            continue
+
         # Workload-aware, comment-safe primary Kubernetes rule scanning.
         #
         # Container/security rules must not be triggered by arbitrary text
@@ -547,16 +580,7 @@ def scan_kubernetes(target_path: str) -> list[dict[str, Any]]:
         #
         # Determine the Kubernetes resource kind for this YAML document.
         # Multi-document manifests are handled independently.
-        workload_kinds = {
-            "Pod",
-            "Deployment",
-            "StatefulSet",
-            "DaemonSet",
-            "ReplicaSet",
-            "ReplicationController",
-            "Job",
-            "CronJob",
-        }
+        workload_kinds = WORKLOAD_KINDS
 
         documents = re.split(r"(?m)^\s*---\s*$", text)
         document_line_offset = 0
