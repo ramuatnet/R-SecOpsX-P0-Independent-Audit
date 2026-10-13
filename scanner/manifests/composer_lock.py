@@ -25,11 +25,26 @@ def parse_composer_lock(filepath: str) -> list[dict]:
                 # Normalize version: remove leading 'v' if present
                 if version.startswith("v") and version[1:2].isdigit():
                     version = version[1:]
+                # composer.lock records each package's licence as an SPDX
+                # string list ("license": ["MIT"]); some tools emit a bare
+                # string. Both shapes are accepted, first entry wins, exactly
+                # as _parse_package_lock handles npm. Declared licences were
+                # previously discarded, which made every Packagian package
+                # show as "unknown" in the SBOM and the license policy.
+                license_value = pkg.get("license") or pkg.get("licenses") or "unknown"
+                if isinstance(license_value, list):
+                    license_value = license_value[0] if license_value else "unknown"
+                if isinstance(license_value, dict):
+                    license_value = (
+                        license_value.get("type")
+                        or license_value.get("id")
+                        or "unknown"
+                    )
                 pkgs.append({
                     "name": name,
                     "version": version,
                     "ecosystem": "Packagist",
-                    "license": "unknown",
+                    "license": str(license_value),
                     "direct": is_direct,
                     "manifest_file": filepath,
                     "manifest_line": 1,

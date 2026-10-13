@@ -1,0 +1,48 @@
+{
+  "_readme": [
+    "Synthetic V3 differential fixture: composer.lock declares per-package",
+    "SPDX licences, which both R-SecOpsX and Trivy read offline."
+  ],
+  "content-hash": "00000000000000000000000000000000",
+  "packages": [
+    {
+      "name": "monolog/monolog",
+      "version": "v3.5.0",
+      "license": ["MIT"],
+      "type": "library",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/Seldaek/monolog.git",
+        "reference": "0000000000000000000000000000000000000000"
+      },
+      "require": {
+        "php": ">=8.1"
+      },
+      "time": "2024-01-01T00:00:00+00:00"
+    },
+    {
+      "name": "example/gpl-toolkit",
+      "version": "1.2.3",
+      "license": ["GPL-3.0-only"],
+      "type": "library",
+      "source": {
+        "type": "git",
+        "url": "https://example.invalid/gpl-toolkit.git",
+        "reference": "0000000000000000000000000000000000000000"
+      },
+      "require": {
+        "php": ">=8.0"
+      },
+      "time": "2024-01-01T00:00:00+00:00"
+    }
+  ],
+  "packages-dev": [],
+  "minimum-stability": "stable",
+  "prefer-stable": false,
+  "prefer-lowest": false,
+  "platform": {
+    "php": ">=8.1"
+  },
+  "platform-dev": {},
+  "plugin-api-version": "2.6.0"
+}
