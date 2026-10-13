@@ -52,6 +52,7 @@ from scanner.security_test_generator import generate_security_test_blueprints
 from scanner.historical_finding_intelligence import enrich_historical_finding_intelligence
 from scanner.malicious_package_intelligence import enrich_malicious_package_intelligence
 from scanner.fix_patch_intelligence import enrich_fix_patch_intelligence
+from scanner.python_reachability import annotate_findings_reachability
 from scanner.pr_review_integration import enrich_pr_review_integration
 from scanner.finding_lifecycle_intelligence import enrich_report_payload_with_finding_lifecycle
 from scanner.undeclared_dependency_intelligence import enrich_report_payload_with_undeclared_dependencies
@@ -5455,6 +5456,9 @@ def main():
 
     _step("Fix / patch intelligence")
     payload = enrich_fix_patch_intelligence(payload)
+
+    _step("Python function reachability")
+    payload = annotate_findings_reachability(payload, target)
 
     _step("PR review integration")
     payload = enrich_pr_review_integration(payload)
