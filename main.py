@@ -2881,22 +2881,65 @@ def main():
             "severity, risk score or ranking is changed by it."
         ),
     )
+    parser.add_argument(
+        "--sbom", dest="sbom", default=None,
+        help=(
+            "ingest an existing CycloneDX/SPDX JSON SBOM instead of scanning "
+            "source: the document's components are normalised, advisory-"
+            "enriched (OSV), CPE/licence-stamped and reported through the "
+            "same pipeline. No SAST/secrets/IaC findings are produced (there "
+            "is no source to scan)."
+        ),
+    )
+    parser.add_argument(
+        "--baseline", dest="baseline", default=None,
+        help=(
+            "compare the current inventory against a previous SBOM or "
+            "clean_report.json: adds payload['baseline_diff'] with "
+            "added/removed/changed components and vulnerability deltas. "
+            "Report-only; it never changes the exit code."
+        ),
+    )
     parser.set_defaults(verbosity="info")
     args = parser.parse_args()
 
     _setup_logging(args.verbosity)
     _banner()
 
-    target_path = Path(os.path.abspath(args.target))
-    target = str(target_path)
+    # --sbom ingest mode replaces the directory target with the document:
+    # there is no source tree, so the isdir guard below must not apply and
+    # every source-walking engine is skipped further down.
+    sbom_ingest_doc = None
+    if args.sbom:
+        from scanner.sbom_reader import SbomReadError, ingest_sbom
 
-    if not os.path.exists(target):
-        _safe_print_error(f"  [ERROR] Target path does not exist: {target}")
-        sys.exit(2)
+        sbom_file = os.path.abspath(args.sbom)
+        if not os.path.isfile(sbom_file):
+            _safe_print_error(f"  [ERROR] SBOM file does not exist: {sbom_file}")
+            sys.exit(2)
+        _step("Ingesting SBOM", os.path.basename(sbom_file))
+        try:
+            sbom_ingest_doc = ingest_sbom(sbom_file)
+        except SbomReadError as exc:
+            _safe_print_error(f"  [ERROR] {exc}")
+            sys.exit(2)
+        _safe_print(
+            f"       => {len(sbom_ingest_doc['components'])} components "
+            f"({sbom_ingest_doc['format']} {sbom_ingest_doc['spec_version']})"
+        )
+        target_path = Path(sbom_file)
+        target = str(target_path)
+    else:
+        target_path = Path(os.path.abspath(args.target))
+        target = str(target_path)
 
-    if not os.path.isdir(target):
-        _safe_print_error(f"  [ERROR] Target path is not a directory: {target}")
-        sys.exit(2)
+        if not os.path.exists(target):
+            _safe_print_error(f"  [ERROR] Target path does not exist: {target}")
+            sys.exit(2)
+
+        if not os.path.isdir(target):
+            _safe_print_error(f"  [ERROR] Target path is not a directory: {target}")
+            sys.exit(2)
 
     # V17.9.x: project-isolated report output. By default every scan gets its
     # own directory under a sibling `reports` folder:
@@ -2904,9 +2947,14 @@ def main():
     #   <validation-root>/reports/<project>/
     # This prevents one project's artifacts from overwriting another project's
     # reports. An explicit --output-dir/-o remains available as an override.
-    project_name = target_path.name
+    project_name = (target_path.stem if sbom_ingest_doc is not None
+                    else target_path.name)
     if args.output_dir:
         output_dir = Path(os.path.abspath(args.output_dir))
+    elif sbom_ingest_doc is not None:
+        # Ingest mode has no project directory: keep reports under the
+        # working directory instead of beside someone else's SBOM file.
+        output_dir = Path.cwd() / "reports" / project_name
     else:
         output_dir = target_path.parent / "reports" / project_name
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2922,16 +2970,24 @@ def main():
     t0 = time.time()
     _timing_start_scan()
 
-    _step("Scanning codebase", f"regex + AST taint, {args.workers} workers")
-    from scanner.sast import scan_directory
+    if sbom_ingest_doc is not None:
+        raw = []
+        _safe_print("  [i] SBOM ingest mode: source scan skipped "
+                    "(no source tree to scan)")
+    else:
+        _step("Scanning codebase", f"regex + AST taint, {args.workers} workers")
+        from scanner.sast import scan_directory
 
-    raw = scan_directory(target, workers=args.workers)
-    _safe_print(f"       => {len(raw)} raw findings in {time.time() - t0:.1f}s")
+        raw = scan_directory(target, workers=args.workers)
+        _safe_print(f"       => {len(raw)} raw findings in {time.time() - t0:.1f}s")
 
-    _step("Generating SBOM & dependency analysis")
-    from scanner.sbom import generate_sbom
+    if sbom_ingest_doc is None:
+        _step("Generating SBOM & dependency analysis")
+        from scanner.sbom import generate_sbom
 
-    sbom = generate_sbom(target)
+        sbom = generate_sbom(target)
+    else:
+        sbom = sbom_ingest_doc["components"]
 
     # Advisory-lookup disclosure. The SCA numbers below are only meaningful if the
     # external CVE lookup actually happened: an unreachable OSV yields the same
@@ -3046,104 +3102,142 @@ def main():
             f"preserving empty verified graph ({exc})"
         )
 
+    # Ingest mode: the source SBOM may carry its own declared dependency
+    # relationships. They are the source document's claims (not ours), so
+    # the engine label says exactly that; without them the graph stays the
+    # empty NO_VERIFIED_EDGES skeleton from above.
+    if (sbom_ingest_doc is not None
+            and sbom_ingest_doc.get("dependencies")):
+        declared = sbom_ingest_doc["dependencies"]
+        dependency_graph = {
+            "engine": "SBOM_INGEST_RELATIONSHIPS",
+            "graph_status": "DECLARED_IN_SOURCE_SBOM",
+            "verified_edge_count": sum(
+                len(d.get("depends_on") or []) for d in declared),
+            "edges": declared,
+            "evidence_policy": "SOURCE_SBOM_DECLARED_RELATIONSHIPS",
+            "sources": [sbom_ingest_doc["source_file"]],
+        }
+        _safe_print(
+            "       => Dependency graph: "
+            f"{dependency_graph['verified_edge_count']} declared edges "
+            "(from the ingested SBOM)"
+        )
+
     vuln_deps = [d for d in sbom if d.get("cve")]
     vuln_deps = [d for d in sbom if d.get("cve")]
     _safe_print(f"       => {len(sbom)} packages, {len(vuln_deps)} with known CVEs")
 
-    _step("Generating CBOM crypto inventory")
-    cbom = generate_cbom(target)
-    _safe_print(f"       => {len(cbom)} crypto assets identified")
+    # Ingest mode: there is no source tree. Every engine below walks the
+    # target path; against an SBOM file they would either do nothing or
+    # (worse) scan the SBOM document itself -- the secrets scanner reads
+    # .json files, so ingesting a third party's SBOM must not produce
+    # "findings" from its bytes. The whole engine block is skipped; raw
+    # stays [] and every inventory is empty by construction.
+    if sbom_ingest_doc is not None:
+        _safe_print("  [i] SBOM ingest mode: code/IaC/secret/AI engines skipped")
 
-    _step("Generating AI-BOM model/provider inventory")
-    aibom = generate_aibom(target)
-    _safe_print(f"       => {len(aibom)} AI assets identified")
+    if sbom_ingest_doc is None:
+        _step("Generating CBOM crypto inventory")
+        cbom = generate_cbom(target)
+        _safe_print(f"       => {len(cbom)} crypto assets identified")
 
-    _step("Generating ML-BOM framework/model inventory")
-    mlbom = generate_mlbom(target)
-    _safe_print(f"       => {len(mlbom)} ML assets identified")
+        _step("Generating AI-BOM model/provider inventory")
+        aibom = generate_aibom(target)
+        _safe_print(f"       => {len(aibom)} AI assets identified")
 
-    _step("Generating API-BOM route inventory")
-    apibom = generate_apibom(target)
-    _safe_print(f"       => {len(apibom)} API routes identified")
+        _step("Generating ML-BOM framework/model inventory")
+        mlbom = generate_mlbom(target)
+        _safe_print(f"       => {len(mlbom)} ML assets identified")
 
-    _step("Scanning API abuse controls")
-    api_abuse_findings = []
-    try:
-        api_abuse_scan = analyze_api_abuse(target)
-        if isinstance(api_abuse_scan, dict):
-            api_abuse_findings = api_abuse_scan.get("api_abuse_findings", []) or []
-        elif isinstance(api_abuse_scan, list):
-            api_abuse_findings = api_abuse_scan
-        _safe_print(f"       => {len(api_abuse_findings)} API abuse findings")
-    except Exception as exc:
-        _safe_print(f"       => API abuse scan failed: {exc}")
+        _step("Generating API-BOM route inventory")
+        apibom = generate_apibom(target)
+        _safe_print(f"       => {len(apibom)} API routes identified")
 
-    _step("Generating ABOM agent inventory")
-    abom = generate_abom(target)
-    _safe_print(f"       => {len(abom)} AI agents identified")
-    
-    _step("Scanning OWASP LLM security rules")
-    llm_raw_findings = _scan_llm_security(target)
-    _safe_print(f"       => {len(llm_raw_findings)} raw OWASP LLM findings")
+        _step("Scanning API abuse controls")
+        api_abuse_findings = []
+        try:
+            api_abuse_scan = analyze_api_abuse(target)
+            if isinstance(api_abuse_scan, dict):
+                api_abuse_findings = api_abuse_scan.get("api_abuse_findings", []) or []
+            elif isinstance(api_abuse_scan, list):
+                api_abuse_findings = api_abuse_scan
+            _safe_print(f"       => {len(api_abuse_findings)} API abuse findings")
+        except Exception as exc:
+            _safe_print(f"       => API abuse scan failed: {exc}")
 
-    llm_findings, llm_precision_stats = _apply_llm_context_precision(
-        target,
-        llm_raw_findings,
-    )
-    _safe_print(
-        "       => LLM Context Precision: "
-        f"{llm_precision_stats['actionable']} actionable | "
-        f"{llm_precision_stats['contextual']} contextual/non-actionable"
-    )
-    
-    _step("Scanning Advanced AI security rules")
-    advanced_ai_findings = _scan_advanced_ai_security(target)
-    _safe_print(f"       => {len(advanced_ai_findings)} Advanced AI findings")
+        _step("Generating ABOM agent inventory")
+        abom = generate_abom(target)
+        _safe_print(f"       => {len(abom)} AI agents identified")
 
-    _step("Scanning Kubernetes IaC")
-    k8s_findings = scan_kubernetes(target)
-    _safe_print(f"       => {len(k8s_findings)} Kubernetes findings")
+        _step("Scanning OWASP LLM security rules")
+        llm_raw_findings = _scan_llm_security(target)
+        _safe_print(f"       => {len(llm_raw_findings)} raw OWASP LLM findings")
 
-    _step("Scanning Terraform IaC")
-    tf_findings = scan_terraform(target)
-    _safe_print(f"       => {len(tf_findings)} Terraform findings")
+        llm_findings, llm_precision_stats = _apply_llm_context_precision(
+            target,
+            llm_raw_findings,
+        )
+        _safe_print(
+            "       => LLM Context Precision: "
+            f"{llm_precision_stats['actionable']} actionable | "
+            f"{llm_precision_stats['contextual']} contextual/non-actionable"
+        )
 
-    # --------------------------------------------------
-    # Dockerfile IaC Analysis
-    # --------------------------------------------------
+        _step("Scanning Advanced AI security rules")
+        advanced_ai_findings = _scan_advanced_ai_security(target)
+        _safe_print(f"       => {len(advanced_ai_findings)} Advanced AI findings")
 
-    _step("Scanning Dockerfile IaC")
-    docker_findings = scan_docker(target)
-    _safe_print(f"       => {len(docker_findings)} Dockerfile findings")
+        _step("Scanning Kubernetes IaC")
+        k8s_findings = scan_kubernetes(target)
+        _safe_print(f"       => {len(k8s_findings)} Kubernetes findings")
 
-    # --------------------------------------------------
-    # Secret Intelligence Source Scan
-    # V4 Phase 1 fix:
-    # - V3 enrichment classified only existing findings.
-    # - This explicitly adds scanner/secret_intelligence.py findings into raw.
-    # - Live validation remains optional and is still controlled by --live-secrets.
-    # --------------------------------------------------
-    _step("Scanning Secret Intelligence")
-    secret_scan_findings = []
-    try:
-        secret_scan_result = scan_secret_intelligence(target)
-        if isinstance(secret_scan_result, dict):
-            secret_scan_findings = secret_scan_result.get("secret_intelligence_findings", []) or []
-        elif isinstance(secret_scan_result, list):
-            secret_scan_findings = secret_scan_result
-        _safe_print(f"       => {len(secret_scan_findings)} Secret Intelligence findings")
-    except Exception as exc:
-        _safe_print(f"       => Secret Intelligence scan failed: {exc}")
+        _step("Scanning Terraform IaC")
+        tf_findings = scan_terraform(target)
+        _safe_print(f"       => {len(tf_findings)} Terraform findings")
 
-    _step("Deduplicating, scoring, correlating attack paths")
+        # --------------------------------------------------
+        # Dockerfile IaC Analysis
+        # --------------------------------------------------
 
-    raw.extend(k8s_findings)
-    raw.extend(tf_findings)
-    raw.extend(docker_findings)
-    raw.extend(llm_findings)
-    raw.extend(advanced_ai_findings)
-    raw.extend(api_abuse_findings)
-    raw.extend(secret_scan_findings)
+        _step("Scanning Dockerfile IaC")
+        docker_findings = scan_docker(target)
+        _safe_print(f"       => {len(docker_findings)} Dockerfile findings")
+
+        # --------------------------------------------------
+        # Secret Intelligence Source Scan
+        # V4 Phase 1 fix:
+        # - V3 enrichment classified only existing findings.
+        # - This explicitly adds scanner/secret_intelligence.py findings into raw.
+        # - Live validation remains optional and is still controlled by --live-secrets.
+        # --------------------------------------------------
+        _step("Scanning Secret Intelligence")
+        secret_scan_findings = []
+        try:
+            secret_scan_result = scan_secret_intelligence(target)
+            if isinstance(secret_scan_result, dict):
+                secret_scan_findings = secret_scan_result.get("secret_intelligence_findings", []) or []
+            elif isinstance(secret_scan_result, list):
+                secret_scan_findings = secret_scan_result
+            _safe_print(f"       => {len(secret_scan_findings)} Secret Intelligence findings")
+        except Exception as exc:
+            _safe_print(f"       => Secret Intelligence scan failed: {exc}")
+
+        _step("Deduplicating, scoring, correlating attack paths")
+
+        raw.extend(k8s_findings)
+        raw.extend(tf_findings)
+        raw.extend(docker_findings)
+        raw.extend(llm_findings)
+        raw.extend(advanced_ai_findings)
+        raw.extend(api_abuse_findings)
+        raw.extend(secret_scan_findings)
+    else:
+        cbom = aibom = mlbom = apibom = abom = []
+        k8s_findings = tf_findings = docker_findings = []
+        llm_raw_findings = llm_findings = advanced_ai_findings = []
+        api_abuse_findings = secret_scan_findings = []
+        llm_precision_stats = {"actionable": 0, "contextual": 0}
 
     # Final defense-in-depth boundary: every engine must remain inside the
     # repository explicitly supplied by the user. This catches symlink/junction
@@ -3397,23 +3491,34 @@ def main():
     payload["sbom"] = enrich_dependency_intelligence(payload.get("sbom", []))
     dep_summary = dependency_summary(payload.get("sbom", []))
     payload["dependency_summary"] = dep_summary
-    _step("Undeclared dependency intelligence")
-    payload = enrich_report_payload_with_undeclared_dependencies(payload, target)
+    if sbom_ingest_doc is not None:
+        # Ingest mode has no source tree: undeclared-dependency comparison
+        # and reachability both walk the target directory, which does not
+        # exist here. Skip BOTH with disclosure rather than scoring zero.
+        payload["reachability_summary"] = {
+            "status": "skipped",
+            "reason": "sbom_ingest_mode_has_no_source_tree",
+        }
+        payload["reachability_vulnerability_summary"] = {}
+        payload["reachability_references_count"] = 0
+    else:
+        _step("Undeclared dependency intelligence")
+        payload = enrich_report_payload_with_undeclared_dependencies(payload, target)
 
-    _step("Reachability analysis")
-    reachability_result = analyze_reachability(
-        target,
-        payload.get("sbom", [])
-    )
+        _step("Reachability analysis")
+        reachability_result = analyze_reachability(
+            target,
+            payload.get("sbom", [])
+        )
 
-    payload["sbom"] = reachability_result.get("sbom", payload.get("sbom", []))
-    payload["reachability_summary"] = reachability_result.get("reachability_summary", {})
-    payload["reachability_vulnerability_summary"] = reachability_result.get(
-        "reachability_vulnerability_summary", {}
-    )
-    payload["reachability_references_count"] = reachability_result.get(
-        "reachability_references_count", 0
-    )
+        payload["sbom"] = reachability_result.get("sbom", payload.get("sbom", []))
+        payload["reachability_summary"] = reachability_result.get("reachability_summary", {})
+        payload["reachability_vulnerability_summary"] = reachability_result.get(
+            "reachability_vulnerability_summary", {}
+        )
+        payload["reachability_references_count"] = reachability_result.get(
+            "reachability_references_count", 0
+        )
 
     # G-001/G-002: resolve the live feed pair once per process.  A ``None``
     # member means the operator opted out; a feed that is unreachable degrades
@@ -3547,6 +3652,68 @@ def main():
         abom=payload.get("abom", []),
         api_bom=payload.get("apibom", []),
     )
+
+    # Phase 2: attached HERE, after the LAST payload["sbom"] mutation
+    # (runtime artifact integrity above), so the quality score and the
+    # baseline delta are computed against the FINAL inventory -- KEV/EPSS/
+    # licence/trust enrichment included -- not an intermediate state.
+
+    # Ingest provenance, so every downstream emitter and a reader of
+    # clean_report.json can tell this inventory came from a file rather
+    # than from a source scan.
+    if sbom_ingest_doc is not None:
+        payload["sbom_ingest"] = {
+            "scan_mode": "sbom_ingest",
+            "source_file": sbom_ingest_doc["source_file"],
+            "format": sbom_ingest_doc["format"],
+            "spec_version": sbom_ingest_doc["spec_version"],
+            "serial_number": sbom_ingest_doc["serial_number"],
+            "created": sbom_ingest_doc["created"],
+            "tools": sbom_ingest_doc["tools"],
+            "component_count": len(payload.get("sbom") or []),
+            "declared_vulnerability_records": len(
+                sbom_ingest_doc.get("vulnerabilities") or []),
+            "warnings": sbom_ingest_doc.get("warnings") or [],
+        }
+        payload.setdefault("metadata", {})["scan_mode"] = "sbom_ingest"
+
+    # sbomqs-style quality score. Offline factors only; what cannot be
+    # honestly computed from the document is listed as not_covered rather
+    # than guessed (analysis/sbom_quality.py).
+    from analysis.sbom_quality import score_sbom as _score_sbom
+    payload["sbom_quality"] = _score_sbom(
+        payload.get("sbom") or [],
+        doc=sbom_ingest_doc,
+        dependency_edges=(payload.get("dependency_graph") or {}).get("edges"),
+        generated_at=(payload.get("metadata") or {}).get("scan_date"),
+        tools=["R-SecOpsX"],
+        advisory_checked=bool(advisory_status.get("available", True)),
+    )
+    _safe_print(
+        f"       => SBOM quality: {payload['sbom_quality']['score']}/100 "
+        f"(grade {payload['sbom_quality']['grade']}, "
+        f"{payload['sbom_quality']['component_count']} components)"
+    )
+
+    # Optional baseline delta (works in both scan and ingest modes).
+    # Report-only; a broken baseline must never fail the run.
+    if args.baseline:
+        try:
+            from scanner.sbom_baseline import diff_baseline as _diff_baseline
+            payload["baseline_diff"] = _diff_baseline(
+                payload.get("sbom") or [], args.baseline)
+            _bsum = payload["baseline_diff"]["summary"]
+            _safe_print(
+                "       => baseline: +%d ~%d -%d components, "
+                "%d new / %d resolved advisories"
+                % (_bsum["added"], _bsum["changed"], _bsum["removed"],
+                   _bsum["vulnerabilities_new"],
+                   _bsum["vulnerabilities_resolved"])
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            payload["baseline_diff"] = {"status": "error", "error": str(exc)}
+            _safe_print(f"       => WARNING: baseline diff unavailable: {exc}")
+
     
     _step("Data-flow sensitivity")
     payload["data_flow_sensitivity_summary"] = enrich_data_flow_sensitivity(
@@ -3578,13 +3745,25 @@ def main():
     # Privacy + IOC / Backdoor Intelligence
     # --------------------------------------------------
     _step("Privacy data exposure")
-    payload["privacy_data_exposure_summary"] = enrich_privacy_data_exposure(
-        target,
-        findings=payload.get("findings", []),
-        api_bom=payload.get("apibom", []),
-        data_flow_summary=payload.get("data_flow_sensitivity_summary", {}),
-        live_progress=False,
-    )
+    if sbom_ingest_doc is not None:
+        # Ingest mode: the privacy engine's _iter_files() YIELDS a lone
+        # file when its suffix is scannable (.json is) -- against an SBOM
+        # path that would read the document's own bytes and report PII
+        # "indicators" extracted from someone else's component names.
+        # Skipped with disclosure rather than scoring zero silently.
+        payload["privacy_data_exposure_summary"] = {
+            "summary_status": "SKIPPED",
+            "reason": "sbom_ingest_mode_has_no_source_tree",
+            "total_privacy_indicators": 0,
+        }
+    else:
+        payload["privacy_data_exposure_summary"] = enrich_privacy_data_exposure(
+            target,
+            findings=payload.get("findings", []),
+            api_bom=payload.get("apibom", []),
+            data_flow_summary=payload.get("data_flow_sensitivity_summary", {}),
+            live_progress=False,
+        )
 
     _step("IOC / malware intelligence")
     payload["ioc_malware_intelligence_summary"] = enrich_ioc_malware_intelligence(

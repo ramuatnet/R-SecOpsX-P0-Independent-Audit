@@ -1,0 +1,79 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "ingest-spdx-sample",
+  "documentNamespace": "https://example.invalid/spdx/ingest-spdx-sample",
+  "creationInfo": {
+    "created": "2026-01-15T10:00:00Z",
+    "createdBy": ["Tool: acme-sbom-plugin-1.0.0"]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-flask",
+      "name": "flask",
+      "versionInfo": "3.0.3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "BSD-3-Clause",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/flask@3.0.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lodash",
+      "name": "lodash",
+      "versionInfo": "4.17.15",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/lodash@4.17.15"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-maven-lib",
+      "name": "commons-text",
+      "versionInfo": "1.9",
+      "downloadLocation": "https://repo.invalid/maven",
+      "licenseDeclared": "Apache-2.0",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.apache.commons/commons-text@1.9"
+        },
+        {
+          "referenceCategory": "SECURITY",
+          "referenceType": "cpe23Type",
+          "referenceLocator": "cpe:2.3:a:apache:commons-text:1.9:*:*:*:*:*:*:*"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-flask"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-flask",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-lodash"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-flask",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-maven-lib"
+    }
+  ]
+}

@@ -1043,8 +1043,28 @@ def generate_sbom(target_path: str) -> list[dict]:
         if not p.get("direct") and key in declared_direct:
             p["direct"] = True
 
-    with_trans = _add_transitive(unique)
-    enriched = enrich_with_cve(with_trans)
+    return finalize_sbom_packages(unique)
+
+
+def finalize_sbom_packages(packages: list[dict],
+                           add_transitive: bool = True) -> list[dict]:
+    """Shared post-inventory enrichment tail.
+
+    Runs the transitive expansion (opt-out), the offline CVE table, external
+    advisory enrichment (fail-open with disclosure), vulnerability
+    overrides, best-effort CPE stamping, the offline licence catalogue, and
+    the direct-first sort.
+
+    generate_sbom() calls this with add_transitive=True. The ``--sbom``
+    ingest path (scanner/sbom_reader.py) calls it with
+    add_transitive=False: an ingested SBOM is authoritative for WHICH
+    components exist, and _add_transitive would inject knowledge-base
+    guesses stamped version "unknown" into someone else's inventory.
+    Enrichment of the declared members is identical either way, so the two
+    paths stay behaviour-identical for everything after membership.
+    """
+    working = _add_transitive(packages) if add_transitive else packages
+    enriched = enrich_with_cve(working)
 
     # Advisory enrichment is an EXTERNAL dependency. It fails open: an outage,
     # a rate limit, or an intermediary returning HTML costs us CVE data for this
@@ -1068,7 +1088,7 @@ def generate_sbom(target_path: str) -> list[dict]:
                 "for these packages is NOT evidence that they are unaffected."
             ),
         })
-        enriched = with_trans
+        enriched = working
     else:
         ADVISORY_ENRICHMENT_ERROR.clear()
 
