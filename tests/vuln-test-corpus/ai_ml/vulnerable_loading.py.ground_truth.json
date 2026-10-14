@@ -1,0 +1,28 @@
+{
+  "fixture": "vulnerable_loading.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-DESER",
+      "file": "vulnerable_loading.py",
+      "line": 14,
+      "severity": "Critical",
+      "cwe": "CWE-502",
+      "evidence": "torch.load(path)",
+      "cve": null,
+      "note": "torch.load unpickles the checkpoint; without weights_only=True a tampered weights file executes arbitrary code on load"
+    },
+    {
+      "rule_id": "SAST-CODEINJ",
+      "file": "vulnerable_loading.py",
+      "line": 19,
+      "severity": "High",
+      "cwe": "CWE-94",
+      "evidence": "trust_remote_code=True",
+      "cve": null,
+      "note": "from_pretrained executes modeling code shipped by the model repository instead of the installed library"
+    }
+  ],
+  "expected_count": 2,
+  "expected_cves": [],
+  "notes": "Truth from observable behaviour, not from any rule: torch.load unpickles by definition (CWE-502) and trust_remote_code=True executes repository-supplied code (CWE-94). L4 in the module docstring repeats trust_remote_code=True as prose and must NOT be reported -- it is a string, not a call."
+}

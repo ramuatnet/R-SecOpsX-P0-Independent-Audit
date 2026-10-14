@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_loading.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "weights_only=True refuses pickle globals (L13) and trust_remote_code is explicitly False (L17). Any finding on this fixture is a false positive."
+}

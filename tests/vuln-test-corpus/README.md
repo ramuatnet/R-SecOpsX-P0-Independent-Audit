@@ -21,7 +21,7 @@ vuln-test-corpus/
   cbom/               reserved
 ```
 
-`sast/` and `ai_ml/` carry 16 fixtures; `sca/` carries 4. The remaining
+`sast/` and `ai_ml/` carry 18 fixtures; `sca/` carries 4. The remaining
 families are reserved for later phases and are deliberately empty rather than
 stuffed with fixtures nobody has labelled. An unlabelled fixture is worse than
 an absent one: it looks like coverage and scores like nothing.

@@ -266,6 +266,17 @@ REGEX_RULES: list[dict] = [
     {"id":"PYTHON_EXEC_CALL","name":"Python exec() Call","pattern":re.compile(r"(?<![.\w])exec\s*\(", _F),"vuln_type":"code_injection","note":"Python exec() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
     {"id":"PYTHON_PICKLE_LOADS","name":"Python pickle.loads Insecure Deserialization","pattern":re.compile(r"pickle\.loads\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.loads deserializes untrusted data.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
     {"id":"PYTHON_PICKLE_LOAD","name":"Python pickle.load Insecure Deserialization","pattern":re.compile(r"pickle\.load\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.load deserializes untrusted data from a file.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
+    # Phase 6 HF loading-pattern technique: torch.load unpickles the checkpoint,
+    # so without weights_only=True a tampered weights file is arbitrary code
+    # execution. The kill is a tempered negative lookahead: within 300 chars
+    # that NEVER cross another torch.load( (the next call's guard cannot leak
+    # backwards), weights_only=True keeps the finding. Finding-only.
+    {"id":"PYTHON_TORCH_LOAD_UNSAFE","name":"Python torch.load Without weights_only Guard","pattern":re.compile(r"torch\.load\s*\((?!(?:(?!torch\.load\s*\()[\s\S]){0,300}weights_only\s*=\s*True)", _F),"vuln_type":"insecure_deserialization","note":"torch.load unpickles the checkpoint; without weights_only=True a tampered file executes arbitrary code on load.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
+    # Phase 6: trust_remote_code=True executes modeling code shipped by the model
+    # repository instead of the installed library -- code from an external
+    # control sphere. trust_remote_code=False never matches; indirection is an
+    # honest recall gap rather than a guess.
+    {"id":"PYTHON_TRANSFORMERS_REMOTE_CODE","name":"transformers trust_remote_code=True","pattern":re.compile(r"trust_remote_code\s*=\s*True", _F),"vuln_type":"code_injection","note":"trust_remote_code=True executes modeling code from the model repository instead of the installed library.","severity":"High","cwe":"CWE-94","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
     {"id":"PYTHON_RENDER_STRING","name":"Python Flask render_string Template Injection","pattern":re.compile(r"render_string\s*\(", _F),"vuln_type":"template_injection","note":"render_string with user-controlled template enables SSTI.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
 ]
 
@@ -1430,6 +1441,17 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
             # It must also not vanish: this is the handler the servlet bug
             # escaped through, so it is logged rather than left a bare pass.
             _LOG.debug("optional semantic layer skipped: %s", _semantic_error)
+    # Phase 6: model-artifact analysis -- static pickle-opcode extraction and
+    # safetensors structure checks (scanner/model_artifact.py). Native
+    # technique: the artifact is DISASSEMBLED with pickletools, never
+    # unpickled. Optional layer: RSX_MODEL_ARTIFACT_SCAN=0 or any failure
+    # leaves every other finding untouched.
+    try:
+        from scanner.model_artifact import scan_model_artifacts as _artifact_scan
+        all_findings.extend(_artifact_scan(target))
+    except Exception as _artifact_error:
+        _LOG.warning("       ! model artifact scan unavailable: %s", _artifact_error)
+
     grouped = group_findings(all_findings)
     return grouped
 
