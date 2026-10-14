@@ -5,18 +5,18 @@
       "rule_id": "SCA-VULN-DEP",
       "file": "requirements.txt",
       "line": 4,
-      "severity": "High",
+      "severity": "Critical",
       "cwe": null,
-      "evidence": "click==8.1.7",
-      "cve": "CVE-2026-7246",
-      "advisory_id": "PYSEC-2026-2132",
-      "package": "click",
-      "version": "8.1.7",
+      "evidence": "pyyaml==5.3.1",
+      "cve": "CVE-2020-14343",
+      "advisory_id": "PYSEC-2021-142",
+      "package": "pyyaml",
+      "version": "5.3.1",
       "fixed_versions": [
-        "8.3.3"
+        "5.4"
       ],
       "source": "OSV",
-      "note": "CVE and severity copied verbatim from OSV record PYSEC-2026-2132"
+      "note": "CVE and ranges copied verbatim from OSV record PYSEC-2021-142 (severity CRITICAL from its GHSA-8q59-q68h-6hv4 twin). Replaces click==8.1.7 / CVE-2026-7246, whose advisory OSV withdrew on 2026-10-07 and whose query now returns no vulnerabilities."
     },
     {
       "rule_id": "SCA-VULN-DEP",
@@ -39,7 +39,7 @@
   ],
   "expected_count": 2,
   "expected_cves": [
-    "CVE-2026-7246",
+    "CVE-2020-14343",
     "CVE-2024-24762"
   ]
 }

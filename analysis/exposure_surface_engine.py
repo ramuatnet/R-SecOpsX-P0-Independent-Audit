@@ -33,6 +33,26 @@ EXPOSURE_PATTERNS = [
 ]
 
 
+# These patterns describe deployment SURFACES (URLs, ports, paths), so a
+# component record is evaluated only against fields where a surface can be
+# declared.  Whole-record text used to be scanned instead and matched text
+# that merely describes the component: a package literally NAMED dotenv
+# (``.../node_modules/dotenv``) satisfied ENV_EXPOSURE at CRITICAL, and
+# advisory prose mentioning ``/admin`` or ``:9200`` matched ADMIN_PANEL /
+# ELASTICSEARCH_EXPOSED.  Findings, API-BOM routes and ABOM agents below are
+# still scanned as whole text -- that is where surface evidence genuinely
+# lives.
+COMPONENT_SURFACE_FIELDS: Tuple[str, ...] = (
+    "homepage",
+    "url",
+    "repository",
+    "resolved",
+    "resolved_url",
+    "source_url",
+    "registry",
+)
+
+
 RISK_RANK = {
     "NONE": 0,
     "LOW": 1,
@@ -131,7 +151,11 @@ def enrich_exposure_surface_intelligence(
     enriched = []
 
     for pkg in sbom or []:
-        pkg_text = _collect_text(pkg)
+        pkg_text = " ".join(
+            str(pkg.get(field))
+            for field in COMPONENT_SURFACE_FIELDS
+            if pkg.get(field) is not None
+        )
         indicators = _detect_indicators(pkg_text)
         risk = _highest_risk(indicators)
 

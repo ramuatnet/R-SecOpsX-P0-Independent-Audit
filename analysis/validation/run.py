@@ -171,6 +171,15 @@ def _scan_sca(case_dir: Path) -> list[dict]:
         return []
 
     findings: list[dict] = []
+    # OSV mirrors one claim through several records: the same CVE arrives as
+    # a GHSA and a PYSEC entry (prodtest measured 141 advisories for 136
+    # CVEs). The product's report rows are one per vulnerable package keyed to
+    # its primary CVE, so a mirrored record must not become a second finding
+    # here -- the comparator counts it as a duplicate false positive that the
+    # product never emits. Claims are collapsed by (package, version, CVE)
+    # only: a CVE is a claim identifier, while two CVE-less records assert two
+    # separate things and keep their existing per-record treatment.
+    seen_claims: set[tuple[str, str, str]] = set()
     results = query_osv_batch(packages)
     if not isinstance(results, dict):
         _LOG.warning("query_osv_batch returned %s, expected a dict",
@@ -187,6 +196,13 @@ def _scan_sca(case_dir: Path) -> list[dict]:
         for v in vulns:
             if not isinstance(v, dict):
                 continue
+            cve = v.get("cve")
+            if cve:
+                claim = (name.strip().lower(), str(version).strip(),
+                         str(cve).strip().lower())
+                if claim in seen_claims:
+                    continue
+                seen_claims.add(claim)
             findings.append({
                 "rule_id": v.get("id"),
                 "class": None,

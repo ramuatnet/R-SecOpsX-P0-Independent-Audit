@@ -3,14 +3,53 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 
+# A trust pattern states something about how a dependency is DECLARED or
+# RESOLVED (a ``latest`` range, a ``git+ssh`` URL, a missing pin), so every
+# pattern is evaluated only against the fields where a declaration can live.
+# Whole-record text used to be scanned instead, and that matched text which
+# merely *describes* a package: the CPE 2.3 wildcard form
+# (``cpe:2.3:a:vendor:product:1.0:*:*:*:*:*:*:*`` -- stamped onto every
+# component by the CPE builder) satisfies ``\*`` and labelled all 822
+# CPE-bearing components of an 823-package scan UNPINNED/HIGH, while advisory
+# prose ("upgrade to the latest version", a github.com advisory link, a
+# ``../`` example) satisfied the remaining patterns.  Field-scoping also
+# keeps evaluation stable as the record schema grows: a field added by a
+# later enrichment pass is invisible here until it is deliberately listed.
+
+# The dependency's own specifier / version requirement.
+SPEC_FIELDS: Tuple[str, ...] = (
+    "version",
+    "declared_version",
+    "declared_range",
+    "specifier",
+    "range",
+    "requirement",
+    "specified_version",
+)
+
+# Where the dependency resolves from.
+RESOLUTION_FIELDS: Tuple[str, ...] = (
+    "resolved",
+    "resolved_url",
+    "source_url",
+    "registry",
+)
+
+# Identity -- name hygiene only, never spec or URL semantics: a Go module
+# path such as ``github.com/foo/bar`` appearing in ``name`` is identity, not
+# a git-checkout dependency.
+NAME_FIELDS: Tuple[str, ...] = ("name",)
+
+SPEC_OR_RESOLUTION: Tuple[str, ...] = SPEC_FIELDS + RESOLUTION_FIELDS
+
 TRUST_PATTERNS = [
-    ("UNPINNED_DEPENDENCY", r"latest|\*|>=|>|~=", "HIGH"),
-    ("MUTABLE_TAG", r":latest\b|\blatest\b", "HIGH"),
-    ("GIT_DEPENDENCY", r"git\+|github\.com|gitlab\.com|bitbucket\.org", "MEDIUM"),
-    ("HTTP_DEPENDENCY", r"http://", "HIGH"),
-    ("LOCAL_PATH_DEPENDENCY", r"\.\./|file:", "MEDIUM"),
-    ("PRIVATE_NAMESPACE_HINT", r"@internal|@private|company-|corp-|internal-", "MEDIUM"),
-    ("SUSPICIOUS_NAME_PATTERN", r"[-_](test|demo|tmp|temp|backup|old)$", "LOW"),
+    ("UNPINNED_DEPENDENCY", r"latest|\*|>=|>|~=", "HIGH", SPEC_FIELDS),
+    ("MUTABLE_TAG", r":latest\b|\blatest\b", "HIGH", SPEC_OR_RESOLUTION),
+    ("GIT_DEPENDENCY", r"git\+|github\.com|gitlab\.com|bitbucket\.org", "MEDIUM", SPEC_OR_RESOLUTION),
+    ("HTTP_DEPENDENCY", r"http://", "HIGH", SPEC_OR_RESOLUTION),
+    ("LOCAL_PATH_DEPENDENCY", r"\.\./|file:", "MEDIUM", SPEC_OR_RESOLUTION),
+    ("PRIVATE_NAMESPACE_HINT", r"@internal|@private|company-|corp-|internal-", "MEDIUM", NAME_FIELDS),
+    ("SUSPICIOUS_NAME_PATTERN", r"[-_](test|demo|tmp|temp|backup|old)$", "LOW", NAME_FIELDS),
 ]
 
 
@@ -23,33 +62,26 @@ RISK_RANK = {
 }
 
 
-def _collect_text(obj: Any) -> str:
-    if obj is None:
-        return ""
-
-    if isinstance(obj, str):
-        return obj
-
-    if isinstance(obj, dict):
-        values = []
-        for _, value in obj.items():
-            if isinstance(value, (dict, list)):
-                values.append(_collect_text(value))
-            elif value is not None:
-                values.append(str(value))
-        return " ".join(values)
-
-    if isinstance(obj, list):
-        return " ".join(_collect_text(x) for x in obj)
-
-    return str(obj)
+def _field_text(pkg: Dict[str, Any], fields: Tuple[str, ...]) -> str:
+    """The record's values for exactly ``fields`` -- nothing else."""
+    values: List[str] = []
+    for field in fields:
+        value = pkg.get(field)
+        if value is None:
+            continue
+        if isinstance(value, (list, tuple)):
+            values.extend(str(item) for item in value if item is not None)
+        else:
+            values.append(str(value))
+    return " ".join(values)
 
 
-def _detect_indicators(text: str) -> List[Dict[str, Any]]:
+def _detect_indicators(pkg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Evaluate each trust pattern only against the fields it can be true in."""
     detected = []
 
-    for name, pattern, risk in TRUST_PATTERNS:
-        if re.search(pattern, text or "", flags=re.IGNORECASE):
+    for name, pattern, risk, fields in TRUST_PATTERNS:
+        if re.search(pattern, _field_text(pkg, fields), flags=re.IGNORECASE):
             detected.append({
                 "indicator": name,
                 "risk_level": risk,
@@ -89,13 +121,32 @@ def _is_unpinned_version(version: Any) -> bool:
     return False
 
 
-def _looks_recent(pkg: Dict[str, Any], max_days: int = 30) -> bool:
-    date_value = (
-        pkg.get("published_date")
-        or pkg.get("release_date")
+def _release_date(pkg: Dict[str, Any]) -> Any:
+    """The package's own release date, or None when the record carries none.
+
+    ``published_date`` is excluded: on this platform that key holds the
+    *advisory's* publication date (written by ``vulnerability_age_engine``).
+    """
+    return (
+        pkg.get("release_date")
         or pkg.get("created")
         or pkg.get("created_at")
+        or pkg.get("package_published")
     )
+
+
+def _looks_recent(pkg: Dict[str, Any], max_days: int = 30) -> bool:
+    """True when the PACKAGE's own release date is within ``max_days``.
+
+    Freshness is a supply-chain concept (freshly published packages are
+    statistically more likely to be malicious); a newly disclosed ADVISORY is
+    the opposite signal and already has its own engine and report column.
+    Reading the advisory date here used to count every new CVE as
+    ``RECENTLY_PUBLISHED_PACKAGE``.  With no release date observed on the
+    record this returns False: freshness is reported only from real
+    package-release evidence.
+    """
+    date_value = _release_date(pkg)
 
     if not date_value:
         return False
@@ -156,8 +207,7 @@ def enrich_supply_chain_trust(
     enriched = []
 
     for pkg in sbom or []:
-        pkg_text = _collect_text(pkg)
-        indicators = _detect_indicators(pkg_text)
+        indicators = _detect_indicators(pkg)
 
         version = pkg.get("version")
 
@@ -174,12 +224,7 @@ def enrich_supply_chain_trust(
             indicators.append({
                 "indicator": "RECENTLY_PUBLISHED_PACKAGE",
                 "risk_level": "MEDIUM",
-                "evidence_match": str(
-                    pkg.get("published_date")
-                    or pkg.get("release_date")
-                    or pkg.get("created")
-                    or pkg.get("created_at")
-                ),
+                "evidence_match": str(_release_date(pkg)),
                 "executive_relevant": False,
                 "confirmed_executive_risk": False,
             })

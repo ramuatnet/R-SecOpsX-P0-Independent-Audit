@@ -430,6 +430,51 @@ def test_the_committed_corpus_is_measurable():
     assert result["by_rule"]["SCA-VULN-DEP"]["recall"] == 1.0
 
 
+def test_osv_mirror_records_collapse_to_one_claim(monkeypatch):
+    """OSV publishes one claim through several records (the same CVE as a
+    GHSA and a PYSEC entry -- 141 advisories for 136 CVEs in the prodtest
+    measurement). The product's report rows are one per package keyed to its
+    primary CVE, so ``_scan_sca`` must not turn a mirrored record into a
+    second finding: the comparator scores it a duplicate false positive the
+    product never emits. Observed live when the corpus's pypi fixture was
+    re-pinned to pyyaml==5.3.1 and the live query returned both twins.
+
+    The collapse is scoped to (package, version, CVE): a CVE is the claim
+    identifier. Two records sharing no CVE are two claims and keep the
+    per-record treatment, as do CVE-less records.
+    """
+    from pathlib import Path
+
+    import scanner.sbom as sbom
+    import scanner.vulnerability_intel as vi
+    from analysis.validation.run import _scan_sca
+
+    monkeypatch.setattr(sbom, "generate_sbom", lambda case_dir: [{}])
+    monkeypatch.setattr(vi, "query_osv_batch", lambda packages: {
+        "PyPI|pyyaml|5.3.1": [
+            {"id": "GHSA-8q59-q68h-6hv4", "cve": "CVE-2020-14343",
+             "severity": "Critical", "summary": "Improper Input Validation"},
+            {"id": "PYSEC-2021-142", "cve": "CVE-2020-14343",
+             "severity": "Critical", "summary": None},
+            {"id": "PYSEC-OTHER-1", "cve": "CVE-2019-0001",
+             "severity": "High", "summary": "a different claim"},
+        ],
+        "npm|nocve|1.0.0": [
+            {"id": "GHSA-aaaa-1111-xxxx", "cve": None},
+            {"id": "GHSA-bbbb-2222-yyyy", "cve": None},
+        ],
+    })
+
+    findings = _scan_sca(Path("."))
+
+    pyyaml = [f for f in findings if f["package"] == "pyyaml"]
+    # twins collapsed to one, the distinct CVE kept
+    assert sorted(f["rule_id"] for f in pyyaml) == [
+        "GHSA-8q59-q68h-6hv4", "PYSEC-OTHER-1"]
+    # CVE-less records assert separate things: per-record treatment stands
+    assert len([f for f in findings if f["package"] == "nocve"]) == 2
+
+
 def test_sast_findings_are_normalized_before_they_are_compared():
     """The gap the teeth check found.
 

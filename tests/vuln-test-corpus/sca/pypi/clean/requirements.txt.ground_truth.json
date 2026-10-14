@@ -3,5 +3,5 @@
   "expected_findings": [],
   "expected_count": 0,
   "expected_cves": [],
-  "notes": "OSV lists 8.3.3 as the fix for CVE-2026-7246, so this pin is unaffected. Any finding here is a false positive."
+  "notes": "OSV marks 5.4 as the fix for CVE-2020-14343, so this pin is unaffected (live query for pyyaml 5.4.1 returns zero vulnerabilities). Any finding here is a false positive."
 }

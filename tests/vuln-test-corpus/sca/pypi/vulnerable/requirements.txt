@@ -1,5 +1,5 @@
 # Golden-corpus SCA fixture.
 # Versions pinned to releases OSV records as vulnerable; the label beside
 # this file carries the advisory IDs copied from those records.
-click==8.1.7
+pyyaml==5.3.1
 fastapi==0.88.0
