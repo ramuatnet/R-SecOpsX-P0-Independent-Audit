@@ -60,8 +60,13 @@ measured on tests/vuln-test-corpus/sast)
   ``return BadRequest(...)``); one unguarded operand keeps the finding.
 
 NOT HERE (deliberately):
-* ``TAINT_MULTIPART_TRAVERSAL`` needs a data-flow gate, not syntax — that
-  is V1.12 territory; this module never touches it.
+* ``TAINT_MULTIPART_TRAVERSAL`` gets a guard-dominance KILL only: the src
+  subject (``source_expr``, e.g. ``fileName``) must be validated by a
+  preceding guard with an early exit (the same machinery as the traversal
+  rules above, including the Java ``if (safe) { use } else { return; }``
+  shape). The data-flow "provably constant" kill happens earlier, inside
+  ``taint_engine`` (``scanner/multipart_flow.py``); this module only adds
+  the guarded-tainted case. Nothing here can make the rule fire.
 * No JavaScript/TypeScript rule fires a corpus false positive today; the
   grammars parse (covered by tests) so the capability is real, but no
   validator is claimed for languages with nothing to fix.
@@ -88,12 +93,14 @@ VALIDATED_RULE_IDS = frozenset({
     "DOTNET_SQL_INTERPOLATED",
     "DOTNET_PROCESS_START_INFO",
     "DOTNET_PATH_COMBINE_TRAVERSAL",
+    "TAINT_MULTIPART_TRAVERSAL",
 })
 
 _EXT_TO_LANG = {
     ".go": "go",
     ".cs": "csharp",
     ".php": "php",
+    ".java": "java",
     ".js": "javascript",
     ".jsx": "javascript",
     ".mjs": "javascript",
@@ -224,6 +231,8 @@ def _validate(finding: dict, rule_id: str, ctx: _FileContext):
         return _go_sql_sink_anchor(finding, ctx)
     if rule_id == "TAINT_PHP_COMMAND_INJECTION":
         return _php_shell_sanitized(finding, ctx)
+    if rule_id == "TAINT_MULTIPART_TRAVERSAL":
+        return _multipart_guard_kill(finding, ctx)
     if rule_id == "DOTNET_SQL_INTERPOLATED":
         return _dotnet_sql(finding, ctx)
     if rule_id == "DOTNET_PROCESS_START_INFO":
@@ -281,14 +290,23 @@ def _guarded_var_kill(finding: dict, ctx: _FileContext, var: str):
     Conservative on every axis: the ``if`` must mention the variable, carry
     a validation-family token in its condition, exit early in its block,
     and precede the finding's line within the reasoning scope.
+
+    Two exit shapes are recognised. The classic one exits in the
+    consequence (``if (bad) return;`` — findings after the guard are
+    protected). The Java-safe idiom exits in the ALTERNATIVE
+    (``if (safe) { use } else { return; }``) — that shape only kills a
+    finding that sits INSIDE the consequence, i.e. inside the region the
+    guard proved safe; a finding after the whole statement would sit on
+    the bad-check path instead and is kept.
     """
+    _EXIT_RE = r"\breturn\b|\bthrow\b|die\s*\(|exit\s*\("
     row = int(finding.get("line") or 0)
     scope = _scope(ctx, row)
     for node in ts.walk(scope):
         if node.type != "if_statement" or ts.node_row(node) >= row:
             continue
         condition = node.child_by_field_name("condition")
-        # Body field differs per grammar: C#/Go use `consequence`,
+        # Body field differs per grammar: C#/Go/Java use `consequence`,
         # PHP uses `body` (compound_statement) for braced blocks and
         # `statements` for the single-statement form.
         consequence = (
@@ -299,7 +317,13 @@ def _guarded_var_kill(finding: dict, ctx: _FileContext, var: str):
         if condition is None or consequence is None:
             continue
         cond_text = ts.node_text(condition)
-        if var not in cond_text:
+        if var.startswith("$"):
+            # PHP: exact ``$name`` substring (a ``\b`` before ``$`` never
+            # matches — ``$`` is not a word character).
+            hit = var in cond_text
+        else:
+            hit = re.search(rf"\b{re.escape(var)}\b", cond_text) is not None
+        if not hit:
             continue
         cond_lower = cond_text.lower()
         family_hit = (
@@ -309,9 +333,37 @@ def _guarded_var_kill(finding: dict, ctx: _FileContext, var: str):
         if not family_hit:
             continue
         cons_text = ts.node_text(consequence)
-        if re.search(r"\breturn\b|\bthrow\b|die\s*\(|exit\s*\(", cons_text):
+        if re.search(_EXIT_RE, cons_text):
+            return "kill"
+        # Java/C# safe idiom: exit lives in the else branch.
+        alternative = node.child_by_field_name("alternative")
+        if alternative is None:
+            for child in node.children:
+                if child.type in ("else_clause", "else"):
+                    alternative = child
+                    break
+        if alternative is None:
+            continue
+        if not (ts.node_start_row(consequence) <= row
+                <= ts.node_end_row(consequence)):
+            continue        # finding outside the proven-safe region
+        if re.search(_EXIT_RE, ts.node_text(alternative)):
             return "kill"
     return "keep"
+
+
+def _multipart_guard_kill(finding: dict, ctx: _FileContext):
+    """Guard-dominance kill for the multipart window rule.
+
+    The src subject (``source_expr``, e.g. ``fileName``) must be validated
+    by a preceding guard with an early exit before — or around — the
+    finding's line. This only removes findings; it can never make the rule
+    fire (the data-flow constant kill happens earlier in ``taint_engine``).
+    """
+    m = re.search(r"[A-Za-z_$][\w$]*", str(finding.get("source_expr") or ""))
+    if not m:
+        return "keep"
+    return _guarded_var_kill(finding, ctx, m.group(0))
 
 
 # ---------------------------------------------------------------------------

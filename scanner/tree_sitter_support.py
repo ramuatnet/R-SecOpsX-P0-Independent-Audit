@@ -50,6 +50,7 @@ _LANGUAGE_SPECS: dict[str, tuple[str, str]] = {
     "go": ("tree_sitter_go", "language"),
     "csharp": ("tree_sitter_c_sharp", "language"),
     "php": ("tree_sitter_php", "language_php"),
+    "java": ("tree_sitter_java", "language"),
 }
 
 #: Function-like node types per language, used to attribute a finding to
@@ -58,6 +59,7 @@ FUNCTION_TYPES: dict[str, frozenset[str]] = {
     "go": frozenset({"function_declaration", "method_declaration", "func_literal"}),
     "csharp": frozenset({"method_declaration", "constructor_declaration",
                          "local_function_statement"}),
+    "java": frozenset({"method_declaration", "constructor_declaration"}),
     "php": frozenset({"function_definition", "method_declaration",
                       "arrow_function"}),
     "javascript": frozenset({"function_declaration", "function_expression",
@@ -150,6 +152,16 @@ def walk(node: Any) -> Iterator[Any]:
 def node_row(node: Any) -> int:
     """1-based source line of a node's first token."""
     return node.start_point[0] + 1
+
+
+def node_start_row(node: Any) -> int:
+    """1-based source line of a node's first token (alias of ``node_row``)."""
+    return node.start_point[0] + 1
+
+
+def node_end_row(node: Any) -> int:
+    """1-based source line of a node's last token."""
+    return node.end_point[0] + 1
 
 
 def find_enclosing_function(tree: Any, lang_key: str, row: int):

@@ -100,11 +100,14 @@ class TestHonestyContracts:
         assert result is findings  # identical list, not merely equal
 
     def test_validated_rule_set_is_closed(self):
-        # Scope creep guard: the pass may touch exactly these eight rules.
+        # Scope creep guard: the pass may touch exactly these nine rules.
+        # (V1.12a added TAINT_MULTIPART_TRAVERSAL as a guard-dominance
+        # KILL-only validator — it can never make the rule fire.)
         assert VALIDATED_RULE_IDS == {
             "PHP_HARDCODED_CREDENTIAL",
             "PHP_INCLUDE_CONCAT_PATH",
             "TAINT_PHP_COMMAND_INJECTION",
+            "TAINT_MULTIPART_TRAVERSAL",
             "GO_PATH_CONCAT",
             "GO_SQL_CONCAT_INTERMEDIATE",
             "DOTNET_SQL_INTERPOLATED",

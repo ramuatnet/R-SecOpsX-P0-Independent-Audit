@@ -1661,6 +1661,8 @@ def _enterprise_rule_has_concrete_sink(rule: dict, sink_line: str, lang: str) ->
     vuln = str(rule.get("vuln", "")).lower()
     if _is_comment_or_static_text_line(sink_line, lang):
         return False
+    if vuln == "path_traversal":
+        return _is_concrete_path_sink(sink_line)
     if vuln == "nosql_injection":
         return _is_concrete_nosql_sink(sink_line, lang)
     if vuln == "mass_assignment":
@@ -1777,6 +1779,66 @@ def _mass_assignment_sink_line_with_aliases(
         )
 
     return projected
+
+
+# A sink-shaped token inside a method DECLARATION is not a sink: the
+# multipart window rule matches ``File(``, ``open(`` and ``writeFile(``
+# anywhere, which made ``public IActionResult File([FromQuery] string
+# filename)`` its own "sink" (the corpus's SafeController/Vulnerable-
+# Controller false anchor). A real sink is an expression: a call statement,
+# a construction, an assignment — never a signature.
+_PATH_SINK_DECL_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|static|final|abstract|synchronized"
+    r"|native|override|internal|virtual|sealed|async|partial)\s+)+"
+    r"(?:[\w$][\w$<>\[\],.?]*\s+)*"
+    r"(?:File|open|writeFile)\s*\([^;{]*\)\s*"
+    r"(?:throws\s+[\w.,\s]+)?\s*\{?\s*$")
+
+
+def _is_concrete_path_sink(sink_line: str) -> bool:
+    """Reject method declarations whose signature merely LOOKS like a sink."""
+    if _PATH_SINK_DECL_RE.match(sink_line.strip()):
+        return False
+    return True
+
+
+_MULTIPART_SUBJECT_RE = re.compile(r"[A-Za-z_$][\w$]*")
+
+
+def _multipart_subject(src_match) -> str:
+    """The identifier around the source token that matched the src regex.
+
+    ``filename`` matched case-insensitively inside ``fileName`` yields
+    ``fileName`` — the exact variable the flow gate must evaluate.
+    """
+    try:
+        m = _MULTIPART_SUBJECT_RE.search(src_match.group(0) or "")
+    except Exception:
+        return ""
+    return m.group(0) if m else ""
+
+
+def _multipart_flow_proves_constant(source: str, filepath: str, src_match,
+                                    sink_idx: int) -> bool:
+    """True only when the multipart subject's value at the sink line is a
+    proven compile-time constant.
+
+    Kill-only-on-proof: the bounded abstract evaluation in
+    ``scanner/multipart_flow.py`` must PROVE every definition path reaching
+    the sink folds to a literal constant (constant-folded ternary/branch/
+    switch, strong-update reassignment, literal-returning same-file or
+    same-tree helper). Any ambiguity returns False, which callers turn into
+    KEEP. Never raises.
+    """
+    try:
+        from scanner import multipart_flow
+        var = _multipart_subject(src_match)
+        if not var:
+            return False
+        return multipart_flow.is_proven_constant(
+            source, var, sink_idx + 1, filepath=filepath)
+    except Exception:
+        return False
 
 
 def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
@@ -1928,6 +1990,23 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
                         continue
 
                     sink = candidate_sink_match.group(0)[:80]
+
+                    # V1.12a: TAINT_MULTIPART_TRAVERSAL is the one rule
+                    # whose src token (``filename``) and sink token
+                    # (``File(``) are this generic, so its window can span
+                    # a value that provably never reaches the sink. When
+                    # the bounded abstract evaluation PROVES the subject's
+                    # value at the sink line is a compile-time constant
+                    # (constant-folded ternary/branch, strong-update
+                    # reassignment, literal-returning same-file helper),
+                    # no attacker input can reach it and the window
+                    # coincidence is discarded. Every "not proven" outcome
+                    # keeps the finding byte-identical.
+                    if rule.get("id") == "TAINT_MULTIPART_TRAVERSAL" and \
+                            _multipart_flow_proves_constant(
+                                source, filepath, src_match,
+                                concrete_candidate):
+                        break
 
                 source_label = src_match.group(0)[:80]
                 findings.append(
