@@ -697,6 +697,85 @@ def _java_xxe_parser_hardened(source: str) -> bool:
     return bool(_JAVA_XXE_HARDENED_RE.search(source))
 
 
+# --- V1.12b: value gate for the Java file-access window rule ---------------
+# JAVA_PATH_TRAVERSAL_FILE's window regex matches the substring ``filename``
+# (case-insensitively) inside a variable NAME such as ``fileName`` -- it asks
+# nothing about the value that reaches ``Paths.get``/``new File``. Measured
+# against the BenchmarkJava oracle (findings13 attribution) that produced 16
+# firings on negative tests, every one of them a call whose argument provably
+# folds to a compile-time constant: map strong update, switch pruning on a
+# folded selector, constant ternary, literal-returning helper. The same
+# bounded evaluator V1.12a used for TAINT_MULTIPART_TRAVERSAL answers the
+# value question, kill-only-on-proof: every identifier inside the call's
+# parentheses must be PROVEN constant at the sink line, else the finding is
+# kept. String literals inside the argument list are constants by definition
+# (and cannot smuggle identifiers into the proof); a pure-literal call keeps
+# the finding because there is no identifier to prove and no measurement
+# demanded the kill. Unbalanced parentheses, casts, qualified names that do
+# not resolve, method calls, unresolved variables and evaluator budget all
+# keep. ``RSX_MULTIPART_FLOW=0`` disables the shared evaluator and therefore
+# this gate.
+_JAVA_PATH_IDENT_RE = re.compile(r"[A-Za-z_$][\w$]*")
+_JAVA_PATH_STR_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
+_JAVA_PATH_CHAR_RE = re.compile(r"'(?:[^'\\]|\\.)*'")
+_JAVA_PATH_PAREN_WINDOW = 64
+
+
+def _java_path_arg_proven_constant(source: str, match, filepath: str) -> bool:
+    """True only when EVERY identifier in the matched file-call's argument
+    list is a proven compile-time constant at the sink line.
+
+    Kill-only-on-proof: any ambiguity (unbalanced parens, no identifier to
+    prove, unprovable identifier, evaluator failure) returns False, which
+    callers turn into KEEP. Never raises.
+    """
+    try:
+        open_idx = source.find(
+            "(", match.start(),
+            match.start() + _JAVA_PATH_PAREN_WINDOW)
+        if open_idx == -1:
+            return False
+        # Scan forward, string/char-literal aware, to the matching ")".
+        depth = 0
+        i = open_idx
+        n = len(source)
+        quote = None
+        while i < n:
+            ch = source[i]
+            if quote is not None:
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == quote:
+                    quote = None
+            elif ch in "\"'":
+                quote = ch
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        else:
+            return False  # unbalanced: not provable -> KEEP
+        if depth != 0:
+            return False
+        args = _JAVA_PATH_CHAR_RE.sub(
+            " ", _JAVA_PATH_STR_RE.sub(" ", source[open_idx + 1:i]))
+        idents = _JAVA_PATH_IDENT_RE.findall(args)
+        if not idents:
+            return False  # pure literal: keep (nothing to prove)
+        from scanner.multipart_flow import is_proven_constant
+        at_line = source.count("\n", 0, match.start()) + 1
+        for ident in idents:
+            if not is_proven_constant(source, ident, at_line, filepath):
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def _is_client_side_ssrf_context(filepath: str, line: str) -> bool:
     """Return True when an SSRF candidate is clearly browser/client-side code.
 
@@ -1182,6 +1261,17 @@ def scan_file(filepath: str) -> list[dict]:
             # construction remains an independent XXE risk signal -- unless the
             # file hardens the parser itself, which is not a signal but the fix.
             if rule.get("id") == "JAVA_XXE_PARSER" and _java_xxe_parser_hardened(source):
+                continue
+
+            # V1.12b: the file-access window rule matches ``filename`` inside
+            # a variable NAME, not a value. Discard the finding only when the
+            # bounded abstract evaluation PROVES every identifier in the
+            # call's argument list is a compile-time constant at the sink
+            # line -- no attacker input can then reach the path. Every
+            # "not proven" outcome keeps the finding byte-identical.
+            if rule.get("id") == "JAVA_PATH_TRAVERSAL_FILE" and _java_path_arg_proven_constant(
+                source, match, filepath
+            ):
                 continue
 
             lineno, snippet = _snippet_for_match(rule, source, lines, match.start(), match.end())
