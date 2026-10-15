@@ -48,7 +48,7 @@ LOCKFILE_NAMES = frozenset({
     "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml",
     "pnpm-lock.yml", "poetry.lock", "pipfile.lock", "pipfile", "cargo.lock",
     "composer.lock", "gemfile.lock", "packages.lock.json", "paket.lock",
-    "mix.lock", "gradle.lockfile", "go.sum",
+    "mix.lock", "gradle.lockfile", "go.sum", "uv.lock",
 })
 
 # Directory names that identify translation catalogues (UI strings) and
@@ -62,12 +62,16 @@ SEED_DATASET_DIR_NAMES = frozenset({
 SEED_DATASET_PARENTS = frozenset({"data", "datasets", "fixtures", "seeds"})
 
 SECRET_RULES = [
-    ("SPRING_DATASOURCE_PASSWORD", "Spring datasource credential", "spring_config_secret", r"spring\.datasource\.(?:password|username|url)\s*[:=]\s*[^\s#]+", "High", "CWE-798"),
-    ("SPRING_SECURITY_OAUTH_SECRET", "Spring OAuth client secret", "oauth_client_secret", r"spring\.security\.oauth2\.client\.registration\.[\w.-]+\.client-secret\s*[:=]\s*[^\s#]+", "Critical", "CWE-798"),
-    ("JWT_SIGNING_SECRET", "JWT signing secret", "jwt_secret", r"(?:jwt|token|signing)[_-]?(?:secret|key)\s*[:=]\s*[\"']?[^\"'\s#]{8,}", "Critical", "CWE-798"),
-    ("OAUTH_CLIENT_SECRET", "OAuth client secret", "oauth_client_secret", r"(?:client[_-]?secret|oauth[_-]?secret)\s*[:=]\s*[\"']?[^\"'\s#]{8,}", "Critical", "CWE-798"),
-    ("AWS_SECRET_KEY", "AWS secret access key", "cloud_secret", r"(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY)\s*[:=]\s*[\"']?[A-Za-z0-9/+=]{20,}", "Critical", "CWE-798"),
-    ("KAFKA_CREDENTIALS", "Kafka credential in config", "messaging_secret", r"(?:sasl\.jaas\.config|sasl\.password|KAFKA_PASSWORD|kafka\.password)\s*[:=]\s*[^\s#]+", "High", "CWE-798"),
+    # ``[\t ]*`` around ``[:=]`` is deliberate: ``\s*`` also matched newlines,
+    # so a line-final colon (a python conditional ``if not self.jwt_secret:``)
+    # swallowed the NEXT line's first token as the "value" and reported the
+    # guard code as a hardcoded credential (autogen wsauth.py:47).
+    ("SPRING_DATASOURCE_PASSWORD", "Spring datasource credential", "spring_config_secret", r"spring\.datasource\.(?:password|username|url)[\t ]*[:=][\t ]*[^\s#]+", "High", "CWE-798"),
+    ("SPRING_SECURITY_OAUTH_SECRET", "Spring OAuth client secret", "oauth_client_secret", r"spring\.security\.oauth2\.client\.registration\.[\w.-]+\.client-secret[\t ]*[:=][\t ]*[^\s#]+", "Critical", "CWE-798"),
+    ("JWT_SIGNING_SECRET", "JWT signing secret", "jwt_secret", r"(?:jwt|token|signing)[_-]?(?:secret|key)[\t ]*[:=][\t ]*[\"']?[^\"'\s#]{8,}", "Critical", "CWE-798"),
+    ("OAUTH_CLIENT_SECRET", "OAuth client secret", "oauth_client_secret", r"(?:client[_-]?secret|oauth[_-]?secret)[\t ]*[:=][\t ]*[\"']?[^\"'\s#]{8,}", "Critical", "CWE-798"),
+    ("AWS_SECRET_KEY", "AWS secret access key", "cloud_secret", r"(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY)[\t ]*[:=][\t ]*[\"']?[A-Za-z0-9/+=]{20,}", "Critical", "CWE-798"),
+    ("KAFKA_CREDENTIALS", "Kafka credential in config", "messaging_secret", r"(?:sasl\.jaas\.config|sasl\.password|KAFKA_PASSWORD|kafka\.password)[\t ]*[:=][\t ]*[^\s#]+", "High", "CWE-798"),
     ("RABBITMQ_CREDENTIALS", "RabbitMQ credential / AMQP URI", "messaging_secret", r"amqps?://[^:\s'\"]+:[^@\s'\"]+@", "High", "CWE-798"),
     ("DATABASE_URL_CREDENTIALS", "Database connection string credentials", "database_connection_secret", r"(?:postgres(?:ql)?|mysql|mongodb|redis|sqlserver)://[^:\s'\"]+:[^@\s'\"]+@[^\s'\"]+", "Critical", "CWE-798"),
     ("JDBC_URL_CREDENTIALS", "JDBC connection string credentials", "database_connection_secret", r"jdbc:[^\s'\"]+(?:user|username)=([^;&\s]+).*?(?:password|pwd)=([^;&\s]+)", "Critical", "CWE-798"),
@@ -201,13 +205,60 @@ KNOWN_SECRET_RULES = [
 ("SLACK_WEBHOOK","Slack webhook URL","webhook_secret",r"https://hooks\.slack\.com/services/[A-Za-z0-9/_-]{20,}","High","CWE-798"),
 ("VAULT_TOKEN","Vault token","secrets_manager_credential",r"\bhvs\.[A-Za-z0-9._-]{20,}\b","Critical","CWE-798"),
 ]
-DECOY_WORDS = re.compile(r"(?i)^(?:example|sample|dummy|changeme|fake|test|placeholder|corpus|invalid|todo|fixme|replace[_ -]?me|your[_ -]?(?:api[_ -]?)?key[_ -]?here|insert[_ -]?key[_ -]?here|password123|xxx|<[^>]+>)$")
-DECOY_CONTAINS = re.compile(r"(?i)(?:your[_ -]?api[_ -]?key[_ -]?here|replace[_ -]?me|insert[_ -]?key[_ -]?here|changeme)")
+DECOY_WORDS = re.compile(
+    r"(?i)^(?:example|sample|dummy|changeme|fake|test|placeholder|corpus|invalid|todo|fixme"
+    r"|replace[_ -]?me"
+    r"|your[_ -]?(?:api[_ -]?)?key(?:[_ -]?here)?"
+    r"|insert[_ -]?key[_ -]?here"
+    r"|test[_ -]?(?:api[_ -]?)?key"
+    r"|sk[-_](?:key|api[_ -]?key|secret|password|token|test|placeholder|fake|dummy|xxxx+)"
+    r"|password123|xxx|<[^>]+>)$"
+)
+# ``replace[_ -]?(?:me|with)`` -- "REPLACE_WITH_YOUR_API_KEY" is the template
+# sentinel autogen ships in every sample model_config*.yaml; the old
+# ``replace[_ -]?me`` stem missed it.  ``your[_ -]?(?:api[_ -]?)?key`` without a
+# trailing "here" covers bare "your-api-key" literals.
+DECOY_CONTAINS = re.compile(
+    r"(?i)(?:your[_ -]?api[_ -]?key[_ -]?here|replace[_ -]?(?:me|with)"
+    r"|insert[_ -]?key[_ -]?here|changeme|your[_ -]?(?:api[_ -]?)?key)"
+)
 SECRET_VULN_TYPES={"hardcoded_secret","secret_exposure","jwt_secret","connection_string","oauth_client_secret","database_connection_string","kafka_credential","rabbitmq_credential","spring_config_secret","cloud_secret","messaging_secret","database_connection_secret","cloud_metadata_credential","configuration_secret","configuration_secret_fallback","sms_service_credential","ldap_credential","smtp_credential","source_control_token","package_registry_token","ai_platform_credential","observability_credential","payment_secret","communication_token","webhook_secret","secrets_manager_credential","cryptographic_private_key","framework_secret","mcp_token","cloud_session_token","proxy_credential","broker_credential","snmp_credential"}
 _SECRET_NAME_HINT=re.compile(r"(?i)(?:password|passwd|pwd|passcode|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|credential|private[_-]?key|signing[_-]?(?:key|secret)|webhook[_-]?(?:key|secret))")
 
+# CamelCase stand-ins: ``string appClientSecret = "testAppClientSecret";``
+# (CopilotStudioTests) -- the stem must END where an uppercase letter begins,
+# so only stand-in names starting with the stem are caught.
+_CAMEL_PLACEHOLDER_PREFIX = re.compile(
+    r"^(?:[Tt]est|[Mm]ock|[Ff]ake|[Dd]ummy|[Ss]ample|[Dd]emo|[Yy]our|[Ee]xample|[Pp]laceholder)(?:[A-Z_])"
+)
+_MASKED_SECRET_BODY = re.compile(r"^(?:[Xx*]{6,}|\.{3,})$")
+# A SCREAMING_SNAKE value with >=2 word breaks NAMES an environment variable
+# (``ENV_VAR_API_KEY = "AZURE_COGNITIVE_SEARCH_ADMIN_KEY"`` in SK
+# utils.py:39): a name at a credential key is a reference, not material.
+# Single-token caps values ("SUP3RSECRET123") do not match.
+_ENV_VAR_NAME_VALUE = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){2,}$")
+_MASK_SIGNATURE_PREFIXES = re.compile(
+    r"^(?:gh[pousr]_|github_pat_|glpat-|npm_|pypi-|sk-(?:proj-|ant-)?"
+    r"|AIza|hvs\.|hf_|xox[bpsar]-|AKIA|ASIA)"
+)
+
+
+def _is_masked_secret(v):
+    """True for a redaction placeholder wearing a signature's prefix.
+
+    ``GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"``
+    matches the GitHub signature but the body is a redaction mask, not
+    token material.
+    """
+    x = str(v or "").strip().strip('"\'`')
+    body = _MASK_SIGNATURE_PREFIXES.sub("", x)
+    return bool(body) and bool(_MASKED_SECRET_BODY.fullmatch(body))
+
+
 def _is_placeholder(v):
-    x=v.strip().strip('"\'`'); return (not x) or bool(DECOY_WORDS.fullmatch(x)) or bool(DECOY_CONTAINS.search(x))
+    x=v.strip().strip('"\'`')
+    return ((not x) or bool(DECOY_WORDS.fullmatch(x)) or bool(DECOY_CONTAINS.search(x))
+            or bool(_CAMEL_PLACEHOLDER_PREFIX.match(x)) or _is_masked_secret(x))
 def _looks_like_env(v): return bool(_ENV_ONLY.fullmatch(v.strip()))
 
 # Terraform/HCL expressions are references to values, not literal
@@ -259,6 +310,14 @@ _CONFIG_GETTER_PREFIX = re.compile(
     r"^(?:os\.getenv|os\.environ|environ\b|getenv\b|process\.env\b|"
     r"settings\.getenv|config\.get\b|runtime_env\b)"
 )
+_SECRET_STR_TYPE = re.compile(
+    r"^(?:SecretStr|SecretBytes|BaseSecretStr|SecretMixin)(?:\b[\s\S]*)?$"
+)
+_DOTTED_IDENTIFIER_CHAIN = re.compile(
+    r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$"
+)
+_DOTTED_CHAIN_MAX_SEGMENT = 24
+_CALL_EXPRESSION = re.compile(r"^[A-Za-z_$][\w$.]*\(.*\)$")
 _VERSION_RANGE = re.compile(
     r"^[\s<>=~^*]"
     r"|^v?\d+(?:\.\d+){1,4}(?:[-+][\w.\-+]+)?$"
@@ -267,12 +326,28 @@ _VERSION_RANGE = re.compile(
 
 def _value_is_code_reference(v) -> bool:
     """True when the matched value names a credential instead of being one."""
-    value = str(v or "").strip().strip('"\'`')
+    value = str(v or "").strip().strip('"\'`;')
     if not value:
         return False
     if _CONFIG_GETTER_PREFIX.match(value):
         # os.getenv("X" / process.env.X -- a call whose captured prefix ends
         # at the first quote or paren; still a reference, never a literal.
+        return True
+    if _SECRET_STR_TYPE.match(value):
+        # pydantic ``client_secret: SecretStr`` -- a TYPE annotation, and the
+        # docstring variant ``- client_secret: SecretStr - the OAuth secret``.
+        return True
+    if _DOTTED_IDENTIFIER_CHAIN.fullmatch(value):
+        # ``TestConfiguration.VertexAI.ClientSecret`` /
+        # ``booking_sample_settings.client_secret`` / OTel attribute names
+        # (``gen_ai.request.max_tokens``).  Every segment is identifier-shaped
+        # and short: real tokens carry long random or base64url segments, and
+        # JWTs contain '-' and never match the class.
+        if all(len(seg) <= _DOTTED_CHAIN_MAX_SEGMENT for seg in value.split(".")):
+            return True
+    if _CALL_EXPRESSION.fullmatch(value):
+        # ``weaviate.auth.AuthApiKey(api_key=api_key)`` -- a constructor call
+        # on the right-hand side is wiring, not secret material.
         return True
     return bool(
         _GH_EXPRESSION.fullmatch(value)
@@ -318,6 +393,12 @@ def _entropy_candidate(value: str, key: str = "") -> bool:
             return True
         return False
     if re.fullmatch(r"[0-9a-fA-F-]{32,}",v) and v.count('-') >= 2: return False
+    # Every charset class requires a credential-bearing key, exactly as the
+    # hex branch already did. Without the gate, ANY 24+ character identifier
+    # clears the entropy floor: type names, mock names, dict keys and model
+    # ids (``id="simple_chatbot_kernel_function"``, ``llama-4-scout=...``)
+    # are not secrets and were the whole of this family on two corpora.
+    if not secret_key_context: return False
     if re.fullmatch(r"[A-Za-z0-9+/=]{30,}",v): return _shannon_entropy(v) >= 4.2
     if re.fullmatch(r"[A-Za-z0-9_-]{24,}",v): return _shannon_entropy(v) >= 4.0
     if re.fullmatch(r"[0-9A-Fa-f]{20,}",v): return _shannon_entropy(v) >= 3.0
@@ -339,17 +420,87 @@ def _parse_generic_key_values(text):
     for n,line in enumerate(text.splitlines(),1):
         s=line.strip()
         if not s or s.startswith(("#",";","//")): continue
-        m=re.match(r"^\s*[\"']?([A-Za-z_][A-Za-z0-9_.:/-]*)[\"']?\s*[:=]\s*[\"']?(.+?)[\"']?\s*,?\s*$",line)
-        if m: out.append((n,m.group(1),m.group(2).strip()))
+        m=re.match(r"^\s*[\"']?([A-Za-z_][A-Za-z0-9_.:/-]*)[\"']?\s*[:=]\s*(.*)$",line)
+        if not m: continue
+        val=m.group(2).strip()
+        if val[:1] in {'"', "'"}:
+            # Quoted literal: everything up to the matching quote is value
+            # material (it may legitimately contain " #").
+            quote=val[0]; _end=val.find(quote,1)
+            val=val[1:_end] if _end!=-1 else val.strip(quote)
+        else:
+            # Unquoted: an inline " #comment" is prose, not value material --
+            # ``tokens_per_minute: auto # set to null to disable`` must not
+            # become an 8+ character "secret". A '#' without preceding
+            # whitespace stays part of the value (YAML semantics).
+            val=re.split(r"\s+#",val,maxsplit=1)[0].strip()
+        val=val.rstrip(',').strip().strip('"\'`')
+        out.append((n,m.group(1),val))
     return out
+
+# Code languages where a string literal MUST be quoted, so an unquoted
+# identifier-shaped value can only be a variable reference.
+_CODE_LANGS_QUOTED_LITERALS = frozenset(
+    {"python", "javascript", "typescript", "csharp", "java", "go", "php", "ruby"}
+)
+
+
+def _key_leaf(key):
+    """Final path segment of a composite/structural key, sans array indices.
+
+    ``[0].details.tokens[0].logprob`` -> ``logprob``; ``tokens[0]`` ->
+    ``tokens``.  Command substitutions are shell text, never credential
+    nouns: ``jobs.x.steps.run.docker run --rm -v $(pwd)`` -> ``run --rm -v``
+    (the ``pwd`` shell builtin is not a password).
+    """
+    leaf = re.sub(r"\$\([^)]*\)", " ", str(key or "")).rsplit(".", 1)[-1]
+    return re.sub(r"\[\d+\]", "", leaf).strip()
+
+
+def _key_names_credential(key):
+    """True when the key's *property* (not an ancestor container) is a credential.
+
+    Flat keys match whole, unchanged.  Composite structural paths -- JSON
+    leaves and dotted YAML paths -- must match on the leaf only, so
+    ``...tokens[0].logprob`` (a tensor value),
+    ``paths./secrets/{name}.get.parameters.*.description`` (OpenAPI docs) and
+    ``inputs.fallback-token.description`` (action docs) are not credential
+    assignments merely because an ANCESTOR says "token" or "secret".
+    """
+    key = str(key or "")
+    if "." in key or "[" in key:
+        return bool(_PROP_SECRET_KEY.search(_key_leaf(key)))
+    return bool(_PROP_SECRET_KEY.search(key))
+
+
+def _bare_identifier_reference(text, lineno, value):
+    """True when a code file's value is an unquoted identifier = a variable.
+
+    In code, ``this.AppClientSecret = appClientSecret`` references a variable;
+    a hardcoded literal is always quoted.  The RAW line decides -- the parsed
+    value alone cannot distinguish ``password = "Abcdefghijklmnop123456"``
+    (quoted literal, keep) from ``password = abcd1234efgh`` (name, kill).
+    """
+    v = str(value or "").strip().rstrip(";,").strip()
+    if len(v) < 8 or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", v):
+        return False
+    try:
+        src_line = text.splitlines()[lineno - 1]
+    except Exception:  # pragma: no cover - defensive
+        return False
+    m = re.match(r"^\s*[\"']?[^:=\s\"']*[\"']?\s*[:=]\s*(.)", src_line)
+    return bool(m) and m.group(1) not in "\"'"
+
 
 def _scan_key_value_context(path,text,pairs,lang):
     out=[]
     for line,key,val in pairs:
         kl=key.lower(); raw=val.strip()
-        if not _PROP_SECRET_KEY.search(key): continue
+        if not _key_names_credential(key): continue
         fallback=bool(_ENV_DEFAULT.fullmatch(raw))
         if not fallback and (not _looks_like_secret_value(raw)): continue
+        if lang in _CODE_LANGS_QUOTED_LITERALS and _bare_identifier_reference(text, line, raw):
+            continue
         if not _PROP_CONTEXT.search(key) and not re.search(r"(?i)(oauth|client[_-]?secret|api[_-]?key|private[_-]?key|webhook|signing|mcp)",key) and not _SECRET_NAME_HINT.search(key): continue
         if fallback: title,vuln="Hardcoded secret fallback in configuration","configuration_secret_fallback"
         elif re.search(r"(?i)(ldap|directory)",kl): title,vuln="Hardcoded LDAP credential","ldap_credential"
@@ -449,7 +600,13 @@ def _parse_yaml_pairs(text):
         full='.'.join([x[1] for x in stack]+[key])
         if not val or val in {'|','>','{','['}:
             stack.append((indent,key)); continue
-        val=val.rstrip(',').strip().strip('"\'')
+        val=val.rstrip(',').strip()
+        # YAML inline comment (``tokens_per_minute: auto # set to null to
+        # disable``): the note is prose, not value material. Only for unquoted
+        # values -- a quoted literal may legitimately contain " #".
+        if val[:1] not in {'"', "'"}:
+            val = re.split(r"\s+#", val, maxsplit=1)[0].strip()
+        val=val.strip('"\'')
         out.append((n,full,val))
     return out
 
@@ -627,7 +784,12 @@ def _scan_source_assignments(path,text,lang):
     pat=re.compile(r"(?im)^\s*(?:export\s+)?(?:const\s+|let\s+|var\s+|String\s+|string\s+|private\s+String\s+|public\s+String\s+|\$[A-Za-z_][\w]*\s*=\s*)?([A-Za-z_][\w]*(?:PASSWORD|PASSWD|PWD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CLIENT_SECRET|ACCESS_KEY)[A-Za-z0-9_]*)\s*(?:=|:)\s*[\"']([^\"']{8,})[\"']")
     for m in pat.finditer(text):
         val=m.group(2)
-        if _is_placeholder(val) or _looks_like_env(val): continue
+        if _is_placeholder(val) or _looks_like_env(val) or _value_is_code_reference(val): continue
+        if _ENV_VAR_NAME_VALUE.fullmatch(val.strip()):
+            # ENV_VAR_API_KEY = "AZURE_COGNITIVE_SEARCH_ADMIN_KEY" -- the
+            # value is an env-var NAME. Shared with the sast GENERIC gate;
+            # both engines must agree or one copy hides the other.
+            continue
         line=text[:m.start()].count('\n')+1
         out.append(_build_finding('SOURCE_HARDCODED_CREDENTIAL','Hardcoded credential in source code','hardcoded_secret','High','CWE-798',path,line,f'{m.group(1)}=[REDACTED]',lang))
     return out
@@ -815,8 +977,25 @@ def scan_file(filepath: str) -> list[dict]:
         _assigned = re.split(r"[:=]", m.group(0), maxsplit=1)
         if len(_assigned) == 2 and _value_is_code_reference(_assigned[1]):
             continue
-        # Do not suppress based on repository context.
-        # Test/fixture/example paths may still contain reusable credentials.
+        if len(_assigned) == 2 and _is_placeholder(_assigned[1]):
+            # Stand-in literals at credential keys: "testAppClientSecret",
+            # "sk-password", "REPLACE_WITH_YOUR_API_KEY".
+            continue
+        if len(_assigned) == 2 and lang in _CODE_LANGS_QUOTED_LITERALS:
+            # The pattern's optional ["']? is the quote evidence: a value
+            # WITHOUT a leading quote in a code file cannot be a string
+            # literal, so ``this.AppClientSecret = appClientSecret;`` names a
+            # variable. Quoted literals are unaffected.
+            _rhs = str(_assigned[1] or "").strip()
+            if (_rhs[:1] not in {'"', "'", "`"}
+                    and len(_rhs.rstrip(";,").strip()) >= 8
+                    and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", _rhs.rstrip(";,").strip())):
+                continue
+        if rid == "CLOUD_METADATA_TOKEN_USE" and _is_nonproduction_context(path):
+            # The metadata IP is an endpoint constant, not reusable secret
+            # material: on test/fixture paths it is SSRF-defense fixture data
+            # (dns-pinning tests verifying the block). Production code reports.
+            continue
 
         # Terraform/HCL references are expressions, not literal secret
         # material. Prevent the final legacy SECRET_RULES pass from

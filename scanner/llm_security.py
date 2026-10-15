@@ -1406,6 +1406,21 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
 
     path_suffix = Path(filepath).suffix.lower()
 
+    # Triple-quoted docstrings are prose, not executable code. A line-local
+    # parity scan marks them so no rule fires on documentation examples
+    # ("Allows you to wrap an MCP tool...", """Apply -qqq flag to pip
+    # install commands.""", commented api_key examples in doc blocks).
+    _docstring_lines = set()
+    if path_suffix == ".py":
+        _in_docstring = False
+        for _i, _l in enumerate(lines, start=1):
+            _cnt = _l.count('"""')
+            if _cnt % 2 == 1:
+                _in_docstring = not _in_docstring
+                _docstring_lines.add(_i)
+            elif _in_docstring:
+                _docstring_lines.add(_i)
+
     # LLM07 is a code-execution/tool-design rule. JSON/YAML/TOML/INI-style
     # data/config files commonly contain example strings such as "tool.run",
     # "browser.open", etc. Those strings are not executable tool invocation.
@@ -1454,6 +1469,19 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
     }
 
     for lineno, line in enumerate(lines, start=1):
+
+        # Comment lines and docstring bodies describe or dismiss the pattern;
+        # they never execute it. (autogen: a // NOTE comment describing the
+        # FunctionTool exec() REMOVAL was reported as insecure output
+        # handling; pip install in a docstring was reported as supply chain.)
+        # PEM markers (-----BEGIN ...) are content, not dashes-comments.
+        _stripped_line = line.lstrip()
+        if _stripped_line.startswith(("#", "//", "*", "--")) and not re.match(
+            r"-----(?:BEGIN|END) ", _stripped_line
+        ):
+            continue
+        if lineno in _docstring_lines:
+            continue
 
         line_matches = []
 
@@ -1554,6 +1582,48 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                 and path_suffix in NON_EXECUTABLE_DATA_EXTENSIONS
             ):
                 continue
+
+            if (
+                rule_id == "LLM04_MODEL_DENIAL_OF_SERVICE"
+                and re.search(r"while\s+True", line, re.I)
+                and path_suffix in {".py", ".js", ".ts", ".mjs", ".cjs"}
+            ):
+                # A loop body containing ``await`` suspends on the event loop;
+                # it is a message pump, not a CPU spin. Tight loops
+                # (``while True: pass``) have no await and keep reporting.
+                _indent = len(line) - len(line.lstrip())
+                _awaits = False
+                for _j in range(lineno, min(len(lines), lineno + 30)):
+                    _next = lines[_j]
+                    if not _next.strip():
+                        continue
+                    if (len(_next) - len(_next.lstrip())) <= _indent:
+                        break
+                    if re.search(r"\bawait\b", _next):
+                        _awaits = True
+                        break
+                if _awaits:
+                    continue
+
+            if rule_id == "LLM06_SENSITIVE_INFORMATION_DISCLOSURE" and re.search(
+                r"(?i)(?:environment variable|is not set|not configured"
+                r"|please run|export [A-Z_]+|set (?:your|the))"
+                , line,
+            ):
+                # Instructional text that NAMES an env var is not disclosure:
+                # print("Error: OPENAI_API_KEY environment variable is not
+                # set!") discloses nothing.
+                continue
+
+            if rule_id == "LLM02_INSECURE_OUTPUT_HANDLING":
+                if re.search(r"subprocess\.run\s*\(\s*\[", line):
+                    # Fixed argv list without shell interpretation: output
+                    # cannot steer which program runs.
+                    continue
+                if re.search(r"\.exec\(\s*(?:select|insert|update|delete)\s*\(", line):
+                    # ORM/SQLModel session.exec(select(...)) is a query call,
+                    # not code execution.
+                    continue
 
             line_matches.append(
                 {

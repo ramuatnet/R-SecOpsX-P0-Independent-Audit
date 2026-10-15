@@ -712,13 +712,14 @@ class TaintVisitor(ast.NodeVisitor):
         withholds the classification -- that shape IS injectable.
         """
         try:
-            imported = any(
-                str(v).split(".", 1)[0] == "sqlalchemy"
-                for v in self._import_alias.values()
-            )
+            import_roots = {
+                str(v).split(".", 1)[0] for v in self._import_alias.values()
+            }
         except Exception:  # pragma: no cover - defensive, never kill on error
             return False
-        if not imported:
+        if "sqlalchemy" not in import_roots:
+            if import_roots & {"psycopg", "psycopg2"}:
+                return self._is_psycopg_sql_builder(rhs)
             return False
         node = rhs
         # Unwrap fluent chaining: select(...).filter(...).order_by(...)
@@ -754,7 +755,75 @@ class TaintVisitor(ast.NodeVisitor):
                     return False
         return True
 
+    def _is_psycopg_sql_builder(self, rhs) -> bool:
+        """True when *rhs* is a psycopg ``sql.SQL(...)`` template product.
+
+        ``sql.SQL("... %s ...").format(sql.Identifier(col), sql.Placeholder())``
+        compiles to a parameterized statement: identifiers are quoted by the
+        builder and values ride in the separate params tuple, so taint in the
+        inputs cannot become SQL structure (postgres.py
+        ``_construct_vector_query``).  An f-string or ``%``-interpolation
+        inside ``SQL(...)`` IS string-built SQL and stays reportable.
+        """
+        node = rhs
+        while (isinstance(node, ast.Call)
+               and isinstance(node.func, ast.Attribute)
+               and isinstance(node.func.value, ast.Call)):
+            node = node.func.value
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            base = func.attr  # sql.SQL
+            recv = func.value
+            while isinstance(recv, ast.Attribute):
+                recv = recv.value
+            if not isinstance(recv, ast.Name):
+                return False
+            alias = str(self._import_alias.get(recv.id, ""))
+            if alias.split(".", 1)[0] not in {"psycopg", "psycopg2"}:
+                return False
+        elif isinstance(func, ast.Name):
+            base = func.id  # from psycopg.sql import SQL
+        else:  # pragma: no cover - defensive
+            return False
+        if base != "SQL":
+            return False
+        for sub in ast.walk(rhs):
+            # Interpolated text defeats the template's parameterization.
+            if isinstance(sub, ast.JoinedStr):
+                return False
+            if isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Mod):
+                return False
+        return True
+
+    _SQL_BIND_KEYWORDS = frozenset(
+        {"params", "parameters", "binds", "bind_vars", "bindvars",
+         "args", "sequence_of_parameters"}
+    )
     def _sql_text_is_tainted(self, call: ast.Call) -> bool:
+        # DB-API parameterization contract: ``execute(query, params)`` binds
+        # the second argument, so attacker data cannot become SQL structure.
+        # The semantic-kernel connectors all build SQL with their own
+        # parameterizing builders and pass binds separately (psycopg
+        # ``sql.SQL(...).format(...)`` + ``%s`` params, sqlserver ``SqlCommand``
+        # with ``?`` + ``add_parameter``, oracle ``executemany(query, binds)``)
+        # -- none of which import sqlalchemy, so the builder kill below alone
+        # could not see them.
+        if len(call.args) >= 2:
+            return False
+        for kw in call.keywords:
+            if kw.arg in self._SQL_BIND_KEYWORDS:
+                return False
+        # A driver command object whose ``to_execute()`` yields (sql, params):
+        # the executed value is the parameterized half of that tuple.
+        for node in ast.walk(call):
+            if isinstance(node, ast.Call):
+                f = node.func
+                fname = (f.attr if isinstance(f, ast.Attribute)
+                         else f.id if isinstance(f, ast.Name) else "")
+                if fname == "to_execute":
+                    return False
         q = self._sql_query_node(call)
         if q is None:
             # Cannot establish which argument is the statement -- stay
@@ -1514,6 +1583,30 @@ def _is_comment_or_static_text_line(line: str, lang: str) -> bool:
     return False
 
 
+# Mongo operators whose VALUE position is a list of data operands, not a
+# query-document position. Taint reaching only these is parameterization.
+_NOSQL_DATA_OPERAND_KEYS_RE = re.compile(r"\$(?:in|nin|all|size)\b", re.I)
+
+
+def _nosql_taint_reaches_only_data_operand(line: str) -> bool:
+    """True when the sink line's query object exposes NO operator position.
+
+    ``find({"_id": {"$in": ids}})`` binds list ITEMS as data: operator
+    smuggling needs attacker-controlled dict KEYS (``{"$gt": ""}`` inside an
+    object), which list values can never become. A line carrying ANY other
+    ``$``-operator ($gt/$where/$or/...) keeps reporting -- that is a real
+    query-document position.
+    """
+    if not _NOSQL_DATA_OPERAND_KEYS_RE.search(line or ""):
+        return False
+    others = [
+        m.group(0).lower()
+        for m in re.finditer(r"\$[a-zA-Z]+", line)
+        if m.group(0).lower() not in {"$in", "$nin", "$all", "$size"}
+    ]
+    return not others
+
+
 def _is_concrete_nosql_sink(line: str, lang: str) -> bool:
     """Accept only database/ODM NoSQL operations, not JavaScript Array.find()."""
     s = line or ""
@@ -2051,6 +2144,17 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
 
                         if not _enterprise_rule_has_concrete_sink(
                             rule, validation_line, lang
+                        ):
+                            continue
+
+                        # ``{"$in": values}`` binds list items as DATA; operator
+                        # smuggling requires attacker-controlled dict KEYS
+                        # ({"$gt": ""}). A query whose only operators are
+                        # data-operand lists is parameterized, not injectable
+                        # (``find({"_id": {"$in": ids}})``).
+                        if (
+                            str(rule.get("vuln", "")).lower() == "nosql_injection"
+                            and _nosql_taint_reaches_only_data_operand(candidate_line)
                         ):
                             continue
 

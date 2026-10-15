@@ -146,6 +146,29 @@ def enrich_license_policy(sbom: list[dict]) -> list[dict]:
     return enriched
 
 
+def reconcile_license_category(sbom: list[dict]) -> list[dict]:
+    """Align license_category with the FINAL policy outcome.
+
+    ``enrich_license_evidence`` runs BEFORE ``enrich_license_policy``
+    (main.py pipeline order), and its no-evidence branch derives category from
+    the ``license_risk`` / ``license_policy_decision`` SNAPSHOT the policy
+    engine later rewrites -- so MPL-2.0 components came back frozen as
+    "Permissive" on the very same row the policy stage labelled
+    COPYLEFT_OR_RECIPROCAL / APPROVE_WITH_CONDITIONS (12 lightningcss rows on
+    semantic-kernel, axe-core on autogen).
+
+    Kill-only reconcile: only rows the final policy calls copyleft change
+    category; every other row is byte-identical.
+    """
+    out = []
+    for pkg in sbom:
+        item = dict(pkg)
+        if str(item.get("license_issue") or "").upper() == "COPYLEFT_OR_RECIPROCAL_LICENSE":
+            item["license_category"] = "Copyleft / Reciprocal"
+        out.append(item)
+    return out
+
+
 def license_policy_summary(sbom: list[dict]) -> dict:
     risk_counter = Counter()
     decision_counter = Counter()

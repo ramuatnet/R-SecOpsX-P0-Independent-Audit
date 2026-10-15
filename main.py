@@ -83,6 +83,7 @@ from analysis.vulnerability_age_engine import (
 )
 from analysis.license_policy_engine import (
     enrich_license_policy,
+    reconcile_license_category,
     license_policy_summary,
 )
 from analysis.license_evidence_resolver import enrich_license_evidence
@@ -3631,6 +3632,10 @@ def main():
     payload = enrich_license_evidence(payload)
     _step("License policy")
     payload["sbom"] = enrich_license_policy(payload.get("sbom", []))
+    # Category is derived from a pre-policy snapshot upstream; re-align it with
+    # the final outcome so a row cannot say "Permissive" AND
+    # "COPYLEFT_OR_RECIPROCAL / APPROVE_WITH_CONDITIONS" at once.
+    payload["sbom"] = reconcile_license_category(payload.get("sbom", []))
     payload["license_policy_summary"] = license_policy_summary(
         payload.get("sbom", [])
     )
@@ -3663,6 +3668,15 @@ def main():
     _license_evidence_summary["unknown_license_components"] = int(
         _license_policy_summary.get("unknown_license_components", 0)
     )
+    # The resolver's category_counts were computed at evidence time, before
+    # the policy stage (and the category reconcile) ran. Recompute from the
+    # final rows so the summary cannot disagree with the sbom it describes.
+    _final_category_counts: dict = {}
+    for _pkg in payload.get("sbom", []) or []:
+        _cat = str(_pkg.get("license_category") or "Unknown")
+        _final_category_counts[_cat] = _final_category_counts.get(_cat, 0) + 1
+    if _final_category_counts:
+        _license_evidence_summary["category_counts"] = _final_category_counts
     _license_evidence_summary["final_reporting_stage"] = "POST_LICENSE_POLICY"
     payload["license_evidence_summary"] = _license_evidence_summary
     _step("Copyright / IP compliance")

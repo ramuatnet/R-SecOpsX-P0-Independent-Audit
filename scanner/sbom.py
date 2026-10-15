@@ -19,6 +19,8 @@ from scanner.vulnerability_intel import (
 from analysis.intelligence_provenance import STATIC_REFERENCE
 from scanner.manifests import (
     parse_poetry_lock, parse_pipfile_lock,
+    parse_pyproject_toml, parse_uv_lock,
+    parse_nuget_csproj, parse_nuget_packages_props, parse_nuget_lock,
     parse_pnpm_lock, parse_yarn_lock, parse_bun_lock, parse_deno_lock,
     parse_go_mod, parse_go_sum,
     parse_cargo_lock,
@@ -1039,12 +1041,30 @@ def generate_sbom(target_path: str) -> list[dict]:
         if not any(p in EXCLUDED_DIRS for p in f.parts):
             packages.extend(_parse_pom_xml(str(f)))
 
+    # Phase 2: manifests beyond the python/js/java trio. semantic-kernel
+    # (155 csproj) and autogen (12 pyproject) declared their whole dependency
+    # tree in files this function never read, so their SBOMs carried only the
+    # single requirements.txt each and understated inventory by hundreds of
+    # components.
+    for f in target.rglob("pyproject.toml"):
+        if not any(p in EXCLUDED_DIRS for p in f.parts):
+            packages.extend(parse_pyproject_toml(str(f)))
+    _NUGET_MANIFEST_PATTERNS = ("*.csproj", "*.fsproj")
+    for pattern in _NUGET_MANIFEST_PATTERNS:
+        for f in target.rglob(pattern):
+            if not any(p in EXCLUDED_DIRS for p in f.parts):
+                packages.extend(parse_nuget_csproj(str(f)))
+    for f in target.rglob("Directory.Packages.props"):
+        if not any(p in EXCLUDED_DIRS for p in f.parts):
+            packages.extend(parse_nuget_packages_props(str(f)))
+
     # Phase 1: additional lockfile formats (poetry, pnpm, yarn, bun, deno,
     # go, cargo, composer, gemfile). Each parser returns the same dict shape
     # so the dedupe and transitive logic below applies uniformly.
     _LOCKFILE_PATTERNS = (
         ("poetry.lock", parse_poetry_lock),
         ("Pipfile.lock", parse_pipfile_lock),
+        ("uv.lock", parse_uv_lock),
         ("pnpm-lock.yaml", parse_pnpm_lock),
         ("yarn.lock", parse_yarn_lock),
         ("bun.lock", parse_bun_lock),
@@ -1054,6 +1074,7 @@ def generate_sbom(target_path: str) -> list[dict]:
         ("Cargo.lock", parse_cargo_lock),
         ("composer.lock", parse_composer_lock),
         ("Gemfile.lock", parse_gemfile_lock),
+        ("packages.lock.json", parse_nuget_lock),
     )
     for pattern, parser in _LOCKFILE_PATTERNS:
         for f in target.rglob(pattern):

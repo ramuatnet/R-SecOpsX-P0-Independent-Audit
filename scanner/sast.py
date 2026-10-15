@@ -158,7 +158,7 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"DOTNET_OPEN_REDIRECT","title":"ASP.NET Open Redirect","vuln":"open_redirect","sev":"High","langs":["csharp"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"Redirect\s*\(\s*(?:returnUrl|url|Request\.)"},
     {"id":"DOTNET_CERT_VALIDATION_BYPASS","title":"HttpClient Certificate Validation Bypass","vuln":"tls_bypass","sev":"Critical","langs":["csharp"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"ServerCertificateCustomValidationCallback\s*=\s*.*=>\s*true|DangerousAcceptAnyServerCertificateValidator"},
     {"id":"DOTNET_LOG_INJECTION","title":"ILogger Raw User Input Log Injection","vuln":"log_injection","sev":"Medium","langs":["csharp"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"ILogger|_logger\.(?:Information|Error|Warning|Debug)\s*\([^)]*(?:Request|Query|Form|Headers|userInput)"},
-    {"id":"DOTNET_HARDCODED_CREDENTIAL","title":".NET Hardcoded Credential in String Declaration","vuln":"hardcoded_secret","sev":"High","langs":["csharp"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:string|var|const\s+string)\s+\w+\s*=\s*\"[^\"]{8,}\""},
+    {"id":"DOTNET_HARDCODED_CREDENTIAL","title":".NET Hardcoded Credential in String Declaration","vuln":"hardcoded_secret","sev":"High","langs":["csharp"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:string|var|const\s+string)\s+(?P<ident>\w+)\s*=\s*\"[^\"]{8,}\""},
     {"id":"DOTNET_PROCESS_START_INFO","title":".NET ProcessStartInfo with User-Controlled Arguments","vuln":"command_injection","sev":"Critical","langs":["csharp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"ProcessStartInfo\s*\([^)]*\w+|\.Start\s*\(\s*\)"},
     {"id":"DOTNET_COMMAND_CONCAT","title":".NET Command Arguments String Concatenation","vuln":"command_injection","sev":"Critical","langs":["csharp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"Arguments\s*=\s*\"[^\"]*(?:/c |/k |cmd\.exe|powershell|bash)[^\"]*\"\s*\+\s*\w+"},
     {"id":"DOTNET_SQL_INTERPOLATED","title":".NET SqlCommand with Interpolated SQL String","vuln":"sql_injection","sev":"High","langs":["csharp"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"SqlCommand\s*\(\s*\$\"|\.ExecuteReader\s*\(\s*\)|\.ExecuteScalar\s*\(\s*\)"},
@@ -1114,22 +1114,45 @@ _CREDENTIAL_PLACEHOLDER_VALUES = frozenset({
 
 # A literal whose ENTIRE value is a placeholder stem plus, at most, a
 # credential-noun decoration: "some_key", "custom_key", "fakekey",
-# "demo_token".  Anchored at BOTH ends, so "some_key_prod_9x2" (which could
-# hold material) and the real word "customer_key" are untouched, and the
-# deliberately-real "bar"/"foobar" sentinels stay reportable.
+# "demo_token", "test-key", "fake-api-key", "your_api_key", "overwrite-key".
+# Anchored at BOTH ends, so "some_key_prod_9x2" (which could hold material)
+# and the real word "customer_key" are untouched, and the deliberately-real
+# "bar"/"foobar" sentinels stay reportable.
 _PLACEHOLDER_VALUE_PREFIX = re.compile(
-    r"(?i)^(?:some|custom|fake|sample|dummy|demo|placeholder|changeme|example)"
-    r"[_-]?(?:key|keys|token|secret|pass|password|passwd|pwd|cred|credential|"
+    r"(?i)^(?:some|custom|fake|sample|dummy|demo|placeholder|changeme|example"
+    r"|test|testing|unit|unittest|mock|your|overwrite|replaceme|temp|temporary|new)"
+    r"[_-]?(?:api[_-]?(?:key|token|secret)|access[_-]?(?:key|token)"
+    r"|private[_-]?key|client[_-]?secret|auth[_-]?(?:key|token|secret)"
+    r"|key|keys|token|secret|pass|password|passwd|pwd|cred|credential|"
     r"value|val|data|thing|name)?$"
+    # "sk-password" / "sk-test" -- the sk- vendor prefix followed by a
+    # dictionary word can only be a stand-in; real sk- keys carry 20+ random
+    # characters after the prefix and never fullmatch this alternative.
+    r"|^sk[-_](?:api[_-]?key|key|secret|password|passwd|pwd|token|test|placeholder|fake|dummy|xxxx+)$"
+)
+# CamelCase stand-ins whose stems the alternation above cannot reach once the
+# value is lowercased: "testAppClientSecret" (CopilotStudioTests.cs).  The
+# stem must END where an uppercase letter begins.
+_CAMEL_PLACEHOLDER_PREFIX = re.compile(
+    r"^(?:[Tt]est|[Mm]ock|[Ff]ake|[Dd]ummy|[Ss]ample|[Dd]emo|[Yy]our|[Ee]xample)(?:[A-Z_])"
 )
 
 
 def _is_placeholder_credential(match: "re.Match[str]") -> bool:
     """True when the compared literal is a sentinel, not secret material."""
     try:
-        value = (match.group("credval") or "").strip().lower()
+        raw_value = (match.group("credval") or "").strip()
     except (IndexError, re.error):
         return False
+    if _CAMEL_PLACEHOLDER_PREFIX.match(raw_value):
+        return True
+    if _ENV_VAR_NAME_VALUE.fullmatch(raw_value):
+        # "AZURE_COGNITIVE_SEARCH_ADMIN_KEY" names an environment variable:
+        # a SCREAMING_SNAKE NAME at a credential key is a reference, not
+        # material (SK utils.py ENV_VAR_API_KEY). Single-token caps values
+        # ("SUP3RSECRET123") do not match and stay reportable.
+        return True
+    value = raw_value.lower()
     if value in _CREDENTIAL_PLACEHOLDER_VALUES:
         return True
     if _PLACEHOLDER_VALUE_PREFIX.fullmatch(value):
@@ -1137,6 +1160,42 @@ def _is_placeholder_credential(match: "re.Match[str]") -> bool:
         # every real occurrence of these stems in scan corpora was one.
         return True
     return bool(re.fullmatch(r"<[^>]+>|\{[^}]*\}|%[sdf]", value))
+
+
+# The ungated string-literal pattern matched ANY C# declaration of 8+
+# characters ("var model = \"meta-llama-3-8b-instruct\"", "var prompt =
+# \"Hello, world!\"") and produced 1327 rows on semantic-kernel and 199 on
+# autogen -- 93% of which were model names, prompts and test fixtures. The
+# declaration's IDENTIFIER must name a credential for the literal to be one.
+_DOTNET_CREDENTIAL_IDENTIFIER = re.compile(
+    r"(?i)(?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|credential"
+    r"|connection[_-]?(?:string|str)|conn[_-]?(?:string|str)"
+    r"|auth(?:entication)?[_-]?(?:key|token|secret)"
+    r"|private[_-]?key|client[_-]?secret|access[_-]?key"
+    r"|sas(?:[_-]?token)?|signing[_-]?(?:key|secret))"
+)
+# A declaration's VALUE that only NAMES something is not material: the OTel
+# constants ``const string MaxToken = "gen_ai.request.max_tokens"`` (a dotted
+# attribute name, the C# twins of the python SOURCE rows) and
+# ``ENV_VAR_API_KEY = "AZURE_COGNITIVE_SEARCH_ADMIN_KEY"`` (a SCREAMING_SNAKE
+# environment-variable name) are references, not secrets. Mixed-case literals
+# (``"Sup3rSecretValue!42"``) and single-token caps values (``"SUP3RSECRET123"``)
+# stay reportable -- the env-name form demands >=2 underscore word breaks.
+_DOTNET_VALUE_NAME = re.compile(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$")
+_ENV_VAR_NAME_VALUE = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){2,}$")
+
+_TEST_PATH_PARTS = frozenset(
+    {"test", "tests", "unittest", "unittests", "spec", "specs", "__tests__", "testing"}
+)
+
+
+def _looks_like_test_path(filepath) -> bool:
+    """True for test-suite paths whose fixtures are deliberate stand-ins."""
+    p = str(filepath).replace("\\", "/").lower()
+    parts = set(seg for seg in p.split("/") if seg)
+    name = p.rsplit("/", 1)[-1]
+    return bool(parts & _TEST_PATH_PARTS) or name.startswith("test_") \
+        or name.endswith("_test.py") or ".tests." in name
 
 
 def _gate_shell_sink_findings(results: list[dict]) -> list[dict]:
@@ -1244,6 +1303,44 @@ def scan_file(filepath: str) -> list[dict]:
 
             if rule.get("id") == "TENANT_ISOLATION_MISSING":
                 if not _is_tenant_isolation_candidate(source, match, language, filepath):
+                    continue
+
+            if rule.get("id") == "DOTNET_HARDCODED_CREDENTIAL":
+                # Kill-only identifier gate: only credential-named
+                # declarations are hardcoded credentials. Model names,
+                # deployment names, prompts and question strings are not.
+                _ident = (match.group("ident") or "") if "ident" in match.groupdict() else ""
+                if not _ident or not _DOTNET_CREDENTIAL_IDENTIFIER.search(_ident):
+                    continue
+                # Value-side name gate: a credential-named declaration whose
+                # literal only NAMES something (OTel dotted attribute names,
+                # SCREAMING_SNAKE env-var names) is a reference, not material.
+                _lit = re.search(r'"([^"]{8,})"', match.group(0))
+                if _lit:
+                    _val = _lit.group(1)
+                    if _ENV_VAR_NAME_VALUE.fullmatch(_val) or (
+                        _DOTNET_VALUE_NAME.fullmatch(_val)
+                        and all(len(seg) <= 24 for seg in _val.split("."))
+                    ):
+                        continue
+
+            if rule.get("id") == "WORKFLOW_APPROVAL_BYPASS":
+                _wf_start = source.rfind("\n", 0, match.start()) + 1
+                _wf_end = source.find("\n", match.end())
+                _wf_line = source[_wf_start: len(source) if _wf_end == -1 else _wf_end]
+                if _looks_like_test_path(filepath):
+                    # Approval handlers and mocks in test suites
+                    # (ApprovalResponse(approved=True, ...)) exercise the
+                    # control, they do not bypass it.
+                    continue
+                if re.search(r"(?i)auto[_-]?approve[^\n]*?\bfalse\b", _wf_line):
+                    # Secure default: auto-approve disabled
+                    # (``sampling_auto_approve: bool = False``).
+                    continue
+                if re.search(r"(?i)auto[_-]?approve\s*[:=]\s*(?!true\b|false\b)[A-Za-z_][\w.]*\s*$", _wf_line):
+                    # Identifier passthrough (``self.x = x``), not an
+                    # enabled value. Booleans are excluded: ``= True`` is
+                    # an enabled bypass and must keep reporting.
                     continue
 
             # Reject matches that begin inside a real comment. This is

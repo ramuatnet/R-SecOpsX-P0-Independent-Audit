@@ -217,7 +217,14 @@ def _report_path(file_path: Path, target_root: Path) -> str:
         # as_posix(): report paths are a display contract.  str(Path(...)) uses
         # the OS separator, so on Windows this table showed bare names,
         # "a/b" paths and "a\b" paths side by side.
-        return (Path(target_root.name) / file_path.relative_to(target_root)).as_posix()
+        #
+        # Paths are relative to the SCAN TARGET, exactly as every other engine
+        # stores them. Prepending target_root.name made docker findings the
+        # only ones carrying a doubled project prefix
+        # ("autogen-main/.devcontainer/Dockerfile" when the file is
+        # ".devcontainer/Dockerfile" under the target), so their SARIF/Jira
+        # URIs did not resolve inside the scanned tree.
+        return file_path.relative_to(target_root).as_posix()
     except Exception:
         return str(file_path).replace("\\", "/")
 
