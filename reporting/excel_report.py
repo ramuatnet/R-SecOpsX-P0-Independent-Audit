@@ -39,6 +39,9 @@ from reporting.report_mappings import (
     format_attack_path_label,
     format_cvss_assessment,
     normalize_report_insights,
+    pkg_has_advisory,
+    sbom_display_sort_key,
+    license_sort_key,
 )
 
 from openpyxl import Workbook
@@ -791,9 +794,16 @@ def _sbom(ws, payload):
     ws.row_dimensions[2].height = 34
     ws.freeze_panes = "A3"
 
-    for i, pkg in enumerate(payload.get("sbom", []) or [], start=3):
+    # Reader order (sbom_display_sort_key): vulnerable components first by
+    # severity Critical -> High -> Medium -> Low, then the rest alphabetically
+    # -- the same order the PDF SBOM table uses, so both artifacts page
+    # together.  sorted() copies; the payload contract is untouched.
+    for i, pkg in enumerate(sorted(payload.get("sbom", []) or [],
+                                   key=sbom_display_sort_key), start=3):
         cves = _pkg_cve_list(pkg)
-        has_vulnerability = bool(cves)
+        # Shared predicate with the PDF table: one definition of "has a known
+        # vulnerability" wherever an advisory-derived cell is printed.
+        has_vulnerability = pkg_has_advisory(pkg)
         # No vulnerability means there is no severity to report, so '--' beside
         # the '--' in the CVE column rather than a placeholder word.  With a
         # vulnerability but no severity recorded, say 'Unknown'.  The legacy
@@ -802,20 +812,28 @@ def _sbom(ws, payload):
         # `scanner.package_intelligence._ABSENT_SEVERITY_VALUES` -- `"None"` is a
         # truthy *string*, so `pkg.get("severity") or "Unknown"` cannot catch it.
         if has_vulnerability:
-            _raw_sev = str(pkg.get("severity") or "").strip()
+            _raw_sev = str(pkg.get("severity")
+                           or pkg.get("highest_vulnerability_severity") or "").strip()
             sev = (_raw_sev
                    if _raw_sev.lower() not in {"", "none", "unknown", "n/a", "na"}
                    else "Unknown")
         else:
             sev = "--"
         bg = C_LBLUE if i % 2 == 0 else C_WHT
-        epss_s = _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3)
+        # Advisory-derived columns dash out on a component with no advisory
+        # (the same rule as the PDF table): KEV, exploitability, patch
+        # urgency and the age bucket are claims about a vulnerability, and
+        # "NOT_APPLICABLE"/"STANDARD"/"No" beside a "--" CVE cell reads as
+        # an assessment that was never made.  With an advisory, values render
+        # as before, and a genuinely unpublished one still says so in words.
+        epss_s = ("--" if not has_vulnerability
+                  else _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3))
         pkg_type = pkg.get("dependency_type") or pkg.get("type", "Direct")
         parent = pkg.get("parent") or pkg.get("introduced_by") or "--"
 
         reachable_vulnerable = (
             "Yes" if _is_reachable_vulnerable(pkg)
-            else ("No" if has_vulnerability else "N/A")
+            else ("No" if has_vulnerability else "--")
         )
 
         row_vals = [
@@ -824,20 +842,24 @@ def _sbom(ws, payload):
             _sbom_purl(pkg),
             pkg_type,
             parent,
-            ", ".join(cves) or "--",
+            ", ".join(cves) or (str(pkg.get("advisory_id")) if pkg.get("advisory_id") else "--"),
             _cvss_cell(pkg, has_vulnerability),
             epss_s,
-            "Yes" if pkg.get("kev_status") else "No",
+            "--" if not has_vulnerability else ("Yes" if pkg.get("kev_status") else "No"),
             reachable_vulnerable,
-            _first_value(
+            ("--" if not has_vulnerability else _first_value(
                 pkg, "exploitability_decision", "exploitability_action",
-                default="Review" if cves else "--"
-            ),
-            _first_value(pkg, "patch_urgency", "epss_priority", default="--"),
+                default="Review"
+            )),
+            ("--" if not has_vulnerability
+             else _first_value(pkg, "patch_urgency", "epss_priority", default="--")),
             sev,
-            _first_value(pkg, "published_date", "published", default="--"),
-            _first_value(pkg, "vulnerability_age_days", default="--"),
-            _first_value(pkg, "vulnerability_age_bucket", default="--"),
+            ("--" if not has_vulnerability
+             else _first_value(pkg, "published_date", "published", default="--")),
+            ("--" if not has_vulnerability
+             else _first_value(pkg, "vulnerability_age_days", default="--")),
+            ("--" if not has_vulnerability
+             else _first_value(pkg, "vulnerability_age_bucket", default="--")),
             _sbom_fixed_versions(pkg),
             _sbom_description(pkg),
             _sbom_reference_links(pkg),
@@ -851,7 +873,8 @@ def _sbom(ws, payload):
             cell.font = Font(name="Calibri", size=9, color=C_BLK)
             cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-            if j == 16:  # Severity
+            if j == 13:  # Severity (column M; the old `j == 16` targeted
+                # Age Bucket, so severity colours never showed on this sheet)
                 cell.fill = SEV_FILL.get(sev, _fill(bg))
                 cell.font = SEV_FONT.get(sev, _font(color=C_BLK))
                 cell.alignment = _ctr()
@@ -863,6 +886,27 @@ def _sbom(ws, payload):
 
         # Give detailed CVE rows enough room for description/reference links.
         ws.row_dimensions[i].height = 54 if has_vulnerability else 30
+
+    # Legend directly beneath the data: a bare workbook cannot rely on the
+    # reader having the PDF open beside it, and the Type/Reachable/dash
+    # vocabulary is what the PDF states above its own SBOM table.  Row slot:
+    # data ends at 2 + N, this lands at 3 + N, the G-003 note at 4 + N.
+    _legend_at = 3 + len(payload.get("sbom", []) or [])
+    ws.merge_cells(start_row=_legend_at, start_column=1,
+                   end_row=_legend_at, end_column=len(headers))
+    _lc = ws.cell(row=_legend_at, column=1, value=_sanitize_excel_value(
+        "Legend: Type - Direct = declared in a manifest; Transitive = pulled in "
+        "by another dependency. Reachable Vulnerable - Yes = advisory present AND "
+        "imports observed; No = advisory present, imports not observed; "
+        "-- = no advisory recorded, so severity, age, reachability, KEV, "
+        "exploitability and patch urgency do not apply. Rows are ordered: "
+        "components with known vulnerabilities first by severity (Critical, High, "
+        "Medium, Low), then the remaining components alphabetically."
+    ))
+    _lc.fill = _fill(C_GRY); _lc.border = _bdr()
+    _lc.font = Font(name="Calibri", size=9, italic=True, color=C_BLK)
+    _lc.alignment = _lft()
+    ws.row_dimensions[_legend_at].height = 30
 
     # G-003: the SBOM sheet prints EPSS and KEV columns, so it must carry the
     # STATIC_REFERENCE label directly beneath the data.
@@ -879,7 +923,9 @@ def _sca_findings(ws, payload):
     for i, w in enumerate(widths, 1): ws.column_dimensions[get_column_letter(i)].width = w
     _title_row(ws, "SCA VULNERABILITY FINDINGS FIRST-CLASS PACKAGE RECORDS", len(headers))
     _hdr(ws, 2, headers); ws.freeze_panes = "A3"
-    rows = [p for p in (payload.get("sbom", []) or []) if _pkg_cve_list(p)]
+    # Vulnerable-only sheet, same reader order as the PDF SBOM table.
+    rows = sorted((p for p in (payload.get("sbom", []) or []) if _pkg_cve_list(p)),
+                  key=sbom_display_sort_key)
     for idx, pkg in enumerate(rows, 1):
         cves = _pkg_cve_list(pkg); sev = pkg.get("severity") or pkg.get("highest_vulnerability_severity") or "Unknown"
         dep_type = pkg.get("dependency_type") or pkg.get("type", "Direct")
@@ -957,7 +1003,10 @@ def _licensing_details(ws, payload):
     _hdr(ws,2,headers); ws.freeze_panes="A3"
 
     summary=payload.get("license_evidence_summary",{}) or {}
-    rows=payload.get("sbom",[]) or []
+    # Ordered by resolved licence, then component (license_sort_key, the same
+    # key the PDF licensing table sorts with, so both artifacts list the same
+    # rows in the same order).  sorted() copies; the payload stays untouched.
+    rows=sorted(payload.get("sbom",[]) or [],key=license_sort_key)
     if not rows:
         ws.merge_cells(f"A3:{get_column_letter(len(headers))}3")
         ws["A3"]="No SBOM components were available for license-evidence reporting."
@@ -1291,6 +1340,10 @@ def _exploitable_cves(ws, payload):
         if str(pkg.get("patch_urgency") or "").upper() == "IMMEDIATE":
             reasons.append("immediate patch")
         rows.append((pkg, reasons))
+
+    # Same reader order as the SBOM sheets: Critical first, then High, then
+    # the rest by name (every row here is vulnerable by construction).
+    rows.sort(key=lambda _t: sbom_display_sort_key(_t[0]))
 
     if not rows:
         ws.merge_cells(f"A3:{get_column_letter(len(headers))}3")

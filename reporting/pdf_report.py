@@ -46,7 +46,7 @@ from core.config import TOOL_NAME, TOOL_FULL, CLASSIFICATION
 from pathlib import Path
 
 
-from reporting.report_mappings import clean_mojibake, normalize_fixed_versions, format_attack_path_label, format_cvss_assessment, normalize_report_insights, humanize_enum
+from reporting.report_mappings import clean_mojibake, normalize_fixed_versions, format_attack_path_label, format_cvss_assessment, normalize_report_insights, humanize_enum, pkg_has_advisory, sbom_display_sort_key, license_sort_key
 # Attack-path records come in two shapes: the current one from
 # core/attack_graph.py (path/source/sink/attack_path_status) and the legacy
 # one still present in three corpus artifacts (steps/narrative/risk_score/
@@ -4601,7 +4601,16 @@ def _sbom_section(payload):
 
 
 
-    vuln_deps=[d for d in sbom if (d.get("vulnerabilities") or d.get("cve") or d.get("advisory_id"))]
+    # Reader order: vulnerable components first, ordered Critical -> High ->
+    # Medium -> Low, then every clean component, each group alphabetical by
+    # name then version (sbom_display_sort_key, shared with the Excel SBOM
+    # sheet so both artifacts list the same rows in the same order).  The
+    # payload order is manifest order, which scatters the vulnerable rows
+    # across the whole inventory and makes the reader hunt for them.
+    # sorted() copies, so the payload contract comes back untouched.
+    sbom=sorted(sbom,key=sbom_display_sort_key)
+
+    vuln_deps=[d for d in sbom if pkg_has_advisory(d)]
 
 
     reachable=[d for d in vuln_deps if d.get("reachability_priority") == "REACHABLE_VULNERABLE" or d.get("reachable") is True or str(d.get("reachability_status") or "").upper() == "REACHABLE"]
@@ -4632,11 +4641,70 @@ def _sbom_section(payload):
         f"<b>{len(vuln_deps)} of {len(sbom)} packages have known vulnerabilities</b>; "
         + _cve_sentence +
         f"<b>{len(reachable)} of {len(vuln_deps)} vulnerable packages are reachable</b> "
-        "in the scanned application context.",S["Body"]))
+        "in the scanned application context. Components with known vulnerabilities "
+        "are listed first ordered by severity (Critical, High, Medium, Low), then "
+        "the remaining components alphabetically by name.",S["Body"]))
 
 
 
 
+
+    # Everything a reader needs to interpret the cells sits ABOVE the table:
+    # this table runs ~100 pages, and a legend printed after it is never seen
+    # by anyone still reading row 60.  (The Type and CVSS notes were moved up
+    # from below the table for that reason -- audit M2 could not find them.)
+    story.append(Spacer(1, 0.15*cm))
+
+    # The Type column is a single letter; without a legend the reader has to
+    # guess that D/T means direct/transitive (audit M2).  Derived from the
+    # same field the column renders, so they cannot drift apart.
+    story.append(Paragraph(
+        "<b>Type:</b> D = declared directly in a manifest "
+        "(dependencies / devDependencies); T = transitive, pulled in by "
+        "another dependency.",
+        S["BodySmall"]))
+
+    story.append(Spacer(1, 0.1*cm))
+
+    # A row with no advisory used to print Severity "Unknown", Age "Not
+    # applicable" and Reachable "Yes"/"No" beside dashes in CVE/CVSS/EPSS --
+    # three vocabularies for "there is no vulnerability here", and Reachable
+    # "Yes" on @gradio/client read as an exploitability claim when it only
+    # meant the package's import was observed.  The dash now covers every
+    # advisory-derived cell; Yes/No is reserved for rows that actually have
+    # an advisory to reach.  "Unknown"/"score unavailable" still appear in
+    # words where an advisory exists but the value is not published.
+    story.append(Paragraph(
+        "<b>Severity / Age / Reachable:</b> on a row whose CVE / Advisory "
+        "cell reads <b>--</b>, Severity, Age and Reachable read <b>--</b> "
+        "too: there is no advisory, so there is no severity, no age and no "
+        "vulnerability to reach. Reachable Yes/No asks one question of a "
+        "vulnerable package - were its imports observed in the scanned "
+        "application? Yes is static import evidence, not proof that the "
+        "code runs or that the flaw is exploitable.",
+        S["BodySmall"]))
+
+    story.append(Spacer(1, 0.1*cm))
+
+    # The CVSS column names the standard that produced its number, so the
+    # reader needs to know why two cells in it can look like the same
+    # admission and mean opposite things: a dash denies the finding exists,
+    # "score unavailable" affirms it does and declines to rate it. Without
+    # this, a missing score reads as a clean result.
+    story.append(Paragraph(
+        "<b>CVSS:</b> the version and score of the advisory's preferred "
+        "assessment - where an advisory publishes both a 4.0 and a 3.x "
+        "assessment of the same flaw, 4.0 is shown and each assessment "
+        "keeps its own score, so the number beside a version label is "
+        "always that version's number. <i>version unknown</i> means the "
+        "source published a score without saying which standard produced "
+        "it, and no version has been guessed from the number. "
+        "<i>score unavailable</i> means the vulnerability exists but no "
+        "score is published for it - it is not an absence of risk. "
+        "<b>--</b> means no vulnerability was recorded against that package.",
+        S["BodySmall"]))
+
+    story.append(Spacer(1, 0.2*cm))
 
     rows=[[Paragraph(h,S["TH"]) for h in
 
@@ -4647,60 +4715,60 @@ def _sbom_section(payload):
     for pkg in sbom:
 
 
-        sev=pkg.get("severity") or pkg.get("highest_vulnerability_severity") or "Unknown"
+        # Same predicate the section's prose count uses (pkg_has_advisory,
+        # shared with the Excel sheets), so a cell can never claim a
+        # vulnerability the prose did not count, nor omit one that it did.
+        # Every advisory-derived cell below branches on it: a component
+        # without an advisory has no severity, no age and no vulnerability
+        # to reach, so those cells read "--" -- the same dash already shown
+        # in CVE / CVSS / EPSS -- instead of a placeholder word that reads
+        # like a finding ("Unknown") or a claim that invites the question
+        # this section got: Reachable "Yes" on a row with no advisory.
+        has_vulnerability = pkg_has_advisory(pkg)
 
+        sev = "--"
+        age = "--"
+        fixed = "--"
+        reachable_cell = "--"
+        epss_str = "--"
+        id_str = "--"
+        if has_vulnerability:
+            # Where an advisory exists but a value is genuinely unpublished,
+            # say so in words ("Unknown"): a dash row means no advisory, an
+            # Unknown cell means a real data gap.  The literal-'None'
+            # sentinel is filtered exactly as the Excel sheet filters it
+            # (scanner.package_intelligence._ABSENT_SEVERITY_VALUES):
+            # "None" is a truthy string, so a bare `or "Unknown"` misses it.
+            _raw_sev = str(pkg.get("severity")
+                           or pkg.get("highest_vulnerability_severity") or "").strip()
+            sev = (_raw_sev if _raw_sev.casefold() not in {"", "none", "unknown", "n/a", "na"}
+                   else "Unknown")
 
-        epss=pkg.get("epss_score", pkg.get("epss"))
+            cves = list(pkg.get("cve_list") or [])
+            advisories = list(pkg.get("advisory_ids") or [])
+            vuln_ids = cves[:3] + [a for a in advisories if a not in cves][:2]
+            id_str = (", ".join(vuln_ids) if vuln_ids
+                      else (pkg.get("cve") or pkg.get("advisory_id") or "--"))
 
+            age_days = pkg.get("vulnerability_age_days")
+            age_bucket = pkg.get("vulnerability_age_bucket")
+            age = pkg.get("vulnerability_age")
+            if age_days not in (None, "", "--"):
+                age = f"{age_days}d" + (f" ({humanize_enum(age_bucket)})" if age_bucket else "")
+            age = age or "Unknown"
 
-        epss_str=f"{float(epss):.3f}" if epss is not None else "--"
+            epss = pkg.get("epss_score", pkg.get("epss"))
+            epss_str = f"{float(epss):.3f}" if epss is not None else "--"
 
+            reachable_cell = ("Yes" if (
+                pkg.get("reachability_priority") == "REACHABLE_VULNERABLE"
+                or pkg.get("reachable") is True
+                or str(pkg.get("reachability_status") or "").upper() == "REACHABLE"
+            ) else "No")
+
+            fixed = _v17923_fixed_text(pkg)
 
         direct=pkg.get("direct",True)
-
-
-        cves = list(pkg.get("cve_list") or [])
-
-
-        advisories = list(pkg.get("advisory_ids") or [])
-
-
-        vuln_ids = cves[:3] + [a for a in advisories if a not in cves][:2]
-
-
-        id_str = ", ".join(vuln_ids) if vuln_ids else (pkg.get("cve") or pkg.get("advisory_id") or "--")
-
-
-        age_days = pkg.get("vulnerability_age_days")
-
-
-        age_bucket = pkg.get("vulnerability_age_bucket")
-
-
-        age = pkg.get("vulnerability_age")
-
-
-        if age_days not in (None, "", "--"):
-
-
-            age = f"{age_days}d" + (f" ({humanize_enum(age_bucket)})" if age_bucket else "")
-
-
-        age = age or "Unknown"
-
-
-        reachable_yes = pkg.get("reachability_priority") == "REACHABLE_VULNERABLE" or pkg.get("reachable") is True or str(pkg.get("reachability_status") or "").upper() == "REACHABLE"
-
-
-        fixed = _v17923_fixed_text(pkg)
-
-
-        # Same predicate the section's own vulnerability count uses, so a
-        # cell can never claim a vulnerability the prose did not count, nor
-        # omit one that it did.
-        has_vulnerability = bool(
-            pkg.get("vulnerabilities") or pkg.get("cve") or pkg.get("advisory_id")
-        )
         score = pkg.get("cvss_preferred_score")
         if score is None:
             # Both keys are written by the same enrichment pass. A missing
@@ -4739,7 +4807,7 @@ def _sbom_section(payload):
             Paragraph(str(age), S["TDC"]),
 
 
-            Paragraph("Yes" if reachable_yes else "No", S["TDC"]),
+            Paragraph(str(reachable_cell), S["TDC"]),
 
 
             Paragraph(str(fixed), S["TDSm"]),
@@ -4808,39 +4876,9 @@ def _sbom_section(payload):
     story.append(t)
 
 
-    story.append(Spacer(1, 0.2*cm))
-
-
-    # The Type column is a single letter; without a legend the reader has to
-    # guess that D/T means direct/transitive (audit M2).  Derived from the
-    # same field the column renders, so they cannot drift apart.
-    story.append(Paragraph(
-        "<b>Type:</b> D = declared directly in a manifest "
-        "(dependencies / devDependencies); T = transitive, pulled in by "
-        "another dependency.",
-        S["BodySmall"]))
-
-
-    story.append(Spacer(1, 0.1*cm))
-
-
-    # The CVSS column names the standard that produced its number, so the
-    # reader needs to know why two cells in it can look like the same
-    # admission and mean opposite things: a dash denies the finding exists,
-    # "score unavailable" affirms it does and declines to rate it. Without
-    # this, a missing score reads as a clean result.
-    story.append(Paragraph(
-        "<b>CVSS:</b> the version and score of the advisory's preferred "
-        "assessment - where an advisory publishes both a 4.0 and a 3.x "
-        "assessment of the same flaw, 4.0 is shown and each assessment "
-        "keeps its own score, so the number beside a version label is "
-        "always that version's number. <i>version unknown</i> means the "
-        "source published a score without saying which standard produced "
-        "it, and no version has been guessed from the number. "
-        "<i>score unavailable</i> means the vulnerability exists but no "
-        "score is published for it - it is not an absence of risk. "
-        "<b>--</b> means no vulnerability was recorded against that package.",
-        S["BodySmall"]))
+    # The Type and CVSS cell legends moved ABOVE the table (see the
+    # "Everything a reader needs" block before the header row): this table
+    # runs ~100 pages and a legend printed after row 823 is never read.
 
 
     story.append(Spacer(1, 0.1*cm))
@@ -5223,7 +5261,8 @@ def _licensing_section(payload):
 
 
         f"Existing policy summary status remains "
-        f"<b>{humanize_enum(policy.get('summary_status') or 'NOT_AVAILABLE')}</b>.",
+        f"<b>{humanize_enum(policy.get('summary_status') or 'NOT_AVAILABLE')}</b>. "
+        "Records below are ordered by resolved licence, then by component name.",
 
 
         S["Body"]))
@@ -5270,8 +5309,12 @@ def _licensing_section(payload):
 
     evidence_rows=payload.get("license_evidence",[]) or []
 
-
-    for item in evidence_rows:
+    # Ordered by resolved licence, then component -- one contiguous block per
+    # licence so "what ships under LGPL here?" is a single read.  sorted()
+    # copies: the L12 contract test requires the payload to come back
+    # untouched, and the Excel Licensing Details sheet sorts its rows with
+    # the same shared key (license_sort_key) so both artifacts agree.
+    for item in sorted(evidence_rows,key=license_sort_key):
 
 
         rows.append([

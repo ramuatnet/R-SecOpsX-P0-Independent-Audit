@@ -625,6 +625,88 @@ def format_cvss_assessment(version, score, has_vulnerability: bool = True) -> st
     return "CVSS score unavailable"
 
 
+# ------------------------------------------------------------------ SBOM ---
+# One predicate and one display order for every renderer that prints an
+# advisory-derived cell (CVE, CVSS, EPSS, severity, age, reachability, fix).
+# Before this existed, the PDF counted `vulnerabilities or cve or advisory_id`
+# while the Excel sheet counted `cve_list / cves / additional_cves /
+# vulnerability_ids / vulnerabilities[].id` -- measured on the shipped corpus
+# both agreed (32 == 32), but nothing forced them to, and a divergence would
+# show as prose counting a vulnerability the cells dash away (or vice versa).
+
+_SBOM_SEVERITY_RANK = {
+    "critical": 0, "high": 1, "medium": 2, "low": 3,
+    "info": 4, "informational": 4,
+}
+
+
+def pkg_has_advisory(pkg) -> bool:
+    """True when the component carries at least one known vulnerability.
+
+    Union of the predicates the PDF and Excel renderers each used alone.
+    A non-dict entry is treated as having no advisory: it can render as a
+    dash row but may never claim a finding.
+    """
+    if not isinstance(pkg, dict):
+        return False
+    if pkg.get("vulnerabilities") or pkg.get("cve") or pkg.get("advisory_id"):
+        return True
+    if pkg.get("cve_list") or pkg.get("advisory_ids"):
+        return True
+    for key in ("cves", "additional_cves", "vulnerability_ids"):
+        val = pkg.get(key)
+        if isinstance(val, list) and val:
+            return True
+        if isinstance(val, str) and val.strip():
+            return True
+    return False
+
+
+def sbom_display_sort_key(pkg):
+    """Reader order for the full-SBOM tables: vulnerable first, then severity.
+
+    Components with known vulnerabilities come first ordered Critical -> High
+    -> Medium -> Low (an advisory whose severity is not published sorts last
+    among the vulnerable ones, never in a bucket that hides it), then every
+    clean component; both groups alphabetical by name, then version. The
+    payload order is manifest order, which scatters ~32 vulnerable rows
+    across 823 and makes the reader hunt for them. Single source so the PDF
+    table and the Excel sheet page together.
+    """
+    if not isinstance(pkg, dict):
+        return (1, 5, "", "")
+    if pkg_has_advisory(pkg):
+        sev = str(pkg.get("severity")
+                  or pkg.get("highest_vulnerability_severity")
+                  or "").strip().casefold()
+        group, rank = 0, _SBOM_SEVERITY_RANK.get(sev, 5)
+    else:
+        group, rank = 1, 5
+    name = str(pkg.get("name") or pkg.get("component") or "").casefold()
+    version = str(pkg.get("version") or pkg.get("current_version") or "").casefold()
+    return (group, rank, name, version)
+
+
+def license_sort_key(row):
+    """Reader order for licensing tables: one contiguous block per resolved
+    licence, alphabetical, components alphabetical inside it. A reviewer
+    asking "what ships under LGPL here?" reads one block instead of hunting
+    823 manifest-ordered rows. Tolerant of both source shapes -- the PDF's
+    ``license_evidence`` rows key the component as ``package``, the Excel
+    sheet reads ``sbom`` rows keyed as ``name``/``component`` -- so the two
+    artifacts list the same components in the same order.
+    """
+    if not isinstance(row, dict):
+        return ("", "", "")
+    lic = str(row.get("license_resolved") or row.get("normalized_license")
+              or row.get("license_declared") or row.get("license")
+              or "UNKNOWN").casefold()
+    name = str(row.get("package") or row.get("name")
+               or row.get("component") or "").casefold()
+    version = str(row.get("version") or row.get("current_version") or "").casefold()
+    return (lic, name, version)
+
+
 def format_attack_path_label(is_confirmed: bool) -> str:
     return ('CONFIRMED — Source-to-sink evidence validated.' if is_confirmed else
             'PATTERN-ONLY — Candidate attack path. Manual validation is required before exploitability is established.')
