@@ -408,6 +408,16 @@ class TaintVisitor(ast.NodeVisitor):
         self.findings: list[TaintFinding] = []
         self._cur_func = ""
         self._tainted_returns: dict[str, str] = {}
+        # Names whose most recent assignment is a SQLAlchemy query-builder
+        # expression, as (func, lineno, rhs).  A builder generates the SQL
+        # text with bound parameters, so taint that only reaches a
+        # .filter(col == value) is DATA, not SQL structure -- the eight
+        # TAINT_SQL_INJECTION findings on wrongsecrets-style CRUD modules
+        # (select(...).filter(Model.col == param); session.execute(query))
+        # were exactly this shape.  Recorded only when the file imports
+        # sqlalchemy, dropped on ANY non-builder reassignment, and read only
+        # for a sink in the same function at a later line: proof, not hope.
+        self._builder_assigns: dict[str, tuple[str, int, ast.AST]] = {}
 
     def _mark_tainted(self, name: str, tv: TaintedVar) -> None:
         """Write taint and remember which statement block wrote it."""
@@ -689,12 +699,75 @@ class TaintVisitor(ast.NodeVisitor):
             if kw.arg in self._SQL_QUERY_KEYS:
                 return kw.value
         return None
+    _SQL_BUILDER_CALLS = frozenset({"select", "insert", "update", "delete"})
+    _DYNAMIC_SQL_TEXT_CALLS = frozenset({"text", "exec_driver_sql"})
+
+    def _is_query_builder_rhs(self, rhs) -> bool:
+        """True when *rhs* is a SQLAlchemy ORM/Core query-builder expression.
+
+        ``select(User).filter(User.id == x)`` (also via a module alias such as
+        ``sa.select``) compiles to a parameterized statement: the tainted
+        value becomes a bound parameter and cannot alter SQL structure.  A
+        dynamic-text call inside the builder (``select(text(f"..."))``)
+        withholds the classification -- that shape IS injectable.
+        """
+        try:
+            imported = any(
+                str(v).split(".", 1)[0] == "sqlalchemy"
+                for v in self._import_alias.values()
+            )
+        except Exception:  # pragma: no cover - defensive, never kill on error
+            return False
+        if not imported:
+            return False
+        node = rhs
+        # Unwrap fluent chaining: select(...).filter(...).order_by(...)
+        while (isinstance(node, ast.Call)
+               and isinstance(node.func, ast.Attribute)
+               and isinstance(node.func.value, ast.Call)):
+            node = node.func.value
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            base = func.attr  # sa.select / sqlalchemy.select
+            recv = func.value
+            while isinstance(recv, ast.Attribute):
+                recv = recv.value
+            # The receiver must be the sqlalchemy module alias itself, not an
+            # object that happens to expose a .select() method.
+            if not isinstance(recv, ast.Name) or not str(
+                    self._import_alias.get(recv.id, "")).startswith("sqlalchemy"):
+                return False
+        elif isinstance(func, ast.Name):
+            base = func.id  # from sqlalchemy import select
+        else:  # pragma: no cover - defensive
+            return False
+        if base not in self._SQL_BUILDER_CALLS:
+            return False
+        for sub in ast.walk(rhs):
+            if isinstance(sub, ast.Call):
+                f = sub.func
+                fname = (f.attr if isinstance(f, ast.Attribute)
+                         else f.id if isinstance(f, ast.Name) else "")
+                if fname in self._DYNAMIC_SQL_TEXT_CALLS:
+                    return False
+        return True
+
     def _sql_text_is_tainted(self, call: ast.Call) -> bool:
         q = self._sql_query_node(call)
         if q is None:
             # Cannot establish which argument is the statement -- stay
             # conservative and let the generic rules run.
             return True
+        if isinstance(q, ast.Name):
+            entry = self._builder_assigns.get(q.id)
+            if (entry is not None
+                    and entry[0] == self._cur_func
+                    and entry[1] < call.lineno):
+                # The statement is a query-builder product recorded earlier
+                # in this same function; taint rides in bound parameters.
+                return False
         return bool(self._tainted_names_in(q, "sql_injection")
                     or self._source_exprs_in(q, "sql_injection"))
     def _is_argv_execution(self, call: ast.Call) -> bool:
@@ -756,6 +829,13 @@ class TaintVisitor(ast.NodeVisitor):
         for t in node.targets:
             if isinstance(t, ast.Name):
                 self._set_binding(t.id, "var")
+                # Track/invalidate query-builder provenance for SQL sinks:
+                # ANY non-builder reassignment drops the record, so a later
+                # ``query = request.args["q"]`` can never inherit the kill.
+                if self._is_query_builder_rhs(node.value):
+                    self._builder_assigns[t.id] = (self._cur_func, node.lineno, node.value)
+                else:
+                    self._builder_assigns.pop(t.id, None)
         if src_label is not None:
             for t in node.targets:
                 if isinstance(t, ast.Name):
@@ -830,6 +910,7 @@ class TaintVisitor(ast.NodeVisitor):
             # ``query += ...`` is a runtime write: the name can no longer be
             # proven constant, so drop any prior "const" classification.
             self._set_binding(t_name, "var")
+            self._builder_assigns.pop(t_name, None)
             names = self._tainted_names_in(node.value)
             if src_label:
                 if t_name not in self.tainted:

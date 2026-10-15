@@ -247,7 +247,7 @@ ENTERPRISE_RULES: list[dict] = [
 REGEX_RULES: list[dict] = [
     {"id":"AWS_ACCESS_KEY","name":"AWS Access Key","pattern":re.compile(r"AKIA[0-9A-Z]{16}", _F),"vuln_type":"hardcoded_secret","note":"AWS access key ID detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     {"id":"GITHUB_TOKEN","name":"GitHub Token","pattern":re.compile(r"ghp_[A-Za-z0-9]{36}", _F),"vuln_type":"hardcoded_secret","note":"GitHub personal access token detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    {"id":"GENERIC_API_KEY_PASSWORD","name":"Generic API Key/Password","pattern":re.compile(r'(?:api[_-]?key|api[_-]?token|secret[_-]?key|auth[_-]?token|access[_-]?token|password|passwd|pwd)\s*[:=]\s*["\'][A-Za-z0-9@#$%^&+=!_.\-/]{8,}["\']', _F),"vuln_type":"hardcoded_secret","note":"Possible hardcoded credential or API key.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
+    {"id":"GENERIC_API_KEY_PASSWORD","name":"Generic API Key/Password","pattern":re.compile(r'(?:api[_-]?key|api[_-]?token|secret[_-]?key|auth[_-]?token|access[_-]?token|password|passwd|pwd)\s*[:=]\s*(?P<q>["\'])(?P<credval>[A-Za-z0-9@#$%^&+=!_.\-/]{8,})(?P=q)', _F),"vuln_type":"hardcoded_secret","note":"Possible hardcoded credential or API key.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     # G-036b: the sites that actually *enforce* a secret were never reported.
     # The assignment rules above catch `KEY = "..."`, but the seven checks that
     # return 401 - `if token != "sk-mock-key"`, `if api_key != "foobar"`,
@@ -1112,6 +1112,17 @@ _CREDENTIAL_PLACEHOLDER_VALUES = frozenset({
     "xxx", "redacted", "test", "testing", "unset",
 })
 
+# A literal whose ENTIRE value is a placeholder stem plus, at most, a
+# credential-noun decoration: "some_key", "custom_key", "fakekey",
+# "demo_token".  Anchored at BOTH ends, so "some_key_prod_9x2" (which could
+# hold material) and the real word "customer_key" are untouched, and the
+# deliberately-real "bar"/"foobar" sentinels stay reportable.
+_PLACEHOLDER_VALUE_PREFIX = re.compile(
+    r"(?i)^(?:some|custom|fake|sample|dummy|demo|placeholder|changeme|example)"
+    r"[_-]?(?:key|keys|token|secret|pass|password|passwd|pwd|cred|credential|"
+    r"value|val|data|thing|name)?$"
+)
+
 
 def _is_placeholder_credential(match: "re.Match[str]") -> bool:
     """True when the compared literal is a sentinel, not secret material."""
@@ -1120,6 +1131,10 @@ def _is_placeholder_credential(match: "re.Match[str]") -> bool:
     except (IndexError, re.error):
         return False
     if value in _CREDENTIAL_PLACEHOLDER_VALUES:
+        return True
+    if _PLACEHOLDER_VALUE_PREFIX.fullmatch(value):
+        # "some_key" / "custom_key" in test fixtures: obvious stand-ins, and
+        # every real occurrence of these stems in scan corpora was one.
         return True
     return bool(re.fullmatch(r"<[^>]+>|\{[^}]*\}|%[sdf]", value))
 
@@ -1189,7 +1204,8 @@ def scan_file(filepath: str) -> list[dict]:
             lineno, snippet = _snippet_for_match(rule, source, lines, match.start(), match.end())
             if _is_comment(snippet, language):
                 continue
-            if rule.get("id") == "HARDCODED_CREDENTIAL_COMPARISON" and _is_placeholder_credential(match):
+            if rule.get("id") in {"HARDCODED_CREDENTIAL_COMPARISON",
+                                  "GENERIC_API_KEY_PASSWORD"} and _is_placeholder_credential(match):
                 continue
             findings.append(_make_finding(rule, filepath, lineno, snippet, language))
 

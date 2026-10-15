@@ -227,9 +227,65 @@ def _looks_like_terraform_reference(v):
     value = str(v or "").strip().strip('"\'`')
     return bool(_TERRAFORM_REFERENCE.fullmatch(value))
 
+
+# Values that name a credential rather than BEING one.  Each exclusion is a
+# shape that cannot be secret material, measured on real scan output:
+#   * ``${{ secrets.X }}`` -- a GitHub Actions secret REFERENCE; flagging it
+#     punishes the secure pattern and trains reviewers to ignore the rule
+#     (AgentGPT: sponsors.yml token: ${{ secrets.SPONSOR_WORKFLOW_PAT }}).
+#   * ``serverEnv.GOOGLE_CLIENT_SECRET`` / ``settings.openai_api_key`` --
+#     dotted config-object references (NextAuth clientSecret wiring, SDK
+#     constructors).  The namespace list is deliberate: an arbitrary dotted
+#     value could be a real token, ``settings.x`` never is.
+#   * ``Optional[str]`` / ``None`` -- a type declaration or empty sentinel
+#     (pydantic ``sid_client_secret: Optional[str] = None``).
+#   * ``^1.1.1.5`` / ``1.21.4`` -- version ranges and numbers; a manifest
+#     dependency line whose NAME contains "secret" is not a credential
+#     assignment (AgentGPT: aws-secretsmanager-caching = "^1.1.1.5").
+_GH_EXPRESSION = re.compile(r"^\s*\$\{\{.*\}\}\s*$")
+_CONFIG_REFERENCE = re.compile(
+    r"^(?:self|this|cls|super|env|settings|config|configuration|cfg|serverEnv|"
+    r"clientEnv|server_env|client_env|process|os|sys|module|vars|locals|props|"
+    r"credentials|secrets|secretsmanager|params|appConfig|runtimeConfig)"
+    r"(?:\.[A-Za-z_$][\w$]*)+$"
+)
+_TYPE_SENTINEL = re.compile(
+    r"^(?:Optional|Union|List|Dict|Set|Tuple|Sequence|Mapping|Annotated|Literal|"
+    r"Callable|Type|Iterable)\[.*\]$"
+    r"|^(?:str|bytes|dict|list|tuple|int|float|bool|any|Any|None|Null|null|NULL|"
+    r"true|false|True|False|undefined|undefined\(\))$"
+)
+_CONFIG_GETTER_PREFIX = re.compile(
+    r"^(?:os\.getenv|os\.environ|environ\b|getenv\b|process\.env\b|"
+    r"settings\.getenv|config\.get\b|runtime_env\b)"
+)
+_VERSION_RANGE = re.compile(
+    r"^[\s<>=~^*]"
+    r"|^v?\d+(?:\.\d+){1,4}(?:[-+][\w.\-+]+)?$"
+)
+
+
+def _value_is_code_reference(v) -> bool:
+    """True when the matched value names a credential instead of being one."""
+    value = str(v or "").strip().strip('"\'`')
+    if not value:
+        return False
+    if _CONFIG_GETTER_PREFIX.match(value):
+        # os.getenv("X" / process.env.X -- a call whose captured prefix ends
+        # at the first quote or paren; still a reference, never a literal.
+        return True
+    return bool(
+        _GH_EXPRESSION.fullmatch(value)
+        or _CONFIG_REFERENCE.fullmatch(value)
+        or _TYPE_SENTINEL.fullmatch(value)
+        or _VERSION_RANGE.match(value)
+    )
+
+
 def _looks_like_secret_value(v):
     x=v.strip().strip('"\'`')
     if not x or _looks_like_env(x) or _looks_like_terraform_reference(x) or _is_placeholder(x) or len(x)<8: return False
+    if _value_is_code_reference(x): return False
     if re.match(r"^(?:https?|ftp)://",x,re.I): return False
     if re.fullmatch(r"[0-9a-fA-F-]{32,}",x) and x.count('-')>=2: return False
     return True
@@ -329,6 +385,14 @@ def _scan_known_signatures(path,text,lang):
     for rid,title,vuln,pat,sev,cwe in KNOWN_SECRET_RULES:
         m=re.search(pat,text,re.M)
         if not m: continue
+        # A signature can match a *reference* to the secret rather than the
+        # secret: ``client_secret: Optional[str]`` (a type declaration),
+        # ``clientSecret: serverEnv.GOOGLE_CLIENT_SECRET`` (config wiring),
+        # ``oauth_secret: ${{ secrets.X }}`` (CI expression).  The value
+        # after the assignment decides, never the key name.
+        _assigned = re.split(r"[:=]", m.group(0), maxsplit=1)
+        if len(_assigned) == 2 and _value_is_code_reference(_assigned[1]):
+            continue
         line=text[:m.start()].count("\n")+1
         if _is_placeholder(m.group(0)): continue
         out.append(_build_finding(rid,title,vuln,sev,cwe,path,line,"[KNOWN SECRET REDACTED]",lang))
@@ -745,6 +809,12 @@ def scan_file(filepath: str) -> list[dict]:
         if not m: continue
         line=text[:m.start()].count("\n")+1; snippet=lines[line-1] if line<=len(lines) else m.group(0)
         if snippet.strip().startswith(("#","//","*")): continue
+        # Same value-decision as _scan_known_signatures: a signature can match
+        # a reference to the credential (type declaration, config-object
+        # wiring, CI expression, version range) rather than the credential.
+        _assigned = re.split(r"[:=]", m.group(0), maxsplit=1)
+        if len(_assigned) == 2 and _value_is_code_reference(_assigned[1]):
+            continue
         # Do not suppress based on repository context.
         # Test/fixture/example paths may still contain reusable credentials.
 

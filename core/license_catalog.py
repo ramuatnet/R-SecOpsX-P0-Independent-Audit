@@ -68,6 +68,9 @@ LOW_RISK_LICENSES = {
     # only licence that explicitly waives the attribution NOTICE set exists
     # to track, so it deliberately does not join NOTICE_REQUIRED_LICENSES.
     "MIT-0",
+    # Open Data Commons Attribution (AgentGPT's language-subtag-registry):
+    # a CC-BY-family data licence, permissive with attribution retained.
+    "ODC-By-1.0",
 }
 
 
@@ -87,6 +90,7 @@ NOTICE_REQUIRED_LICENSES = {
     "CC-BY-4.0",
     "HPND",
     "AFL-2.1",
+    "ODC-By-1.0",
 }
 
 
