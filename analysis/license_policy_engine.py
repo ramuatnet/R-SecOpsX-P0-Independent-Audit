@@ -2,44 +2,27 @@ from __future__ import annotations
 
 from collections import Counter
 
+# One catalogue, one decision table.  This module used to carry its own
+# narrower copies of the risk sets and decision rules; on a real scan
+# (wrongsecrets, 2026-10-15) that divergence classified eight genuinely
+# permissive npm components (BlueOak-1.0.0, Python-2.0, CC-BY-4.0 and three
+# SPDX OR-expressions) as UNCLASSIFIED_LICENSE / REVIEW_REQUIRED while the
+# report's category column -- derived from core.license_catalog via the
+# package-intelligence pass -- called the same rows Permissive.  The policy
+# engine is the FINAL decision layer, so it must read the authoritative
+# catalogue rather than a stale subset of it.
+from core import license_catalog
 
-HIGH_RISK_LICENSES = {
-    "AGPL-3.0",
-    "AGPL-3.0-only",
-    "AGPL-3.0-or-later",
-    "GPL-3.0",
-    "GPL-3.0-only",
-    "GPL-3.0-or-later",
-    "SSPL-1.0",
-    "BUSL-1.1",
-    "Commons-Clause",
-}
+HIGH_RISK_LICENSES = license_catalog.HIGH_RISK_LICENSES
+MEDIUM_RISK_LICENSES = license_catalog.MEDIUM_RISK_LICENSES
+LOW_RISK_LICENSES = license_catalog.LOW_RISK_LICENSES
 
-MEDIUM_RISK_LICENSES = {
-    "GPL-2.0",
-    "GPL-2.0-only",
-    "GPL-2.0-or-later",
-    "LGPL-2.1",
-    "LGPL-2.1-only",
-    "LGPL-2.1-or-later",
-    "LGPL-3.0",
-    "LGPL-3.0-only",
-    "LGPL-3.0-or-later",
-    "MPL-2.0",
-    "EPL-2.0",
-    "CDDL-1.0",
-}
-
-LOW_RISK_LICENSES = {
-    "MIT",
-    "Apache-2.0",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "ISC",
-    "0BSD",
-    "Unlicense",
-    "CC0-1.0",
-}
+# One label for one engine.  The per-item method used to read
+# "..._V3_QUALIFIED_EVIDENCE" while the summary of the SAME run read
+# "..._V1", which an auditor (rightly) reported as "confirm which engine
+# produced the final results".  The summary status is the prefix of the
+# per-item method by construction.
+POLICY_ENGINE_LABEL = "RULE_BASED_LICENSE_POLICY_V3"
 
 UNKNOWN_VALUES = {
     "",
@@ -76,64 +59,18 @@ def _normalize_license(value: str | None) -> str:
 
 
 def _risk_for_license(license_id: str) -> tuple[str, str, str]:
-    if license_id == "UNKNOWN":
-        return (
-            "MEDIUM",
-            "UNKNOWN_LICENSE",
-            "License information is missing or unknown; legal review may be required.",
-        )
-
-    if license_id in HIGH_RISK_LICENSES:
-        return (
-            "HIGH",
-            "RESTRICTIVE_OR_STRONG_COPYLEFT",
-            "Restrictive or strong copyleft license detected; proprietary distribution may require legal review.",
-        )
-
-    if license_id in MEDIUM_RISK_LICENSES:
-        return (
-            "MEDIUM",
-            "COPYLEFT_OR_RECIPROCAL_LICENSE",
-            "Copyleft or reciprocal license detected; compatibility and attribution obligations should be reviewed.",
-        )
-
-    if license_id in LOW_RISK_LICENSES:
-        return (
-            "LOW",
-            "PERMISSIVE_LICENSE",
-            "Permissive license detected; attribution obligations may still apply.",
-        )
-
-    return (
-        "MEDIUM",
-        "UNCLASSIFIED_LICENSE",
-        "License is not in the local policy catalog; review recommended.",
-    )
+    """Delegate to the authoritative catalogue (single source of truth)."""
+    return license_catalog.license_risk(license_id)
 
 
 def _policy_decision(risk: str, issue: str) -> str:
-    if risk == "HIGH":
-        return "LEGAL_REVIEW_REQUIRED"
-
-    if issue in {"UNKNOWN_LICENSE", "UNCLASSIFIED_LICENSE"}:
-        return "REVIEW_REQUIRED"
-
-    if risk == "MEDIUM":
-        return "APPROVE_WITH_CONDITIONS"
-
-    return "ALLOW"
+    """Delegate to the authoritative decision table."""
+    return license_catalog.license_policy_decision(risk, issue)
 
 
 def _requires_notice(license_id: str) -> bool:
-    return license_id in {
-        "MIT",
-        "Apache-2.0",
-        "BSD-2-Clause",
-        "BSD-3-Clause",
-        "ISC",
-        "MPL-2.0",
-        "EPL-2.0",
-    }
+    """Delegate to the catalogue's notice rules (compound-aware)."""
+    return license_catalog.requires_notice(license_id)
 
 
 def enrich_license_policy(sbom: list[dict]) -> list[dict]:
@@ -194,7 +131,7 @@ def enrich_license_policy(sbom: list[dict]) -> list[dict]:
         item["license_reason"] = reason
         item["license_notice_required"] = _requires_notice(license_id)
         item["license_policy_source"] = policy_source
-        item["license_policy_method"] = "RULE_BASED_LICENSE_POLICY_V3_QUALIFIED_EVIDENCE"
+        item["license_policy_method"] = f"{POLICY_ENGINE_LABEL}_QUALIFIED_EVIDENCE"
 
         # Explicit provenance marker for the decision layer.
         if use_resolved:
@@ -251,7 +188,7 @@ def license_policy_summary(sbom: list[dict]) -> dict:
         "notice_required_components": notice_required,
         "legal_review_required_components": legal_review_required,
         "unknown_license_components": unknown_license,
-        "summary_status": "RULE_BASED_LICENSE_POLICY_V1",
+        "summary_status": POLICY_ENGINE_LABEL,
     }
 
 

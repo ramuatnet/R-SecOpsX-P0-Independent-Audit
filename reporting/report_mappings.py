@@ -540,6 +540,8 @@ STATUS_WORDING = {
     'NO_LICENSE_EVIDENCE': 'No licence evidence',
     'CANONICAL_REPORT': 'Canonical report',
     'RULE_BASED_LICENSE_POLICY_V1': 'Rule-based licence policy (v1)',
+    'RULE_BASED_LICENSE_POLICY_V3': 'Rule-based licence policy (v3, qualified evidence)',
+    'RULE_BASED_LICENSE_POLICY_V3_QUALIFIED_EVIDENCE': 'Rule-based licence policy (v3, qualified evidence)',
     'QUALIFIED_RESOLVED_EVIDENCE': 'Qualified resolved evidence',
     # API-BOM / ABOM field values
     'AUTH_HINT_PRESENT': 'Present',

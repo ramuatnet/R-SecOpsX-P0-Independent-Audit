@@ -57,6 +57,17 @@ LOW_RISK_LICENSES = {
     "HPND",
     "WTFPL",
     "CC-BY-4.0",
+    # Observed on real npm inventories (minimatch 10.2.6 declared
+    # BlueOak-1.0.0; json-schema 0.4.0 declared AFL-2.1 inside an OR
+    # expression).  Both are OSI-approved permissive licences; leaving them
+    # out of the catalogue while the report's category column called the same
+    # rows "Permissive" was the 654-vs-646 audit inconsistency.
+    "BlueOak-1.0.0",
+    "AFL-2.1",
+    # MIT No Attribution (@csstools/color-helpers) -- permissive, and the
+    # only licence that explicitly waives the attribution NOTICE set exists
+    # to track, so it deliberately does not join NOTICE_REQUIRED_LICENSES.
+    "MIT-0",
 }
 
 
@@ -75,6 +86,7 @@ NOTICE_REQUIRED_LICENSES = {
     "CDDL-1.1",
     "CC-BY-4.0",
     "HPND",
+    "AFL-2.1",
 }
 
 
@@ -1009,6 +1021,105 @@ def normalize_license(value: str | None) -> str:
     return raw
 
 
+# ---------------------------------------------------------------------------
+# Compound SPDX licence expressions
+# ---------------------------------------------------------------------------
+# Registry metadata publishes full SPDX expressions, not only single
+# identifiers: "(MIT OR CC0-1.0)" (npm type-fest), "(AFL-2.1 OR
+# BSD-3-Clause)" (json-schema), "(WTFPL OR MIT)" (opener).  Evaluate what the
+# expression says instead of rejecting the whole string:
+#
+#   OR  -- the consumer may honour ANY one option, so the expression is
+#          permissive only when every option is permissive.  A mixed
+#          expression stays under review until the chosen option is
+#          recorded: ALLOW would be guessing on the adopter's behalf.
+#   AND -- every listed obligation applies, so the most restrictive part
+#          governs the decision.
+#
+# Anything else (nested expressions, options the catalogue cannot classify)
+# falls through to UNCLASSIFIED_LICENSE: an expression the parser cannot
+# fully evaluate is exactly the one that needs a human.
+_LICENSE_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+\-]*")
+
+
+def _split_license_expression(value: str) -> tuple[str, list[str]] | None:
+    """Return (operator, tokens) for a single-level SPDX OR/AND expression.
+
+    Handles both the parenthesised form registries prefer -- "(MIT OR
+    CC0-1.0)" -- and the bare form package manifests and lockfiles carry --
+    "MIT OR Apache-2.0", "Apache-2.0 AND LGPL-3.0-or-later".
+    """
+    inner = (
+        value[1:-1].strip()
+        if value.startswith("(") and value.endswith(")")
+        else value.strip()
+    )
+    op_match = re.search(r"\s+(OR|AND)\s+", inner)
+    if not op_match:
+        return None
+    tokens = [t.strip() for t in re.split(r"\s+(?:OR|AND)\s+", inner)]
+    if len(tokens) < 2:
+        return None
+    if any(not _LICENSE_TOKEN_RE.fullmatch(t) for t in tokens):
+        return None
+    return op_match.group(1), tokens
+
+
+def _risk_for_license_expression(value: str) -> tuple[str, str, str] | None:
+    """Classify a compound expression; None means "fall through to review"."""
+    split = _split_license_expression(value)
+    if split is None:
+        return None
+    operator, tokens = split
+
+    ids: list[str] = []
+    for token in tokens:
+        normalized = normalize_license(token)
+        if normalized in {"UNKNOWN", "UNRESOLVED_FILE_REFERENCE"}:
+            # An option we cannot classify: the expression cannot be
+            # classified either.
+            return None
+        ids.append(normalized)
+
+    if operator == "AND":
+        order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+
+        def _governing(identifier: str) -> int:
+            return order.get(license_risk(identifier)[0], 1)
+
+        most_restrictive = max(ids, key=_governing)
+        risk, issue, reason = license_risk(most_restrictive)
+        return (
+            risk,
+            issue,
+            f"{reason} Compound AND expression: the obligations of every "
+            "listed licence apply.",
+        )
+
+    # OR
+    if all(identifier in LOW_RISK_LICENSES for identifier in ids):
+        return (
+            "LOW",
+            "PERMISSIVE_LICENSE",
+            "Permissive licence expression (OR): every listed option is "
+            "permissive and the consumer may honour any one of them; "
+            "attribution obligations may still apply.",
+        )
+
+    if any(
+        identifier in HIGH_RISK_LICENSES or identifier in MEDIUM_RISK_LICENSES
+        for identifier in ids
+    ):
+        return (
+            "MEDIUM",
+            "MIXED_LICENSE_EXPRESSION",
+            "Licence expression mixes permissive and non-permissive options "
+            "(OR); record the consumer's choice before distribution.",
+        )
+
+    return None
+
+
 def infer_package_license(package_name: str, current_license: str | None = None) -> str:
     current = normalize_license(current_license)
 
@@ -1041,7 +1152,12 @@ def license_risk(license_id: str) -> tuple[str, str, str]:
         return (
             "MEDIUM",
             "UNKNOWN_LICENSE",
-            "License information is missing or unknown; legal review may be required.",
+            # "Legal review may be required" used to sit next to a summary
+            # that reported legal_review_required = 0 and read as a
+            # contradiction.  The routing is explicit: unknowns go to policy
+            # review; legal escalation is the HIGH branch below.
+            "License information is missing or unknown; policy review is "
+            "required (legal review is reserved for strong-copyleft findings).",
         )
 
     if normalized in HIGH_RISK_LICENSES:
@@ -1065,6 +1181,18 @@ def license_risk(license_id: str) -> tuple[str, str, str]:
             "Permissive license detected; attribution obligations may still apply.",
         )
 
+    # A compound SPDX expression is information, not an absence.  npm and
+    # other registries publish "(MIT OR CC0-1.0)", "(AFL-2.1 OR
+    # BSD-3-Clause)", "(WTFPL OR MIT)"; treating the whole expression as an
+    # unrecognised string pushed genuinely permissive components into
+    # UNCLASSIFIED_LICENSE / REVIEW_REQUIRED while the report's category
+    # column -- set by the looser keyword pass -- called the same rows
+    # Permissive, so the summary counted 654 permissive components and 131
+    # review-required ones over overlapping sets.
+    compound = _risk_for_license_expression(normalized)
+    if compound is not None:
+        return compound
+
     return (
         "MEDIUM",
         "UNCLASSIFIED_LICENSE",
@@ -1076,7 +1204,7 @@ def license_policy_decision(risk: str, issue: str) -> str:
     if risk == "HIGH":
         return "LEGAL_REVIEW_REQUIRED"
 
-    if issue in {"UNKNOWN_LICENSE", "UNCLASSIFIED_LICENSE"}:
+    if issue in {"UNKNOWN_LICENSE", "UNCLASSIFIED_LICENSE", "MIXED_LICENSE_EXPRESSION"}:
         return "REVIEW_REQUIRED"
 
     if risk == "MEDIUM":
@@ -1086,4 +1214,12 @@ def license_policy_decision(risk: str, issue: str) -> str:
 
 
 def requires_notice(license_id: str) -> bool:
-    return normalize_license(license_id) in NOTICE_REQUIRED_LICENSES
+    normalized = normalize_license(license_id)
+    # A compound expression carries the obligations of the options it names:
+    # (MIT OR CC0-1.0) may be honoured as MIT, which requires notice.  Both
+    # the parenthesised and the bare SPDX forms are recognised.
+    if " OR " in normalized or " AND " in normalized:
+        split = _split_license_expression(normalized)
+        if split is not None:
+            return any(requires_notice(token) for token in split[1])
+    return normalized in NOTICE_REQUIRED_LICENSES

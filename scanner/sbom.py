@@ -699,6 +699,31 @@ def _parse_package_lock(filepath: str) -> list[dict]:
     return pkgs
     
 
+_POM_PLACEHOLDER_RE = re.compile(r"\$\{([^}]+)\}")
+
+
+def _resolve_pom_property(value: str, properties: dict, max_depth: int = 5) -> str:
+    """Resolve ``${name}`` Maven property references declared in the same pom.
+
+    Expansion is bounded so a self-referential property cannot loop.  A
+    property that is not declared locally (a parent pom's dependencyManagement,
+    a BOM imported elsewhere) is not available offline, so the value degrades
+    to "unknown": guessing a version is worse than admitting the manifest does
+    not declare one here.
+    """
+    current = value
+    for _ in range(max_depth):
+        if "${" not in current:
+            return current
+        nxt = _POM_PLACEHOLDER_RE.sub(
+            lambda m: properties.get(m.group(1), m.group(0)), current
+        )
+        if nxt == current:
+            break
+        current = nxt
+    return "unknown" if "${" in current else current
+
+
 def _parse_pom_xml(filepath: str) -> list[dict]:
     """
     Parse Maven pom.xml and include manifest location.
@@ -726,6 +751,31 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
         #
         # A dependency's licence is simply not knowable from this manifest.
 
+        # <properties> of THIS pom, for ${...} version interpolation below.
+        # A property declared in a parent pom or an imported BOM is not
+        # available offline and stays unresolved (reported as "unknown").
+        pom_properties: dict = {}
+        for prop_block in root.iter(f"{prefix}properties"):
+            for child in prop_block:
+                key = (
+                    child.tag[len(prefix):]
+                    if prefix and child.tag.startswith(prefix)
+                    else child.tag
+                )
+                if child.text and child.text.strip():
+                    pom_properties[key] = child.text.strip()
+
+        # ${project.version} and friends resolve from the pom's own
+        # coordinates (falling back to the parent's version, which is what
+        # Maven itself does for a module that omits <version>).
+        project_version = (root.findtext(f"{prefix}version") or "").strip()
+        if not project_version:
+            parent = root.find(f"{prefix}parent")
+            if parent is not None:
+                project_version = (parent.findtext(f"{prefix}version") or "").strip()
+        if project_version:
+            pom_properties.setdefault("project.version", project_version)
+
         for dep in root.iter(f"{prefix}dependency"):
             group = dep.find(f"{prefix}groupId")
             artifact = dep.find(f"{prefix}artifactId")
@@ -752,8 +802,14 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
                 else "unknown"
             )
 
-            if ver_str.startswith("${"):
-                ver_str = "unknown"
+            # ${...} is a Maven property reference, usually declared in this
+            # same pom (<lombok.version>1.18.48</lombok.version> referenced as
+            # ${lombok.version}).  It used to be discarded as "unknown", which
+            # erased versions the manifest genuinely carries -- and broke the
+            # exact package+version match the licence-evidence resolver
+            # performs.  Resolve locally; unresolvable stays "unknown".
+            if "${" in ver_str:
+                ver_str = _resolve_pom_property(ver_str, pom_properties)
 
             pkgs.append({
                 "name": f"{group_id}:{artifact_id}",
