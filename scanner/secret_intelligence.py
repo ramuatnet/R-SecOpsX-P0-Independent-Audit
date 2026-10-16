@@ -778,6 +778,33 @@ def _structured_pairs(path, text):
                 val=m.group(2).strip().strip(','); key='.'.join(stack+[m.group(1)]) if stack else m.group(1); out.append((n,key,val))
     return out
 
+def _source_identifier_names_credential(ident: str) -> bool:
+    """A4: the matched noun must be a whole underscore-delimited segment of
+    the identifier. ``GITHUB_TOKEN``/``OPENAI_API_KEY`` keep their finding;
+    ``target_tokenizer``/``special_tokens_pattern``/``TMP_TOKENIZER_DIR``
+    only *contain* the substring and never name a credential. Trailing digits
+    (``PASSWORD1``) still count as a boundary so a real name cannot be lost.
+    """
+    return bool(
+        re.search(
+            r"(?i)(?:^|_)(?:password|passwd|pwd|secret|token"
+            r"|api_key|private_key|access_key)(?:$|_|[0-9])",
+            ident,
+        )
+    )
+
+
+def _source_value_carries_token_material(val: str) -> bool:
+    """A4: reference values are made of short words -- ``token_type_ids``,
+    ``torch.Tensor | None``, ``TILE_GLOBAL``, ``]<]image[>[``,
+    ``[IMG_BREAK]``, ``__start__``, ``__null__`` (longest unbroken
+    alnum run < 8). Every real token format carries an 8+ character
+    segment (hex/base64/JWT/ghp_/sk_), so corpus and e2e secrets keep.
+    """
+    runs = re.findall(r"[A-Za-z0-9]+", str(val or ""))
+    return bool(runs) and max(len(r) for r in runs) >= 8
+
+
 def _scan_source_assignments(path,text,lang):
     out=[]
     if path.suffix.lower() not in {'.py','.js','.ts','.java','.cs','.go','.php'}: return out
@@ -785,6 +812,16 @@ def _scan_source_assignments(path,text,lang):
     for m in pat.finditer(text):
         val=m.group(2)
         if _is_placeholder(val) or _looks_like_env(val) or _value_is_code_reference(val): continue
+        if not _source_identifier_names_credential(m.group(1)):
+            # A4 identifier gate: substring noun only (tokenizer/tokens/...).
+            continue
+        if not _looks_like_secret_value(val):
+            # A4 value gate: URLs, uuid-hex references and code references
+            # are not secret material (shared with the GENERIC scanners).
+            continue
+        if not _source_value_carries_token_material(val):
+            # A4 reference gate: no 8+ character run of secret material.
+            continue
         if _ENV_VAR_NAME_VALUE.fullmatch(val.strip()):
             # ENV_VAR_API_KEY = "AZURE_COGNITIVE_SEARCH_ADMIN_KEY" -- the
             # value is an env-var NAME. Shared with the sast GENERIC gate;

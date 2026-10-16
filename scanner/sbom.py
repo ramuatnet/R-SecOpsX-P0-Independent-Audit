@@ -19,7 +19,7 @@ from scanner.vulnerability_intel import (
 from analysis.intelligence_provenance import STATIC_REFERENCE
 from scanner.manifests import (
     parse_poetry_lock, parse_pipfile_lock,
-    parse_pyproject_toml, parse_uv_lock,
+    parse_pyproject_toml, parse_setup_py, parse_uv_lock,
     parse_nuget_csproj, parse_nuget_packages_props, parse_nuget_lock,
     parse_pnpm_lock, parse_yarn_lock, parse_bun_lock, parse_deno_lock,
     parse_go_mod, parse_go_sum,
@@ -1049,6 +1049,13 @@ def generate_sbom(target_path: str) -> list[dict]:
     for f in target.rglob("pyproject.toml"):
         if not any(p in EXCLUDED_DIRS for p in f.parts):
             packages.extend(parse_pyproject_toml(str(f)))
+    # A8: setup.py carried no read at all. transformers declares its whole
+    # runtime install_requires only in setup.py (its pyproject.toml has no
+    # [project] table), so 9 runtime packages were absent from the SBOM.
+    # Static AST parse only -- never imported/executed.
+    for f in target.rglob("setup.py"):
+        if not any(p in EXCLUDED_DIRS for p in f.parts):
+            packages.extend(parse_setup_py(str(f)))
     _NUGET_MANIFEST_PATTERNS = ("*.csproj", "*.fsproj")
     for pattern in _NUGET_MANIFEST_PATTERNS:
         for f in target.rglob(pattern):

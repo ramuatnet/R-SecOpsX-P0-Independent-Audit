@@ -41,9 +41,31 @@ IDENTITY_ACCESS_PATTERNS = [
     ("PRIVILEGE_ESCALATION_ALLOWED", r"\ballowPrivilegeEscalation\s*:\s*true\b", "HIGH"),
 
     # Cloud trust / public assumption / service principals
-    ("PUBLIC_ROLE_TRUST", r"\bPrincipal\b.*\*|\bpublic_role\b|\btrusted_entities\b.*\*", "CRITICAL"),
+    # A7: both patterns were word+DOTALL prose matchers. babyagi's flattened
+    # evidence (finding text joined with spaces) contained "authenticated
+    # principal. ... cross-tenant IDs ... *" and "tenant and owner match the
+    # authenticated principal", which scored CRITICAL + HIGH identity risk
+    # from remediation prose alone. Real evidence shapes keep their finding:
+    # "Principal": "*", "Principal": {"AWS": "*"}, Principal = "*",
+    # trusted_entities = ["*"], quoted "Owner"/"Contributor" role names,
+    # roleDefinitionName: "Owner", /Owner paths, "Owner role" collocation.
+    (
+        "PUBLIC_ROLE_TRUST",
+        r"\bPrincipal\b[\"']?\s*[:=]\s*(?:[\"']\*|\{[^}]{0,160}\*|\[[^\]]{0,160}\*|\*)"
+        r"|\btrusted_entities\b[\"']?\s*[:=]\s*(?:[\"']?\*|\[[^\]]{0,160}\*|\{[^}]{0,160}\*)"
+        r"|\bpublic_role\b",
+        "CRITICAL",
+    ),
     ("SERVICE_ACCOUNT_KEY_FILE", r"\bservice_account\b.*\.json\b|\bclient_email\b.*iam\.gserviceaccount\.com", "HIGH"),
-    ("AZURE_OWNER_ROLE", r"\bOwner\b|\bContributor\b", "HIGH"),
+    (
+        "AZURE_OWNER_ROLE",
+        r"[\"'](?:Owner|Contributor)[\"']"
+        r"|\brole\w*[\"']?\s*[:=]\s*[\"']?(?:Owner|Contributor)\b"
+        r"|\brole\w*\s+[\"']?(?:Owner|Contributor)\b"
+        r"|/(?:Owner|Contributor)\b"
+        r"|\b(?:Owner|Contributor)\s+role\b",
+        "HIGH",
+    ),
     ("GCP_OWNER_ROLE", r"\broles/owner\b|\broles/editor\b", "HIGH"),
 ]
 

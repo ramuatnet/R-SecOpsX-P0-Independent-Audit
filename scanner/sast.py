@@ -262,7 +262,14 @@ REGEX_RULES: list[dict] = [
     {"id":"FLASK_DEBUG","name":"Flask Debug Mode","pattern":re.compile(r"app\.run\s*\([^)]*debug\s*=\s*True", _F),"vuln_type":"debug_exposure","note":"Flask debug=True exposes interactive debugger in production.","severity":"High","cwe":"CWE-215","owasp":"A05:2021 - Security Misconfiguration"},
     {"id":"SUBPROCESS_SHELL_TRUE","name":"subprocess shell=True","pattern":re.compile(r"subprocess\.\w+\s*\([^)]*shell\s*=\s*True", _F),"vuln_type":"command_injection","note":"subprocess with shell=True enables shell injection.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
     {"id":"OS_SYSTEM","name":"os.system Call","pattern":re.compile(r"os\.system\s*\(", _F),"vuln_type":"command_injection","note":"os.system executes shell commands.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
-    {"id":"EVAL_CALL","name":"eval() Call","pattern":re.compile(r"\beval\s*\(", _F),"vuln_type":"code_injection","note":"eval() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection"},
+    # A1 (transformers validation): 2822/2822 matches in transformers were
+    # receiver-form nn.Module/evaluator calls (``model.eval()``, a boolean-mode
+    # toggle that does not execute input). Only a *bare* eval call -- or eval
+    # hosted on an explicit dynamic-evaluation namespace -- executes code.
+    # Precedent: PYTHON_EXEC_CALL's ``(?<![.\w])exec\s*\(`` keeps the same
+    # receiver-form exclusion. e2e keeps server.js's bare ``eval(``; the corpus
+    # keeps PHP ``eval($code)``.
+    {"id":"EVAL_CALL","name":"eval() Call","pattern":re.compile(r"(?<![\w.])eval\s*\(|(?<=window\.)eval\s*\(|(?<=globalThis\.)eval\s*\(|(?<=builtins\.)eval\s*\(", _F),"vuln_type":"code_injection","note":"eval() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection"},
     {"id":"PYTHON_EXEC_CALL","name":"Python exec() Call","pattern":re.compile(r"(?<![.\w])exec\s*\(", _F),"vuln_type":"code_injection","note":"Python exec() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
     {"id":"PYTHON_PICKLE_LOADS","name":"Python pickle.loads Insecure Deserialization","pattern":re.compile(r"pickle\.loads\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.loads deserializes untrusted data.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
     {"id":"PYTHON_PICKLE_LOAD","name":"Python pickle.load Insecure Deserialization","pattern":re.compile(r"pickle\.load\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.load deserializes untrusted data from a file.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},

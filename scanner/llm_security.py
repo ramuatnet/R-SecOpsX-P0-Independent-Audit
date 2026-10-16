@@ -1399,6 +1399,87 @@ def _llm01_apply_evidence_decision_policy(
     )
     return finding
 
+
+# --- A1/A2/A3/A6 detection gates (babyagi/transformers validation) --------
+#
+# These gates tighten only the *evidence* a line must carry for a rule to fire.
+# No rule is removed, no severity is lowered, and every shape below that
+# actually executes code or exfiltrates data keeps its finding.
+
+# A1: a dynamic-evaluation call. Mirrors sast.py's EVAL_CALL gate so both
+# engines agree (a receiver-mode ``model.eval()`` toggle or an identifier that
+# merely ends in "eval(" -- "Retrieval(config)" -- never executes input).
+LLM_REAL_EVAL_RE = re.compile(
+    r"(?<![\w.])eval\s*\("
+    r"|(?<=window\.)eval\s*\("
+    r"|(?<=globalThis\.)eval\s*\("
+    r"|(?<=builtins\.)eval\s*\(",
+    re.I,
+)
+# exec() is intentionally NOT gated on the receiver form: child_process's
+# ``cp.exec(cmd)``, Python's ``exec(...)`` and shell wrappers are all real
+# execution sinks, so any "exec(" occurrence keeps the LLM02 finding.
+LLM_EXEC_ANY_RE = re.compile(r"exec\s*\(|os\.system\s*\(|subprocess\.", re.I)
+
+
+def _llm02_line_has_dynamic_eval(line: str) -> bool:
+    """True when the line carries executable eval/exec evidence."""
+    return bool(LLM_REAL_EVAL_RE.search(line) or LLM_EXEC_ANY_RE.search(line))
+
+
+def _llm05_pip_install_is_prose(line: str) -> bool:
+    """A1/A6: True when ``pip install`` sits inside a quoted string that
+    already reads as a sentence (>=3 words before the command).
+
+    Commands written at the start of their string -- ``INSTALL_RESOLVER =
+    "pip install -r ..."``, yaml ``- run: uv pip install``, CI
+    ``{"run": "pip install requests"}`` -- carry 0-2 words before the command
+    and stay findings; "Please run `pip install ...`" (2 words) keeps too.
+    """
+    m = re.search(r"pip\s+install", line, re.I)
+    if not m:
+        return False
+    openers = []
+    for q in ('"', "'"):
+        positions = [i for i, ch in enumerate(line) if ch == q]
+        for p in positions:
+            nxt = next((x for x in positions if x > p), None)
+            # The quote only encloses the match when its pair closes after it.
+            if nxt is not None and nxt > m.start():
+                openers.append(p)
+    if not openers:
+        return False
+    opener = min(openers)  # outermost enclosing quote
+    return len(re.findall(r"\w+", line[opener + 1:m.start()])) >= 3
+
+
+# A2: save_pretrained only becomes model theft next to an exfil sink. Local
+# dumps (``save_pretrained(tmpdir)``) and ``def save_pretrained`` definitions
+# are ordinary library surface, not theft.
+LLM10_EXFIL_CONTEXT_RE = re.compile(
+    r"push_to_hub\s*=\s*True"
+    r"|push_to_hub\s*\("
+    r"|https?://|\bs3://|\bgs://|\baz(?:ure)?://|/hub/"
+    r"|\bupload\w*|\bremote\b",
+    re.I,
+)
+LLM10_OTHER_SINK_RE = re.compile(
+    r"state_dict|torch\.save|pickle\.dump|download_model"
+    r"|export_model_weights|dump_embeddings|copy_checkpoint",
+    re.I,
+)
+
+# A3: ``return.*token`` without credential collocation discloses NLP
+# vocabulary (``return tokenizer``/``tokens``/``token_type_ids``), never
+# credentials. wokelo's ``return token_info.get("access_token")`` keeps.
+LLM06_RETURN_TOKEN_CREDENTIAL_RE = re.compile(
+    r"(?i)(?:access|auth|api|session|refresh|bearer|jwt|csrf|xsrf|id|user"
+    r"|oauth|bot|gh|github|openai|llm|service|private|client)[_-]token"
+    r"|token[_-](?:info|key|secret|value)"
+    r"|\bapi[_-]?key\b|\bsecret\b|\bbearer\b",
+)
+
+
 def scan_llm_file(filepath: str, content: str) -> list[dict]:
     findings = []
     lines = content.splitlines()
@@ -1624,6 +1705,46 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                     # ORM/SQLModel session.exec(select(...)) is a query call,
                     # not code execution.
                     continue
+                if not _llm02_line_has_dynamic_eval(line):
+                    # A1: the only "eval" evidence is receiver-mode
+                    # (``model.eval()`` -- a tensor-mode toggle) or an
+                    # identifier that merely ends in "eval("
+                    # ("...TextRetrieval(config)"). No eval executes input
+                    # and no exec/os.system/subprocess is present.
+                    continue
+
+            if (
+                rule_id == "LLM05_SUPPLY_CHAIN_VULNERABILITY"
+                and re.search(r"pip\s+install", line, re.I)
+                and not re.search(
+                    r"from\s+langchain|from\s+llama_index|model_download", line
+                )
+            ):
+                # A6: doc-string sentences that *tell a reader* to install a
+                # package are prose; the package reference itself (dangerous
+                # model_download, langchain hub loads) still fires above.
+                if _llm05_pip_install_is_prose(line):
+                    continue
+
+            if (
+                rule_id == "LLM10_MODEL_THEFT"
+                and re.search(r"save_pretrained", line)
+                and not LLM10_OTHER_SINK_RE.search(line)
+                and not LLM10_EXFIL_CONTEXT_RE.search(line)
+            ):
+                # A2: save_pretrained with no exfil context writes weights to
+                # local disk (or defines the method); theft needs a transfer.
+                continue
+
+            if (
+                rule_id == "LLM06_SENSITIVE_INFORMATION_DISCLOSURE"
+                and matched_pattern == r"return.*token"
+                and not LLM06_RETURN_TOKEN_CREDENTIAL_RE.search(line)
+            ):
+                # A3: returning NLP vocabulary (tokenizer/tokens/
+                # token_type_ids) is not credential disclosure; a credential
+                # collocation on the same line keeps the finding.
+                continue
 
             line_matches.append(
                 {

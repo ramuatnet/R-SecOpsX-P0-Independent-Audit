@@ -34,7 +34,7 @@ import html
 
 
 
-import io, os
+import io, os, re
 
 
 from datetime import datetime, timezone
@@ -6170,113 +6170,94 @@ def _bom_scalar_text(value) -> str:
     return humanize_enum(value)
 
 
-def _bom_display_value(value, payload: dict) -> str:
+# Hot path for BOM path normalisation.  The two patterns below used to be
+# recompiled through the re cache once per cell value (56.5M cache lookups
+# on a transformers-sized report); the common-root walk used to run once
+# per cell as well (80.5M recursive visits).  Both are now per-payload.
+_BOM_ABS_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
+_BOM_JUICE_SHOP_RE = re.compile(r"(?:^|[\\/])(juice-shop-git)[\\/](.+)$", re.I)
 
+# Single-entry memo: (payload_object, common_root).  Holding a reference to
+# the payload keeps id() unique for as long as the entry lives; the cache is
+# replaced wholesale on a miss so it can never leak or go stale across the
+# two render passes (both passes share the same normalised payload object).
+_BOM_PATH_ROOT_CACHE: dict = {}
+
+
+def _bom_common_path_root(payload: dict) -> str:
+    """Common filesystem root of every absolute path in the BOM trees.
+
+    Computed once per payload instead of once per rendered cell.  The value
+    is identical to what the previous per-cell walk returned because the
+    candidate set depends only on the payload, never on the cell being
+    rendered.
+    """
+    import os as _os
+
+    key = id(payload)
+    hit = _BOM_PATH_ROOT_CACHE.get(key)
+    if hit is not None and hit[0] is payload:
+        return hit[1]
+
+    candidates = []
+
+    def walk(v):
+        if isinstance(v, dict):
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+        elif isinstance(v, str) and (_BOM_ABS_PATH_RE.match(v) or v.startswith("/")):
+            candidates.append(v)
+
+    for k in ("cbom", "aibom", "mlbom", "apibom", "abom"):
+        walk(payload.get(k, []) or [])
+
+    root = ""
+    if candidates:
+        try:
+            root = _os.path.commonpath([_os.path.normpath(x) for x in candidates])
+        except Exception:
+            root = ""
+
+    _BOM_PATH_ROOT_CACHE.clear()
+    _BOM_PATH_ROOT_CACHE[key] = (payload, root)
+    return root
+
+
+def _bom_display_value(value, payload: dict) -> str:
 
     """Normalize report-facing BOM paths without changing canonical payload data."""
 
-
-    import os, re, html
-
+    import os, html
 
     text = _bom_scalar_text(value)
 
-
     if not text:
-
-
         return ""
 
-
-    if re.match(r"^[A-Za-z]:[\\/]", text) or text.startswith("/"):
-
-
-        candidates = []
-
-
-        def walk(v):
-
-
-            if isinstance(v, dict):
-
-
-                for x in v.values(): walk(x)
-
-
-            elif isinstance(v, list):
-
-
-                for x in v: walk(x)
-
-
-            elif isinstance(v, str) and (re.match(r"^[A-Za-z]:[\\/]", v) or v.startswith("/")):
-
-
-                candidates.append(v)
-
-
-        for k in ("cbom", "aibom", "mlbom", "apibom", "abom"):
-
-
-            walk(payload.get(k, []) or [])
-
+    if _BOM_ABS_PATH_RE.match(text) or text.startswith("/"):
+        root = _bom_common_path_root(payload)
 
         try:
-
-
-            if candidates:
-
-
-                norm = [os.path.normpath(x) for x in candidates]
-
-
-                root = os.path.commonpath(norm)
-
-
+            if root:
                 cur = os.path.normpath(text)
-
-
-                if root and os.path.commonpath([root, cur]) == root:
-
-
+                if os.path.commonpath([root, cur]) == root:
                     rel = os.path.relpath(cur, root)
-
-
                     if rel and rel != ".":
-
-
                         text = rel
-
-
         except Exception:
-
-
             pass
 
-
-        if re.match(r"^[A-Za-z]:[\\/]", text):
-
-
-            m = re.search(r"(?:^|[\\/])(juice-shop-git)[\\/](.+)$", text, re.I)
-
-
+        if _BOM_ABS_PATH_RE.match(text):
+            m = _BOM_JUICE_SHOP_RE.search(text)
             if m:
-
-
                 text = m.group(2)
-
-
             else:
-
-
                 text = os.path.basename(text)
-
-
         elif text.startswith("/"):
-
-
             text = text.lstrip("/")
-
 
     return html.escape(text).replace("\n", "<br/>")
 
@@ -6891,47 +6872,45 @@ def _bom_detail_section(payload: dict, title: str, key: str) -> list:
                 ])
 
 
-    t = Table(rows, colWidths=[4.2*cm, 12.0*cm], repeatRows=1)
+    # Bounded table chunks.  reportlab re-measures every row of a Table on
+    # each split pass, so a single Table with inventory-scale row counts
+    # (~150k rows at benchmark scale) costs superlinearly -- measured
+    # O(rows^1.9) on synthetic long-text tables.  Emitting the same rows as
+    # consecutive same-styled tables of at most _BOM_TABLE_CHUNK body rows
+    # keeps layout cost linear.  Every chunk repeats the header row, which
+    # is exactly what repeatRows=1 already does at page breaks, so the
+    # document is visually unchanged apart from chunk seams that read as
+    # ordinary header repeats.  The even chunk size preserves the
+    # WHITE/LIGHT_BLUE zebra parity across seams.  No row is dropped,
+    # capped, abbreviated, or reordered.
+    _BOM_TABLE_CHUNK = 400
 
-
-    t.setStyle(TableStyle([
-
-
+    bom_style = TableStyle([
         ("BACKGROUND",(0,0),(-1,0),DARK_BLUE),
-
-
         ("TEXTCOLOR",(0,0),(-1,0),WHITE),
-
-
         ("GRID",(0,0),(-1,-1),0.4,GREY_MED),
-
-
         ("ROWBACKGROUNDS",(0,1),(-1,-1),[WHITE,LIGHT_BLUE]),
-
-
         ("FONTSIZE",(0,0),(-1,-1),6),
-
-
         ("VALIGN",(0,0),(-1,-1),"TOP"),
-
-
         ("LEFTPADDING",(0,0),(-1,-1),4),
-
-
         ("RIGHTPADDING",(0,0),(-1,-1),4),
-
-
         ("TOPPADDING",(0,0),(-1,-1),3),
-
-
         ("BOTTOMPADDING",(0,0),(-1,-1),3),
+    ])
 
-
-    ]))
-
-
-    story.append(t)
-
+    body_rows = rows[1:]
+    if not body_rows:
+        # Header-only table (every inventory item was an empty dict): keep
+        # the previous single-table rendering rather than emitting nothing.
+        t = Table(rows, colWidths=[4.2*cm, 12.0*cm], repeatRows=1)
+        t.setStyle(bom_style)
+        story.append(t)
+        return story
+    for _start in range(0, len(body_rows), _BOM_TABLE_CHUNK):
+        part = [rows[0]] + body_rows[_start:_start + _BOM_TABLE_CHUNK]
+        t = Table(part, colWidths=[4.2*cm, 12.0*cm], repeatRows=1)
+        t.setStyle(bom_style)
+        story.append(t)
 
     return story
 

@@ -23,7 +23,15 @@ except Exception:
 TAINT_SOURCES = {
     # Flask / FastAPI / Werkzeug request surfaces
     "request.args", "request.form", "request.json", "request.data", "request.headers", "request.cookies",
-    "request.values", "request.get_json", "request.files", "input", "sys.argv", "os.environ", "os.getenv",
+    "request.values", "request.get_json", "request.files", "input", "sys.argv",
+    # A5: ``os.environ``/``os.getenv`` were removed from TAINT_SOURCES. The
+    # deployment environment is written by the deployer -- an operator input,
+    # not an untrusted network source (ground truth in_scope: "a demonstrable
+    # untrusted source"). Counting it tainted every config-driven call site:
+    # ``requests.get(url, headers={"Circle-Token": os.environ.get(...)})``
+    # was reported as SSRF 4x in transformers purely because a token was read
+    # from the environment. ``sys.argv``/``input`` stay: both are direct,
+    # attacker-reachable process surfaces on any CLI service.
     "params", "query", "kwargs",
     # Django request surfaces (request.GET / request.POST are QueryDicts carrying
     # attacker-controlled keys and values; body/path/COOKIES/META/FILES match them).
@@ -58,8 +66,54 @@ DANGEROUS_SINKS: dict[str, str] = {
     "eval": "code_injection", "exec": "code_injection", "compile": "code_injection",
     "pickle.load": "insecure_deserialization", "pickle.loads": "insecure_deserialization", "yaml.load": "insecure_deserialization", "marshal.loads": "insecure_deserialization", "jsonpickle.decode": "insecure_deserialization",
     "requests.get": "ssrf", "requests.post": "ssrf", "requests.put": "ssrf", "requests.delete": "ssrf", "requests.request": "ssrf", "urllib.request.urlopen": "ssrf", "http.client.HTTPConnection": "ssrf", "http.client.HTTPSConnection": "ssrf",
+    # A9: httpx is requests' async/HTTP2 successor and was absent, so
+    # ``httpx.get(url_from_request)`` was an unfillable FN class. Module-level
+    # methods only -- bare ``session.get``/``aiohttp`` stay out because a
+    # Django/SQLAlchemy ``session.get`` is an ORM read, not an outbound call.
+    "httpx.get": "ssrf", "httpx.post": "ssrf", "httpx.put": "ssrf", "httpx.delete": "ssrf", "httpx.patch": "ssrf", "httpx.request": "ssrf", "httpx.head": "ssrf",
     "redirect": "open_redirect", "render_template_string": "xss", "Markup": "xss",
 }
+
+# A10: bare DB-API method keys (``execute``/``executemany``/``raw``) also
+# match any dotted receiver, so ``g.functionz.executor.execute(fn, **params)``
+# -- a *function* executor in babyagi -- was reported as SQL injection. The
+# receiver must be DB-API/ORM-shaped for the bare method name to count as SQL.
+# Explicit keys (``cursor.execute``) and receiver-less ``execute(...)`` are
+# untouched; a call-chained receiver (``get_db().execute``) cannot be proven
+# non-DB and keeps firing (shape is handled by requiring a pure dotted chain).
+_BARE_SQL_SINK_KEYS = frozenset({"execute", "executemany", "raw"})
+_SQL_DB_RECEIVER_TAILS = frozenset({
+    # DB-API / common handle names (``c``/``con`` keep the existing
+    # test_v11_taint_intermediate_variable_flows ``c.execute`` TP).
+    "cursor", "cur", "c", "con", "conn", "connection",
+    "sess", "session", "db", "database", "engine", "dao", "repo", "repository",
+    # statement-shaped names (``stmt = f"..."; db.execute(stmt)`` receivers)
+    "sql", "statement", "stmt",
+    # ORM surfaces: ``Model.objects.raw(...)`` (Django), queryset aliases
+    "objects", "manager", "queryset", "qs", "query",
+    # driver modules and transactions
+    "pdo", "mysql", "mysqli", "pg", "psycopg", "psycopg2", "sqlite", "sqlite3",
+    "odbc", "jdbc", "dbapi", "tx", "txn", "trans", "transaction",
+})
+_PURE_DOTTED_CALL_RE = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+_SSRF_URL_KWARGS = frozenset({"url", "uri", "href", "endpoint"})
+
+
+def _ssrf_url_args(call: ast.Call) -> list:
+    """A9: only arguments that *are* the request URL can carry SSRF taint.
+    ``requests.get(url, params=..., headers=..., json=...)`` puts the
+    attacker-reachable value in the URL slot; a taint sitting in a header or
+    params dict is not what the server fetches. ``requests.request("GET",
+    url)`` has the URL in the second position behind a method literal.
+    """
+    args = list(call.args)
+    out = []
+    if args:
+        out.append(args[0])
+        if len(args) > 1 and isinstance(args[0], ast.Constant) and isinstance(args[0].value, str):
+            out.append(args[1])
+    out.extend(kw.value for kw in call.keywords if kw.arg in _SSRF_URL_KWARGS)
+    return out
 
 LANG_BY_EXT = {".py":"python", ".java":"java", ".cs":"csharp", ".js":"javascript", ".jsx":"javascript", ".ts":"typescript", ".tsx":"typescript", ".go":"go", ".php":"php", ".graphql":"graphql", ".gql":"graphql"}
 _F = re.IGNORECASE | re.MULTILINE | re.DOTALL
@@ -83,6 +137,22 @@ SANITIZERS: dict[str, frozenset[str]] = {
     }),
     "command_injection": frozenset({
         "shlex.quote", "shlex.join",
+    }),
+    # A9e: ``urlencode`` builds a query STRING. Its output is always
+    # ``k=v&k2=v2`` -- never an absolute URL -- so a value that passed
+    # through it cannot change the fetch destination. This is the
+    # string-expression equivalent of the A9 ``params=``/``json=`` payload
+    # kwarg position (payload is not the URL). Measured: transformers
+    # utils/update_pr_ci_dashboard_recap.py:73 -- the AST chain
+    # ``query -> urlencode -> url -> Request -> urlopen`` fired SSRF against
+    # the hardcoded GRAFANA_QUERY_URL constant with the taint confined to
+    # the percent-encoded query payload. ``quote``/``quote_plus`` are
+    # deliberately NOT listed: their ``safe=`` kwarg can re-enable ``:``
+    # and hand back a usable absolute URL, which this model cannot prove
+    # away. Destination-control SSRF (attacker value as the URL itself,
+    # including through aliases) is untouched.
+    "ssrf": frozenset({
+        "urllib.parse.urlencode",
     }),
 }
 
@@ -132,11 +202,12 @@ _MAX_CALL_DEPTH = 6
 # model this product scores is untrusted *network* input reaching a dangerous
 # sink (ground truth in_scope: "a demonstrable untrusted source").
 #
-# Intra-procedural handling of every source in TAINT_SOURCES is unchanged --
-# ``os.getenv`` still taints in the function that reads it.  What is withheld
-# is only the new cross-function step: propagating ``os.getenv``/``sys.argv``/
-# ``input()`` into a callee turns ordinary CLI code into a reported
-# vulnerability.  The measured case was
+# Intra-procedural handling of every remaining source in TAINT_SOURCES is
+# unchanged.  ``os.environ``/``os.getenv`` are no longer sources at all (A5:
+# operator-written deployment config, not network input), so they neither
+# taint locally nor cross a call.  What is withheld from the cross-function
+# step is only ``sys.argv``/``input()``: propagating those into a callee turns
+# ordinary CLI code into a reported vulnerability.  The measured case was
 #     run_cmd(f'cd "{SANDBOX_DIR}" && docker build ...')
 # where SANDBOX_DIR = os.getenv("SANDBOX_DIR", ...), which produced three
 # command-injection findings inside a generic runner and one negative-control
@@ -156,17 +227,22 @@ _NETWORK_SOURCE_TOKENS = frozenset({
 def _network_source(expr) -> bool:
     """True when a source expression is request-derived.
 
-    The head is the call/attribute prefix of the expression, so
+    The head is the call/attribute/subscript prefix of the expression, so
     ``query.split(":", 1)`` still identifies the ``query`` source token that
     ``_match_source`` recorded, and ``route parameter {object_key}`` is
-    request-derived by construction.
+    request-derived by construction.  The subscript case matters symmetrically:
+    ``_match_source`` records ``request.args["url"]`` as a source via its
+    ``startswith(src + "[")`` branch (A9f control), so the head must cut at
+    ``[`` as well as ``(`` or the seeding gate would refuse the most
+    canonical Flask destination shape there is -- intra-procedural matching
+    says source, interprocedural said not-network, for one expression.
     """
     text = str(expr or "").strip()
     if not text:
         return False
     if text.lower().startswith("route parameter "):
         return True
-    head = text.split("(", 1)[0].strip().lower()
+    head = re.split(r"[\(\[]", text, maxsplit=1)[0].strip().lower()
     if not head:
         return False
     for token in _NETWORK_SOURCE_TOKENS:
@@ -655,12 +731,55 @@ class TaintVisitor(ast.NodeVisitor):
             return False
         return any(fn == s or fn.endswith("." + s) for s in names)
     def _sanitizer_classes(self, node) -> frozenset[str]:
-        """Vuln classes for which the outermost call of ``node`` sanitizes."""
-        if not isinstance(node, ast.Call):
-            return frozenset()
-        fn = self._resolve_fn(self._unparse(node.func))
-        return frozenset(cls for cls, names in SANITIZERS.items()
-                         if any(fn == s or fn.endswith("." + s) for s in names))
+        """Vuln classes for which ``node``'s value is provably purified.
+
+        Attribution is occurrence-based, not outermost-call based (A9e): the
+        sanitizing call may be *nested* -- the measured transformers chain was
+        ``f"{GRAFANA_QUERY_URL}?{urlencode({'query': query})}"``, whose root
+        is a JoinedStr, so the old root-only check returned nothing and the
+        taint rode the variable through ``request_json`` into ``urlopen``
+        with ``sanitized_for=`` empty.  A class counts only when EVERY
+        tainted/source occurrence inside ``node`` lies within a call that
+        sanitizes for that class (or already carries that class upstream in
+        its own ``sanitized_for``).  One raw contributor vetoes the class for
+        the whole value: ``f"{escape(a)} {b}"`` is not xss-purified, and
+        ``html.escape`` never grants a shell or SQL class it does not wrap.
+
+        The previous outermost-call behaviour is the special case where the
+        root call is the sanitizer: every occurrence then lies inside it, so
+        all existing non-nested attributions come out identical (only
+        double-sanitizer chains and nested sanitizers gain attribution).
+        """
+        covered: Optional[frozenset[str]] = None
+
+        def _walk(n, wrapped: frozenset[str]) -> None:
+            nonlocal covered
+            if isinstance(n, ast.Call):
+                fn = self._resolve_fn(self._unparse(n.func))
+                cls = frozenset(c for c, names in SANITIZERS.items()
+                                if any(fn == s or fn.endswith("." + s) for s in names))
+                if cls:
+                    for child in ast.iter_child_nodes(n):
+                        _walk(child, wrapped | cls)
+                    return
+            occ: Optional[frozenset[str]] = None
+            if isinstance(n, ast.Name):
+                t = self._lookup(n.id)
+                if t is not None:
+                    # Tainted-name occurrence: wrapper sanitizer or proven
+                    # upstream sanitization both satisfy the class.
+                    occ = wrapped | (t.sanitized_for & frozenset(SANITIZERS))
+                elif self._match_source(n):
+                    occ = wrapped
+            elif isinstance(n, (ast.Attribute, ast.Subscript)) and self._match_source(n):
+                occ = wrapped
+            if occ is not None:
+                covered = occ if covered is None else (covered & occ)
+            for child in ast.iter_child_nodes(n):
+                _walk(child, wrapped)
+
+        _walk(node, frozenset())
+        return covered or frozenset()
     @staticmethod
     def _constant_only(node) -> bool:
         """True only for expressions built exclusively from code literals.
@@ -871,6 +990,19 @@ class TaintVisitor(ast.NodeVisitor):
         for sink_key, vuln_type in DANGEROUS_SINKS.items():
             if call_str != sink_key and not call_str.endswith("." + sink_key):
                 continue
+            if (
+                vuln_type == "sql_injection"
+                and sink_key in _BARE_SQL_SINK_KEYS
+                and call_str.endswith("." + sink_key)
+                and _PURE_DOTTED_CALL_RE.fullmatch(call_str)
+            ):
+                # A10: pure dotted receiver whose last segment is not a
+                # DB handle (``g.functionz.executor.execute``) is not SQL.
+                # ``get_db().execute``/``rows[i].execute`` fail the dotted
+                # chain test above and keep firing (unprovable).
+                receiver_tail = call_str.rsplit(".", 1)[0].rsplit(".", 1)[-1]
+                if receiver_tail not in _SQL_DB_RECEIVER_TAILS:
+                    continue
             if vuln_type == "sql_injection" and not self._sql_text_is_tainted(call):
                 # Statement text is a constant/untainted expression and any
                 # taint sits in the bound parameters: parameterized query, the
@@ -878,7 +1010,11 @@ class TaintVisitor(ast.NodeVisitor):
                 continue
             if vuln_type == "command_injection" and self._is_argv_execution(call):
                 continue
-            all_args = list(call.args) + [kw.value for kw in call.keywords]
+            if vuln_type == "ssrf":
+                # A9: taint outside the URL argument cannot steer the fetch.
+                all_args = _ssrf_url_args(call)
+            else:
+                all_args = list(call.args) + [kw.value for kw in call.keywords]
             for arg in all_args:
                 names = self._tainted_names_in(arg, vuln_type)
                 if names:
@@ -1297,11 +1433,39 @@ ENTERPRISE_TAINT_RULES = [
     {"id":"TAINT_SPRING_QUERY_INJECTION","title":"Spring Data @Query / JPQL Injection","vuln":"orm_injection","lang":["java"],"sev":"High","cwe":"CWE-89","owasp":"A03:2021 - Injection","src":r"@RequestParam|@PathVariable|request|getParameter|param","sink":r"@Query|createQuery|createNativeQuery|EntityManager|JpaRepository"},
     {"id":"TAINT_EF_FROMSQLRAW","title":"EF FromSqlRaw Injection","vuln":"orm_injection","lang":["csharp"],"sev":"High","cwe":"CWE-89","owasp":"A03:2021 - Injection","src":r"Request\.|FromQuery|FromRoute|FromBody|route|query","sink":r"FromSqlRaw|ExecuteSqlRaw|SqlQuery"},
     {"id":"TAINT_NOSQL_INJECTION","title":"NoSQL Injection","vuln":"nosql_injection","lang":["javascript","typescript","python","java","php"],"sev":"High","cwe":"CWE-943","owasp":"A03:2021 - Injection","src":r"req\.|request\.|\$_GET|\$_POST|body|query|params","sink":r"findOne|find\(|updateOne|deleteOne|\$where|\$regex|MongoClient"},
-    {"id":"TAINT_SSRF_EXPANDED","title":"SSRF Dynamic Outbound Request","vuln":"ssrf","lang":["javascript","typescript","python","java","csharp","go","php"],"sev":"High","cwe":"CWE-918","owasp":"A10:2021 - Server-Side Request Forgery","src":r"(?:req\.|request\.|Request\.|r\.URL|\$_GET|\$_POST|query\b|params\b|body\b|getParameter\b)","sink":r"(?:\bfetch\s*\(|\baxios\s*\.\s*(?:get|post|put|patch|delete|request)\s*\(|\brequests\s*\.\s*(?:get|post|put|patch|delete|request)\s*\(|\bhttp\s*\.\s*Get\s*\(|\bHttpClient\b|\bRestTemplate\b|\bWebClient\b|\bcurl_exec\s*\(|\bfile_get_contents\s*\(|\burlopen\s*\()"},
+    # A9: ``(?<!urllib\.)(?<!http\.)`` stops a *module import* of
+    # urllib/http -- ``urllib.request.urlopen(...)``/``django.http.request``
+    # -- from counting as the attacker source (measured: 7/11 transformer
+    # SSRF rows sourced from the urllib module itself). Flask/Django view
+    # parameters such as ``request.args``/``req.`` are untouched, and an
+    # alias assigned earlier (``url = request.args.get(...)``) still sources.
+    # A9 adds httpx to the sink side: it is requests' successor and was
+    # absent entirely.
+    # A9d (transformers end-to-end A/B rescan evidence): this rule compiles
+    # with re.IGNORECASE, so the C# ``Request\.`` alternative matched
+    # ``urllib.request.``/local ``request.`` case-insensitively and defeated
+    # the A9a ``urllib.``/``http.`` lookbehind on the ``request\.`` branch.
+    # Six urllib Request/response-object rows (never untrusted input)
+    # survived the A9 gates in the real scan: add_dates.py:80,
+    # get_ci_error_statistics.py:120, github_utils.py:221,
+    # update_pr_ci_dashboard_recap.py:73, integration_utils.py:2565,
+    # transformers_serve_cb_eval_job.py:29. ``r\.URL`` additionally matched
+    # inside ``urllib.error.URLError`` (substring), fixed for every language
+    # with a left-identifier boundary that a standalone Go ``r`` always
+    # satisfies. ``src_python`` scopes the identifier alternatives to the
+    # framework request surfaces enumerated in TAINT_SOURCES
+    # (``request.args``/``request.GET``/...): in Python a bare
+    # ``request.``/``req.`` name is the urllib client API or a local
+    # Request/response variable, never a web input surface. All other
+    # languages keep the generic pattern unchanged.
+    {"id":"TAINT_SSRF_EXPANDED","title":"SSRF Dynamic Outbound Request","vuln":"ssrf","lang":["javascript","typescript","python","java","csharp","go","php"],"sev":"High","cwe":"CWE-918","owasp":"A10:2021 - Server-Side Request Forgery","src":r"(?:req\.|(?<!urllib\.)(?<!http\.)request\.|Request\.|(?<![A-Za-z0-9_])r\.URL|\$_GET|\$_POST|query\b|params\b|body\b|getParameter\b)","src_python":r"(?<![A-Za-z0-9_])(?:request|req|Request)\.(?:args|form|json|data|headers|cookies|values|files|environ|GET|POST|PUT|META|COOKIES|FILES|body|path|path_info|full_path|get_full_path|get_json|query_params|url)\b|(?<![A-Za-z0-9_])r\.URL|\$_GET|\$_POST|query\b|params\b|body\b|getParameter\b","sink":r"(?:\bfetch\s*\(|\baxios\s*\.\s*(?:get|post|put|patch|delete|request)\s*\(|\brequests\s*\.\s*(?:get|post|put|patch|delete|request)\s*\(|\bhttpx\s*\.\s*(?:get|post|put|patch|delete|request|head)\s*\(|\bhttp\s*\.\s*Get\s*\(|\bHttpClient\b|\bRestTemplate\b|\bWebClient\b|\bcurl_exec\s*\(|\bfile_get_contents\s*\(|\burlopen\s*\()"},
     {"id":"TAINT_PROTOTYPE_POLLUTION","title":"Prototype Pollution User Object Merge","vuln":"prototype_pollution","lang":["javascript","typescript"],"sev":"High","cwe":"CWE-1321","owasp":"A08:2021 - Software and Data Integrity Failures","src":r"req\.body|req\.query|body|query","sink":r"Object\.assign|merge|deepmerge|lodash|_\.merge|qs\.parse"},
     {"id":"TAINT_MASS_ASSIGNMENT","title":"Mass Assignment / Overposting","vuln":"mass_assignment","lang":["java","csharp","javascript","typescript","python","php"],"sev":"High","cwe":"CWE-915","owasp":"A01:2021 - Broken Access Control","src":r"@RequestBody|FromBody|req\.body|request\.json|\$_POST|body","sink":r"User|Account|Role|Admin|Entity|Model|create\(|update\(|save\("},
     {"id":"TAINT_MULTIPART_TRAVERSAL","title":"Multipart Upload Path Traversal","vuln":"path_traversal","lang":["java","javascript","typescript","csharp","php"],"sev":"High","cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","src":r"MultipartFile|request\.files|req\.file|IFormFile|\$_FILES|getOriginalFilename|filename","sink":r"transferTo|File\(|Paths\.get|open\(|writeFile|Path\.Combine|move_uploaded_file"},
-    {"id":"TAINT_GRAPHQL_RESOLVER_BOLA","title":"GraphQL Resolver BOLA / IDOR","vuln":"idor","lang":["javascript","typescript","python","java","csharp","graphql"],"sev":"High","cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","src":r"args\.id|id\s*:|@Argument|GraphQLArgument","sink":r"findById|findOne|getById|repository\.find|db\."},
+    # A11: ``\bid\s*:`` needs a word boundary so ``record_id:`` no longer
+    # sources, and ``\bdb\.`` needs one so ``user_db.`` no longer sinks --
+    # both were the single substring that fired babyagi's user_db.py:406 row.
+    {"id":"TAINT_GRAPHQL_RESOLVER_BOLA","title":"GraphQL Resolver BOLA / IDOR","vuln":"idor","lang":["javascript","typescript","python","java","csharp","graphql"],"sev":"High","cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","src":r"args\.id|\bid\s*:|@Argument|GraphQLArgument","sink":r"findById|findOne|getById|repository\.find|\bdb\."},
 
     {"id":"TAINT_GRAPHQL_INTROSPECTION_ENABLED","title":"GraphQL Introspection Enabled","vuln":"graphql_exposure","lang":["javascript","typescript","python","java","csharp","graphql"],"sev":"High","cwe":"CWE-200","owasp":"A05:2021 - Security Misconfiguration","src":r"introspection|graphiql|__schema|__type","sink":r"true|GraphQLPlayground|ApolloServer|GraphQLServer"},
     {"id":"TAINT_GRAPHQL_DEPTH_COMPLEXITY_MISSING","title":"GraphQL Depth / Complexity Abuse Indicator","vuln":"resource_exhaustion","lang":["javascript","typescript","python","java","csharp"],"sev":"High","cwe":"CWE-400","owasp":"API4:2023 - Unrestricted Resource Consumption","src":r"ApolloServer|GraphQLServer|graphqlHTTP|GraphQLModule","sink":r"resolvers|schema|typeDefs|Query|Mutation"},
@@ -1361,8 +1525,12 @@ def _is_generated_artifact(filepath: str) -> bool:
 
 
 def _is_graphql_context(source: str, filepath: str) -> bool:
+    # A11: a bare "schema" word anywhere in the window -- SQLAlchemy
+    # metadata, a docstring -- is not GraphQL. Keep the executable markers
+    # (resolver/typedefs/apollo directives) and the GraphQL file shapes
+    # (.graphql/.gql suffix, /graphql path) instead.
     p = str(filepath).replace("\\", "/").lower()
-    return bool(re.search(r"\b(?:graphql|resolver|gql|typeDefs|schema|ApolloServer|GraphQLModule|@Resolver|@Query|@Mutation)\b", source, re.I)) or "/graphql" in p
+    return bool(re.search(r"\b(?:graphql|resolver|gql|typeDefs|ApolloServer|GraphQLModule|@Resolver|@Query|@Mutation)\b", source, re.I)) or "/graphql" in p or p.endswith(".graphql") or p.endswith(".gql")
 
 
 def _language(path: Path) -> str:
@@ -1497,7 +1665,12 @@ def _is_client_side_ssrf_context(filepath: str, source: str, lang: str) -> bool:
     if "/frontend/" in p or "/client/" in p or "/web/" in p:
         return True
 
+    # A12: served browser bundles. babyagi's
+    # dashboard/static/js/function_details.js:307 was an axios/fetch call in
+    # a file the server ships as static -- the browser, not the server, makes
+    # that request.
     if any(token in p for token in (
+        "/static/", "/public/", "/assets/",
         "/src/api/", "/src/components/", "/src/context/",
         "/src/pages/", "/src/hooks/",
     )):
@@ -1530,6 +1703,7 @@ def _is_concrete_ssrf_sink(line: str, lang: str) -> bool:
     if lang == "python":
         return bool(re.search(
             r"\b(?:requests\s*\.\s*(?:get|post|put|patch|delete|request)\s*\(|"
+            r"httpx\s*\.\s*(?:get|post|put|patch|delete|request|head)\s*\(|"
             r"urllib(?:\.[A-Za-z_][\w]*)*\s*\.\s*urlopen\s*\(|"
             r"urlopen\s*\(|http\.client\.(?:HTTPConnection|HTTPSConnection)\s*\()",
             s, re.IGNORECASE,
@@ -1867,6 +2041,9 @@ def _compile_enterprise_taint_rules():
         try:
             item["_src_re"] = re.compile(rule["src"], _F)
             item["_sink_re"] = re.compile(rule["sink"], _F)
+            if rule.get("src_python"):
+                # A9d: language-scoped source pattern (see TAINT_SSRF_EXPANDED).
+                item["_src_re_python"] = re.compile(rule["src_python"], _F)
         except re.error:
             # Preserve the previous behavior: malformed optional rules
             # are skipped without aborting the complete scan.
@@ -2015,6 +2192,108 @@ def _multipart_flow_proves_constant(source: str, filepath: str, src_match,
         return False
 
 
+def _ssrf_sink_url_text(sink_line: str, sink_re) -> Optional[str]:
+    """A9: text of the arguments that *are* the outbound URL for the concrete
+    sink call on this line (first positional, plus ``url=``-style keywords).
+
+    Returns None when the argument list cannot be located, so the caller
+    keeps the finding rather than guessing.
+    """
+    m = sink_re.search(sink_line)
+    if not m:
+        return None
+    if sink_line[m.end() - 1:m.end()] == "(":
+        idx = m.end() - 1
+    else:
+        idx = sink_line.find("(", m.end())
+    if idx < 0:
+        return None
+
+    def _walk(text: str, start: int) -> tuple[str, int]:
+        """Balanced-paren slice plus its top-level argument split."""
+        depth = 0
+        quote = ""
+        close = -1
+        j = start
+        while j < len(text):
+            ch = text[j]
+            if quote:
+                if ch == "\\":
+                    j += 2
+                    continue
+                if ch == quote:
+                    quote = ""
+            elif ch in "\"'":
+                quote = ch
+            elif ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+                if depth == 0:
+                    close = j
+                    break
+            j += 1
+        if close < 0:
+            return "", -1
+        inner = text[start + 1:close]
+        parts: list[str] = []
+        buf: list[str] = []
+        depth = 0
+        quote = ""
+        j = 0
+        while j < len(inner):
+            ch = inner[j]
+            if quote:
+                buf.append(ch)
+                if ch == "\\" and j + 1 < len(inner):
+                    buf.append(inner[j + 1])
+                    j += 2
+                    continue
+                if ch == quote:
+                    quote = ""
+            elif ch in "\"'":
+                quote = ch
+                buf.append(ch)
+            elif ch in "([{":
+                depth += 1
+                buf.append(ch)
+            elif ch in ")]}":
+                depth -= 1
+                buf.append(ch)
+            elif ch == "," and depth == 0:
+                parts.append("".join(buf))
+                buf = []
+            else:
+                buf.append(ch)
+            j += 1
+        parts.append("".join(buf))
+        return "\x00".join(parts), close
+
+    packed, close = _walk(sink_line, idx)
+    if close < 0:
+        return None
+    parts = packed.split("\x00")
+    keep: list[str] = []
+    if parts and not re.match(r"\s*[A-Za-z_$][\w$]*\s*=", parts[0]):
+        keep.append(parts[0])  # first positional is the URL slot
+    keep.extend(
+        p for p in parts
+        if re.match(r"\s*(?:url|uri|href|endpoint)\s*=", p)
+    )
+    return "\n".join(keep)
+
+
+# A9: bare English-word source tokens only ever source SSRF when they sit in
+# the sink call's own URL argument. Seen on a *different* line they are prose
+# or local bookkeeping (github_utils.py's docstring "any other body",
+# ``body = error.read()``), not request state; the qualified request surfaces
+# (``request.``/``req.``/``$_GET``/``getParameter``/``r.URL``) still source
+# across lines so the alias flow
+#     url = request.args.get("u") ... urlopen(url)
+# keeps its finding.
+_SSRF_BARE_WINDOW_SRCS = frozenset({"query", "params", "body"})
+
+
 def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
     lines = source.splitlines()
     findings: list[dict] = []
@@ -2058,6 +2337,11 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
             continue
 
         src_re = rule["_src_re"]
+        if lang == "python":
+            # A9d: Python uses the surface-bounded source pattern when the
+            # rule provides one (urllib ``request``/``req`` names are client
+            # API objects, not web input).
+            src_re = rule.get("_src_re_python") or src_re
         sink_re = rule["_sink_re"]
 
         for i, line in enumerate(lines):
@@ -2086,9 +2370,24 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
                 if concrete is None:
                     sink_match = None
                 else:
-                    evidence_line = concrete + 1
-                    sink = sink_re.search(lines[concrete]).group(0)[:80]
-                    snippet = lines[concrete]
+                    # A9 text gates. Same-line: the source token must sit in
+                    # the call's own URL argument (``params=``/``headers=``
+                    # payloads do not steer the fetch). Cross-line: a bare
+                    # window word is prose/local state; only a qualified
+                    # request surface sources across lines, preserving the
+                    # ``url = request.args.get(...)`` alias flow.
+                    src_token = src_match.group(0).strip()
+                    if i != concrete:
+                        if src_token in _SSRF_BARE_WINDOW_SRCS:
+                            sink_match = None
+                    else:
+                        url_text = _ssrf_sink_url_text(lines[concrete], sink_re)
+                        if url_text is not None and src_token not in url_text:
+                            sink_match = None
+                    if sink_match:
+                        evidence_line = concrete + 1
+                        sink = sink_re.search(lines[concrete]).group(0)[:80]
+                        snippet = lines[concrete]
             if sink_match:
                 if str(rule.get("vuln", "")).lower() != "ssrf":
                     # The raw sink regex may match a generic token earlier in

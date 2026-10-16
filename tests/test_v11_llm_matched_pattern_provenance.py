@@ -94,7 +94,13 @@ def test_obfuscation_category_is_not_a_pattern_table_entry():
 # used here because it is a path that sets matched_pattern explicitly and is
 # therefore exactly the case the leak destroyed. It is not the rule's first
 # pattern, so a note naming it cannot come from coincidence.
-ALIAS_FIXTURE = "    model_owner = None; return token\n"
+#
+# The line carries credential collocation (`access_token`) because the A3 gate
+# (test_babyagi_transformers_fp_families) keeps `return.*token` only next to a
+# credential term: bare `return token`/`return tokenizer` is NLP vocabulary and
+# is suppressed as a disclosure FP. The provenance path exercised -- the alias
+# value stored on the match record -- is identical on both sides of that gate.
+ALIAS_FIXTURE = "    model_owner = None; return access_token\n"
 
 # MEMORY_PERSISTENCE_RISK reaches the emit step with matched_pattern unset, because
 # it matches through its combined pattern with no explicit-pattern fallback. The

@@ -228,19 +228,48 @@ def derive_release_readiness(payload: Dict[str, Any]) -> Dict[str, Any]:
     ai_high = _get(payload, "ai_model_risk_summary.high_ai_model_risk_indicators", 0)
 
     ai_exec_confirmed = _get(payload, "ai_model_risk_summary.confirmed_executive_risk_indicators", 0)
-    if ai_critical > 0 and ai_exec_confirmed > 0:
+    # A7: bind the priority to the SAME indicator. The old pair -- "some
+    # critical exists" AND "some confirmed exists" -- let 216 unconfirmed
+    # UNSAFE_CODE_INTERPRETER_TOOL criticals ride a confirmed neighbour into
+    # a P0. Score the confirmed set itself: P0 needs a confirmed CRITICAL
+    # indicator, P1 a confirmed HIGH one.
+    ai_indicators = _get(payload, "ai_model_risk_summary.global_indicators", []) or []
+    confirmed_critical = sum(
+        1 for i in ai_indicators
+        if isinstance(i, dict)
+        and i.get("confirmed_executive_risk")
+        and str(i.get("risk_level", "")).upper() == "CRITICAL"
+    )
+    confirmed_high = sum(
+        1 for i in ai_indicators
+        if isinstance(i, dict)
+        and i.get("confirmed_executive_risk")
+        and str(i.get("risk_level", "")).upper() == "HIGH"
+    )
+    if not ai_indicators:
+        # Scalar-only payload (older reports did not expand the indicator
+        # list): preserve the legacy count-based gate rather than going
+        # silent on evidence the summariser already counted.
+        confirmed_critical = ai_critical if (ai_critical > 0 and ai_exec_confirmed > 0) else 0
+        confirmed_high = ai_high if (ai_high > 0 and ai_exec_confirmed > 0) else 0
+    if confirmed_critical > 0:
         _add_gate(
             gates, "CRITICAL_AI_MODEL_RISK", "DO_NOT_RELEASE", "P0",
             "Critical AI model or agent execution risk observed.",
-            {"critical_ai_model_risk_indicators": ai_critical},
+            {
+                "critical_ai_model_risk_indicators": ai_critical,
+                "confirmed_critical_ai_model_risk_indicators": confirmed_critical,
+                "confirmed_executive_risk_indicators": ai_exec_confirmed,
+            },
             "CRITICAL",
         )
-    elif ai_high > 0 and ai_exec_confirmed > 0:
+    elif confirmed_high > 0:
         _add_gate(
             gates, "HIGH_AI_MODEL_RISK", "REMEDIATE_BEFORE_RELEASE", "P1",
             "High AI model, prompt, retrieval, or tool-execution risk with confirmed executive evidence.",
             {
                 "high_ai_model_risk_indicators": ai_high,
+                "confirmed_high_ai_model_risk_indicators": confirmed_high,
                 "confirmed_executive_risk_indicators": ai_exec_confirmed,
             },
             "HIGH",
