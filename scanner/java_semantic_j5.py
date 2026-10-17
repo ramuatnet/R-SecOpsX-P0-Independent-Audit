@@ -378,6 +378,18 @@ _J5_ASSIGN_RE = re.compile(
     r'([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)?)\s*=\s*(.+?)\s*;?\s*$'
 )
 
+# F0: does this statement DECLARE the assigned name (``Type name = ...``)
+# rather than merely write it (``name = ...``)?  The type token must be a
+# single dotted/array-annotated identifier followed by whitespace, so a
+# plain assignment cannot parse (`bar` then expects a name before `=`)
+# and a field write (`obj.field = x`) never reaches this test anyway --
+# record() rejects dotted left-hand sides first.
+_J5_DECL_RE = re.compile(
+    r'(?:(?:final|static|volatile)\s+)*'
+    r'[A-Za-z_$][\w$<>\[\],.?]*\s+'
+    r'[A-Za-z_$][\w$]*\s*=(?!=)'
+)
+
 _J5_METHOD_RE = re.compile(
     r'(?m)^[ \t]*(?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\s+)*'
     r'(?:<[\w\s,? extends super.&]+>\s+)?'
@@ -1517,6 +1529,17 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
        wrong kill is a silent miss and a missed kill is a visible false
        positive.
 
+    3. Scope-colliding declarations (F0, measured on 01479/02370): a
+       ``org.w3c.dom.Element value = nodeList.item(i)`` inside the result
+       loop shares its NAME with an unrelated, live
+       ``String value = values[i]`` in a sibling parameter loop -- both
+       legal Java, but this walk is name-based, so the String binding
+       kept the name alive and printed through the Node binding.  A
+       DECLARATION whose initializer carries no live taint now records a
+       deferred kill that applies only when the sink lies inside the
+       declaration's own frame stack; every later write supersedes it,
+       and a sink outside the frame keeps its name.
+
     Nesting is a stack of classified frames rather than a scalar depth,
     because only some frames deserve kill rights: inside ``try`` /
     ``finally``, if execution reached the sink then every earlier
@@ -1559,6 +1582,16 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
     safe_calls = safe_calls or set()
     local_calls = local_calls or set()
     dead: set[str] = set()
+    # F0: scope-guarded declaration kills -- a DECLARATION inside a
+    # kill-less (cond) frame whose initializer carries no live taint
+    # cannot produce a live binding; because cond-frame writes may not
+    # kill outright (the frame can be skipped), the kill is DEFERRED and
+    # only applied when the sink lies inside the declaration's own frame
+    # stack, which is exactly where Java's scoping makes this declaration
+    # the binding the sink sees.  Any later write to the name supersedes
+    # the candidate (last-write discipline), and a candidate whose frame
+    # closed before the sink is dropped (conservative direction).
+    pending_decls: dict[str, tuple] = {}
     int_env: dict[str, int] = {}
     j6b_constants: dict = {}
     frames: list[str] = []  # "try" frames grant kills; "cond" frames do not
@@ -1574,6 +1607,10 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
     def record(lhs, rhs, s, can_kill):
         if not lhs or not rhs or "." in lhs:
             return
+        # F0: any real write to this name supersedes a deferred
+        # declaration candidate -- the new write is the last write and
+        # decides liveness on its own.
+        pending_decls.pop(lhs, None)
         # Ternary: ``bar = cond ? "const" : param`` is the benchmark's
         # other negative shape (00683). A constant-foldable condition
         # reduces the write to its taken branch, so the untaken branch's
@@ -1679,6 +1716,20 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
             dead.discard(lhs)
         elif can_kill and not _j5_sink_return(rhs):
             dead.add(lhs)
+        elif (
+            not can_kill
+            and not _j5_sink_return(rhs)
+            and _J5_DECL_RE.match(s)
+        ):
+            # F0: a DECLARATION in a cond frame with a proven-dead
+            # initializer (hits empty, no source -- checked above).
+            # Defer the kill; it applies only if the sink ends up inside
+            # this declaration's frame stack (see pending_decls note).
+            # The sink-return carve-out keeps the existing conservatism:
+            # a security-sink result may carry data beyond its arguments
+            # (`rs = stmt.executeQuery(constant)`), so it never proves
+            # safety by itself.
+            pending_decls[lhs] = tuple(frames)
 
     for line_no, raw in _j5_logical_statements(body, start_line):
         if line_no >= sink_line:
@@ -1846,6 +1897,16 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
         lhs, rhs = _j5_assignment(s)
         if lhs:
             record(lhs, rhs, s, can_kill=can_kill)
+    # F0: apply deferred declaration kills whose frame stack contains the
+    # sink's (the frame state as of the last statement before the sink
+    # line is the stack the sink expression executes in).  A candidate
+    # whose frame closed earlier -- or whose snapshot diverges -- is
+    # dropped: the sink then sees some other binding and this
+    # declaration proves nothing about it (conservative direction).
+    sink_frames = tuple(frames)
+    for d_name, d_snap in pending_decls.items():
+        if len(d_snap) <= len(sink_frames) and sink_frames[:len(d_snap)] == d_snap:
+            dead.add(d_name)
     return dead
 
 

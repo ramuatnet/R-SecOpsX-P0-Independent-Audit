@@ -280,6 +280,35 @@ def _analyze_method(filepath, source_lines, method, incoming_params, initial_fie
                             break
                     except Exception:
                         pass
+                    # F0: the shared order-aware dead-name walk (the same
+                    # one the line layer and J3 delegate to) already
+                    # proves these carriers dead -- 01051/01176/01265/
+                    # 02048 all pass a helper whose folded return is a
+                    # constant, and every J4_XSS row in findings22 sits on
+                    # an oracle-NEGATIVE test (J4_XSS has zero rows on
+                    # positives).  E1 could not see through the array
+                    # carrier (`obj`) or the `bar.length()` alias; the
+                    # walk kills exactly those on proof (constant last
+                    # write, folded branch, callee-refined const return)
+                    # and nothing else.  The delegation honours
+                    # gate_enabled() like every other J4 proof gate:
+                    # RSX_MULTIPART_FLOW=0 must restore the pre-gate
+                    # behaviour (E-batch policy, pinned by
+                    # test_e_gate_honors_multipart_kill_switch).  Lazy
+                    # imports mirror the line layer's delegation.
+                    try:
+                        from scanner.multipart_flow import gate_enabled
+                        from scanner.taint_engine import (
+                            _java_dead_names, _java_mask_comments)
+                        if gate_enabled():
+                            dead = _java_dead_names(
+                                _java_mask_comments(list(source_lines)),
+                                set(tainted), line_no, vuln)
+                            hits = {h for h in hits if h not in dead}
+                    except Exception:
+                        pass
+                    if not hits:
+                        continue
                     origin=next(iter(hits)); chain=origins.get(origin,[origin])
                     findings.append(_make_finding(vuln,cwe,title,rule_id,filepath,line_no,s,chain,s[:160]))
                     break

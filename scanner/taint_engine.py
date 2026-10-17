@@ -4088,6 +4088,17 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
     for idx,line in enumerate(masked):
         sm=re.search(r'\b([A-Za-z_$][\w$]*)\s*\.\s*getSession\s*\(\s*\)\s*\.\s*setAttribute\s*\(\s*([A-Za-z_$][\w$]*)\s*,', line, re.I)
         if sm and sm.group(2) in tainted:
+            # F0: this dedicated loop was the ONE J3 emit path without the
+            # shared order-aware dead-refine (the generic sink loop above
+            # has it), so a carrier the walk PROVES dead -- 01207's `bar`,
+            # whose helper's last write reads an untouched map key --
+            # still fired here while the line layer correctly stayed dark.
+            # Kill only on proof; the walk only ever removes names whose
+            # last write before this line is provably safe.
+            if sm.group(2) in _java_dead_names(
+                    masked, set(tainted), idx + 1,
+                    'trust_boundary_violation'):
+                continue
             t=tainted[sm.group(2)]
             findings.append(_j3_emit('trust_boundary_violation','CWE-501','Java trust boundary violation',filepath,idx+1,lines[idx],t['source'],'HttpSession.setAttribute(...)',t['chain']))
 
