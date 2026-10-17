@@ -2806,9 +2806,20 @@ def _java_statement_text(masked: list[str], idx: int, max_extra: int = 6) -> str
     the tainted carrier on the next line.  The join is bounded (max_extra
     lines) and stops as soon as brackets balance and the statement ends --
     it never reaches past the statement the sink belongs to.
+
+    F8: a bracket-balanced line ending in ``{`` is also a statement end --
+    a complete statement HEADER (try-with-resources head, if/while header,
+    lambda block body opener).  Without the brace stop the join crossed
+    into the block BODY and read the next statement as sink-argument
+    text: SafeServlet.java's parameterised
+    ``prepareStatement(sql)) {`` header swallowed
+    ``ps.setString(1, userInput);`` and reported the BOUND PARAMETER as
+    CWE-89 (corpus java FP 6 -> 7, measured 8ff9894..cbe8613).  An open
+    CALL cannot end in a header brace -- its depth is still > 0 there --
+    so every measured wrapped-argument shape keeps joining to its ``;``.
     """
     acc = masked[idx]
-    if _java_bracket_depth(acc) <= 0 and acc.rstrip().endswith(";"):
+    if _java_bracket_depth(acc) <= 0 and acc.rstrip().endswith((";", "{")):
         return acc
     parts = [acc]
     for j in range(idx + 1, min(len(masked), idx + 1 + max_extra)):
@@ -2817,7 +2828,7 @@ def _java_statement_text(masked: list[str], idx: int, max_extra: int = 6) -> str
             break
         parts.append(nxt)
         acc = acc + " " + nxt
-        if _java_bracket_depth(acc) <= 0 and acc.rstrip().endswith(";"):
+        if _java_bracket_depth(acc) <= 0 and acc.rstrip().endswith((";", "{")):
             break
     return " ".join(parts)
 
