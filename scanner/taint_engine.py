@@ -858,7 +858,37 @@ class TaintVisitor(ast.NodeVisitor):
             # object that happens to expose a .select() method.
             if not isinstance(recv, ast.Name) or not str(
                     self._import_alias.get(recv.id, "")).startswith("sqlalchemy"):
-                return False
+                # C3 (2026-10-16, llama_index): the receiver may instead be
+                # a NAME already recorded as a builder product in this
+                # function on an earlier line -- ``query =
+                # select(Table).where(...)`` followed by ``query =
+                # query.limit(limit)`` / ``query = query.where(...)``
+                # compiles to the same parameterized statement.  The Name
+                # receiver failed the module-alias test, so the record was
+                # POPPED and llama_index's llama-index-core/.../storage/
+                # chat_store/sql.py fired 3 false TAINT_SQL_INJECTION rows
+                # on exactly this chain.  Provenance transfers only from a
+                # live record that predates this expression; the
+                # dynamic-text sub-walk below still withholds the
+                # classification for ``text(f"...")`` inside the chain.
+                entry = (self._builder_assigns.get(recv.id)
+                         if isinstance(recv, ast.Name) else None)
+                if (entry is None
+                        or entry[0] != self._cur_func
+                        or entry[1] >= rhs.lineno):
+                    return False
+                # Chain method on a proven builder (limit/offset/where/
+                # order_by/...) -- the constructor-name check below does
+                # not apply, so classify here after the same
+                # dynamic-text guard.
+                for sub in ast.walk(rhs):
+                    if isinstance(sub, ast.Call):
+                        f = sub.func
+                        fname = (f.attr if isinstance(f, ast.Attribute)
+                                 else f.id if isinstance(f, ast.Name) else "")
+                        if fname in self._DYNAMIC_SQL_TEXT_CALLS:
+                            return False
+                return True
         elif isinstance(func, ast.Name):
             base = func.id  # from sqlalchemy import select
         else:  # pragma: no cover - defensive
@@ -948,14 +978,33 @@ class TaintVisitor(ast.NodeVisitor):
             # Cannot establish which argument is the statement -- stay
             # conservative and let the generic rules run.
             return True
-        if isinstance(q, ast.Name):
-            entry = self._builder_assigns.get(q.id)
+        root = q
+        while isinstance(root, (ast.Call, ast.Attribute)):
+            root = root.func if isinstance(root, ast.Call) else root.value
+        if isinstance(root, ast.Name):
+            entry = self._builder_assigns.get(root.id)
             if (entry is not None
                     and entry[0] == self._cur_func
                     and entry[1] < call.lineno):
                 # The statement is a query-builder product recorded earlier
                 # in this same function; taint rides in bound parameters.
-                return False
+                if root is q:
+                    return False
+                # C3: the sink argument is a fluent chain off that recorded
+                # name (``session.execute(query.order_by(...))`` --
+                # chat_store/sql.py:199).  A chain of builder methods still
+                # compiles to a parameterized statement; only a
+                # dynamic-text call inside the chain (``text(f"...")``)
+                # revokes that.
+                for sub in ast.walk(q):
+                    if isinstance(sub, ast.Call):
+                        f = sub.func
+                        fname = (f.attr if isinstance(f, ast.Attribute)
+                                 else f.id if isinstance(f, ast.Name) else "")
+                        if fname in self._DYNAMIC_SQL_TEXT_CALLS:
+                            break
+                else:
+                    return False
         return bool(self._tainted_names_in(q, "sql_injection")
                     or self._source_exprs_in(q, "sql_injection"))
     def _is_argv_execution(self, call: ast.Call) -> bool:
@@ -1003,6 +1052,44 @@ class TaintVisitor(ast.NodeVisitor):
                 receiver_tail = call_str.rsplit(".", 1)[0].rsplit(".", 1)[-1]
                 if receiver_tail not in _SQL_DB_RECEIVER_TAILS:
                     continue
+            if (
+                vuln_type == "code_injection"
+                and sink_key == "compile"
+                and call_str.endswith("." + sink_key)
+                and call_str.rsplit(".", 1)[0] != "builtins"
+            ):
+                # B3: every dotted ``.compile`` host compiles something that
+                # is NOT attacker source text -- ``re.compile`` a regex,
+                # ``torch.compile`` a model graph (peft's
+                # ``torch.compile(model, dynamic=True)`` carried
+                # request-shaped taint and reported TAINT_CODE_INJECTION),
+                # ``py_compile.compile``/``compileall`` files, XPath
+                # ``XPath.compile`` an expression, Pattern/WebAssembly
+                # likewise.  The Python builtin ``compile(source, ...)``,
+                # the only compile that turns attacker text into executable
+                # bytecode, is receiver-less (or explicitly
+                # ``builtins.compile``) and keeps firing -- the same
+                # receiver-form discipline A1 applied to eval.
+                continue
+            if (
+                vuln_type == "code_injection"
+                and sink_key == "exec"
+                and call_str.endswith("." + sink_key)
+                and call_str.rsplit(".", 1)[0] != "builtins"
+            ):
+                # B5 (2026-10-16, Open-Assistant): the bare ``exec``
+                # key matched any dotted receiver, so SQLModel's
+                # ``session.exec(query)`` -- a SELECT run through the
+                # query-builder API, 18 rows in the OA report -- was
+                # reported as TAINT_CODE_INJECTION wherever a route
+                # parameter reached the query.  In Python, code
+                # execution is the receiver-less builtin
+                # ``exec(statements)`` (or ``builtins.exec``); no
+                # dotted ``.exec`` host in the ecosystem executes
+                # Python source -- session/db handles run queries.
+                # Same receiver-form discipline as A10/B3; the
+                # builtin keeps firing.
+                continue
             if vuln_type == "sql_injection" and not self._sql_text_is_tainted(call):
                 # Statement text is a constant/untainted expression and any
                 # taint sits in the bound parameters: parameterized query, the
@@ -1467,7 +1554,19 @@ ENTERPRISE_TAINT_RULES = [
     # both were the single substring that fired babyagi's user_db.py:406 row.
     {"id":"TAINT_GRAPHQL_RESOLVER_BOLA","title":"GraphQL Resolver BOLA / IDOR","vuln":"idor","lang":["javascript","typescript","python","java","csharp","graphql"],"sev":"High","cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","src":r"args\.id|\bid\s*:|@Argument|GraphQLArgument","sink":r"findById|findOne|getById|repository\.find|\bdb\."},
 
-    {"id":"TAINT_GRAPHQL_INTROSPECTION_ENABLED","title":"GraphQL Introspection Enabled","vuln":"graphql_exposure","lang":["javascript","typescript","python","java","csharp","graphql"],"sev":"High","cwe":"CWE-200","owasp":"A05:2021 - Security Misconfiguration","src":r"introspection|graphiql|__schema|__type","sink":r"true|GraphQLPlayground|ApolloServer|GraphQLServer"},
+    # B2 (2026-10-16, peft): the boolean arm of this sink was the bare token
+    # ``true`` -- case-insensitive and unanchored -- so ANY ``= True`` in the
+    # window of an ``introspection`` mention fired.  peft's
+    # generate_method_capabilities.py is a *static introspection* toolkit
+    # (``INTROSPECTION = "introspection"`` enum, L166) whose six-lines-later
+    # neighbour was ``@dataclass(frozen=True)`` (L172) -> "GraphQL
+    # Introspection Enabled", High.  The boolean must now be the VALUE of an
+    # enablement-shaped assignment naming the flag, the same anchored shape
+    # sast.py's static GRAPHQL_INTROSPECTION_ENABLED has always required
+    # (``introspection: true`` / ``graphiql = true`` /
+    # ``config["playground"] = true``).  The three presence sinks
+    # (GraphQLPlayground / ApolloServer / GraphQLServer) are untouched.
+    {"id":"TAINT_GRAPHQL_INTROSPECTION_ENABLED","title":"GraphQL Introspection Enabled","vuln":"graphql_exposure","lang":["javascript","typescript","python","java","csharp","graphql"],"sev":"High","cwe":"CWE-200","owasp":"A05:2021 - Security Misconfiguration","src":r"introspection|graphiql|__schema|__type","sink":r"[\w.\[\]\"']*(?:introspection|graphiql|playground)[\w.\[\]\"']*\s*[:=]\s*true|GraphQLPlayground|ApolloServer|GraphQLServer"},
     {"id":"TAINT_GRAPHQL_DEPTH_COMPLEXITY_MISSING","title":"GraphQL Depth / Complexity Abuse Indicator","vuln":"resource_exhaustion","lang":["javascript","typescript","python","java","csharp"],"sev":"High","cwe":"CWE-400","owasp":"API4:2023 - Unrestricted Resource Consumption","src":r"ApolloServer|GraphQLServer|graphqlHTTP|GraphQLModule","sink":r"resolvers|schema|typeDefs|Query|Mutation"},
 
     # ------------------------------------------------------------------

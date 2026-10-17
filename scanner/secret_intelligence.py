@@ -186,7 +186,16 @@ def _build_finding(rule_id, title, vuln, sev, cwe, file, line, snippet, lang):
 
 
 # Production secret-detection layers
-_PROP_SECRET_KEY = re.compile(r"(?i)(?:password|passwd|pwd|passcode|passphrase|secret|token|api[_.-]?key|access[_.-]?key|secret[_.-]?key|client[_.-]?secret|credential|auth(?:entication)?[_.-]?(?:token|key|secret)|private[_.-]?key|signing[_.-]?(?:key|secret)|webhook[_.-]?(?:key|secret)|dsn)")
+# B7a (2026-10-16, Open-Assistant): ``token`` carries a
+# ``(?![A-Za-z])`` lookahead so it cannot match as the PREFIX of a longer
+# word -- OA's pretokenize config
+# ``tokenizer_type: SentencePieceTokenizer`` reported a Hardcoded
+# configuration credential because "token" sat
+# inside "tokenizer".  Separators still count (``token_indices``,
+# ``access_token`` keep matching via their own alternatives/positions);
+# plural containers (``tokens``) stop matching, consistent with the leaf
+# scoping that already excludes container names.
+_PROP_SECRET_KEY = re.compile(r"(?i)(?:password|passwd|pwd|passcode|passphrase|secret|token(?![A-Za-z])|api[_.-]?key|access[_.-]?key|secret[_.-]?key|client[_.-]?secret|credential|auth(?:entication)?[_.-]?(?:token|key|secret)|private[_.-]?key|signing[_.-]?(?:key|secret)|webhook[_.-]?(?:key|secret)|dsn)")
 _ENV_ONLY = re.compile(r"^\s*(?:\$\{[^}:]+\}|\$[A-Za-z_][A-Za-z0-9_]*)\s*$")
 _ENV_DEFAULT = re.compile(r"^\s*\$\{[^}:]+:[^}]*\}\s*$")
 _PROP_CONTEXT = re.compile(r"(?i)(?:sms|text[_.-]?message|messaging|ldap|directory|smtp|mail|email|datasource|database|db|jdbc|oauth|oidc|okta|auth0|onelogin|ping|aws|azure|gcp|cloud|stripe|payment|twilio|sendgrid|slack|discord|telegram|github|gitlab|bitbucket|npm|pypi|nuget|rubygems|docker|registry|vault|datadog|sentry|newrelic|pagerduty|grafana|honeycomb|launchdarkly|firebase|cloudflare|fastly|akamai|algolia|kafka|rabbit|amqp|mqtt|redis|mongo|postgres|mysql|oracle|mssql|jenkins|circleci|buildkite|terraform|ansible|kubernetes|helm|django|flask|rails|express|session|jwt|totp|mfa|otp|proxy|vpn|snmp|webhook|signing|cosign|gpg|pgp|openai|anthropic|huggingface|hugging_face|gemini|deepseek|pinecone|langchain|mcp)")
@@ -223,7 +232,7 @@ DECOY_CONTAINS = re.compile(
     r"|insert[_ -]?key[_ -]?here|changeme|your[_ -]?(?:api[_ -]?)?key)"
 )
 SECRET_VULN_TYPES={"hardcoded_secret","secret_exposure","jwt_secret","connection_string","oauth_client_secret","database_connection_string","kafka_credential","rabbitmq_credential","spring_config_secret","cloud_secret","messaging_secret","database_connection_secret","cloud_metadata_credential","configuration_secret","configuration_secret_fallback","sms_service_credential","ldap_credential","smtp_credential","source_control_token","package_registry_token","ai_platform_credential","observability_credential","payment_secret","communication_token","webhook_secret","secrets_manager_credential","cryptographic_private_key","framework_secret","mcp_token","cloud_session_token","proxy_credential","broker_credential","snmp_credential"}
-_SECRET_NAME_HINT=re.compile(r"(?i)(?:password|passwd|pwd|passcode|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|credential|private[_-]?key|signing[_-]?(?:key|secret)|webhook[_-]?(?:key|secret))")
+_SECRET_NAME_HINT=re.compile(r"(?i)(?:password|passwd|pwd|passcode|passphrase|secret|token(?![A-Za-z])|api[_-]?key|access[_-]?key|client[_-]?secret|credential|private[_-]?key|signing[_-]?(?:key|secret)|webhook[_-]?(?:key|secret))")
 
 # CamelCase stand-ins: ``string appClientSecret = "testAppClientSecret";``
 # (CopilotStudioTests) -- the stem must END where an uppercase letter begins,
@@ -294,6 +303,16 @@ def _looks_like_terraform_reference(v):
 #     dependency line whose NAME contains "secret" is not a credential
 #     assignment (AgentGPT: aws-secretsmanager-caching = "^1.1.1.5").
 _GH_EXPRESSION = re.compile(r"^\s*\$\{\{.*\}\}\s*$")
+# B8 (2026-10-16, Open-Assistant): 11 of 17 CONFIG_CONTEXTUAL rows were
+# reference-shaped values the gates never questioned -- Jinja2
+# ``{{ postgres_password }}`` (ansible), a secrets-manager PATH carrying
+# ``${...}`` interpolations (CF manifests), and a GitHub Actions
+# ``${{secrets.X}}`` with a trailing line-continuation backslash that
+# defeated the full-match above.  Interpolation means the deployed value
+# is assembled at template time; literal material never contains
+# ``${...}`` and is never itself a pure template expression.
+_JINJA_EXPRESSION = re.compile(r"^\{\{[\s\S]*\}\}$")
+_ENV_INTERPOLATION_ANY = re.compile(r"\$\{[^}]+\}")
 _CONFIG_REFERENCE = re.compile(
     r"^(?:self|this|cls|super|env|settings|config|configuration|cfg|serverEnv|"
     r"clientEnv|server_env|client_env|process|os|sys|module|vars|locals|props|"
@@ -329,6 +348,15 @@ def _value_is_code_reference(v) -> bool:
     value = str(v or "").strip().strip('"\'`;')
     if not value:
         return False
+    if _JINJA_EXPRESSION.fullmatch(value):
+        # ``{{ postgres_password }}`` / ``{{ web_api_key }}`` -- a Jinja2
+        # expression resolves to another value at deploy time.
+        return True
+    if _ENV_INTERPOLATION_ANY.search(value):
+        # ``/copilot/${APP}/${ENV}/secrets/X`` (CF manifest secret path)
+        # or ``${{secrets.X}} \`` (workflow continuation) -- any embedded
+        # ``${...}`` makes the value an interpolation, not a literal.
+        return True
     if _CONFIG_GETTER_PREFIX.match(value):
         # os.getenv("X" / process.env.X -- a call whose captured prefix ends
         # at the first quote or paren; still a reference, never a literal.
@@ -360,6 +388,18 @@ def _value_is_code_reference(v) -> bool:
 def _looks_like_secret_value(v):
     x=v.strip().strip('"\'`')
     if not x or _looks_like_env(x) or _looks_like_terraform_reference(x) or _is_placeholder(x) or len(x)<8: return False
+    if re.fullmatch(r"\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*\],?", x):
+        # B4 (2026-10-16, peft): a bracketed list of bare integers is
+        # structured data -- token ids, indices, tensor shapes -- never
+        # credential material.  adapter_config.json's
+        # ``token_indices: [128000, 128001]`` (tokenizer vocabulary
+        # positions) reported as a Hardcoded configuration credential
+        # because only the KEY's "token" noun and a length >= 8 were
+        # consulted.  Arrays whose elements are strings/objects
+        # (``api_keys: ["ghp_...", ...]``) do not match this shape and
+        # keep firing; the trailing-comma form covers the properties
+        # parser's ``[128000, 128001],`` capture.
+        return False
     if _value_is_code_reference(x): return False
     if re.match(r"^(?:https?|ftp)://",x,re.I): return False
     if re.fullmatch(r"[0-9a-fA-F-]{32,}",x) and x.count('-')>=2: return False

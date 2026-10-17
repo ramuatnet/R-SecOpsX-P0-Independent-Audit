@@ -802,3 +802,499 @@ def test_ssrf_server_route_fetch_still_reported(tmp_path):
         };
     ''')
     assert "TAINT_SSRF_EXPANDED" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B1 -- one frame-taller-than-row table cell must not cost the whole PDF
+#
+# Open-Assistant (2026-10-16): the SBOM dependency table's Fixed In cell is
+# ", ".join of every fixed version; `next` carries 60+ of them, a 656pt row
+# in a 1.47cm column against the 665pt content frame.  Table.split()
+# returns [] when the row-wise split cannot advance past a row taller than
+# the frame, doctemplate turns that into reportlab's LayoutError, and the
+# run ships NO Security_Report.pdf (the executive generator is nested in
+# the same try, so it never runs either) -- pages 1-123 had rendered.
+# splitInRow=1 is a fallback that only runs when the row-wise split
+# already failed, i.e. exactly in the old LayoutError case.
+# ---------------------------------------------------------------------------
+def test_pdf_every_splitbyrow_table_declares_splitinrow():
+    """Source pin: all 11 splitByRow=1 sites carry splitInRow=1."""
+    import re as _re
+
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "reporting" / "pdf_report.py").read_text(encoding="utf-8-sig")
+    row_wise = _re.findall(r"splitByRow=1(?=[,)\r\n])", src)
+    in_row = _re.findall(r"splitInRow=1(?=[,)\r\n])", src)
+    assert len(row_wise) == 11, f"splitByRow sites drifted: {len(row_wise)}"
+    assert len(in_row) == len(row_wise)
+
+
+def test_pdf_giant_cell_row_splits_instead_of_dropping_report():
+    """Functional: the Open-Assistant killer shape (header + frame-taller
+    row first) returns [] without splitInRow -- the LayoutError path -- and
+    splits in two with it.  Frame dims are the real 'content' frame of the
+    'SBOM' page template (481.23 x 665.48pt)."""
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, Table
+
+    cm = 28.3464566929
+    cw = [w * cm for w in
+          (3.10, 1.42, 0.95, 2.99, 1.71, 1.04, 1.46, 1.56, 1.70, 1.47)]
+    st = ParagraphStyle("td", fontSize=8, leading=9.6)
+    header = ["Package", "Ver", "Type", "CVE / Advisory", "CVSS",
+              "EPSS", "Severity", "Age", "Reachable", "Fixed In"]
+    # A cell whose wrap height exceeds the 665pt frame (narrow column,
+    # no spaces to wrap on -- splitLongWords splits it per character).
+    giant = [Paragraph("x" * 400, st) for _ in range(10)]
+    small = ["--"] * 10
+    rows = [header, giant, small, small]
+
+    old = Table(rows, colWidths=cw, repeatRows=1, splitByRow=1, splitInRow=0)
+    assert old.split(481.23, 665.48) == []  # the pre-B1 report-killing path
+
+    fixed = Table(rows, colWidths=cw, repeatRows=1, splitByRow=1, splitInRow=1)
+    assert len(fixed.split(481.23, 665.48)) >= 2
+
+    # No behaviour change for tables that fit: still one piece.
+    fitting = Table([header, small], colWidths=cw, repeatRows=1,
+                    splitByRow=1, splitInRow=1)
+    assert len(fitting.split(481.23, 665.48)) == 1
+
+
+# ---------------------------------------------------------------------------
+# B2 -- GraphQL introspection's boolean must be an enablement assignment
+#
+# peft (2026-10-16): the enterprise rule's sink was the bare token ``true``
+# (case-insensitive), so any ``= True`` in the window of an ``introspection``
+# mention fired -- generate_method_capabilities.py is a *static
+# introspection* toolkit (``INTROSPECTION = "introspection"`` enum) whose
+# neighbour was ``@dataclass(frozen=True)`` -> "GraphQL Introspection
+# Enabled", High.  sast.py's static GRAPHQL_INTROSPECTION_ENABLED has always
+# required the anchored shape (``introspection\s*:\s*true``); the boolean
+# sink now does too.  The presence sinks (GraphQLPlayground / ApolloServer /
+# GraphQLServer) are untouched.
+# ---------------------------------------------------------------------------
+def test_graphql_introspection_frozen_true_suppressed(tmp_path):
+    findings = _taint(tmp_path, "generate_method_capabilities.py", '''
+        INTROSPECTION = "introspection"
+
+        @dataclass(frozen=True)
+        class Finding:
+            value: str
+            source: str
+    ''')
+    assert "TAINT_GRAPHQL_INTROSPECTION_ENABLED" not in _ids(findings)
+
+
+def test_graphql_introspection_enablement_bool_still_reported(tmp_path):
+    """Control: the real enablement shapes keep firing."""
+    findings = _taint(tmp_path, "server.js", '''
+        const typeDefs = `type Query { ping: String }`;
+        const server = new ApolloServer({ typeDefs, resolvers, introspection: true });
+    ''')
+    assert "TAINT_GRAPHQL_INTROSPECTION_ENABLED" in _ids(findings)
+
+
+def test_graphql_introspection_python_config_bool_still_reported(tmp_path):
+    """Control: ``= True`` behind an enablement noun in Python config."""
+    findings = _taint(tmp_path, "app_config.py", '''
+        app.config["GRAPHIQL"] = True
+        schema = build_schema(type_defs)
+    ''')
+    assert "TAINT_GRAPHQL_INTROSPECTION_ENABLED" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B3 -- a dotted ``.compile`` is not code injection
+#
+# peft (2026-10-16): ``model = torch.compile(model, dynamic=True)`` carried
+# request-shaped taint and reported TAINT_CODE_INJECTION.  Every dotted
+# compile host compiles something other than attacker source text: re.* a
+# regex, torch.* a graph, py_compile files, XPath/Pattern/WebAssembly
+# likewise.  The builtin ``compile(source, ...)`` -- the only compile that
+# turns attacker text into bytecode -- is receiver-less and keeps firing.
+# Receiver-form gate mirrors A1's eval treatment.
+# ---------------------------------------------------------------------------
+def test_taint_torch_compile_is_not_code_injection(tmp_path):
+    findings = _taint(tmp_path, "train.py", '''
+        model = request.args["model"]
+        model = torch.compile(model, dynamic=True)
+    ''')
+    assert "TAINT_CODE_INJECTION" not in _ids(findings)
+
+
+def test_taint_bare_compile_of_request_still_reported(tmp_path):
+    """Control: the builtin compiles attacker text into bytecode."""
+    findings = _taint(tmp_path, "runner.py", '''
+        code = request.args["code"]
+        compiled = compile(code, "<user>", "exec")
+    ''')
+    assert "TAINT_CODE_INJECTION" in _ids(findings)
+
+
+def test_taint_re_compile_is_not_code_injection(tmp_path):
+    findings = _taint(tmp_path, "parse.py", '''
+        pattern = request.args["pattern"]
+        rx = re.compile(pattern)
+    ''')
+    assert "TAINT_CODE_INJECTION" not in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B4 -- a bracketed integer array is not credential material
+#
+# peft (2026-10-16): adapter_config.json's ``token_indices: [128000, 128001]``
+# (tokenizer vocabulary positions) reported CONFIG_CONTEXTUAL_CREDENTIAL:
+# the KEY's "token" noun and a length >= 8 were enough, and
+# _looks_like_secret_value never asked what the value WAS.  Structured
+# numeric arrays are data; arrays carrying strings/objects are untouched.
+# ---------------------------------------------------------------------------
+def test_config_integer_array_is_not_a_credential(tmp_path):
+    findings = _sec(tmp_path, "adapter_config.json", '''
+        {
+          "peft_type": "TRAINABLE_TOKENS",
+          "token_indices": [128000, 128001],
+          "task_type": "CAUSAL_LM"
+        }
+    ''')
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" not in _ids(findings)
+
+
+def test_config_token_key_with_string_value_still_reported(tmp_path):
+    """Control: same key, a string that could be token material keeps."""
+    findings = _sec(tmp_path, "adapter_config.json", '''
+        {
+          "token_indices": "128000128001deadbeef"
+        }
+    ''')
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B5 -- session.exec is DB query execution, not Python code execution
+#
+# Open-Assistant (2026-10-16): 18 rows of TAINT_CODE_INJECTION on
+# ``message = (await self.session.exec(query)).one()`` -- SQLModel's
+# Session.exec runs a SELECT built through the query-builder API.  The bare
+# ``exec`` sink key matched any dotted receiver, the same receiver-form
+# defect family as A10 (SQL ``execute``), B3 (``torch.compile``) and A1
+# (eval).  Python's builtin ``exec(...)`` is receiver-less and keeps firing.
+# ---------------------------------------------------------------------------
+def test_taint_session_exec_is_not_code_injection(tmp_path):
+    findings = _taint(tmp_path, "chat_repository.py", """
+        async def get_messages(self, session, user_id: int):
+            query = sqlmodel.select(ChatMessage).where(ChatMessage.user_id == user_id)
+            message = (await session.exec(query)).one()
+            return message
+    """)
+    assert "TAINT_CODE_INJECTION" not in _ids(findings)
+
+
+def test_taint_self_session_exec_is_not_code_injection(tmp_path):
+    findings = _taint(tmp_path, "repository.py", """
+        class Repo:
+            async def run(self, user_id: int):
+                query = select(models.Row).where(models.Row.uid == user_id)
+                return (await self.session.exec(query)).all()
+    """)
+    assert "TAINT_CODE_INJECTION" not in _ids(findings)
+
+
+def test_taint_bare_exec_of_request_still_reported(tmp_path):
+    """Control: the builtin executes attacker statements."""
+    findings = _taint(tmp_path, "runner.py", """
+        code = request.args["code"]
+        exec(code)
+    """)
+    assert "TAINT_CODE_INJECTION" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B6 -- LLM02's exec evidence must not count a DB session query
+#
+# Same OA lines fired LLM02_INSECURE_OUTPUT_HANDLING because LLM_EXEC_ANY_RE
+# treats any "exec(" as dynamic execution.  child_process's cp.exec(cmd) and
+# the Python builtin stay (the A1-era comment names them); only the
+# session receiver -- query execution, not eval of LLM output -- is excluded.
+# ---------------------------------------------------------------------------
+def test_llm02_session_exec_suppressed(tmp_path):
+    findings = _llm(tmp_path, "chat_repository.py", """
+        message = (await self.session.exec(query)).one()
+        return message
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" not in _ids(findings)
+
+
+def test_llm02_child_process_exec_still_reported_control(tmp_path):
+    """Control: Node's child_process.exec really executes a shell command."""
+    findings = _llm(tmp_path, "handler.js", """
+        const cp = require("child_process");
+        cp.exec(userInput, callback);
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B7 -- a credential noun must not match as the prefix of a longer word
+#
+# Open-Assistant: ``tokenizer_type: "SentencePieceTokenizer"`` (pretokenize
+# config) reported CONFIG_CONTEXTUAL_CREDENTIAL because "token" matched
+# inside "tokenizer"; and ``if args.tokenizer_type == "FalconTokenizer"``
+# (x5) reported HARDCODED_CREDENTIAL_COMPARISON because the comparison
+# pattern let the noun ride an arbitrary [\w]* suffix.  The same defect in
+# the comparison pattern was masking a genuine detection failure: nouns
+# behind ``_`` (``access_token``, ``user_password``) never matched because
+# ``\b`` cannot fire between two word characters.  Both are fixed together:
+# the suffix must now start with ``_``/``-``/digit, and the prefix boundary
+# is "not alphanumeric" instead of ``\b``.
+# ---------------------------------------------------------------------------
+def test_config_tokenizer_type_is_not_a_credential(tmp_path):
+    findings = _sec(tmp_path, "pretokenize.yaml", """
+        model:
+          tokenizer_type: "SentencePieceTokenizer"
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" not in _ids(findings)
+
+
+def test_config_access_token_value_still_reported(tmp_path):
+    """Control: a token-named key with material keeps firing."""
+    findings = _sec(tmp_path, "service.yaml", """
+        auth:
+          access_token: Abcdefghijklmnop123456
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" in _ids(findings)
+
+
+def test_sast_tokenizer_type_comparison_suppressed(tmp_path):
+    findings = _sast(tmp_path, "tokenizer.py", """
+        def build(args):
+            if args.tokenizer_type == "FalconTokenizer":
+                return FalconTokenizer()
+    """)
+    assert "HARDCODED_CREDENTIAL_COMPARISON" not in _ids(findings)
+
+
+def test_sast_password_comparison_still_reported(tmp_path):
+    """Control: the canonical auth-bypass shape keeps its Critical."""
+    findings = _sast(tmp_path, "auth.py", """
+        def check(user):
+            if user.password == "hunter2secret":
+                return True
+    """)
+    assert "HARDCODED_CREDENTIAL_COMPARISON" in _ids(findings)
+
+
+def test_sast_access_token_comparison_now_reported(tmp_path):
+    r"""FN fix control: ``access_token == "literal"`` is the canonical
+    credential-comparison shape and could never match behind ``\b``."""
+    findings = _sast(tmp_path, "auth.py", """
+        def check(session):
+            if session.access_token == "tok_live_9f3c1d7a":
+                return True
+    """)
+    assert "HARDCODED_CREDENTIAL_COMPARISON" in _ids(findings)
+
+
+def test_sast_user_password_comparison_now_reported(tmp_path):
+    """FN fix control: ``user_password == "literal"`` likewise."""
+    findings = _sast(tmp_path, "auth.py", """
+        def check(user):
+            if user_password == "hunter2secret":
+                return True
+    """)
+    assert "HARDCODED_CREDENTIAL_COMPARISON" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# B8 -- template/interpolation references are not secret material
+#
+# Open-Assistant: 11 of 17 CONFIG_CONTEXTUAL rows were reference-shaped
+# values the value gates never questioned -- Jinja2 ``{{ postgres_password }}``
+# (ansible x7), a secrets-manager PATH carrying ``${...}`` interpolations
+# (CF manifests x3), and a GitHub Actions ``${{secrets.X}}`` with a trailing
+# line-continuation backslash (workflow x1).  Interpolation means the
+# deployed value is assembled at template time; literal material never
+# contains ``${...}`` or is itself a pure template expression.  Hardcoded
+# literals (``POSTGRES_PASSWORD: postgres``) keep firing.
+# ---------------------------------------------------------------------------
+def test_config_jinja_reference_suppressed(tmp_path):
+    findings = _sec(tmp_path, "deploy-to-node.yaml", """
+        environment:
+          POSTGRES_PASSWORD: "{{ postgres_password }}"
+          OFFICIAL_WEB_API_KEY: "{{ web_api_key }}"
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" not in _ids(findings)
+
+
+def test_config_secrets_path_with_interpolation_suppressed(tmp_path):
+    findings = _sec(tmp_path, "manifest.yml", """
+        env:
+          EMAIL_SERVER_PASSWORD: /copilot/${COPILOT_APPLICATION_NAME}/secrets/EMAIL_SERVER_PASSWORD
+          NEXTAUTH_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/secrets/NEXTAUTH_SECRET
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" not in _ids(findings)
+
+
+def test_config_gh_expression_with_continuation_suppressed(tmp_path):
+    findings = _sec(tmp_path, "deploy-to-node.yaml", """
+        run: |
+          postgres_password=${{secrets.POSTGRES_PASSWORD}} \
+          createdb oasst
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" not in _ids(findings)
+
+
+def test_config_hardcoded_compose_password_still_reported(tmp_path):
+    """Control: the genuine hardcoded default credential keeps firing."""
+    findings = _sec(tmp_path, "docker-compose.yaml", """
+        services:
+          db:
+            environment:
+              POSTGRES_PASSWORD: postgres
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# C1 -- EVAL_CALL must not fire inside JSON data files
+#
+# llama_index (2026-10-16): 2 EVAL_CALL rows matched ``eval(`` inside the
+# ``"content"`` string of a Discord chat-log JSON dump (line 74901 of each
+# file) -- a user quoting a Python traceback.  JSON is a data format: it is
+# never executed as code, and nearly every character of a JSON file sits
+# inside a string value, so string-context helpers for code languages cannot
+# apply.  Code-execution rules are gated to executable languages already
+# (PYTHON_EXEC_CALL: {python}); EVAL_CALL, which spans JS/PHP/Python eval,
+# had no gate.  Secrets/config rules must keep firing on JSON -- only
+# code-injection classification is gated.
+# ---------------------------------------------------------------------------
+def test_eval_call_json_chat_log_suppressed(tmp_path):
+    findings = _sast(tmp_path, "help_channel_dump.json", """
+        {
+          "content": "Traceback: File \\"x.py\\", line 2, in <module> eval(payload)",
+          "author": {"name": "user"}
+        }
+    """)
+    assert "EVAL_CALL" not in _ids(findings)
+
+
+def test_eval_call_json_config_snippet_suppressed(tmp_path):
+    findings = _sast(tmp_path, "config.json", """
+        {"example": "call eval(user_input) to evaluate"}
+    """)
+    assert "EVAL_CALL" not in _ids(findings)
+
+
+def test_eval_call_js_bare_still_reported_control(tmp_path):
+    """Control: bare eval in real executable code keeps its Critical."""
+    findings = _sast(tmp_path, "server.js", """
+        function run(input) {
+            return eval(input);
+        }
+    """)
+    assert "EVAL_CALL" in _ids(findings)
+
+
+def test_secret_engine_json_config_still_reported_control(tmp_path):
+    """Control: the JSON gate is sast code-injection-only; the secret engine
+    keeps classifying credentials in JSON config."""
+    findings = _sec(tmp_path, "settings.json", """
+        {"db_password": "SuperSecretPw123!"}
+    """)
+    assert "CONFIG_CONTEXTUAL_CREDENTIAL" in _ids(findings)
+
+
+def test_sast_json_command_injection_still_reported_control(tmp_path):
+    """Control: within sast, non-code_injection rules keep firing on JSON --
+    only the code-execution classification requires executable context."""
+    findings = _sast(tmp_path, "snippet.json", """
+        {"code": "os.system(cmd)"}
+    """)
+    assert "OS_SYSTEM" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# C2 -- LLM02's fixed-argv exemption must survive a line break
+#
+# llama_index (2026-10-16): scripts/convert-examples.py:58 fired LLM02 on
+# ``repo_root = subprocess.run(`` followed by ``    ["git", "rev-parse",
+# "--show-toplevel"],`` -- a fixed argv list that no model output can steer.
+# The exemption regex required the bracket on the same line as the call, so
+# the common multi-line formatting escaped it.
+# ---------------------------------------------------------------------------
+def test_llm02_multiline_fixed_argv_suppressed(tmp_path):
+    findings = _llm(tmp_path, "convert_examples.py", """
+        def changed(root):
+            repo_root = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                text=True,
+            )
+            return repo_root.stdout
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" not in _ids(findings)
+
+
+def test_llm02_dynamic_argv_still_reported_control(tmp_path):
+    """Control: a run whose command comes from a variable keeps the finding
+    (no fixed bracket literal on the call or the next line)."""
+    findings = _llm(tmp_path, "handler.py", """
+        def run(cmd):
+            subprocess.run(cmd, shell=True)
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# C3 -- query-builder provenance must survive Name-receiver chaining
+#
+# llama_index (2026-10-16): 3 TAINT_SQL_INJECTION rows on
+# llama-index-core/.../storage/chat_store/sql.py -- ``query =
+# select(table).where(...)`` (a parameterized SQLAlchemy builder product,
+# recorded) followed by ``query = query.limit(limit)`` /
+# ``query = query.where(table.c.status == status.value)``.  The chain
+# receiver is a local Name, not the sqlalchemy module alias, so
+# _is_query_builder_rhs returned False and POPPED the proven record; the
+# sink then saw a tainted ``query`` with no provenance and fired.  A chain
+# whose receiver is already a recorded builder product in the same function
+# (earlier line) extends that provenance -- the same proof the sink-side
+# Name check already trusts.
+# ---------------------------------------------------------------------------
+def test_taint_sqlalchemy_builder_chain_preserved(tmp_path):
+    findings = _taint(tmp_path, "chat_store.py", """
+        from sqlalchemy import select
+
+        async def get(key, limit, session_factory, table):
+            query = select(table).where(table.c.key == key)
+            query = query.limit(limit)
+            async with session_factory() as session:
+                await session.execute(query)
+    """)
+    assert "TAINT_SQL_INJECTION" not in _ids(findings)
+
+
+def test_taint_sqlalchemy_builder_where_chain_preserved(tmp_path):
+    findings = _taint(tmp_path, "chat_store.py", """
+        from sqlalchemy import select
+
+        async def get(key, status, session_factory, table):
+            query = select(table).where(table.c.key == key)
+            query = query.where(table.c.status == status)
+            async with session_factory() as session:
+                await session.execute(query)
+    """)
+    assert "TAINT_SQL_INJECTION" not in _ids(findings)
+
+
+def test_taint_builder_chain_reassigned_from_source_still_reported_control(tmp_path):
+    """Control: an untainted-builder chain that is later overwritten by raw
+    request text must still fire -- the record dies on the reassignment."""
+    findings = _taint(tmp_path, "endpoint.py", """
+        from sqlalchemy import select
+
+        def run(request, table):
+            query = select(table).where(table.c.id == 1)
+            query = request.args["q"]
+            session.execute(query)
+    """)
+    assert "TAINT_SQL_INJECTION" in _ids(findings)

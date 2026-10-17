@@ -1697,7 +1697,8 @@ def _sca_remediation_priority_section(payload):
             2.0*cm, 1.29*cm, 2.01*cm, 2.85*cm
         ],
         repeatRows=1,
-        splitByRow=1
+        splitByRow=1,
+        splitInRow=1
     )
 
     commands = [
@@ -3539,7 +3540,7 @@ def _attack_paths_section(payload):
             chain_rows.append([Paragraph(f"<b>Location:</b> {_loc}", S["Chain"])] )
 
 
-        chain_tbl=Table(chain_rows, colWidths=[17*cm], splitByRow=1)
+        chain_tbl=Table(chain_rows, colWidths=[17*cm], splitByRow=1, splitInRow=1)
 
 
         chain_tbl.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),GREY_LIGHT),
@@ -3571,7 +3572,7 @@ def _attack_paths_section(payload):
             narr_rows.append([_chunk])
 
 
-        narr_tbl=Table(narr_rows, colWidths=[17*cm], splitByRow=1)
+        narr_tbl=Table(narr_rows, colWidths=[17*cm], splitByRow=1, splitInRow=1)
 
 
         narr_tbl.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),LIGHT_BLUE),
@@ -4184,7 +4185,7 @@ def _findings_section(payload):
             af_tbl=Table(af_rows,colWidths=[17*cm], repeatRows=1,
 
 
-                         splitByRow=1, hAlign="LEFT")
+                         splitByRow=1, splitInRow=1, hAlign="LEFT")
 
 
             af_tbl.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#EBF5FB")),
@@ -4241,7 +4242,7 @@ def _findings_section(payload):
             desc_rows.append([_chunk])
 
 
-        desc_tbl=Table(desc_rows, colWidths=[17*cm], splitByRow=1)
+        desc_tbl=Table(desc_rows, colWidths=[17*cm], splitByRow=1, splitInRow=1)
 
 
         _hdr_rows = [i for i,r in enumerate(desc_rows)
@@ -4397,7 +4398,7 @@ def _findings_section(payload):
             )])
 
 
-        rem_tbl=Table(rem_rows, colWidths=[17*cm], splitByRow=1)
+        rem_tbl=Table(rem_rows, colWidths=[17*cm], splitByRow=1, splitInRow=1)
 
 
         rem_tbl.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#E9F7EF")),
@@ -4550,7 +4551,7 @@ def _pq_qbom_section(payload):
         t = Table(rows,
                   colWidths=[2.47*cm, 1.85*cm, 1.19*cm, 3.17*cm, 1.92*cm,
                              1.95*cm, 4.85*cm],
-                  repeatRows=1, splitByRow=1)
+                  repeatRows=1, splitByRow=1, splitInRow=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), DARK_BLUE),
             ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
@@ -4836,10 +4837,31 @@ def _sbom_section(payload):
     # than by shaving them further -- no token that fits today starts
     # wrapping, and "Package" gains 0.02cm.  3.10+1.42+0.95+2.99+1.71+1.04+
     # 1.46+1.56+1.70+1.47 = 17.40cm.
+    # B1 (2026-10-16, Open-Assistant): a single cell taller than the content
+    # frame used to drop the ENTIRE PDF.  The Fixed In cell is the plain
+    # ", ".join(vals) of _v17923_fixed_text -- `next`'s advisory carries 60+
+    # fixed versions (571 chars joined into a 1.47cm column => a 656pt row)
+    # against a 665pt frame.  reportlab's Table.split() cannot advance past a
+    # row taller than the frame when only splitByRow is set: it returns [],
+    # doctemplate raises LayoutError ("... too large on page 124 in frame
+    # 'content' ... of template 'SBOM'"), pages 1-123 had already rendered,
+    # and the run shipped no Security_Report.pdf at all -- the executive PDF
+    # generator is nested inside the same try, so it never ran either.
+    #
+    # splitInRow=1 is strictly a FALLBACK: Table.split() still tries the
+    # row-wise split first and only splits inside a row when that yields
+    # nothing, which is exactly the LayoutError case, so every table that
+    # renders today renders identically afterwards.  Nothing is truncated:
+    # the version list continues on the next page under the repeated header.
+    # The flag is therefore added to every table in this module that
+    # declares splitByRow (the explicit declaration marks the wide data
+    # tables whose cells this can happen to) -- any narrow cell that joins a
+    # list can cross the frame height on a future target (probe:
+    # probe_table_split.py, split() -> 0 pieces before, 2 after).
     t=Table(rows,colWidths=[3.10*cm,1.42*cm,0.95*cm,2.99*cm,1.71*cm,1.04*cm,1.46*cm,1.56*cm,1.70*cm,1.47*cm],
 
 
-            repeatRows=1, splitByRow=1)
+            repeatRows=1, splitByRow=1, splitInRow=1)
 
 
     t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),
@@ -4970,7 +4992,7 @@ def _sbom_section(payload):
             ])
 
 
-        at = Table(action_rows, colWidths=[3.5*cm, 2.2*cm, 11.3*cm], splitByRow=1, repeatRows=1)
+        at = Table(action_rows, colWidths=[3.5*cm, 2.2*cm, 11.3*cm], splitByRow=1, splitInRow=1, repeatRows=1)
 
 
         at.setStyle(TableStyle([
@@ -5116,7 +5138,7 @@ def _iac_section(payload):
     # path 'juice-shop-git/infrastructure/terraform/networking.tf' (5.95cm) -
     # which both wrapped mid-token at 2.5 / 5.0.  All six columns plus both
     # of those fit inside 17.40, so nothing here breaks except at spaces.
-    t=Table(rows,colWidths=[1.6*cm,5.24*cm,1.59*cm,5.95*cm,1.05*cm,1.97*cm],repeatRows=1,splitByRow=1)
+    t=Table(rows,colWidths=[1.6*cm,5.24*cm,1.59*cm,5.95*cm,1.05*cm,1.97*cm],repeatRows=1,splitByRow=1,splitInRow=1)
 
 
     t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),DARK_BLUE),("TEXTCOLOR",(0,0),(-1,0),WHITE),
@@ -5359,7 +5381,7 @@ def _licensing_section(payload):
         colWidths=[4.77*cm,1.61*cm,2.10*cm,2.10*cm,1.72*cm,1.99*cm,3.11*cm],
 
 
-        repeatRows=1,splitByRow=1
+        repeatRows=1,splitByRow=1,splitInRow=1
 
 
     )

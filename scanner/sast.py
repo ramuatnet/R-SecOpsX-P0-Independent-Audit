@@ -255,7 +255,21 @@ REGEX_RULES: list[dict] = [
     # authorization gate of every mock endpoint was invisible. Comparing a
     # credential-named operand to a committed literal is CWE-798 whether the
     # literal looks like a placeholder or not: the structure is the defect.
-    {"id":"HARDCODED_CREDENTIAL_COMPARISON","name":"Hardcoded credential authorization comparison","pattern":re.compile(r"\b(?:if|elif|while)\s+(?:not\s+)?[\w.\[\]]*\b(?:api[_-]?key|apikey|access[_-]?key|password|passwd|pwd|passphrase|secret|token|credential)[\w]*\s*(?:==|!=|not\s+in)\s*[\"'](?P<credval>[^\"'\s]{1,128})[\"']", _F),"vuln_type":"hardcoded_secret","note":"A credential-named value is compared against a literal, so the secret is committed to source and doubles as the authorization check.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
+    # B7b (2026-10-16, Open-Assistant): two boundary defects in one
+    # pattern.  (1) The noun sat behind a ``\b`` that cannot fire between
+    # ``_`` and a letter, so the canonical shapes
+    # ``access_token == "literal"`` and ``user_password == "literal"``
+    # could NEVER match -- a detection failure, pinned by the two FN-fix
+    # controls.  The prefix boundary is now a negative lookbehind that
+    # admits ``_``/``-``/digit before the noun.  (2) The noun carried an
+    # unrestricted ``[\w]*`` suffix, so OA's
+    # ``args.tokenizer_type == "FalconTokenizer"`` (x5) matched -- a
+    # tokenizer TYPE label is not a credential.  The suffix must now
+    # start with ``_``/``-``/digit, keeping ``password_hash``/``api_key2```
+    # firing while plural containers (``tokens == "x"``,
+    # ``secrets == "x"``) stop matching -- consistent with the
+    # leaf-scoped rationale that already excludes containers.
+    {"id":"HARDCODED_CREDENTIAL_COMPARISON","name":"Hardcoded credential authorization comparison","pattern":re.compile(r"\b(?:if|elif|while)\s+(?:not\s+)?[\w.\[\]]*(?<![A-Za-z0-9])(?:api[_-]?key|apikey|access[_-]?key|password|passwd|pwd|passphrase|secret|token|credential)(?:[_\-0-9][\w]*)?\s*(?:==|!=|not\s+in)\s*[\"'](?P<credval>[^\"'\s]{1,128})[\"']", _F),"vuln_type":"hardcoded_secret","note":"A credential-named value is compared against a literal, so the secret is committed to source and doubles as the authorization check.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     {"id":"PRIVATE_KEY_HEADER","name":"Private Key Header","pattern":re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", _F),"vuln_type":"hardcoded_secret","note":"Private key material in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     {"id":"MD5_USAGE","name":"MD5 Usage","pattern":re.compile(r"hashlib\.md5\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']MD5|MD5CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']md5", _F),"vuln_type":"weak_crypto","note":"MD5 is cryptographically broken.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
     {"id":"SHA1_USAGE","name":"SHA-1 Usage","pattern":re.compile(r"hashlib\.sha1\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']SHA-?1|SHA1CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']sha1", _F),"vuln_type":"weak_crypto","note":"SHA-1 is deprecated for cryptographic use.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
@@ -1235,6 +1249,20 @@ def _gate_shell_sink_findings(results: list[dict]) -> list[dict]:
     return kept
 
 
+# C1 (2026-10-16, llama_index): a code-EXECUTION classification requires
+# executable-code context.  JSON is a pure data-interchange format -- it
+# is never interpreted as code -- and nearly every character of a JSON
+# file sits inside a string value, so the Python/JavaScript
+# string-context helpers cannot apply.  The report fired EVAL_CALL
+# twice on ``eval(`` occurring inside the ``"content"`` string of two
+# Discord chat-log dumps (docs/examples/.../help_channel_dump_*.json
+# line 74901) -- a user quoting a Python traceback.  Only the
+# code_injection class is gated; secrets, crypto, SSRF and every other
+# rule keep scanning JSON unchanged (the json secret/command-injection
+# controls pin that).
+NON_EXECUTABLE_DATA_LANGUAGES = frozenset({"json"})
+
+
 def scan_file(filepath: str) -> list[dict]:
     path = Path(filepath)
     try:
@@ -1258,6 +1286,11 @@ def scan_file(filepath: str) -> list[dict]:
     for rule in REGEX_RULES:
         allowed = rule.get("languages") or rule.get("lang")
         if allowed and language not in allowed:
+            continue
+        if (rule.get("vuln_type") == "code_injection"
+                and language in NON_EXECUTABLE_DATA_LANGUAGES):
+            # C1: eval()/exec() semantics cannot occur in a data file;
+            # see NON_EXECUTABLE_DATA_LANGUAGES above.
             continue
         for match in rule["pattern"].finditer(source):
             if (

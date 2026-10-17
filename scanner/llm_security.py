@@ -1419,7 +1419,14 @@ LLM_REAL_EVAL_RE = re.compile(
 # exec() is intentionally NOT gated on the receiver form: child_process's
 # ``cp.exec(cmd)``, Python's ``exec(...)`` and shell wrappers are all real
 # execution sinks, so any "exec(" occurrence keeps the LLM02 finding.
-LLM_EXEC_ANY_RE = re.compile(r"exec\s*\(|os\.system\s*\(|subprocess\.", re.I)
+# B6 (2026-10-16, Open-Assistant): the ONE dotted receiver that is not
+# dynamic execution is a database session -- SQLModel/SQLAlchemy's
+# ``session.exec(query)`` runs a SELECT built through the query-builder
+# API (4 OA rows fired LLM02 on the same lines as B5's taint rows).  The
+# lookbehind keys on ``session.`` as its own dotted segment, so
+# ``cp.exec(``, ``xsession.exec(`` and the receiver-less builtin keep
+# firing unchanged.
+LLM_EXEC_ANY_RE = re.compile(r"(?<!\bsession\.)exec\s*\(|os\.system\s*\(|subprocess\.", re.I)
 
 
 def _llm02_line_has_dynamic_eval(line: str) -> bool:
@@ -1697,9 +1704,18 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                 continue
 
             if rule_id == "LLM02_INSECURE_OUTPUT_HANDLING":
-                if re.search(r"subprocess\.run\s*\(\s*\[", line):
+                if re.search(r"subprocess\.run\s*\(\s*\[", line) or (
+                    re.search(r"subprocess\.run\s*\(\s*$", line)
+                    and lineno < len(lines)
+                    and lines[lineno].lstrip().startswith("[")
+                ):
                     # Fixed argv list without shell interpretation: output
-                    # cannot steer which program runs.
+                    # cannot steer which program runs.  C2 (2026-10-16,
+                    # llama_index): the list routinely starts on the line
+                    # after the open paren -- scripts/convert-examples.py:58
+                    # fired LLM02 on a fixed ``["git", "rev-parse",
+                    # "--show-toplevel"]`` argv.  Same exemption, one-line
+                    # lookahead consulted.
                     continue
                 if re.search(r"\.exec\(\s*(?:select|insert|update|delete)\s*\(", line):
                     # ORM/SQLModel session.exec(select(...)) is a query call,
