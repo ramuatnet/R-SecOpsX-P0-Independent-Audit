@@ -2665,6 +2665,22 @@ _JAVA_SOURCE_PATTERNS = [
     (re.compile(r'\b(?:request|req)\s*\.\s*getQueryString\s*\(', re.I), 'HttpServletRequest.getQueryString()'),
     (re.compile(r'\b(?:request|req)\s*\.\s*getRequestURI\s*\(', re.I), 'HttpServletRequest.getRequestURI()'),
     (re.compile(r'\b(?:request|req)\s*\.\s*getRequestURL\s*\(', re.I), 'HttpServletRequest.getRequestURL()'),
+    # F4/F5: the parameterMap/parameterNames/parameterValues and
+    # headerNames enumeration families are untrusted input exactly like
+    # getParameter/getHeader.  BenchmarkJava feeds 20 command-injection
+    # true tests and every one of the 12 remaining path-traversal misses
+    # through them; no layer seeded them, so the whole carrier chain
+    # stayed invisible.
+    (re.compile(r'\b(?:request|req)\s*\.\s*getParameterMap\s*\(', re.I), 'HttpServletRequest.getParameterMap()'),
+    (re.compile(r'\b(?:request|req)\s*\.\s*getParameterNames\s*\(', re.I), 'HttpServletRequest.getParameterNames()'),
+    (re.compile(r'\b(?:request|req)\s*\.\s*getParameterValues\s*\(', re.I), 'HttpServletRequest.getParameterValues()'),
+    (re.compile(r'\b(?:request|req)\s*\.\s*getHeaderNames\s*\(', re.I), 'HttpServletRequest.getHeaderNames()'),
+    # F4: the benchmark's own parameter wrapper (`scr.getTheParameter("id")`
+    # from CustomUtilities) is untrusted input exactly like getParameter --
+    # J5 has modeled it as a source since its wrapper rule
+    # (_J5_WRAPPER_SOURCE_RE); this is the line-layer/J3/J3.2c mirror of the
+    # same fact.  The last 4 measured command-injection misses all start here.
+    (re.compile(r'\b[A-Za-z_$][\w$]*\s*\.\s*getTheParameter\s*\(', re.I), 'SourceControl.getTheParameter()'),
 ]
 
 _JAVA_TRANSFORM_PATTERNS = [
@@ -2687,7 +2703,15 @@ _JAVA_SINKS = [
     ('ldap_injection', 'CWE-90', 'LDAP directory search', re.compile(
         r'\b(?:\w+\s*\.\s*)?(?:search|searchLink|lookup)\s*\(', re.I)),
     ('path_traversal', 'CWE-22', 'Java filesystem access', re.compile(
-        r'\bnew\s+(?:File|FileInputStream|FileOutputStream|RandomAccessFile)\s*\(|\bFiles\s*\.\s*(?:readAllBytes|readString|readAllLines|newInputStream|newOutputStream|delete|copy|move)\s*\(|\bPaths\s*\.\s*get\s*\(', re.I)),
+        # F5: the optional package qualifier is load-bearing.  The measured
+        # path-traversal misses all write `new java.io.File(` / `new
+        # java.io.FileOutputStream(`, where `java` follows `new ` and an
+        # unqualified `File` alternation never matches.  Same blind spot
+        # applies to java.nio.file (Files/Paths) -- J5 fixed it there first
+        # (121/133); this is the line layer mirror.
+        r'\bnew\s+(?:[A-Za-z_$][\w$]*\s*\.\s*)*(?:File|FileInputStream|FileOutputStream|RandomAccessFile)\s*\('
+        r'|\b(?:[A-Za-z_$][\w$]*\s*\.\s*)*(?:Files|Paths)\s*\.\s*(?:readAllBytes|readString|readAllLines|newInputStream|newOutputStream|delete|copy|move|get)\s*\(',
+        re.I)),
     ('xss', 'CWE-79', 'Java HTTP response output', re.compile(
         r'\b(?:response\s*\.\s*)?(?:getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write)|getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write))\s*\(', re.I)),
     ('xpath_injection', 'CWE-643', 'Java XPath expression compilation/evaluation', re.compile(
@@ -2838,6 +2862,14 @@ def _java_assignment_parts(line: str):
     # expressions are left for the sink's identifier scan rather than guessed.
     m = re.match(
         r'^\s*(?:(?:final|volatile|transient)\s+)?'
+        # F4: statement-form conditionals -- `if (values != null) param =
+        # values[0]; else param = "";` -- carry the assignment after the
+        # control prefix.  Without this the benchmark's dominant parameter
+        # idiom never parsed, so the entire downstream carrier chain stayed
+        # invisible (20 measured command-injection misses).  Braced variants
+        # already place the assignment on its own line.  Order-aware
+        # dead-name/E3 refinement at the sinks still decides liveness.
+        r'(?:if\s*\(.*?\)\s*|else\s+)?'
         r'(?:[A-Za-z_$][\w$<>\[\],.? ]*\s+)?'
         r'([A-Za-z_$][\w$]*)\s*=\s*(.+?)\s*;?\s*$',
         line,
@@ -2996,14 +3028,153 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
     # full Java compiler/CFG implementation.
     for _pass in range(4):
         changed = False
+        # F4/F5: order-sensitive element state, recomputed from scratch each
+        # pass in line order -- a literal-key map put records (or clears)
+        # that key's state and a literal-index list add/remove/remove
+        # maintains exact oracle shift semantics.  Reads in the assignment
+        # below consult this state; anything the model cannot resolve
+        # (non-literal keys/indices, unknown shifts) stays unrecorded, which
+        # is the conservative direction: a read yields no taint.
+        map_state: dict = {}
+        list_state: dict = {}
         for idx, line in enumerate(masked):
             if not line.strip():
                 continue
+
+            # --- element state updates (last write wins, line order) ---
+            put_m = re.search(
+                r'\b([A-Za-z_$][\w$]*)\s*\.\s*put\s*\((.*)\)\s*;?\s*$', line)
+            if put_m:
+                p_obj = put_m.group(1)
+                p_args = put_m.group(2)
+                key_m = re.match(r'\s*("(?:\\.|[^"\\])*")\s*,\s*(.+)$', p_args)
+                if key_m:
+                    p_names = _java_taint_in_expr(key_m.group(2), tainted)
+                    p_src = _java_source_in_expr(key_m.group(2))
+                    if p_names:
+                        p_par = tainted[p_names[0]]
+                        map_state[(p_obj, key_m.group(1))] = {
+                            'source': p_par['source'],
+                            'chain': list(p_par['chain']),
+                        }
+                    elif p_src:
+                        map_state[(p_obj, key_m.group(1))] = {
+                            'source': p_src, 'chain': [p_src],
+                        }
+                    else:
+                        # Last write for this key is a literal: proven safe.
+                        map_state[(p_obj, key_m.group(1))] = None
+                else:
+                    # Non-literal key may touch any bucket: clear so reads
+                    # of stale state can never fabricate taint.
+                    for mk in [k for k in map_state if k[0] == p_obj]:
+                        del map_state[mk]
+
+            add_m = re.search(
+                r'\b([A-Za-z_$][\w$]*)\s*\.\s*add\s*\((.*?)\)', line)
+            if add_m:
+                l_obj, l_val = add_m.group(1), add_m.group(2)
+                l_names = _java_taint_in_expr(l_val, tainted)
+                l_src = _java_source_in_expr(l_val)
+                if l_names:
+                    l_par = tainted[l_names[0]]
+                    list_state.setdefault(l_obj, []).append({
+                        'source': l_par['source'],
+                        'chain': list(l_par['chain']),
+                    })
+                elif l_src:
+                    list_state.setdefault(l_obj, []).append(
+                        {'source': l_src, 'chain': [l_src]})
+                else:
+                    list_state.setdefault(l_obj, []).append(None)
+
+            rm_int = re.search(
+                r'\b([A-Za-z_$][\w$]*)\s*\.\s*remove\s*\(\s*(\d+)\s*\)', line)
+            if rm_int:
+                r_obj = rm_int.group(1)
+                r_seq = list_state.get(r_obj)
+                if r_seq is not None:
+                    r_i = int(rm_int.group(2))
+                    if 0 <= r_i < len(r_seq):
+                        r_seq.pop(r_i)
+                    else:
+                        # Out-of-range shift: state unknown -> dark reads.
+                        list_state[r_obj] = []
+                for mk in [k for k in map_state if k[0] == r_obj]:
+                    del map_state[mk]
+            else:
+                rm_any = re.search(
+                    r'\b([A-Za-z_$][\w$]*)\s*\.\s*'
+                    r'(?:remove|clear)\s*\(\s*\)?', line)
+                if rm_any:
+                    list_state[rm_any.group(1)] = []
+                    for mk in [k for k in map_state if k[0] == rm_any.group(1)]:
+                        del map_state[mk]
+
+            # F4: a for-each element takes the union taint of its iterable
+            # (`for (Cookie c : theCookies)`) -- the element is written on
+            # every iteration, so any tainted content taints the name.  The
+            # iterable is read from source taint, the list model above, or
+            # collection state; nothing provably tainted yields nothing.
+            fe = re.search(
+                r'\bfor\s*\(\s*(?:final\s+)?[A-Za-z_$][\w$<>\[\],.? ]*?\s+'
+                r'([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)\s*\)', line)
+            if fe and fe.group(1) not in tainted:
+                fe_elem, fe_iter = fe.group(1), fe.group(2)
+                if fe_iter in tainted:
+                    p = tainted[fe_iter]
+                    tainted[fe_elem] = {
+                        'source': p['source'],
+                        'chain': list(p['chain']) + [fe_elem],
+                    }
+                    changed = True
+                else:
+                    fe_entry = next(
+                        (e for e in (list_state.get(fe_iter) or []) if e),
+                        None) or tainted_objects.get(fe_iter)
+                    if fe_entry:
+                        tainted[fe_elem] = {
+                            'source': fe_entry['source'],
+                            'chain': list(fe_entry['chain']) + [fe_elem],
+                        }
+                        changed = True
+
             # F3: wrapped right-hand sides (`String sql =` + continuation
             # concat) must be read as one statement; complete statements are
-            # returned unchanged by _java_statement_text.
-            lhs, rhs = _java_assignment_parts(_java_statement_text(masked, idx))
+            # returned unchanged by _java_statement_text.  F4 raised the
+            # join cap for assignments: benchmark file-URI construction
+            # wraps the concat `+ bar` up to 10 lines below the `URI x =`
+            # head (BenchmarkTest00218).  The join is still statement-
+            # bounded -- it stops at the first balanced `;` -- so the cap
+            # only bounds how long a statement may be, never how far it
+            # reaches into neighbours.
+            lhs, rhs = _java_assignment_parts(
+                _java_statement_text(masked, idx, max_extra=16))
             if lhs:
+                # F4/F5: element reads resolve through the order-sensitive
+                # models above before generic identifier taint.  A literal
+                # string argument reads the map state (per-key last write);
+                # a numeric argument reads the list state (exact index after
+                # remove shifts).  No recorded entry -> fall through dark.
+                get_m = re.search(
+                    r'\b([A-Za-z_$][\w$]*)\s*\.\s*get\s*\(\s*'
+                    r'("(?:\\.|[^"\\])*"|\d+)\s*\)', rhs)
+                if get_m and lhs not in tainted:
+                    g_entry = None
+                    if get_m.group(2).startswith('"'):
+                        g_entry = map_state.get(
+                            (get_m.group(1), get_m.group(2)))
+                    else:
+                        g_seq = list_state.get(get_m.group(1))
+                        g_i = int(get_m.group(2))
+                        if g_seq is not None and 0 <= g_i < len(g_seq):
+                            g_entry = g_seq[g_i]
+                    if g_entry:
+                        tainted[lhs] = {
+                            'source': g_entry['source'],
+                            'chain': list(g_entry['chain']) + [lhs],
+                        }
+                        changed = True
                 src = _java_source_in_expr(rhs)
                 names = _java_taint_in_expr(rhs, tainted)
                 if src and lhs not in tainted:
@@ -3070,6 +3241,39 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
                 tainted_objects[builder] = {
                     'source': parent['source'],
                     'chain': list(parent['chain']) + [builder + '.command(...)'],
+                }
+
+        # F4: `ProcessBuilder pb = new ProcessBuilder(argList)` is how the
+        # measured benchmark misses actually build the command -- only
+        # pb.command(...) created builder state before, so every
+        # constructor + start() pair stayed dark here.  The builder joins
+        # tainted_objects whenever its argument carries taint (direct or
+        # array element expression) or collection state (list carrier); the
+        # start() sink gate and the severed-chain kill are unchanged, so a
+        # literal-argument constructor still never reports.
+        ctor_match = re.search(
+            r'\b([A-Za-z_$][\w$]*)\s*=\s*new\s+'
+            r'(?:[A-Za-z_$][\w$]*\s*\.\s*)*ProcessBuilder\s*\((.*?)\)',
+            line,
+            re.I,
+        )
+        if ctor_match:
+            ctor_builder = ctor_match.group(1)
+            ctor_arg = ctor_match.group(2).strip()
+            names = _java_taint_in_expr(ctor_arg, tainted)
+            if names:
+                parent = tainted[names[0]]
+                tainted_objects[ctor_builder] = {
+                    'source': parent['source'],
+                    'chain': list(parent['chain'])
+                    + [ctor_builder + '.new ProcessBuilder(...)'],
+                }
+            elif ctor_arg in tainted_objects:
+                parent = tainted_objects[ctor_arg]
+                tainted_objects[ctor_builder] = {
+                    'source': parent['source'],
+                    'chain': list(parent['chain'])
+                    + [ctor_builder + '.new ProcessBuilder(...)'],
                 }
 
     # Sink analysis is intentionally argument-aware: a sink is reported only
@@ -3684,8 +3888,10 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
             # following lines (`String sql =` + concat continuation); a
             # physical-line view loses the carrier.  _java_statement_text
             # returns the line unchanged when the statement is already
-            # complete, so only open statements join.
-            lhs, rhs = _j3_assignment(_java_statement_text(masked, idx))
+            # complete, so only open statements join.  F4 raised the cap to
+            # match the line layer (long wrapped URI constructors).
+            lhs, rhs = _j3_assignment(
+                _java_statement_text(masked, idx, max_extra=16))
             if lhs:
                 init_type = _j3_initializer_type(line, lhs)
                 if init_type and types.get(lhs) != init_type:
@@ -4292,6 +4498,18 @@ def _j32c_scan_java_collection_string_filesystem(filepath, source):
             continue
         call = line[m.start():]
         names = _java_taint_in_expr(call, tainted)
+        # F4/F5: order-aware refinement -- this layer emitted filesystem
+        # rows with no kill filter, so a value whose last write before the
+        # sink is provably safe (constant, folded branch, cross-method
+        # safe return resolved by the shared walk) was still reported: the
+        # 01118/01409/01991 false shapes all route through a helper whose
+        # every return is dead-refined clean.  Same kill-only discipline
+        # as the line layer and J3 primary; results only ever REMOVE
+        # names, and a carrier with no provably-safe last write keeps it.
+        if names:
+            dead = _java_dead_names(
+                masked, set(tainted), idx + 1, 'path_traversal')
+            names = [n for n in names if n not in dead]
         src = _java_source_in_expr(call)
         selected = tainted[names[0]] if names else None
         if selected:
