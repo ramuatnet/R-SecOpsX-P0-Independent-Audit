@@ -413,8 +413,16 @@ _J5_SINKS = [
      re.compile(r'\b(?:response\s*\.\s*)?getWriter\s*\(\s*\)\s*\.\s*'
                 r'(?:print|println|printf|format|write)\s*\(', re.I)),
     ("sql_injection", "CWE-89", "Java J5 JDBC SQL execution", "JAVA_J5_SQL",
-     re.compile(r'\b(?:[A-Za-z_$][\w$]*\.)?'
-                r'(?:prepareCall|prepareStatement|executeQuery|executeUpdate|execute)\s*\(', re.I)),
+     # F3: the Spring JdbcTemplate family (queryForObject/queryForRowSet/
+     # batchUpdate/...) is the dominant BenchmarkJava SQL sink shape; the
+     # short names `query`/`update` stay receiver-constrained so that
+     # MessageDigest.update(...) hash work is never claimed as SQL.
+     re.compile(r'\b(?:(?:prepareCall|prepareStatement|executeQuery|executeUpdate|execute'
+                r'|queryForObject|queryForLong|queryForInt|queryForMap|queryForList'
+                r'|queryForRowSet|batchUpdate|addBatch)\s*\('
+                r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+                r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\()',
+                re.I)),
     ("command_injection", "CWE-78", "Java J5 process execution", "JAVA_J5_CMD",
      re.compile(r'\b(?:Runtime\s*\.\s*getRuntime\s*\(\s*\)\s*\.\s*exec|'
                 r'[A-Za-z_$][\w$]*\.(?:exec|start))\s*\(', re.I)),
@@ -439,8 +447,12 @@ _J5_SINKS = [
 ]
 
 _J5_SECURITY_RETURN_CALLS = re.compile(
-    r'\b(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|'
-    r'search|compile|evaluate|start|exec)\s*\(', re.I
+    r'\b(?:(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|'
+    r'queryForObject|queryForLong|queryForInt|queryForMap|queryForList|'
+    r'queryForRowSet|batchUpdate|search|compile|evaluate|start|exec)\s*\('
+    r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+    r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\()',
+    re.I
 )
 
 
@@ -2032,6 +2044,12 @@ def _j5_analyze_method(filepath, source, method, incoming, safe_calls=None,
                     r'\b(?:ldap|DirContext|InitialDirContext|NamingEnumeration|javax\.naming)\b',
                     source, re.I
                 ):
+                    continue
+
+                if (vuln == "sql_injection"
+                        and sm.group(0).startswith("addBatch")
+                        and not re.search(
+                            r'\b(?:Statement|java\.sql|jdbc)\b', source, re.I)):
                     continue
 
                 if vuln == "command_injection" and re.search(r'\.\s*start\s*\(', s, re.I):

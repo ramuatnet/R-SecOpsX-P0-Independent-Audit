@@ -2678,7 +2678,12 @@ _JAVA_SINKS = [
     ('command_injection', 'CWE-78', 'Java Runtime.exec command execution', re.compile(
         r'\b(?:Runtime\s*\.\s*getRuntime\s*\(\s*\)\s*\.\s*exec|\b\w+\s*\.\s*exec)\s*\(', re.I)),
     ('sql_injection', 'CWE-89', 'JDBC SQL execution', re.compile(
-        r'\b(?:prepareCall|prepareStatement|executeQuery|executeUpdate|execute)\s*\(', re.I)),
+        r'\b(?:(?:prepareCall|prepareStatement|executeQuery|executeUpdate|execute'
+        r'|queryForObject|queryForLong|queryForInt|queryForMap|queryForList'
+        r'|queryForRowSet|batchUpdate|addBatch)\s*\('
+        r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+        r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\()',
+        re.I)),
     ('ldap_injection', 'CWE-90', 'LDAP directory search', re.compile(
         r'\b(?:\w+\s*\.\s*)?(?:search|searchLink|lookup)\s*\(', re.I)),
     ('path_traversal', 'CWE-22', 'Java filesystem access', re.compile(
@@ -2712,6 +2717,60 @@ def _java_clean_line(line: str) -> str:
         if ch == '/' and i + 1 < len(line) and line[i + 1] == '/':
             return line[:i]
     return line
+
+
+def _java_bracket_depth(text: str) -> int:
+    """Quote-aware net bracket depth of a (comment-masked) Java fragment."""
+    depth = 0
+    quote = None
+    escaped = False
+    for ch in text:
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\":
+            escaped = True
+            continue
+        if quote:
+            if ch == quote:
+                quote = None
+            continue
+        if ch in ('"', "'"):
+            quote = ch
+            continue
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+    return depth
+
+
+def _java_statement_text(masked: list[str], idx: int, max_extra: int = 6) -> str:
+    """Join line ``idx`` with following lines while its statement is open.
+
+    Formatted Java routinely wraps call arguments across lines::
+
+        ...JDBCtemplate.queryForObject(
+                sql, Long.class);
+
+    A per-line sink scan sees only ``queryForObject(`` and therefore misses
+    the tainted carrier on the next line.  The join is bounded (max_extra
+    lines) and stops as soon as brackets balance and the statement ends --
+    it never reaches past the statement the sink belongs to.
+    """
+    acc = masked[idx]
+    if _java_bracket_depth(acc) <= 0 and acc.rstrip().endswith(";"):
+        return acc
+    parts = [acc]
+    for j in range(idx + 1, min(len(masked), idx + 1 + max_extra)):
+        nxt = masked[j]
+        if not nxt.strip():
+            break
+        parts.append(nxt)
+        acc = acc + " " + nxt
+        if _java_bracket_depth(acc) <= 0 and acc.rstrip().endswith(";"):
+            break
+    return " ".join(parts)
 
 
 def _java_mask_comments(lines: list[str]) -> list[str]:
@@ -2940,7 +2999,10 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
         for idx, line in enumerate(masked):
             if not line.strip():
                 continue
-            lhs, rhs = _java_assignment_parts(line)
+            # F3: wrapped right-hand sides (`String sql =` + continuation
+            # concat) must be read as one statement; complete statements are
+            # returned unchanged by _java_statement_text.
+            lhs, rhs = _java_assignment_parts(_java_statement_text(masked, idx))
             if lhs:
                 src = _java_source_in_expr(rhs)
                 names = _java_taint_in_expr(rhs, tainted)
@@ -2953,7 +3015,11 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
                     # ResultSet rs = statement.executeQuery(sql) does not make
                     # the ResultSet itself equivalent to the SQL string.
                     if re.search(
-                        r'\b(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|search|compile|evaluate|start|exec)\s*\(',
+                        r'\b(?:(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|'
+                        r'queryForObject|queryForLong|queryForInt|queryForMap|queryForList|'
+                        r'queryForRowSet|batchUpdate|search|compile|evaluate|start|exec)\s*\('
+                        r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+                        r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\()',
                         rhs,
                         re.I,
                     ):
@@ -3032,6 +3098,15 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
             ):
                 continue
 
+            # F3: addBatch is JDBC Statement vocabulary.  Require visible
+            # JDBC context in the file so a same-named staging call in
+            # unrelated code can never be claimed as SQL execution.
+            if (vuln == 'sql_injection'
+                    and m.group(0).startswith('addBatch')
+                    and not re.search(
+                        r'\b(?:Statement|java\.sql|jdbc)\b', source, re.I)):
+                continue
+
             # ProcessBuilder.start() is a sink only after a tainted command
             # has been assigned through command(...).
             if vuln == 'command_injection' and re.search(r'\.\s*start\s*\(', line, re.I):
@@ -3062,7 +3137,16 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
                 continue
 
             # Extract a conservative call argument from the sink line.
+            # F-batch: SQL and path sinks routinely wrap their arguments on
+            # the following lines (formatter style); a one-line view would
+            # see the callee and lose the carrier.  Join only those two
+            # vuln classes so the change stays inside the measured miss
+            # families.
             call_text = line[m.start():]
+            if vuln in ('sql_injection', 'path_traversal'):
+                stmt = _java_statement_text(masked, idx)
+                if len(stmt) > len(line):
+                    call_text = stmt[m.start():]
             # A sanitizer wrap DIRECTLY at the sink is as good as an
             # assignment-side kill: print(encodeForHTML(param)) cannot
             # carry the vuln even though the wrap never appears as an
@@ -3203,10 +3287,164 @@ def _java_j2_string_assignments(masked: list[str]) -> dict[str, str]:
     return values
 
 
+# --- F2: property-driven algorithm resolution -----------------------------
+# A `.properties` resource co-located with the scanned file is resolved as
+# data, never guessed: file value wins, the code default applies only when
+# the file or key is absent, and anything unresolvable stays unreported.
+
+_PROPS_FILE_CACHE: dict[tuple[str, str], str | None] = {}
+_PROPS_TABLE_CACHE: dict[str, dict[str, str]] = {}
+
+
+def _java_find_properties_file(filepath: str, name: str) -> str | None:
+    """Locate a named resource near the scanned file (bounded)."""
+    base = Path(filepath).parent if Path(filepath).is_file() else Path(filepath)
+    ckey = (str(base), name)
+    if ckey in _PROPS_FILE_CACHE:
+        return _PROPS_FILE_CACHE[ckey]
+    result: str | None = None
+    # The resource may sit beside the scanned file (base) or in any
+    # ancestor (src/main/resources and friends) -- include base itself.
+    parents = [base, *list(base.parents)[:9]]
+    for parent in parents:
+        for cand in (
+            parent / name,
+            parent / "src" / "main" / "resources" / name,
+            parent / "main" / "resources" / name,
+            parent / "resources" / name,
+            parent / "config" / name,
+            parent / "conf" / name,
+            parent / "src" / "main" / "webapp" / "WEB-INF" / name,
+        ):
+            try:
+                if cand.is_file():
+                    result = str(cand)
+                    break
+            except OSError:
+                continue
+        if result:
+            break
+    if result is None:
+        # Bounded fallback: search only inside a nearby src/ tree, and stop
+        # at the first match.  Candidate paths above normally win.
+        for parent in parents:
+            srcdir = parent / "src"
+            try:
+                if srcdir.is_dir():
+                    for found in srcdir.rglob(name):
+                        result = str(found)
+                        break
+            except OSError:
+                continue
+            if result:
+                break
+    _PROPS_FILE_CACHE[ckey] = result
+    return result
+
+
+def _java_parse_properties_text(text: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line[0] in "#!":
+            continue
+        # First unescaped '=', ':' or whitespace separates key and value.
+        sep_idx = None
+        escaped = False
+        for i, ch in enumerate(line):
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+                continue
+            if ch in "=: \t":
+                sep_idx = i
+                break
+        if sep_idx is None or sep_idx == 0:
+            continue
+        key = line[:sep_idx].strip()
+        value = line[sep_idx:].lstrip("=: \t")
+        for esc, plain in (("\\:", ":"),("\\=", "="),("\\ ", " "),
+                           ("\\\\", "\\"), ("\\t", "\t"), ("\\n", "\n")):
+            value = value.replace(esc, plain)
+        if key:
+            out[key] = value.strip()
+    return out
+
+
+def _java_properties_resolved_values(masked: list[str],
+                                     filepath: str) -> dict[str, str]:
+    """ident -> value for `ident = props.getProperty("key"[, "default"])`.
+
+    ``props`` must be bound in this file to a findable .properties resource
+    via ``props.load(...getResourceAsStream("name.properties"))``.  Both the
+    load binding and the assignment are read as logical statements so the
+    benchmark's wrapped ``props.load(\\n ...)`` form resolves too.
+    """
+    load_re = re.compile(
+        r'([A-Za-z_$][\w$]*)\s*\.\s*load\s*\(\s*'
+        r'[^;]{0,240}?getResourceAsStream\s*\(\s*"([^"]+)"',
+        re.I,
+    )
+    get_re = re.compile(
+        r'([A-Za-z_$][\w$]*)\s*=\s*'
+        r'([A-Za-z_$][\w$]*)\s*\.\s*getProperty\s*\(\s*"([^"]+)"'
+        r'\s*(?:,\s*"([^"]*)"\s*)?\)',
+        re.I,
+    )
+    bound: dict[str, dict[str, str]] = {}
+    resolved: dict[str, str] = {}
+    for idx in range(len(masked)):
+        if not masked[idx].strip():
+            continue
+        stmt = _java_statement_text(masked, idx)
+        bm = load_re.search(stmt)
+        if bm and bm.group(1) not in bound:
+            res_name = bm.group(2)
+            path = _java_find_properties_file(filepath, res_name)
+            table = None
+            if path:
+                table = _PROPS_TABLE_CACHE.get(path)
+                if table is None:
+                    try:
+                        table = _java_parse_properties_text(
+                            Path(path).read_text(encoding="utf-8",
+                                                 errors="replace"))
+                    except OSError:
+                        table = {}
+                    _PROPS_TABLE_CACHE[path] = table
+            bound[bm.group(1)] = table or {}
+    if not bound:
+        return resolved
+    for idx in range(len(masked)):
+        if not masked[idx].strip():
+            continue
+        stmt = _java_statement_text(masked, idx)
+        gm = get_re.search(stmt)
+        if not gm or gm.group(2) not in bound:
+            continue
+        table = bound[gm.group(2)]
+        value = table.get(gm.group(3))
+        if value is None:
+            value = gm.group(4)  # code default: the runtime fallback
+        if value is not None:
+            resolved[gm.group(1)] = value
+    return resolved
+
+
 def _scan_java_security_api_semantics(filepath: str, source: str) -> list[dict]:
     lines = source.splitlines()
     masked = _java_mask_comments(lines)
     string_values = _java_j2_string_assignments(masked)
+    # F2: property-driven algorithms resolve through the co-located
+    # .properties resource (file value wins; code default only when the
+    # file or key is absent; unresolvable stays unreported).
+    try:
+        string_values.update(
+            _java_properties_resolved_values(masked, filepath))
+    except OSError:
+        pass
     findings = []
     seen = set()
 
@@ -3319,7 +3557,14 @@ def _apply_j2_java_semantics(filepath: str, findings: list[dict]) -> list[dict]:
 _J3_JAVA_SINKS = {
     'jdbc': (
         'sql_injection', 'CWE-89', 'Java JDBC SQL injection',
-        re.compile(r'\b(?:[A-Za-z_$][\w$]*\.)?(?:prepareCall|prepareStatement)\s*\(', re.I)
+        # F3: + Spring JdbcTemplate family (short names receiver-constrained,
+        # same construction as the line-layer and J5 SQL sinks).
+        re.compile(r'\b(?:(?:prepareCall|prepareStatement'
+                   r'|queryForObject|queryForLong|queryForInt|queryForMap'
+                   r'|queryForList|queryForRowSet|batchUpdate|addBatch)\s*\('
+                   r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+                   r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\()',
+                   re.I)
     ),
     'jdbc_execute': (
         'sql_injection', 'CWE-89', 'Java JDBC SQL injection',
@@ -3435,7 +3680,12 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
         for idx, line in enumerate(masked):
             if not line.strip():
                 continue
-            lhs, rhs = _j3_assignment(line)
+            # F3: assignments routinely wrap their right-hand side onto the
+            # following lines (`String sql =` + concat continuation); a
+            # physical-line view loses the carrier.  _java_statement_text
+            # returns the line unchanged when the statement is already
+            # complete, so only open statements join.
+            lhs, rhs = _j3_assignment(_java_statement_text(masked, idx))
             if lhs:
                 init_type = _j3_initializer_type(line, lhs)
                 if init_type and types.get(lhs) != init_type:
@@ -3457,7 +3707,10 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
                     if names and lhs not in tainted:
                         if re.search(
                             r'\b(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|'
-                            r'search|compile|evaluate|start|exec)\s*\(',
+                            r'queryForObject|queryForLong|queryForInt|queryForMap|queryForList|'
+                            r'queryForRowSet|batchUpdate|search|compile|evaluate|start|exec)\s*\('
+                            r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+                            r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\(',
                             rhs, re.I
                         ):
                             continue
@@ -3521,6 +3774,12 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
             if not m: continue
             if kind=='xpath' and not re.search(r'\b(?:XPath|xp|xpath)\b|javax\.xml\.xpath', line, re.I): continue
             call=line[m.start():]
+            # F3: SQL/path call arguments wrapped onto following lines --
+            # same bounded statement join as the line layer.
+            if vuln in ('sql_injection', 'path_traversal'):
+                stmt=_java_statement_text(masked, idx)
+                if len(stmt) > len(line):
+                    call = stmt[m.start():]
             names=_java_taint_in_expr(call,tainted)
             # Order-aware refinement (shared with the line layer and J5):
             # a name whose last write before this sink line is provably
@@ -3982,8 +4241,12 @@ def _j32c_scan_java_collection_string_filesystem(filepath, source):
                 if lhs not in tainted:
                     names = _java_taint_in_expr(rhs, tainted)
                     if names and not re.search(
-                        r'\b(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|'
-                        r'search|compile|evaluate|start|exec)\s*\(', rhs, re.I
+                        r'\b(?:(?:executeQuery|executeUpdate|execute|prepareCall|prepareStatement|'
+                        r'queryForObject|queryForLong|queryForInt|queryForMap|queryForList|'
+                        r'queryForRowSet|batchUpdate|search|compile|evaluate|start|exec)\s*\('
+                        r'|(?:[A-Za-z_$][\w$]*(?:template|jdbc|dao|sql)[\w$]*'
+                        r'|(?:template|jdbc|dao|sql|tx)[\w$]*)\s*\.\s*(?:query|update)\s*\()',
+                        rhs, re.I
                     ):
                         parent = tainted[names[0]]
                         tainted[lhs] = _j32c_make_taint(parent, lhs)
