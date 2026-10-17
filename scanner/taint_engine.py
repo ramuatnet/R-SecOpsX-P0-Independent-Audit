@@ -2725,7 +2725,20 @@ _JAVA_SINKS = [
         r'\bgetSession\s*\(\s*\)\s*\.\s*(?:setAttribute|putValue)\s*\(',
         re.I)),
     ('xss', 'CWE-79', 'Java HTTP response output', re.compile(
-        r'\b(?:response\s*\.\s*)?(?:getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write)|getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write))\s*\(', re.I)),
+        # F6: the chained response.getWriter().print(...) form covers all
+        # 244 detected xss tests, but every one of the 9 remaining measured
+        # misses writes through a writer VARIABLE:
+        #   PrintWriter out = response.getWriter();
+        #   out.format(java.util.Locale.US, fmt, obj);
+        # Neither this layer nor J4 ever matched that receiver, so those
+        # files had NO xss sink at all.  The named group is gated in the
+        # sink loop: the receiver must be a response writer DECLARED IN
+        # THIS FILE (and never the `out` of `System.out.print`), so every
+        # other same-verb receiver (fmt.format, String.format, file.write)
+        # stays exactly as dark as before.
+        r'\b(?:(?:response\s*\.\s*)?getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write)'
+        r'|\b(?P<wvar>[A-Za-z_$][\w$]*)\s*\.\s*(?:print|println|printf|format|write))\s*\(',
+        re.I)),
     ('xpath_injection', 'CWE-643', 'Java XPath expression compilation/evaluation', re.compile(
         r'\b(?:\w+\s*\.\s*)?(?:compile|evaluate)\s*\(', re.I)),
 ]
@@ -3288,6 +3301,17 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
                     + [ctor_builder + '.new ProcessBuilder(...)'],
                 }
 
+    # F6: this file's response-writer variables.  A receiver declared as
+    # `PrintWriter <name> = ...getWriter()` is the only state that makes
+    # `<name>.print|println|printf|format|write(...)` an HTTP response
+    # output sink; nothing else in the file can register one, so the
+    # writer-var xss alternative above is inert in files that never obtain
+    # a response writer.
+    writer_vars = set(re.findall(
+        r'\bPrintWriter\s+([A-Za-z_$][\w$]*)\s*=\s*'
+        r'(?:[A-Za-z_$][\w$]*\s*\.\s*)*getWriter\s*\(',
+        "\n".join(masked)))
+
     # Sink analysis is intentionally argument-aware: a sink is reported only
     # when the sink call contains a tainted identifier or a source expression.
     for idx, line in enumerate(masked):
@@ -3322,6 +3346,24 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
                     and not re.search(
                         r'\b(?:Statement|java\.sql|jdbc)\b', source, re.I)):
                 continue
+
+            # F6: the writer-variable xss alternative only fires for a
+            # receiver this file declared as its response writer.  A
+            # same-verb call on any other receiver (fmt.format,
+            # String.format, file.write) is not response output and stays
+            # dark; `System.out.print(...)` is skipped even when a local
+            # writer happens to be named `out`, because there the receiver
+            # is System.out.  Advancing the search keeps a later valid
+            # writer call on the same line reachable.
+            if vuln == 'xss' and m.group('wvar'):
+                while m is not None and m.group('wvar'):
+                    if (m.group('wvar') in writer_vars
+                            and not re.search(
+                                r'\bSystem\s*\.\s*$', line[:m.start('wvar')])):
+                        break
+                    m = sink_re.search(line, m.end())
+                if m is None:
+                    continue
 
             # ProcessBuilder.start() is a sink only after a tainted command
             # has been assigned through command(...).
