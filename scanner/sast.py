@@ -215,6 +215,19 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"RUST_PATH_CONCAT","title":"Rust Path String Concatenation","vuln":"path_traversal","sev":"High","langs":["rust"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
     {"id":"RUST_SQL_FORMAT","title":"Rust SQL via format! Macro","vuln":"sql_injection","sev":"High","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"format!\s*\(\s*\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\""},
     {"id":"RUST_PATH_FORMAT","title":"Rust Path via format! Macro","vuln":"path_traversal","sev":"High","langs":["rust"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"format!\s*\(\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\""},
+    # F7: the execution-sink half of the SQL-injection class.  The two
+    # rules above anchor at the BUILD site (`format!("SELECT ...")`,
+    # `"..." + var`), but a query string is only executed at a rusqlite
+    # call -- and the golden corpus anchors its SAST-SQLI label there
+    # (`conn.prepare(&sql)`, vulnerable.rs L14), where nothing fired:
+    # 114/115 with line-exact identity, the lone recorded miss.  This
+    # rule matches `prepare|execute|query` called with a BORROWED
+    # variable; the scan loop gates it on a file-local, one-hop proof
+    # that this file BUILDS that variable with format! and a SQL
+    # template, so a literal argument (the parameterised
+    # `conn.prepare("... ?1")` form), a handle that is never built from
+    # a SQL string, and non-SQL format! templates all stay dark.
+    {"id":"RUST_SQL_SINK","title":"Rust SQL Execution of a Built Query String","vuln":"sql_injection","sev":"Critical","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\.\s*(?:prepare|execute|query)\s*\(\s*&(?P<rsx_sql_var>[A-Za-z_]\w*)"},
 
     # Generic / GraphQL / messaging / abuse
     {"id":"GENERIC_NOSQL_INJECTION","title":"NoSQL Injection Indicator","vuln":"nosql_injection","sev":"High","langs":["javascript","typescript","python","java","php"],"cwe":"CWE-943","owasp":"A03:2021 - Injection","pat":r"(?:\b(?:db|database|collection|collections|mongo|mongodb|mongoose)\b[^\n;]{0,120}\.(?:find|findOne|findOneAnd(?:Update|Delete)|updateOne|updateMany|deleteOne|deleteMany)\s*\(|\$(?:where|regex)\b)"},
@@ -1437,6 +1450,26 @@ def scan_file(filepath: str) -> list[dict]:
                 source, match, filepath
             ):
                 continue
+
+            if rule.get("id") == "RUST_SQL_SINK":
+                # F7 one-hop gate (kill-only for this rule): a borrowed
+                # SQL string reaches a rusqlite execution sink only when
+                # THIS file builds that variable with format! and a SQL
+                # template (SELECT/INSERT/UPDATE/DELETE) -- the measured
+                # vulnerable.rs shape (`let sql = format!("SELECT ...
+                # '{}'", user); conn.prepare(&sql)`).  The bounded span
+                # tolerates a wrapped `let x =\n    format!(...)`; every
+                # unproven borrower stays dark, which is what keeps the
+                # parameterised safe.rs form (`prepare("... ?1")`,
+                # literal, never matches the pattern) and handles like
+                # `prepare(&self.query)` or a non-SQL format! template
+                # out of the results.
+                _rsx_var = (match.groupdict() or {}).get("rsx_sql_var") or ""
+                if not _rsx_var or not re.search(
+                        r"\b%s\b\s*=[\s\S]{0,160}?format!\s*\(\s*\""
+                        r"[^\"]*(?:SELECT|INSERT|UPDATE|DELETE)"
+                        % re.escape(_rsx_var), source, re.I):
+                    continue
 
             lineno, snippet = _snippet_for_match(rule, source, lines, match.start(), match.end())
             if _is_comment(snippet, language):
