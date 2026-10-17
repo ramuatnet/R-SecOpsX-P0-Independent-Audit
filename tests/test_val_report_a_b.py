@@ -23,7 +23,11 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from analysis.validation.val_ab_diff import FIX_FAMILIES  # noqa: E402
+from analysis.validation.val_ab_diff import (  # noqa: E402
+    FIX_FAMILIES,
+    REPORTS,
+    main as ab_main,
+)
 from analysis.validation.val_cross_artifact import validate  # noqa: E402
 
 
@@ -39,7 +43,8 @@ def test_family_map_covers_every_fix_that_can_change_rule_counts():
     would report its removals as UNATTRIBUTED and fail a correct scan.
     """
     assert set(FIX_FAMILIES) == {
-        "B2", "B3", "B4", "B5", "B6", "B7", "B8", "C1", "C2", "C3"}
+        "B2", "B3", "B4", "B5", "B6", "B7", "B8", "C1", "C2", "C3",
+        "D1", "D2"}
     assert "B1" not in FIX_FAMILIES
     # The specific contracts the real A/B runs relied on.
     assert "TAINT_GRAPHQL_INTROSPECTION_ENABLED" in FIX_FAMILIES["B2"]
@@ -47,6 +52,8 @@ def test_family_map_covers_every_fix_that_can_change_rule_counts():
     assert "OAUTH_CLIENT_SECRET" in FIX_FAMILIES["B8"]
     assert "TAINT_SQL_INJECTION" in FIX_FAMILIES["C3"]
     assert "EVAL_CALL" in FIX_FAMILIES["C1"]
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" in FIX_FAMILIES["D1"]
+    assert "PROMPT_TEMPLATE_SECRET_EXPOSURE" in FIX_FAMILIES["D2"]
 
 
 def test_every_mapped_rule_has_a_nonempty_family():
@@ -54,6 +61,30 @@ def test_every_mapped_rule_has_a_nonempty_family():
         assert rules, fam
         for r in rules:
             assert isinstance(r, str) and r, (fam, r)
+
+
+def test_report_map_covers_every_audited_target():
+    # D-batch defect: REPORTS lacked "diffusers-main", so
+    # ``val_ab_diff.py diffusers-main`` compared ZERO targets and still
+    # printed the green verdict -- a vacuous PASS is a broken gate.
+    for target in ("peft-main", "Open-Assistant-main", "llama_index-main",
+                   "diffusers-main"):
+        assert target in REPORTS, target
+        assert Path(REPORTS[target]).name == "clean_report.json"
+
+
+def test_empty_target_selection_fails_instead_of_vacuous_pass(monkeypatch,
+                                                              capsys):
+    monkeypatch.setattr(sys, "argv", ["val_ab_diff.py", "no-such-target"])
+    try:
+        ab_main()
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("empty target selection must exit non-zero")
+    out = capsys.readouterr().out
+    assert "FAIL" in out
+    assert "no-such-target" in out
 
 
 # --------------------------------------------------------------------------

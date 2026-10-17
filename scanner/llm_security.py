@@ -336,7 +336,12 @@ LLM_RULES = [
         r"prompt_template.*api[_-]?key",
         r"prompt_template.*secret",
         r"template.*password",
-        r"template.*token",
+        # D2 (2026-10-17, diffusers): ``template.*token`` must see a
+        # CREDENTIAL token, not the tokenization vocabulary -- the window
+        # matched ``apply_chat_template(messages, tokenize=False, ...)`` and
+        # the identifier ``_PROMPT_TEMPLATE_ENCODE_NUM_SUFFIX_TOKENS`` (a
+        # token COUNT).  Same word boundary B7a applied on the secrets side.
+        r"template.*token(?![A-Za-z])",
     ],
     "severity": "Critical",
     "vuln_type": "prompt_template_secret_exposure",
@@ -1434,6 +1439,55 @@ def _llm02_line_has_dynamic_eval(line: str) -> bool:
     return bool(LLM_REAL_EVAL_RE.search(line) or LLM_EXEC_ANY_RE.search(line))
 
 
+# D1 (2026-10-17, diffusers): a fixed literal argv list cannot steer which
+# program runs, whatever the wrapper spelling.  The rule pattern
+# ``subprocess\.`` matches EVERY line carrying the module name, so env.py
+# emitted rows for the ``Popen(`` opener AND both ``stdout/stderr=PIPE``
+# argument lines; the C2 exemption only consulted the matched line for the
+# literal ``subprocess.run`` spelling.  Literal-list argv is exempt for
+# run/Popen/call/check_call/check_output (list form implies shell=False;
+# shell-string wrappers like getoutput/getstatusoutput are deliberately NOT
+# in the set).
+_SUBPROC_CALL = re.compile(
+    r"subprocess\.(?:run|Popen|call|check_call|check_output)\s*\(")
+_SUBPROC_FIXED_INLINE = re.compile(
+    r"subprocess\.(?:run|Popen|call|check_call|check_output)\s*\(\s*\[")
+_SUBPROC_CALL_EOL = re.compile(
+    r"subprocess\.(?:run|Popen|call|check_call|check_output)\s*\(\s*$")
+
+
+def _llm02_fixed_argv_exempt(line: str, lineno: int, lines) -> bool:
+    """True when LLM02's matched line belongs to a fixed-literal-argv call.
+
+    ``lineno`` is the 1-based number of ``line`` (so ``lines[lineno]`` is the
+    following line -- the C2 forward shape).  When the matched line carries
+    no call opener it sits INSIDE an argument list; only the NEAREST
+    preceding subprocess call is consulted, so an earlier fixed-argv run can
+    never bless a later dynamic Popen.  Every unknown shape -- variable
+    argv, shell strings, no call found within the window -- returns False
+    and keeps the finding.
+    """
+    if _SUBPROC_CALL.search(line):
+        # The call itself is on the matched line; only its own argv decides.
+        if _SUBPROC_FIXED_INLINE.search(line):
+            return True
+        if _SUBPROC_CALL_EOL.search(line):
+            nxt = lines[lineno] if lineno < len(lines) else ""
+            return nxt.lstrip().startswith("[")
+        return False
+    # ``stdout=subprocess.PIPE,`` two lines below ``subprocess.Popen(``:
+    # walk back (bounded) to the nearest preceding call opener.
+    for j in range(lineno - 2, max(-1, lineno - 11), -1):
+        if _SUBPROC_CALL.search(lines[j]):
+            if _SUBPROC_FIXED_INLINE.search(lines[j]):
+                return True
+            if _SUBPROC_CALL_EOL.search(lines[j]):
+                nxt = lines[j + 1] if j + 1 < len(lines) else ""
+                return nxt.lstrip().startswith("[")
+            return False
+    return False
+
+
 def _llm05_pip_install_is_prose(line: str) -> bool:
     """A1/A6: True when ``pip install`` sits inside a quoted string that
     already reads as a sentence (>=3 words before the command).
@@ -1704,18 +1758,17 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                 continue
 
             if rule_id == "LLM02_INSECURE_OUTPUT_HANDLING":
-                if re.search(r"subprocess\.run\s*\(\s*\[", line) or (
-                    re.search(r"subprocess\.run\s*\(\s*$", line)
-                    and lineno < len(lines)
-                    and lines[lineno].lstrip().startswith("[")
-                ):
+                if _llm02_fixed_argv_exempt(line, lineno, lines):
                     # Fixed argv list without shell interpretation: output
                     # cannot steer which program runs.  C2 (2026-10-16,
                     # llama_index): the list routinely starts on the line
                     # after the open paren -- scripts/convert-examples.py:58
                     # fired LLM02 on a fixed ``["git", "rev-parse",
-                    # "--show-toplevel"]`` argv.  Same exemption, one-line
-                    # lookahead consulted.
+                    # "--show-toplevel"]`` argv.  D1 (2026-10-17,
+                    # diffusers): same evidence rule, every wrapper spelling
+                    # (Popen/check_call/check_output) and matched lines
+                    # inside the call's argument list (env.py:124
+                    # ``stdout=subprocess.PIPE,``).
                     continue
                 if re.search(r"\.exec\(\s*(?:select|insert|update|delete)\s*\(", line):
                     # ORM/SQLModel session.exec(select(...)) is a query call,

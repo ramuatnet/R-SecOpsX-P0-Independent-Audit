@@ -1298,3 +1298,124 @@ def test_taint_builder_chain_reassigned_from_source_still_reported_control(tmp_p
             session.execute(query)
     """)
     assert "TAINT_SQL_INJECTION" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# D1 -- LLM02's fixed-argv exemption must cover subprocess.Popen /
+#       check_output / call AND the matched line sitting inside the call's
+#       argument list
+#
+# diffusers (2026-10-17): src/diffusers/commands/env.py:124 fired LLM02 on
+# ``stdout=subprocess.PIPE,`` inside ``sp = subprocess.Popen(["nvidia-smi",
+# ...], stdout=PIPE, stderr=PIPE)``.  The rule pattern ``subprocess\.``
+# matches every line carrying the module name, LLM_EXEC_ANY_RE sees the same
+# bare ``subprocess.`` (so A1's dynamic-eval gate keeps the row), and C2's
+# exemption only consulted the MATCHED line for the literal ``subprocess.run``
+# spelling.  Fixed literal argv + captured output: no model-derived value can
+# steer which program runs, and nothing executes the captured output.
+# ---------------------------------------------------------------------------
+def test_llm02_popen_fixed_argv_in_arglist_suppressed(tmp_path):
+    """The real env.py shape: call opener, literal argv, then stdout=PIPE
+    lines -- all three matching lines must be exempt."""
+    findings = _llm(tmp_path, "env.py", """
+        def gpu_info():
+            sp = subprocess.Popen(
+                ["nvidia-smi", "--query-gpu=gpu_name", "--format=csv,noheader"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            out, _ = sp.communicate()
+            return out.decode("utf-8")
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" not in _ids(findings)
+
+
+def test_llm02_inline_fixed_argv_other_call_suppressed(tmp_path):
+    """Same-line literal argv on check_output (previously only run() was
+    exempt)."""
+    findings = _llm(tmp_path, "env2.py", """
+        def gpu_info():
+            out = subprocess.check_output(["nvidia-smi", "-L"], text=True)
+            return out
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" not in _ids(findings)
+
+
+def test_llm02_popen_dynamic_argv_still_reported_control(tmp_path):
+    """Control: Popen whose argv comes from a variable keeps the finding --
+    the exemption is the literal list, not the call name."""
+    findings = _llm(tmp_path, "handler.py", """
+        def spawn(cmd):
+            sp = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            return sp
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" in _ids(findings)
+
+
+def test_llm02_earlier_fixed_argv_does_not_exempt_later_dynamic_call_control(tmp_path):
+    """Control: the backward window inspects only the NEAREST preceding
+    subprocess call, so an earlier fixed-argv run cannot bless a later
+    dynamic Popen in the same function."""
+    findings = _llm(tmp_path, "mixed.py", """
+        def probe(cmd):
+            subprocess.run(["ls"], check=True)
+            sp = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            return sp
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" in _ids(findings)
+
+
+def test_llm02_shell_string_argv_still_reported_control(tmp_path):
+    """Control: shell=True with a string argv is a real sink and keeps."""
+    findings = _llm(tmp_path, "shellstr.py", """
+        def run(cmd):
+            subprocess.run(cmd, shell=True)
+    """)
+    assert "LLM02_INSECURE_OUTPUT_HANDLING" in _ids(findings)
+
+
+# ---------------------------------------------------------------------------
+# D2 -- PROMPT_TEMPLATE_SECRET_EXPOSURE: the ``template.*token`` window must
+#       see a CREDENTIAL token, not the tokenization vocabulary
+#
+# diffusers (2026-10-17): 3 Low rows, all from ``template.*token``:
+#   * apply_chat_template(messages, tokenize=False, ...) x2 -- the HF
+#     chat-template API + its tokenize= keyword (function name, no secret);
+#   * _PROMPT_TEMPLATE_ENCODE_NUM_SUFFIX_TOKENS = 5 -- a token COUNT
+#     constant matched inside the identifier.
+# The rule claims prompt-template SECRET exposure (Critical before
+# normalisation); none of the three embeds credential material.  Same
+# vocabulary boundary B7a applied to the secrets layer: token must not be
+# followed by a letter.  ``template.*api_key/secret/password`` untouched.
+# ---------------------------------------------------------------------------
+def test_prompt_template_chat_template_tokenize_suppressed(tmp_path):
+    findings = _llm(tmp_path, "chat.py", """
+        class P:
+            def enc(self, messages):
+                return self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    """)
+    assert "PROMPT_TEMPLATE_SECRET_EXPOSURE" not in _ids(findings)
+
+
+def test_prompt_template_token_count_constant_suppressed(tmp_path):
+    findings = _llm(tmp_path, "count.py", """
+        _PROMPT_TEMPLATE_ENCODE_NUM_SUFFIX_TOKENS = 5
+    """)
+    assert "PROMPT_TEMPLATE_SECRET_EXPOSURE" not in _ids(findings)
+
+
+def test_prompt_template_real_token_literal_still_reported_control(tmp_path):
+    """Control: a template that actually embeds a token value keeps -- the
+    token is followed by ``}``/punctuation, not a letter."""
+    findings = _llm(tmp_path, "keep_token.py", """
+        prompt_template = "Hello, your access token: {token}"
+    """)
+    assert "PROMPT_TEMPLATE_SECRET_EXPOSURE" in _ids(findings)
+
+
+def test_prompt_template_password_pattern_unaffected_control(tmp_path):
+    """Control: the other template.* patterns are untouched by D2."""
+    findings = _llm(tmp_path, "keep_password.py", """
+        system_template = f"login with password {pw}"
+    """)
+    assert "PROMPT_TEMPLATE_SECRET_EXPOSURE" in _ids(findings)

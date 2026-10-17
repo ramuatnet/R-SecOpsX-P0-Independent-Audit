@@ -14,6 +14,7 @@ REPORTS = {
     "peft-main": r"D:\Data\Code test\prodtest\AI Benchmarks\reports\peft-main\clean_report.json",
     "Open-Assistant-main": r"D:\Data\Code test\prodtest\AI Benchmarks\reports\Open-Assistant-main\clean_report.json",
     "llama_index-main": r"D:\Data\Code test\prodtest\AI Benchmarks\reports\llama_index-main\clean_report.json",
+    "diffusers-main": r"D:\Data\Code test\prodtest\AI Benchmarks\reports\diffusers-main\clean_report.json",
 }
 
 # Attribution map: which fix family owns which rule deltas. A diff row that
@@ -29,6 +30,8 @@ FIX_FAMILIES = {
     "C1": {"EVAL_CALL"},
     "C2": {"LLM02_INSECURE_OUTPUT_HANDLING"},
     "C3": {"TAINT_SQL_INJECTION"},
+    "D1": {"LLM02_INSECURE_OUTPUT_HANDLING"},
+    "D2": {"PROMPT_TEMPLATE_SECRET_EXPOSURE"},
 }
 
 def load_findings(path):
@@ -46,6 +49,14 @@ def main():
     # (e.g. while other rescans are still writing their report directories).
     only = set(sys.argv[1:])
     reports = {k: v for k, v in REPORTS.items() if not only or k in only}
+    if not reports:
+        # An empty selection must never reach the verdict as a vacuous PASS
+        # (D-batch: "val_ab_diff.py diffusers-main" compared nothing before
+        # diffusers was added to REPORTS and still printed the green line).
+        unknown = sorted(only - set(REPORTS))
+        print("FAIL: no targets selected"
+              + (f" (unknown: {', '.join(unknown)})" if unknown else ""))
+        sys.exit(1)
     for name, rpath in reports.items():
         b = baseline[name]
         data, findings = load_findings(rpath)
