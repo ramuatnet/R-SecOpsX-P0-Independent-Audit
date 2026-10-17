@@ -1306,6 +1306,34 @@ def is_proven_constant(source: str, var: str, at_line: int,
         return False
 
 
+def sink_value_proven_constant(source: str, at_line: int, names,
+                               filepath: str | None = None) -> bool:
+    """True only when EVERY name in ``names`` is a proven constant at
+    ``at_line`` (V1.12b kill-only-on-proof gate for sink emissions).
+
+    Callers pass the tainted carriers reaching one sink; when every one of
+    them folds to a constant at that line the attacker data provably died
+    before the sink (constant-true branch/ternary, safe-key map read, or a
+    helper whose return folds) and the finding must not fire.  An empty
+    input, any unproven name, or any analysis failure returns False
+    (KEEP): the gate never kills on absence of proof.  Honours
+    ``gate_enabled()``; ``RSX_MULTIPART_FLOW=0`` restores pre-gate
+    behaviour.
+    """
+    if not names or not gate_enabled():
+        return False
+    for name in names:
+        if not isinstance(name, str) or not name.strip():
+            return False
+        try:
+            if not is_proven_constant(source, name.strip(), at_line,
+                                      filepath=filepath):
+                return False
+        except Exception:
+            return False
+    return True
+
+
 _ATTR_PREFIX_RE = re.compile(
     r"^(?:@\w+(?:\([^()]*\))?\s+|\[[^\][]*\]\s*)+")
 

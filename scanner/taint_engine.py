@@ -2892,6 +2892,39 @@ def _java_dead_names(masked_lines: list[str], taint: set, sink_idx: int,
         return set()
 
 
+def _java_chain_severed_by_constant(source: str, chain: list,
+                                    at_line: int, filepath: str) -> bool:
+    """RSECOPSX_E3_SEVERED_CHAIN_GATE_20261017 -- True only when a simple
+    local ON the recorded evidence chain is a proven constant at
+    ``at_line`` (shared evaluator ``scanner/multipart_flow``).
+
+    The chain is ONE linear evidence path; a proven-constant local on it
+    means its last write folded the value away (constant-true
+    branch/ternary with int arithmetic, safe-key map read) and no
+    attacker-controlled data can continue past that point -- the
+    evaluator proves a constant only when no later write reassigns the
+    name.  Kill only on proof: no constant on the chain, any unparseable
+    entry, disabled gate (``RSX_MULTIPART_FLOW=0``), or any analysis
+    failure returns False (KEEP).
+    """
+    try:
+        from scanner.multipart_flow import is_proven_constant
+    except Exception:
+        return False
+    for entry in chain:
+        if not isinstance(entry, str):
+            continue
+        name = entry.strip()
+        if not re.fullmatch(r'[A-Za-z_$][\w$]*', name):
+            continue
+        try:
+            if is_proven_constant(source, name, at_line, filepath=filepath):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
     lines = source.splitlines()
     masked = _java_mask_comments(lines)
@@ -3008,6 +3041,16 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
                 obj = builder_match.group(1)
                 t = tainted_objects[obj]
                 chain = list(t['chain'])
+                # RSECOPSX_E3_SEVERED_CHAIN_GATE_20261017 -- this
+                # object-state branch had NO kill filter at all: the
+                # builder kept its recorded chain even when the attacker
+                # data had provably died upstream.  All 8 BenchmarkJava
+                # JAVA_TAINT_COMMAND_INJECTION false positives (findings15)
+                # route through a folded `bar` before reaching
+                # args/argList/argsEnv.  Kill only on proof.
+                if _java_chain_severed_by_constant(
+                        source, chain, idx + 1, filepath):
+                    break
                 findings.append(_java_make_finding(
                     vuln, cwe, title, filepath, idx + 1, lines[idx],
                     t['source'], m.group(0).strip()[:120], chain,
@@ -3053,6 +3096,18 @@ def _scan_java_semantic(filepath: str, source: str) -> list[dict]:
             else:
                 chain = [source_expr]
                 source_label = source_expr
+
+            # RSECOPSX_E3_SEVERED_CHAIN_GATE_20261017 -- command_injection
+            # only (the measured family: the r.exec(...) argv-array shapes
+            # 01686/01939/02068 whose recorded chain passes through a
+            # folded `bar`; the ProcessBuilder.start() branch carries the
+            # same gate above).  Void evidence: the chain is ONE linear
+            # path and a proven-constant local on it means the attacker
+            # data provably died before this sink.
+            if (vuln == 'command_injection'
+                    and _java_chain_severed_by_constant(
+                        source, chain, idx + 1, filepath)):
+                break
 
             sink_call = m.group(0).strip()[:120]
             findings.append(_java_make_finding(
@@ -3483,6 +3538,17 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
             elif src:
                 selected={'source':src,'chain':[src]}
             if selected:
+                # RSECOPSX_E3_SEVERED_CHAIN_GATE_20261017 -- the process
+                # kind carries the same fold-shape chains as the line
+                # layer (its kills unmasked these rows through
+                # core/analyzer's vuln|file|line dedup: +5 J3_CMD on the
+                # exact former TAINT_CMD locations).  Kill only on proof;
+                # raw chains (real argv taint) keep.
+                if (kind == 'process'
+                        and _java_chain_severed_by_constant(
+                            source, list(selected['chain']), idx + 1,
+                            filepath)):
+                    continue
                 findings.append(_j3_emit(vuln,cwe,title,filepath,idx+1,lines[idx],selected['source'],m.group(0).strip()[:120],selected['chain']))
                 continue
 
@@ -3492,6 +3558,9 @@ def _j3_scan_java_semantics(filepath, source, seed_taint=None):
                 bm=re.search(r'\b([A-Za-z_$][\w$]*)\s*\.\s*start\s*\(', line, re.I)
                 if bm and bm.group(1) in collections:
                     t=collections[bm.group(1)]
+                    if _java_chain_severed_by_constant(
+                            source, list(t['chain']), idx + 1, filepath):
+                        continue
                     findings.append(_j3_emit(vuln,cwe,title,filepath,idx+1,lines[idx],t['source'],m.group(0).strip()[:120],t['chain']))
 
             # Runtime.exec may receive a tainted variable directly.

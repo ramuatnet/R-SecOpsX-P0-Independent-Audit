@@ -113,7 +113,12 @@ def _idents(expr: str):
 
 
 def _expr_tainted(expr: str, tainted: set[str], fields: set[str], builders: set[str]) -> set[str]:
-    e=expr or ""
+    # RSECOPSX_E0_LITERAL_WORD_TAINT_FIX_20261017 -- string/char literal
+    # contents are data, never identifiers.  This prelude copy of the J4
+    # helper mirrors scanner/java_semantic_j4.py (kept byte-consistent
+    # even though analyze_java_j4 here is not wired into the pipeline);
+    # it shares this module's _J5_LITERAL_MASK (resolved at call time).
+    e = _J5_LITERAL_MASK.sub(" ", expr or "")
     hits=set()
     for name in tainted | fields | builders:
         if re.search(r"(?<![\w$])"+re.escape(name)+r"(?![\w$])", e): hits.add(name)
@@ -250,6 +255,19 @@ def _analyze_method(filepath, source_lines, method, incoming_params, initial_fie
                 hits=set()
                 for a in args: hits |= _expr_tainted(a,tainted,fields,builders)
                 if hits:
+                    # RSECOPSX_E1_PROVEN_CONSTANT_SINK_GATE_20261017 --
+                    # mirror of the gate in scanner/java_semantic_j4.py
+                    # (twin prelude kept consistent; this copy is not
+                    # wired into the pipeline).
+                    try:
+                        from scanner.multipart_flow import (
+                            sink_value_proven_constant)
+                        if sink_value_proven_constant(
+                                "\n".join(source_lines), line_no,
+                                sorted(hits), filepath=filepath):
+                            break
+                    except Exception:
+                        pass
                     origin=next(iter(hits)); chain=origins.get(origin,[origin])
                     findings.append(_make_finding(vuln,cwe,title,rule_id,filepath,line_no,s,chain,s[:160]))
                     break
@@ -516,11 +534,29 @@ def _j5_method_key(method):
     return (method["name"], len(method["params"]))
 
 
+# RSECOPSX_E0_LITERAL_WORD_TAINT_FIX_20261017
+# Java string/char literal contents (escapes handled) -- data, never code.
+_J5_LITERAL_MASK = re.compile(
+    r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
+
+
 def _j5_expr_hits(expr, taint):
+    # RSECOPSX_E0_LITERAL_WORD_TAINT_FIX_20261017
+    # String/char literal CONTENTS are data, never identifiers: the
+    # substring scan below used to treat the prose word "bar" inside
+    # ``new Object[] {"The streetz 4 Ms bar"}`` as the tainted variable
+    # ``bar`` and taint the whole array -- the single idiom behind all 11
+    # BenchmarkJava JAVA_J5_LDAP false positives (chain
+    # ``parameter:filters -> filters -> ctx.search(``) and the
+    # ``write("Parameter value: " + bar)`` XSS follow-ons.  Concatenation
+    # flows are untouched: tainted variables live OUTSIDE the quotes
+    # (``"uid=" + bar`` still matches ``bar``).  Same masking discipline as
+    # the JAVA_TAINT_* line layer's _B1_JAVA_TAINT_LITERAL_MASK.
+    masked = _J5_LITERAL_MASK.sub(" ", str(expr or ""))
     hits = []
     for name in taint:
         if re.search(r'(?<![\w$])' + re.escape(name) + r'(?![\w$])',
-                     expr or ""):
+                     masked):
             if name not in hits:
                 hits.append(name)
     return hits
@@ -1352,6 +1388,57 @@ def _j5_local_types(source: str) -> set:
         source))
 
 
+# RSECOPSX_E5_WALK_FRAME_BRACE_FIX_20261017
+_EXPR_BRACE_PRECEDERS = "=([,]"
+
+
+def _j5_block_brace_counts(masked_raw: str):
+    """``(block_open, block_close)`` -- the braces that may touch the
+    dead-walk's frame stack in one logical statement.
+
+    Only BLOCK braces belong on the stack: method/initializer
+    signatures, control-flow heads, ``try``/``catch``/``finally``,
+    ``} else {``.  The ``{``/``}`` of an ARRAY/COLLECTION INITIALIZER
+    expression (``String[] args = {cmd};``, ``new Object[] {...}``,
+    ``new int[][]{{1},{2}}``) opens no scope, and counting them
+    corrupted the stack in BOTH directions: the expression's own ``}``
+    popped a real enclosing frame (a ``filters = new Object[]{...}``
+    line inside ``try`` used to dissolve the try frame) and its ``{``
+    pushed a phantom cond frame that stripped kill rights from the NEXT
+    top-level write -- BenchmarkTest00571: ``String[] args = {cmd};``
+    left a phantom frame over ``String[] argsEnv = {bar};`` so bar's
+    fold could never propagate its death into the env array (the whole
+    JAVA_J5_CMD family on findings17).  Braces inside string/char
+    literals are blanked first (``String s = "{";``).  An initializer
+    ``{`` is recognised by its nesting (inside another initializer) or
+    the preceding non-space character -- ``=``, ``(``, ``,``, ``[``,
+    ``]`` -- while lambda/anonymous-class/control braces (``)``, ``}``,
+    identifier, ``>`` before ``{``) stay block braces.  Unbalanced
+    closers still count as block closes: the caller's stray-closer
+    tolerance decides whether a frame exists to pop.
+    """
+    text = _J5_LITERAL_MASK.sub(" ", masked_raw or "")
+    opens = 0
+    closes = 0
+    stack: list[str] = []  # "block" | "expr" per open brace
+    prev = ""
+    for ch in text:
+        if ch == "{":
+            if (stack and stack[-1] == "expr") or \
+                    prev in _EXPR_BRACE_PRECEDERS:
+                stack.append("expr")
+            else:
+                stack.append("block")
+                opens += 1
+        elif ch == "}":
+            kind = stack.pop() if stack else "block"
+            if kind == "block":
+                closes += 1
+        if not ch.isspace():
+            prev = ch
+    return opens, closes
+
+
 def _j5_local_call_prefix(pre: str, local_types) -> bool:
     """True when a call with prefix ``pre`` can only resolve to a method
     declared in THIS file, so file-local call knowledge may mask its
@@ -1591,9 +1678,13 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
         idx += nlines
         head = masked_raw.strip()
         can_kill = all(f == "try" for f in frames)
+        # RSECOPSX_E5_WALK_FRAME_BRACE_FIX_20261017 -- only BLOCK braces
+        # touch the stack; array/collection-initializer braces are
+        # expression braces (see _j5_block_brace_counts).
+        n_block_open, n_block_close = _j5_block_brace_counts(masked_raw)
         # Closes pop before opens so ``} else {`` swaps frames instead of
         # nesting; stray closers (a body beginning mid-method) are ignored.
-        for _ in range(masked_raw.count("}")):
+        for _ in range(n_block_close):
             if frames:
                 frames.pop()
         # A switch's own closing brace has now popped its frame: retire
@@ -1608,7 +1699,7 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
         # unfoldable path (cond frame, no skipping).
         new_sw = None
         m_sw = re.match(r"switch\s*\(", head)
-        if m_sw and masked_raw.count("{"):
+        if m_sw and n_block_open:
             sw_cond, _rest = _j5_split_paren(head, m_sw.end() - 1)
             if sw_cond is not None:
                 folded = _j5_const_expr(sw_cond, int_env)
@@ -1634,7 +1725,7 @@ def _j5_dead_names(body, start_line, taint, sink_line, safe_calls=None,
                 r"(?:class|interface|enum|record)\b", head)
         )
         if not sig_like:
-            for i in range(masked_raw.count("{")):
+            for i in range(n_block_open):
                 if i == 0 and _J5_TRY_HEAD_RE.match(head):
                     frames.append("try")
                 elif i == 0 and new_sw is not None:

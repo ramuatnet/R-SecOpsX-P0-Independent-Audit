@@ -112,8 +112,18 @@ def _idents(expr: str):
     return re.findall(r"\b[A-Za-z_$][A-Za-z0-9_$]*\b", expr or "")
 
 
+# RSECOPSX_E0_LITERAL_WORD_TAINT_FIX_20261017
+# Java string/char literal contents (escapes handled) -- data, never code.
+_J4_LITERAL_MASK = re.compile(
+    r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
+
+
 def _expr_tainted(expr: str, tainted: set[str], fields: set[str], builders: set[str]) -> set[str]:
-    e=expr or ""
+    # RSECOPSX_E0_LITERAL_WORD_TAINT_FIX_20261017 -- string/char literal
+    # contents are data, never identifiers (same discipline as the J5 and
+    # JAVA_TAINT_* layers); concat flows keep their outside-the-quotes
+    # variables.
+    e = _J4_LITERAL_MASK.sub(" ", expr or "")
     hits=set()
     for name in tainted | fields | builders:
         if re.search(r"(?<![\w$])"+re.escape(name)+r"(?![\w$])", e): hits.add(name)
@@ -250,6 +260,26 @@ def _analyze_method(filepath, source_lines, method, incoming_params, initial_fie
                 hits=set()
                 for a in args: hits |= _expr_tainted(a,tainted,fields,builders)
                 if hits:
+                    # RSECOPSX_E1_PROVEN_CONSTANT_SINK_GATE_20261017
+                    # Kill only on proof: when EVERY tainted carrier at this
+                    # sink is a proven constant at this line (constant-true
+                    # branch/ternary with int arithmetic, safe-key map
+                    # round-trip, folded helper return -- shared evaluator
+                    # scanner/multipart_flow), the attacker data provably
+                    # died before the sink and the finding must not fire.
+                    # Any unproven carrier, disabled gate, or analysis
+                    # failure keeps the finding.  BenchmarkJava's negative
+                    # oracles (J4_LDAP 14 FP / J4_XSS 13 FP on findings15)
+                    # are exactly the folded shapes this proof catches.
+                    try:
+                        from scanner.multipart_flow import (
+                            sink_value_proven_constant)
+                        if sink_value_proven_constant(
+                                "\n".join(source_lines), line_no,
+                                sorted(hits), filepath=filepath):
+                            break
+                    except Exception:
+                        pass
                     origin=next(iter(hits)); chain=origins.get(origin,[origin])
                     findings.append(_make_finding(vuln,cwe,title,rule_id,filepath,line_no,s,chain,s[:160]))
                     break
