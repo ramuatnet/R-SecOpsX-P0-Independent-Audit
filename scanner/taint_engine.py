@@ -2712,6 +2712,18 @@ _JAVA_SINKS = [
         r'\bnew\s+(?:[A-Za-z_$][\w$]*\s*\.\s*)*(?:File|FileInputStream|FileOutputStream|RandomAccessFile)\s*\('
         r'|\b(?:[A-Za-z_$][\w$]*\s*\.\s*)*(?:Files|Paths)\s*\.\s*(?:readAllBytes|readString|readAllLines|newInputStream|newOutputStream|delete|copy|move|get)\s*\(',
         re.I)),
+    ('trust_boundary_violation', 'CWE-501', 'Java session trust boundary crossing', re.compile(
+        # F1: storing request-derived data in the HTTP session is the
+        # benchmark's trust-boundary family.  Only the J3 layer modeled
+        # `X.getSession().setAttribute(IDENT, ...)` -- key position alone --
+        # so `putValue` (45 oracle-positives) and the value position (50)
+        # stayed dark.  The receiver is pinned to the measured
+        # `getSession()` chain; the generic argument scan reads BOTH
+        # argument positions and the shared order-aware dead-name walk still
+        # kills a carrier whose last write before the store is provably
+        # constant (folded branches, cross-method const returns).
+        r'\bgetSession\s*\(\s*\)\s*\.\s*(?:setAttribute|putValue)\s*\(',
+        re.I)),
     ('xss', 'CWE-79', 'Java HTTP response output', re.compile(
         r'\b(?:response\s*\.\s*)?(?:getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write)|getWriter\s*\(\s*\)\s*\.\s*(?:print|println|printf|format|write))\s*\(', re.I)),
     ('xpath_injection', 'CWE-643', 'Java XPath expression compilation/evaluation', re.compile(

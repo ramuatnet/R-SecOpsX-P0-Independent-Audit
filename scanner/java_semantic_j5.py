@@ -39,7 +39,7 @@ _METHOD_HEAD_RE = re.compile(
 )
 
 _SOURCE_RE = re.compile(
-    r"\b(?:request|req)\s*\.\s*(?:getParameter|getHeader|getHeaders|getCookies|getCookie|getQueryString|getRequestURI|getRequestURL)\s*\(", re.I
+    r"\b(?:request|req)\s*\.\s*(?:getParameter|getHeader|getHeaders|getHeaderNames|getCookies|getCookie|getQueryString|getRequestURI|getRequestURL)\s*\(", re.I
 )
 _COOKIE_VALUE_RE = re.compile(r"\b[A-Za-z_$][\w$]*\s*\.\s*getValue\s*\(", re.I)
 _DECODER_RE = re.compile(r"\bURLDecoder\s*\.\s*decode\s*\(", re.I)
@@ -389,7 +389,7 @@ _J5_CONTROL_WORDS = {"if", "for", "while", "switch", "catch", "synchronized", "t
 
 _J5_SOURCE_RE = re.compile(
     r'\b(?:request|req)\s*\.\s*'
-    r'(?:getParameter|getParameterMap|getParameterNames|getParameterValues|getHeader|getHeaders|getCookies|getCookie|'
+    r'(?:getParameter|getParameterMap|getParameterNames|getParameterValues|getHeader|getHeaders|getHeaderNames|getCookies|getCookie|'
     r'getQueryString|getRequestURI|getRequestURL|getInputStream|getReader)\s*\(',
     re.I
 )
