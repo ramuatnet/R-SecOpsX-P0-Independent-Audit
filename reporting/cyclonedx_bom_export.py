@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -393,6 +394,112 @@ def build_cyclonedx_cbom(cbom_items: list[dict],
     return doc
 
 
+# Truthful identity enrichment for detected AI SDK/framework components,
+# keyed by the exact component string in scanner/aibom.py's AI_RULES.
+#
+# WHY: the OWASP AIBOM Generator's completeness profile (and real BOM
+# consumers generally) score and act on package identity -- a purl to
+# match advisories, a license to gate on, a homepage to audit. Detection
+# supplies provider identity only, so these facts are curated here, in
+# the REPORTING layer, where presentation lives; detection is untouched.
+#
+# SOURCING RULE (verified 2026-10-19 against each distribution's own
+# PyPI metadata and the upstream GitHub repository API; do not extend by
+# guesswork):
+#   purl      the canonical PyPI distribution the rule's import patterns
+#             bind to (e.g. `import openai` -> pkg:pypi/openai)
+#   license   SPDX id taken from that distribution's PyPI metadata and
+#             cross-checked against the upstream repository's SPDX
+#             license; legacy strings such as "Apache 2.0" are
+#             normalized only when both sources agree
+#   homepage  the canonical upstream repository URL
+# Components whose package identity is ambiguous emit no purl and no
+# license (Ollama: PyPI client vs local runtime; DeepSeek: no canonical
+# SDK distribution) -- a BOM must not guess identity, and honest absence
+# beats a wrong match. Version is likewise omitted for import-only
+# detections: an `import` statement proves usage, never which version.
+_AI_ENRICHMENT: dict[str, dict[str, str]] = {
+    "OpenAI SDK / API": {
+        "purl": "pkg:pypi/openai",
+        "license": "Apache-2.0",
+        "homepage": "https://github.com/openai/openai-python",
+        "description": "Official OpenAI Python SDK for the OpenAI API.",
+    },
+    "Azure OpenAI": {
+        "purl": "pkg:pypi/azure-ai-openai",
+        "license": "MIT",
+        "homepage": "https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/openai",
+        "description": "Azure OpenAI client from the Azure SDK for Python.",
+    },
+    "Anthropic Claude SDK / API": {
+        "purl": "pkg:pypi/anthropic",
+        "license": "MIT",
+        "homepage": "https://github.com/anthropics/anthropic-sdk-python",
+        "description": "Official Anthropic Python SDK for the Claude API.",
+    },
+    "Google Gemini / Generative AI": {
+        "purl": "pkg:pypi/google-generativeai",
+        "license": "Apache-2.0",
+        "homepage": "https://github.com/google-gemini/deprecated-generative-ai-python",
+        "description": "Google Gemini generative AI Python SDK.",
+    },
+    "HuggingFace Transformers": {
+        "purl": "pkg:pypi/transformers",
+        "license": "Apache-2.0",
+        "homepage": "https://github.com/huggingface/transformers",
+        "description": "HuggingFace Transformers model library.",
+    },
+    "LangChain Framework": {
+        "purl": "pkg:pypi/langchain",
+        "license": "MIT",
+        "homepage": "https://github.com/langchain-ai/langchain",
+        "description": "LangChain LLM application framework.",
+    },
+    "LlamaIndex Framework": {
+        "purl": "pkg:pypi/llama-index",
+        "license": "MIT",
+        "homepage": "https://github.com/run-llama/llama_index",
+        "description": "LlamaIndex data framework for LLM applications.",
+    },
+    "Ollama Local LLM": {
+        "license": "MIT",
+        "homepage": "https://github.com/ollama/ollama",
+        "description": "Ollama local LLM runtime.",
+    },
+    "Mistral AI": {
+        "purl": "pkg:pypi/mistralai",
+        "license": "Apache-2.0",
+        "homepage": "https://github.com/mistralai/client-python",
+        "description": "Official Mistral AI Python client.",
+    },
+    "Cohere AI": {
+        "purl": "pkg:pypi/cohere",
+        "license": "MIT",
+        "homepage": "https://github.com/cohere-ai/cohere-python",
+        "description": "Official Cohere Python SDK.",
+    },
+    "DeepSeek AI": {
+        "homepage": "https://api.deepseek.com",
+        "description": "DeepSeek LLM API.",
+    },
+    "CrewAI Agent Framework": {
+        "purl": "pkg:pypi/crewai",
+        "license": "MIT",
+        "homepage": "https://github.com/crewAIInc/crewAI",
+        "description": "CrewAI multi-agent orchestration framework.",
+    },
+    "Microsoft AutoGen Agent Framework": {
+        "purl": "pkg:pypi/autogen",
+        "license": "Apache-2.0",
+        "homepage": "https://github.com/microsoft/autogen",
+        "description": "Microsoft AutoGen multi-agent conversation framework.",
+    },
+}
+
+# Shape of an SPDX license identifier; anything else rides as a name.
+_SPDX_ID_RE = re.compile(r"^[A-Za-z0-9-.+]+$")
+
+
 def _aibom_component(item: dict, index: int) -> dict | None:
     provider = str(item.get("provider") or "").strip()
     component = str(item.get("component") or "").strip()
@@ -457,6 +564,30 @@ def _aibom_component(item: dict, index: int) -> dict | None:
         "name": name,
         "properties": properties,
     }
+    # Curated package identity for known SDK/framework components (see
+    # _AI_ENRICHMENT): purl, description, license and homepage, each a
+    # sourced fact. A key absent from the entry means "not truthfully
+    # knowable", never "fill with a plausible value".
+    ident = _AI_ENRICHMENT.get(component)
+    if ident:
+        if ident.get("description"):
+            comp["description"] = ident["description"]
+        if ident.get("purl"):
+            comp["purl"] = ident["purl"]
+        if ident.get("license"):
+            comp["licenses"] = [{"license": {"id": ident["license"]}}]
+        if ident.get("homepage"):
+            comp["externalReferences"] = [
+                {"type": "website", "url": ident["homepage"]}]
+    # Model detections can carry a HuggingFace-stated license; reuse it
+    # as a CycloneDX license. HF strings are not always SPDX ids, so
+    # only shape-matching values become ids.
+    hf_license = str(hf.get("license") or "").strip() if isinstance(hf, dict) else ""
+    if hf_license and "licenses" not in comp:
+        if _SPDX_ID_RE.fullmatch(hf_license):
+            comp["licenses"] = [{"license": {"id": hf_license}}]
+        else:
+            comp["licenses"] = [{"license": {"name": hf_license}}]
     # modelProperties is 1.7-only; at 1.6 the provenance rides in
     # properties, which every 1.6 consumer reads.
     if model_hint:

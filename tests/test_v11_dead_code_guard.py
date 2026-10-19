@@ -43,6 +43,31 @@ def test_reachability_audit_actually_runs_on_this_tree():
     assert res["reachable"] > 200, res
 
 
+def test_runtime_sibling_script_counts_as_reachable(tmp_path):
+    """A subprocess entry script loaded via Path(__file__).with_name().
+
+    analysis/validation/aibom_generator_driver.py runs under an external
+    interpreter (its whole point), so no import edge can reach it; the
+    auditor must treat a with_name() sibling reference as the liveness
+    edge it is, or the dead-code guard would demand quarantining live
+    tooling.
+    """
+    (tmp_path / "main.py").write_text(
+        "from pathlib import Path\n"
+        "SCRIPT = Path(__file__).with_name(\"driver.py\")\n",
+        encoding="utf-8")
+    (tmp_path / "driver.py").write_text("print('hi')\n", encoding="utf-8")
+    res = audit(tmp_path)
+    assert "driver.py" not in res["dead"], res["dead"]
+
+    # A file merely named in a docstring is NOT an edge -- the reference
+    # must be the pathlib with_name() construction.
+    (tmp_path / "main.py").write_text(
+        "# mentions driver.py in passing\n", encoding="utf-8")
+    res = audit(tmp_path)
+    assert "driver.py" in res["dead"], res["dead"]
+
+
 def test_quarantine_is_never_imported_by_live_code():
     """A quarantined module must not be imported, or the two copies drift.
 

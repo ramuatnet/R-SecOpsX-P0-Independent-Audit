@@ -6,12 +6,21 @@ Validates that emitted BOMs are consumable by third-party tooling:
   - sbomqs quality score >= 7.0
   - CBOMkit parse check
   - OWASP aibom-generator schema check
+
+The last two are offline structural mirrors. The REAL tools are run by
+the real-tool layer at the bottom of this module (added 2026-10-19):
+OWASP aibom-generator's own validator + completeness scorer, cbomkit's
+quantum-safe compliance policy under OPA, and cbomkit-theia's
+parse/enrich of the CBOM. External pieces are located via RSX_* env
+vars and report BLOCKED (never silent agreement) when absent.
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -308,6 +317,165 @@ def _result_valid(result: dict) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
+# REAL external-tool conformance (V4 completion, 2026-10-19)
+#
+# The offline mirrors above are written to resemble what each consumer
+# parses, but resemblance is not proof. This layer runs the actual
+# community tooling against the emitted documents, and reports BLOCKED
+# -- never silent agreement, mirroring analysis/validation/
+# v3_differential.py -- when a piece is unavailable:
+#
+#   RSX_AIBOM_GENERATOR         aibom-generator checkout
+#   RSX_AIBOM_GENERATOR_PYTHON  interpreter with cyclonedx-python-lib
+#                               [json-validation] (the upstream
+#                               validator's required extra)
+#   RSX_OPA                     opa binary (or "opa" on PATH)
+#   RSX_CBOMKIT_REGO            cbomkit's quantum_safe.rego file
+#   docker on PATH + the cbomkit-theia image already pulled
+#                               (RSX_CBOMKIT_THEIA_IMAGE overrides;
+#                               gates never pull images)
+#
+# Verdict semantics: theia/PASS and aibom-generator/PASS mean the real
+# tools ACCEPTED the emitted document. The quantum-safe policy's
+# findings are statements about the inventoried cryptography (MD5
+# flagged quantum-vulnerable is a true finding about the code, not a
+# document defect), so that check passes when the policy evaluates and
+# records what it found.
+# ---------------------------------------------------------------------------
+
+
+def _blocked(reason: str) -> dict:
+    return {"status": "BLOCKED", "reason": reason}
+
+
+def _shell(cmd: list[str], timeout: int = 120) -> tuple[int, str, str]:
+    """Run one child process; the single choke point tests override."""
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout)
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    except Exception as e:  # noqa: BLE001 -- evidence capture
+        return 127, "", repr(e)
+
+
+def _real_aibom_generator_check(report_dir: Path) -> dict:
+    """Run OWASP aibom-generator's real validate_aibom() + scorer."""
+    aibom_path = report_dir / "Security_AIBOM.cdx.json"
+    tool = os.environ.get("RSX_AIBOM_GENERATOR", "")
+    python = os.environ.get("RSX_AIBOM_GENERATOR_PYTHON", "")
+    if not tool or not Path(tool).is_dir():
+        return _blocked("RSX_AIBOM_GENERATOR not set to an aibom-generator checkout")
+    if not python:
+        return _blocked("RSX_AIBOM_GENERATOR_PYTHON not set")
+    if not aibom_path.is_file():
+        return _blocked("Security_AIBOM.cdx.json not present")
+    driver = Path(__file__).with_name("aibom_generator_driver.py")
+    rc, out, err = _shell([python, str(driver), str(aibom_path)])
+    if rc != 0:
+        return {"status": "FAIL", "errors": [(err or out)[-500:]]}
+    try:
+        payload = json.loads(out)
+    except Exception as e:  # noqa: BLE001
+        return {"status": "FAIL", "errors": ["unparsable driver output: %r" % e]}
+    if payload.get("error"):
+        return {"status": "FAIL", "errors": [payload["error"]]}
+    result: dict = {"status": "PASS" if payload.get("cyclonedx_16_valid") else "FAIL"}
+    if payload.get("errors"):
+        result["errors"] = payload["errors"][:5]
+    score = payload.get("completeness_score")
+    if isinstance(score, dict) and "total_score" in score:
+        result["completeness_score"] = score["total_score"]
+        result["completeness_sections"] = score.get("section_scores")
+    return result
+
+
+def _real_cbomkit_quantum_safe_check(report_dir: Path) -> dict:
+    """Evaluate the emitted CBOM with cbomkit's quantum-safe policy."""
+    cbom_path = report_dir / "Security_CBOM.cdx.json"
+    opa = os.environ.get("RSX_OPA") or shutil.which("opa")
+    rego = os.environ.get("RSX_CBOMKIT_REGO", "")
+    if not opa:
+        return _blocked("opa binary not found (set RSX_OPA or add to PATH)")
+    if not rego or not Path(rego).is_file():
+        return _blocked("RSX_CBOMKIT_REGO not set to cbomkit quantum_safe.rego")
+    if not cbom_path.is_file():
+        return _blocked("Security_CBOM.cdx.json not present")
+    rc, out, err = _shell([
+        opa, "eval", "-d", rego, "-i", str(cbom_path),
+        "--format", "json", "data.policies.quantum_safe.findings"])
+    if rc != 0:
+        return {"status": "FAIL", "errors": [err[-500:]]}
+    try:
+        payload = json.loads(out)
+        findings = ((payload.get("result") or [{}])[0]
+                    .get("expressions", [{}])[0].get("value")) or []
+    except Exception as e:  # noqa: BLE001
+        return {"status": "FAIL", "errors": ["unparsable opa output: %r" % e]}
+    vulnerable = [f for f in findings if f.get("result") == "quantum-vulnerable"]
+    return {
+        "status": "PASS",
+        "policy": "cbomkit quantum-safe",
+        "findings": len(findings),
+        "quantum_vulnerable": len(vulnerable),
+        # True means the policy found no quantum-vulnerable component;
+        # False is a property of the scanned code's crypto, not a
+        # document defect.
+        "global_quantum_safe": not vulnerable,
+        "vulnerable_refs": sorted({str(f.get("bom-ref") or "") for f in vulnerable}),
+    }
+
+
+def _real_cbomkit_theia_check(report_dir: Path) -> dict:
+    """Parse/enrich the emitted CBOM with cbomkit-theia (docker)."""
+    cbom_path = report_dir / "Security_CBOM.cdx.json"
+    docker = shutil.which("docker")
+    image = os.environ.get("RSX_CBOMKIT_THEIA_IMAGE",
+                           "ghcr.io/cbomkit/cbomkit-theia:latest")
+    if not docker:
+        return _blocked("docker not found on PATH")
+    if not cbom_path.is_file():
+        return _blocked("Security_CBOM.cdx.json not present")
+    rc, _, _ = _shell([docker, "image", "inspect", image], timeout=60)
+    if rc != 0:
+        return _blocked("image %s not pulled (gates never pull): docker pull %s"
+                        % (image, image))
+    src = str(report_dir.resolve())
+    if os.name == "nt" and len(src) > 1 and src[1] == ":":
+        src = "/" + src[0].lower() + src[2:].replace("\\", "/")
+    else:
+        src = src.replace("\\", "/")
+    rc, out, err = _shell([
+        docker, "run", "--rm", "-v", src + ":/work:ro", image,
+        "dir", "/work", "--bom", "/work/Security_CBOM.cdx.json"],
+        timeout=600)
+    start = out.find("{")
+    if rc != 0 or start < 0:
+        return {"status": "FAIL", "errors": [(err + out)[-500:]]}
+    try:
+        doc = json.loads(out[start:])
+    except Exception as e:  # noqa: BLE001
+        return {"status": "FAIL", "errors": ["theia stdout not JSON: %r" % e]}
+    if doc.get("bomFormat") != "CycloneDX" or doc.get("specVersion") != "1.6":
+        return {"status": "FAIL",
+                "errors": ["theia did not echo a CycloneDX 1.6 document"]}
+    return {"status": "PASS", "components": len(doc.get("components") or [])}
+
+
+def validate_real_tool_conformance(report_dir: str | Path) -> dict:
+    """Run the real external tools that are available; BLOCKED otherwise."""
+    report_dir = Path(report_dir)
+    return {
+        "aibom_generator": _real_aibom_generator_check(report_dir),
+        "cbomkit_quantum_safe": _real_cbomkit_quantum_safe_check(report_dir),
+        "cbomkit_theia": _real_cbomkit_theia_check(report_dir),
+    }
+
+
+def _real_tool_failed(results: dict) -> bool:
+    return any(r.get("status") == "FAIL" for r in results.values())
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
     parser = argparse.ArgumentParser(
@@ -315,12 +483,19 @@ def main(argv: list[str] | None = None) -> int:
         description="Validate SBOM/CBOM/AI-BOM interoperability.")
     parser.add_argument("report_dir", help="path to the report output directory")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--no-real-tools", action="store_true",
+                        help="skip the external-tool layer (aibom-generator, cbomkit)")
     args = parser.parse_args(argv)
 
     results = validate_sbom_conformance(args.report_dir)
+    real = None if args.no_real_tools else validate_real_tool_conformance(
+        args.report_dir)
 
     if args.json:
-        print(json.dumps(results, indent=2))
+        payload = dict(results)
+        if real is not None:
+            payload["real_tools"] = real
+        print(json.dumps(payload, indent=2))
     else:
         for name, result in results.items():
             if "error" in result:
@@ -336,8 +511,16 @@ def main(argv: list[str] | None = None) -> int:
             if errors:
                 line += "  errors=%s" % errors[:3]
             print(line)
+        if real is not None:
+            print("-- real external tools --")
+            for name, result in real.items():
+                status = result.get("status", "?")
+                detail = {k: v for k, v in result.items() if k != "status"}
+                print("%-22s %s  %s" % (name, status, detail))
 
     all_valid = all(_result_valid(r) for r in results.values())
+    if real is not None and _real_tool_failed(real):
+        all_valid = False
     return 0 if all_valid else 1
 
 

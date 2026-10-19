@@ -18,6 +18,10 @@ Imports followed
     ``from pkg import submodule``       (resolves to pkg.submodule, not just pkg)
     relative ``from .sibling import x`` (resolved against the importing package)
     literal ``importlib.import_module`` / ``__import__`` / ``spec_from_file_location``
+    runtime sibling loads ``Path(__file__).with_name("x.py")`` -- subprocess
+    entry scripts (e.g. analysis/validation/aibom_generator_driver.py, run
+    under an external interpreter) have no import edge and would otherwise
+    look dead
 
 Three traps this deliberately avoids, each of which previously made a LIVE
 module look dead and would have caused it to be quarantined:
@@ -63,6 +67,7 @@ DYN_RE = re.compile(
     r"\s*\(\s*['\"]([^'\"]+)['\"]")
 PATH_RE = re.compile(
     r"spec_from_file_location\([^,]+,\s*['\"]([^'\"]+\.py)['\"]")
+WITH_NAME_RE = re.compile(r"with_name\(\s*['\"]([^'\"]+\.py)['\"]")
 
 
 def _norm(p: Path) -> str:
@@ -141,6 +146,14 @@ def audit(root: Path | None = None) -> dict:
             targets.add(m.group(1))
         for m in PATH_RE.finditer(t):
             targets.add(m.group(1).replace("/", ".").removesuffix(".py"))
+        for m in WITH_NAME_RE.finditer(t):
+            # Path(__file__).with_name("x.py") loads a sibling file at
+            # runtime -- subprocess entry scripts run under an external
+            # interpreter have no import edge and would look dead.
+            # pathlib resolves it against this file's own directory.
+            sib = (rel.rsplit("/", 1)[0] + "/" + m.group(1)
+                   if "/" in rel else m.group(1))
+            edges[rel].add(sib)
 
         for name in targets:
             parts = name.split(".")
