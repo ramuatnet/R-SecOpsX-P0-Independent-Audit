@@ -180,8 +180,8 @@ def test_out_dir_secret_engine_skipped(tmp_path):
     from scanner.secret_intelligence import scan_file as _sec_scan
 
     payload = '{"key": "AKIA1234567890ABCD00"}\n'
-    out_file = _write(tmp_path, "build/out/deploy.json", payload)
-    src_file = _write(tmp_path, "build/src/deploy.json", payload)
+    out_file = _write(tmp_path, "contracts/out/deploy.json", payload)
+    src_file = _write(tmp_path, "contracts/src/deploy.json", payload)
     assert _sec_scan(str(out_file)) == []
     assert any(
         f.get("rule_id") == "AWS_ACCESS_KEY" for f in _sec_scan(str(src_file))

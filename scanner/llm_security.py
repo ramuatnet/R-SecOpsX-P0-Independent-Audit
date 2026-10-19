@@ -1281,19 +1281,24 @@ def _v11_llm02_secret_evidence(text: str) -> dict:
     value = str(text or "")
     matches = []
 
+    # I3 (2026-10-19): AWS is case-sensitive (uppercase key IDs only).
+    # With blanket IGNORECASE the base58 CID
+    # QmTzWboptc2WjGQH4ShcN4XAkiaskScQ7fFtfgvMsW matched
+    # "AkiaskScQ7fFtfgvMsW" as secret evidence.
     patterns = (
-        ("AWS_ACCESS_KEY", r"\bAKIA[0-9A-Z]{16}\b"),
-        ("GITHUB_TOKEN", r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
-        ("BEARER_TOKEN", r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b"),
-        ("JWT", r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
-        ("PRIVATE_KEY", r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+        ("AWS_ACCESS_KEY", r"\bAKIA[0-9A-Z]{16}\b", 0),
+        ("GITHUB_TOKEN", r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b", re.IGNORECASE),
+        ("BEARER_TOKEN", r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b", re.IGNORECASE),
+        ("JWT", r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", re.IGNORECASE),
+        ("PRIVATE_KEY", r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", re.IGNORECASE),
         ("GENERIC_SECRET_ASSIGNMENT",
          r"\b(api[_-]?key|secret|password|token|credential|private[_-]?key)\b"
-         r"\s*[:=]\s*['\"][^'\"]{8,}['\"]"),
+         r"\s*[:=]\s*['\"][^'\"]{8,}['\"]",
+         re.IGNORECASE),
     )
 
-    for label, pattern in patterns:
-        for match in _rx(pattern, re.IGNORECASE).finditer(value):
+    for label, pattern, flags in patterns:
+        for match in _rx(pattern, flags).finditer(value):
             secret = match.group(0)
             counts = {}
             for ch in secret:
@@ -1473,6 +1478,39 @@ _SUBPROC_FIXED_INLINE = re.compile(
     r"subprocess\.(?:run|Popen|call|check_call|check_output)\s*\(\s*\[")
 _SUBPROC_CALL_EOL = re.compile(
     r"subprocess\.(?:run|Popen|call|check_call|check_output)\s*\(\s*$")
+# I8 (2026-10-19, prodtest/django): the call's sole argument is a bare
+# identifier -- subprocess.run(unzip_command).
+_SUBPROC_IDENT_ARG = re.compile(
+    r"subprocess\.(?:run|Popen|call|check_call|check_output)\s*"
+    r"\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]")
+
+
+def _llm02_identifier_argv_is_fixed(ident: str, lineno: int, lines) -> bool:
+    """True when ``ident`` was assigned a literal list within 12 lines.
+
+    do_django_release.py:195-202 builds
+    ``unzip_command = ["unzip", "-q", ...]`` ten lines above
+    ``subprocess.run(unzip_command)``: a constant program name cannot be
+    steered by output, the same evidence standard as the D1 fixed-inline
+    exemption. The list opener must be a plain ``ident = [`` assignment
+    (an ``ident = something-else`` stops the search), and the first
+    element -- the program name -- must be a quoted literal. Every other
+    shape keeps the finding.
+    """
+    for j in range(lineno - 2, max(-1, lineno - 13), -1):
+        _assign = re.match(rf"^\s*{re.escape(ident)}\s*=\s*(.*)$", lines[j])
+        if not _assign:
+            continue
+        _rest = _assign.group(1).lstrip()
+        if not _rest.startswith("["):
+            # Reassigned to a non-list: not a constant argv.
+            return False
+        _head = _rest[1:].lstrip()
+        if not _head:
+            # The list opens on this line; the first element is on the next.
+            _head = (lines[j + 1] if j + 1 < len(lines) else "").lstrip()
+        return bool(re.match(r"[\"']", _head))
+    return False
 
 
 def _llm02_fixed_argv_exempt(line: str, lineno: int, lines) -> bool:
@@ -1493,6 +1531,13 @@ def _llm02_fixed_argv_exempt(line: str, lineno: int, lines) -> bool:
         if _SUBPROC_CALL_EOL.search(line):
             nxt = lines[lineno] if lineno < len(lines) else ""
             return nxt.lstrip().startswith("[")
+        # I8: identifier-resolved constant argv -- subprocess.run(cmd) where
+        # cmd was assigned a literal list above (django release script).
+        _ident_m = _SUBPROC_IDENT_ARG.search(line)
+        if _ident_m and _llm02_identifier_argv_is_fixed(
+            _ident_m.group(1), lineno, lines
+        ):
+            return True
         return False
     # ``stdout=subprocess.PIPE,`` two lines below ``subprocess.Popen(``:
     # walk back (bounded) to the nearest preceding call opener.
@@ -1577,6 +1622,141 @@ _LLM05_MANIFEST_INSTALL_RE = re.compile(
 
 def _llm_file_has_ai_context(content: str) -> bool:
     return bool(_AI_CONTEXT_RE.search(content or ""))
+
+
+# ---------------------------------------------------------------------------
+# I4/I5/I6/I7 proof helpers (2026-10-19, prodtest round 2).
+#
+# I4: proof that a ``while True`` iteration cannot CPU-spin. Evidence
+# classes: an EXIT (return/raise/sys.exit; a ``break`` bound to THIS loop
+# -- nested loops are tracked, so a break inside a for binds that for and
+# proves nothing), a BLOCKING call (input/sleep), or EXTERNAL I/O
+# (subprocess, HTTP client, file read/write, monotonic deadline). Same-line
+# evidence covers one-liners (the wrongsecrets shell sidecar
+# ``while true; do ...; sleep 10; done``). A loop with no proof --
+# ``while True: pass``, pure computation -- keeps firing (the semkernel
+# control).
+_LLM04_SPIN_BLOCKING_RE = re.compile(
+    r"\breturn\b|\braise\b|sys\._?exit\s*\(|\binput\s*\(|raw_input\s*\("
+    r"|\bsleep\b|subprocess\.|requests\."
+    r"(?:get|post|put|patch|delete|request)\s*\("
+    r"|\burllib\b|\bhttpx\.|\baiohttp\b"
+    r"|os\.(?:open|read|write|remove|rename|listdir)\s*\("
+    r"|\.(?:read|write|close|seek)\s*\(|monotonic\s*\(",
+    re.I,
+)
+_LLM04_SPIN_BREAK_RE = re.compile(r"\bbreak\b", re.I)
+_LLM04_NESTED_LOOP_RE = re.compile(r"^\s*(?:for|while)\b")
+
+
+def _llm04_loop_is_proven_not_spin(line: str, lines, lineno: int) -> bool:
+    """True when the matched ``while True`` demonstrably cannot CPU-spin.
+
+    ``lineno`` is the 1-based number of ``line``; body evidence uses the
+    same 30-line deeper-indent window as the await gate. Every unknown
+    shape -- no exit, no block, no I/O in the window -- returns False and
+    keeps the finding.
+    """
+    stripped = re.sub(r"#.*", "", line)
+    if _LLM04_SPIN_BLOCKING_RE.search(stripped) or _LLM04_SPIN_BREAK_RE.search(
+        stripped
+    ):
+        return True
+    indent = len(line) - len(line.lstrip())
+    nested: list[int] = []
+    for j in range(lineno, min(len(lines), lineno + 30)):
+        nxt = re.sub(r"#.*", "", lines[j])
+        if not nxt.strip():
+            continue
+        nxt_indent = len(nxt) - len(nxt.lstrip())
+        if nxt_indent <= indent:
+            break
+        while nested and nxt_indent <= nested[-1]:
+            nested.pop()
+        if _LLM04_NESTED_LOOP_RE.match(nxt):
+            nested.append(nxt_indent)
+        if _LLM04_SPIN_BLOCKING_RE.search(nxt):
+            return True
+        if _LLM04_SPIN_BREAK_RE.search(nxt) and not nested:
+            return True
+    return False
+
+
+# I5: PROMPT_TEMPLATE claims prompt-template SECRET exposure. django's own
+# template engine matched its vocabulary -- ``e.token`` /
+# ``templatetag(parser, token)`` where "token" is the parser's Token
+# OBJECT (3 rows). The credential word must appear as a BARE code
+# identifier (string content blanked, wholly -- D2's embedded-token
+# control keeps), and the file must carry no AI context (LLMForge's
+# ``internal_doc_template.format(secret_token=...)`` keeps).
+_PROMPT_TEMPLATE_BARE_CRED_RE = re.compile(
+    r"\b(?:api[_-]?key|secret|password|token(?![A-Za-z]))", re.I
+)
+
+
+def _strip_string_literals_hard(line: str) -> str:
+    return re.sub(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"", " ", line)
+
+
+# I6: AI_PROVIDER_SECRET_EXPOSURE claims a provider credential is
+# EXPOSED. Reference-only declarations -- getenv reads, compose
+# ``${VAR:-}``, helm ``{{ .Values }}``, empty strings, comments (crAPI x8)
+# -- say where a key comes from, not what it is. A committed literal
+# keeps: quoted values (GenAI ``OPENAI_API_KEY = "sk-mock-key"``) and
+# .env-style unquoted token literals (which must contain a digit so an
+# identifier reference like ``settings.OPENAI_KEY`` never counts).
+def _ai_provider_line_has_material_value(line: str) -> bool:
+    stripped = line.strip()
+    if stripped.startswith("#") or stripped.startswith("//"):
+        return False
+    if re.search(r"getenv\s*\(|os\.environ|\$\{|\{\{", line):
+        return False
+    if re.search(r"[:=]\s*(?:''|\"\")\s*(?:#.*)?$", line):
+        return False
+    if re.search(r"[:=]\s*['\"][^'\"]{2,}['\"]", line):
+        return True
+    return bool(
+        re.search(r"[:=]\s*(?=[A-Za-z0-9_\-]*\d)[A-Za-z0-9_\-]{8,}", line)
+    )
+
+
+# I7: PROMPT_RESPONSE_LOGGING matched substring coincidences: "logic ...
+# prompts" inside LLMForge prose, "Dialog" inside WebGoat's minified
+# mode-java.js regex, an ABI "log" function name (ethernaut), message-only
+# strings (crAPI "...not provided"), a session-id debug line, and
+# ``${response.status}`` (juice pr-compliance.yml:457). A finding now
+# needs (a) a real logging call, (b) the sensitive token in CODE
+# position -- quoted text is blanked but f-string/template interpolation
+# groups are preserved -- and (c) for response/prompt, data that is not
+# status-metadata-only. crAPI Bot.tsx logging ``response.body`` keeps.
+_PROMPT_LOG_CALL_RE = re.compile(
+    r"\b(?:console|logger|logging|_logger|log|print)\w*"
+    r"(?:\s*\.\s*\w+)?\s*\(",
+    re.I,
+)
+_PROMPT_LOG_TOKEN_RE = re.compile(
+    r"\b(?:response|prompt|api[_-]?key|secret)\b", re.I
+)
+_PROMPT_LOG_STATUS_ONLY_RE = re.compile(
+    r"(?:response|prompt)\s*\.\s*"
+    r"(?:status(?:code|text)?|ok|code|headers|url|type)\b",
+    re.I,
+)
+_PROMPT_LOG_QUOTED_RE = re.compile(
+    r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\""
+)
+_PROMPT_LOG_TEMPLATE_RE = re.compile(r"`(?:[^`\\]|\\.)*`")
+
+
+def _prompt_logging_code_view(line: str) -> str:
+    """Blank string literals, keeping only {...} interpolation groups."""
+
+    def _keep_groups(match):
+        groups = re.findall(r"\{[^{}\n]*\}", match.group(0))
+        return (" " + " ".join(groups) + " ") if groups else " "
+
+    view = _PROMPT_LOG_TEMPLATE_RE.sub(_keep_groups, line)
+    return _PROMPT_LOG_QUOTED_RE.sub(_keep_groups, view)
 
 
 # A2: save_pretrained only becomes model theft next to an exfil sink. Local
@@ -1793,24 +1973,37 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
             if (
                 rule_id == "LLM04_MODEL_DENIAL_OF_SERVICE"
                 and re.search(r"while\s+True", line, re.I)
-                and path_suffix in {".py", ".js", ".ts", ".mjs", ".cjs"}
             ):
-                # A loop body containing ``await`` suspends on the event loop;
-                # it is a message pump, not a CPU spin. Tight loops
-                # (``while True: pass``) have no await and keep reporting.
-                _indent = len(line) - len(line.lstrip())
-                _awaits = False
-                for _j in range(lineno, min(len(lines), lineno + 30)):
-                    _next = lines[_j]
-                    if not _next.strip():
-                        continue
-                    if (len(_next) - len(_next.lstrip())) <= _indent:
-                        break
-                    if re.search(r"\bawait\b", _next):
-                        _awaits = True
-                        break
-                if _awaits:
+                # I4 (2026-10-19, prodtest): a while-True whose iteration
+                # demonstrably cannot CPU-spin is not model denial of
+                # service -- 17 measured rows were library pagination,
+                # retry, path-walk and menu loops (django/flask/crAPI and
+                # the wrongsecrets shell sidecar), every one with an exit,
+                # a blocking call, or external I/O in its body. AI-context
+                # files keep the model-nexus benefit of the doubt (GenAI
+                # interactive menus, pygoat's chatbot), and a loop with
+                # no proof at all (``while True: pass``) still fires.
+                if not _llm_file_has_ai_context(content) and (
+                    _llm04_loop_is_proven_not_spin(line, lines, lineno)
+                ):
                     continue
+                if path_suffix in {".py", ".js", ".ts", ".mjs", ".cjs"}:
+                    # A loop body containing ``await`` suspends on the event loop;
+                    # it is a message pump, not a CPU spin. Tight loops
+                    # (``while True: pass``) have no await and keep reporting.
+                    _indent = len(line) - len(line.lstrip())
+                    _awaits = False
+                    for _j in range(lineno, min(len(lines), lineno + 30)):
+                        _next = lines[_j]
+                        if not _next.strip():
+                            continue
+                        if (len(_next) - len(_next.lstrip())) <= _indent:
+                            break
+                        if re.search(r"\bawait\b", _next):
+                            _awaits = True
+                            break
+                    if _awaits:
+                        continue
 
             if rule_id == "LLM06_SENSITIVE_INFORMATION_DISCLOSURE" and re.search(
                 r"(?i)(?:environment variable|is not set|not configured"
@@ -1858,6 +2051,18 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                     # (Popen/check_call/check_output) and matched lines
                     # inside the call's argument list (env.py:124
                     # ``stdout=subprocess.PIPE,``).
+                    continue
+                if re.search(r"\bcompile\s*\(", line) and re.search(
+                    r"(?i:PYTHONSTARTUP|startup|pythonrc)", line
+                ):
+                    # I8 (2026-10-19, prodtest): CPython's documented
+                    # PYTHONSTARTUP feature -- flask cli.py:1022
+                    # eval(compile(f.read(), startup, "exec"), ctx) and
+                    # django shell.py:89 exec(compile(pythonrc_code,
+                    # pythonrc, "exec")) execute an operator-designated
+                    # startup file, exactly as the interpreter itself
+                    # does when it boots. compile() of untrusted data
+                    # with any other filename keeps firing.
                     continue
                 if re.search(r"\.exec\(\s*(?:select|insert|update|delete)\s*\(", line):
                     # ORM/SQLModel session.exec(select(...)) is a query call,
@@ -1917,6 +2122,54 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                 # token_type_ids) is not credential disclosure; a credential
                 # collocation on the same line keeps the finding.
                 continue
+
+            if (
+                rule_id == "PROMPT_TEMPLATE_SECRET_EXPOSURE"
+                and not _llm_file_has_ai_context(content)
+                and _PROMPT_TEMPLATE_BARE_CRED_RE.search(
+                    _strip_string_literals_hard(line)
+                )
+            ):
+                # I5 (2026-10-19, prodtest): django's template engine
+                # matched its own vocabulary -- e.token /
+                # templatetag(parser, token), where "token" is the parser's
+                # Token OBJECT (3 rows). The rule claims prompt-template
+                # SECRET exposure: with no AI context in the file, the
+                # credential word must be a bare code identifier, never
+                # template-string content. LLMForge's
+                # internal_doc_template.format(secret_token=...) carries
+                # AI context and keeps.
+                continue
+
+            if (
+                rule_id == "AI_PROVIDER_SECRET_EXPOSURE"
+                and not _ai_provider_line_has_material_value(line)
+            ):
+                # I6 (2026-10-19, prodtest): reference-only declarations
+                # (getenv reads, compose ${VAR:-}, helm {{ .Values }},
+                # empty strings, comments -- crAPI x8) say where a key
+                # comes from, not what it is; "provider secret exposure"
+                # needs a committed literal value.
+                continue
+
+            if rule_id == "PROMPT_RESPONSE_LOGGING_SENSITIVE_DATA":
+                # I7 (2026-10-19, prodtest): the substring rules ("logic
+                # ... prompts", "Dialog", an ABI "log" function, message-
+                # only strings, ${response.status}) matched coincidences.
+                # A finding now needs a real logging call and the sensitive
+                # token in CODE position (interpolation counts), and for
+                # response/prompt, data that is not status-metadata-only.
+                if not _PROMPT_LOG_CALL_RE.search(line):
+                    continue
+                _log_view = _prompt_logging_code_view(line)
+                if not _PROMPT_LOG_TOKEN_RE.search(_log_view):
+                    continue
+                if re.search(r"\b(?:response|prompt)\b", _log_view, re.I):
+                    _residual = _PROMPT_LOG_STATUS_ONLY_RE.sub(" ", _log_view)
+                    if not re.search(
+                        r"\b(?:response|prompt)\b", _residual, re.I
+                    ):
+                        continue
 
             line_matches.append(
                 {

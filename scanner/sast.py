@@ -87,6 +87,12 @@ EXCLUDED_DIRS = {
     ".git", ".svn", "node_modules", "__pycache__", ".tox", "venv", ".venv",
     "env", ".env", "dist", "build", ".cache", "vendor", "third_party", "migrations",
     "reports", "artifacts", "output", "outputs", "coverage", ".pytest_cache",
+    # I2 (2026-10-19, prodtest/ethernaut): forge build artifacts live in
+    # contracts/out/ and are committed but generated (397 files; 14 FP rows:
+    # an IPFS CID as an AWS key, methodIdentifiers as credentials, an ABI
+    # "log" function in PROMPT_RESPONSE). Sibling output dirs ("output",
+    # "outputs", "artifacts") were already excluded; "out" was not.
+    "out",
 }
 
 LANG_BY_EXT = {
@@ -248,7 +254,13 @@ ENTERPRISE_RULES: list[dict] = [
         "langs": ["python", "javascript", "typescript", "java", "csharp", "go", "php"],
         "cwe": "CWE-770",
         "owasp": "A04:2021 - Insecure Design",
-        "pat": r"""(?i)(?:login|sign[-_]?in|otp|password[-_]?reset|reset|invite|coupon|refresh|payment|checkout|transfer|redeem)""",
+        # I1 (2026-10-19, prodtest/express): "transfer" matched HTTP framing
+        # headers -- lib/response.js:202/209 this.removeHeader('Transfer-
+        # Encoding') and test/res.send.js:597/604 var transferEncodings = []
+        # (4 rows). Transfer-Encoding is response framing, not a payment
+        # endpoint; anything followed by "encod" is excluded. Real transfer
+        # routes ("/wallet/transfer") keep matching.
+        "pat": r"""(?i)(?:login|sign[-_]?in|otp|password[-_]?reset|reset|invite|coupon|refresh|payment|checkout|transfer(?![-_]?encod)|redeem)""",
         "remediation": BASE_REMEDIATION["api_rate_limit"],
     },
     # Rate-limit detection is validated by _is_rate_limit_endpoint_match().
@@ -258,7 +270,12 @@ ENTERPRISE_RULES: list[dict] = [
 
 # Backward-compatible existing rules retained. These are intentionally simple.
 REGEX_RULES: list[dict] = [
-    {"id":"AWS_ACCESS_KEY","name":"AWS Access Key","pattern":re.compile(r"AKIA[0-9A-Z]{16}", _F),"vuln_type":"hardcoded_secret","note":"AWS access key ID detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
+    # I3 (2026-10-19, prodtest/ethernaut): compiled case-SENSITIVE. With
+    # IGNORECASE the base58 CID QmTzWboptc2WjGQH4ShcN4XAkiaskScQ7fFtfgvMsW
+    # inside forge ABIs matched "AkiaskScQ7fFtfgvMsW" as an AWS key (2 rows).
+    # Real AWS access key IDs are uppercase AKIA/ASIA + 16 uppercase
+    # alphanumerics; base58/base64/CID content must not match.
+    {"id":"AWS_ACCESS_KEY","name":"AWS Access Key","pattern":re.compile(r"AKIA[0-9A-Z]{16}"),"vuln_type":"hardcoded_secret","note":"AWS access key ID detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     {"id":"GITHUB_TOKEN","name":"GitHub Token","pattern":re.compile(r"ghp_[A-Za-z0-9]{36}", _F),"vuln_type":"hardcoded_secret","note":"GitHub personal access token detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     {"id":"GENERIC_API_KEY_PASSWORD","name":"Generic API Key/Password","pattern":re.compile(r'(?:api[_-]?key|api[_-]?token|secret[_-]?key|auth[_-]?token|access[_-]?token|password|passwd|pwd)\s*[:=]\s*(?P<q>["\'])(?P<credval>[A-Za-z0-9@#$%^&+=!_.\-/]{8,})(?P=q)', _F),"vuln_type":"hardcoded_secret","note":"Possible hardcoded credential or API key.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     # G-036b: the sites that actually *enforce* a secret were never reported.

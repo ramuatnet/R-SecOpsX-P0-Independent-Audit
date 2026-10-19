@@ -513,6 +513,32 @@ _COMPILED_ADVANCED_AI_PATTERNS = [
 ]
 
 
+def _ai_provider_line_has_material_value(line: str) -> bool:
+    """I6 (2026-10-19, prodtest): True when the line anchors an AI provider
+    credential to a committed literal value.
+
+    Reference-only declarations -- getenv reads, compose ``${VAR:-}``,
+    helm ``{{ .Values }}``, empty strings, comments (crAPI's 8 measured
+    rows) -- say where a key comes from, not what it is. Quoted literals
+    (GenAI's ``OPENAI_API_KEY = "sk-mock-key"``) and .env-style unquoted
+    token literals (digit required, so identifier references like
+    ``settings.OPENAI_KEY`` never count) keep. Mirrors
+    scanner.llm_security._ai_provider_line_has_material_value.
+    """
+    stripped = line.strip()
+    if stripped.startswith("#") or stripped.startswith("//"):
+        return False
+    if re.search(r"getenv\s*\(|os\.environ|\$\{|\{\{", line):
+        return False
+    if re.search(r"[:=]\s*(?:''|\"\")\s*(?:#.*)?$", line):
+        return False
+    if re.search(r"[:=]\s*['\"][^'\"]{2,}['\"]", line):
+        return True
+    return bool(
+        re.search(r"[:=]\s*(?=[A-Za-z0-9_\-]*\d)[A-Za-z0-9_\-]{8,}", line)
+    )
+
+
 def scan_advanced_ai_file(filepath: str, content: str) -> list[dict]:
     findings = []
     lines = content.splitlines()
@@ -577,19 +603,28 @@ def scan_advanced_ai_file(filepath: str, content: str) -> list[dict]:
                 continue
 
             for pattern in compiled_patterns:
-                if pattern.search(line):
-                    findings.append({
-                        "rule_id": rule["rule_id"],
-                        "title": rule["title"],
-                        "vuln_type": rule["vuln_type"],
-                        "severity": rule["severity"],
-                        "file": filepath,
-                        "line": lineno,
-                        "snippet": line.strip(),
-                        "detection": "Advanced AI Security Heuristic",
-                        "ai_security_taxonomy": rule["rule_id"].split("_")[0],
-                    })
+                if not pattern.search(line):
+                    continue
+                if rule_id == "AI_PROVIDER_SECRET_EXPOSURE" and not (
+                    _ai_provider_line_has_material_value(line)
+                ):
+                    # I6 (2026-10-19, prodtest): this engine had no
+                    # comment or value gate, so getenv references, helm
+                    # templates, empty strings and comment rows all fired
+                    # (crAPI x8). Reference-only lines are not exposure.
                     break
+                findings.append({
+                    "rule_id": rule["rule_id"],
+                    "title": rule["title"],
+                    "vuln_type": rule["vuln_type"],
+                    "severity": rule["severity"],
+                    "file": filepath,
+                    "line": lineno,
+                    "snippet": line.strip(),
+                    "detection": "Advanced AI Security Heuristic",
+                    "ai_security_taxonomy": rule["rule_id"].split("_")[0],
+                })
+                break
 
     # ATLAS attribution is metadata applied once, at the single return point,
     # so it covers both the filename-contract path and the content-heuristic

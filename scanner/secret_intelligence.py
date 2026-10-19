@@ -35,7 +35,10 @@ SECRET_EXT = {
     ".py", ".js", ".ts", ".java", ".cs", ".go", ".php",
     ".env", ".properties", ".yml", ".yaml", ".json", ".xml", ".config", ".ini", ".cfg", ".conf", ".toml", ".tf", ".hcl", ".tfvars", ".pem", ".key", ".p12", ".pfx"
 }
-EXCLUDED = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "vendor"}
+# I2 (2026-10-19, prodtest/ethernaut): "out" joins the exclusion policy
+# (forge build artifacts under contracts/out/ produced 11 CONFIG rows).
+# Keep in sync with scanner.sast.EXCLUDED_DIRS.
+EXCLUDED = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "vendor", "out"}
 
 # Machine-generated dependency manifests. Their "keys" are package names,
 # integrity hashes and engine ranges, so a credential-shaped key inside one is
