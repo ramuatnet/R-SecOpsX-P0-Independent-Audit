@@ -422,6 +422,35 @@ class TaintFinding:
     owasp: str = ""
     remediation: list[str] = field(default_factory=list)
 
+
+# H1 (2026-10-19, dvpwa sqli/dao/student.py + VAmPI models/user_model.py):
+# SQL statement text built by string interpolation at the BUILD site.  The
+# taint layer only reports these when the interpolated value is
+# attacker-tainted *within the same function*; both measured misses hand
+# the value across a function/module boundary (dvpwa dao
+# create(conn, name) %-formats the statement, VAmPI
+# models/user_model.py get_user(username) builds the f-string), so the
+# name is an ordinary untainted parameter and every intra-procedural row
+# stays dark -- the original prodtest reports carry no SQLi row for
+# either file.  A query text must never be assembled from values at all
+# (the Bandit B608 contract), so this fires when the literal text carries
+# a SQL statement keyword-pair and at least one interpolated part is
+# dynamic and NOT attacker-tainted.  Ownership rule: if any interpolated
+# part is tainted (by name or direct source expression) the taint layer
+# reports this defect at the SQL sink and this check stays silent, so a
+# second row can never double-count one defect on the corpus/e2e
+# fixtures (vulnerable_app.py:16 / flask_sql/app.py:16 keep exactly
+# their taint row).  Keyword PAIRS, not single words: "insert the row" or
+# "selected 3 rows" in prose or log text cannot match, and VAmPI's
+# '{"username": "%s"}' % (...) JSON template has no pair either.
+_PY_SQL_INTERP_PAIRS = (
+    re.compile(r"\bselect\b[\s\S]{0,400}\bfrom\b", re.I),
+    re.compile(r"\binsert\s+into\b", re.I),
+    re.compile(r"\bupdate\b[\s\S]{0,200}\bset\b", re.I),
+    re.compile(r"\bdelete\s+from\b", re.I),
+)
+
+
 class TaintVisitor(ast.NodeVisitor):
     def __init__(self, lines: list[str], filepath: str,
                  route_params: Optional[dict[str, set[str]]] = None,
@@ -1214,6 +1243,84 @@ class TaintVisitor(ast.NodeVisitor):
                 if parent is not None:
                     self._mark_tainted(t_name, TaintedVar(t_name, parent.source, node.lineno, parent.full_chain()[1:] + [t_name], parent.sanitized_for))
         self.generic_visit(node)
+    # -- H1: SQL statement interpolation at the build site ----------------
+    def _sql_interp_finding(self, node, literal_text: str,
+                            dyn_nodes: list, kind: str) -> None:
+        """Emit PY_SQL_INTERPOLATED_QUERY for one interpolation site."""
+        if not any(p.search(literal_text) for p in _PY_SQL_INTERP_PAIRS):
+            return
+        dynamic = [d for d in dyn_nodes if not (
+            isinstance(d, ast.Constant) and isinstance(d.value, str))]
+        if not dynamic:
+            return
+        # Taint ownership: an attacker-tainted interpolated part means the
+        # taint layer reports this defect at the SQL sink; a second row
+        # here would double-count one bug as an extra finding.
+        for part in dynamic:
+            if (self._tainted_names_in(part, "sql_injection")
+                    or self._source_exprs_in(part, "sql_injection")):
+                return
+        names: list[str] = []
+        for part in dynamic:
+            for n in ast.walk(part):
+                if isinstance(n, ast.Name):
+                    names.append(n.id)
+        names = list(dict.fromkeys(names))
+        sink_str = self._unparse(node)[:200]
+        key = ("sql_injection", node.lineno, sink_str)
+        if key in self._recorded:
+            return
+        self._recorded.add(key)
+        self.findings.append(TaintFinding(
+            vuln_type="sql_injection",
+            source_var=names[0] if names else "",
+            source_expr=", ".join(names),
+            sink_call=sink_str,
+            file=self.filepath,
+            line=node.lineno,
+            snippet=self._snippet(node.lineno),
+            taint_path=(
+                "SQL statement text built by %s interpolation of "
+                "non-request value(s): %s -- the value crosses a function "
+                "boundary, so no intra-procedural taint row can see it"
+                % (kind, ", ".join(names) or "expression")),
+            chain=names,
+            function=self._cur_func,
+            rule_id="PY_SQL_INTERPOLATED_QUERY",
+            title="Python SQL Query Built by String Interpolation",
+            confidence="High",
+        ))
+
+    def visit_JoinedStr(self, node: ast.JoinedStr):
+        dyn = [v.value for v in node.values
+               if isinstance(v, ast.FormattedValue)]
+        if dyn:
+            literal = "".join(
+                v.value for v in node.values
+                if isinstance(v, ast.Constant) and isinstance(v.value, str))
+            self._sql_interp_finding(node, literal, dyn, "f-string")
+        self.generic_visit(node)
+
+    def visit_BinOp(self, node: ast.BinOp):
+        if (isinstance(node.op, ast.Mod)
+                and isinstance(node.left, ast.Constant)
+                and isinstance(node.left.value, str)):
+            self._sql_interp_finding(
+                node, node.left.value, [node.right], "%-format")
+        elif isinstance(node.op, ast.Add):
+            lits: list[str] = []
+            dyn: list = []
+            for side in (node.left, node.right):
+                if (isinstance(side, ast.Constant)
+                        and isinstance(side.value, str)):
+                    lits.append(side.value)
+                else:
+                    dyn.append(side)
+            if lits and dyn:
+                self._sql_interp_finding(
+                    node, "".join(lits), dyn, "concatenation")
+        self.generic_visit(node)
+
     def visit_FunctionDef(self, node: ast.FunctionDef):
         prev = self._cur_func; self._cur_func = node.name
         # Each function body gets its own frame so taint assigned in one
@@ -1494,6 +1601,16 @@ class TaintVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call):
         self._check_sink(node)
+        # H1 .format() arm: "SELECT ... {}".format(value)
+        if (isinstance(node.func, ast.Attribute)
+                and node.func.attr == "format"
+                and isinstance(node.func.value, ast.Constant)
+                and isinstance(node.func.value.value, str)
+                and (node.args or node.keywords)):
+            self._sql_interp_finding(
+                node, node.func.value.value,
+                list(node.args) + [kw.value for kw in node.keywords],
+                ".format()")
         # Attacker bytes written into an importable Python file: the file name
         # is fixed by the code, so the path is not attacker-chosen, but the
         # *content* is and the module is executed by the interpreter later.
