@@ -6,7 +6,7 @@ All modules import from this file — no other file needs to be edited.
 """
 
 TOOL_NAME    = "R-SecOpsX"
-TOOL_VERSION = "v2.0"
+TOOL_VERSION = "v2.1"
 
 # Full display string used in headers, footers, and report metadata
 TOOL_FULL    = f"{TOOL_NAME} SAST {TOOL_VERSION}"
