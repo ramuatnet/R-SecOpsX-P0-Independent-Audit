@@ -101,11 +101,18 @@ LLM_RULES = [
     {
         "rule_id": "LLM07_INSECURE_PLUGIN_DESIGN",
         "title": "LLM Insecure Plugin Design",
+        # G1 (2026-10-19, prodtest): these are method-access idioms; the dots
+        # must be escaped or ``shell.exec`` matches PHP's ``shell_exec (`` and
+        # every underscore-named builtin (DVWA setup.php:58 and
+        # vulnerabilities/api/index.php:33 were environment-check lines).
+        # The dotted spellings -- and the more specific Critical
+        # AUTONOMOUS_TOOL_EXECUTION, which owns ``shell.exec`` on the same
+        # line via RULE_PRECEDENCE -- keep firing unchanged.
         "patterns": [
-            r"plugin.execute",
-            r"tool.run",
-            r"browser.open",
-            r"shell.exec",
+            r"plugin\.execute",
+            r"tool\.run",
+            r"browser\.open",
+            r"shell\.exec",
         ],
         "severity": "High",
         "vuln_type": "llm_insecure_plugin",
@@ -1432,11 +1439,23 @@ LLM_REAL_EVAL_RE = re.compile(
 # ``cp.exec(``, ``xsession.exec(`` and the receiver-less builtin keep
 # firing unchanged.
 LLM_EXEC_ANY_RE = re.compile(r"(?<!\bsession\.)exec\s*\(|os\.system\s*\(|subprocess\.", re.I)
+# G2 (2026-10-19, prodtest): a RegExp-literal receiver is regex matching, not
+# dynamic execution. LLMForge's ``/^LEVEL_(\d+)$/i.exec(levelId)``,
+# backbone-min.js ``t.exec(e)`` and fullcalendar ``Xt.exec(u)``/``i.exec(t)``
+# were LLM02 rows. Only the literal spelling is stripped here -- receiver
+# variables and child_process's ``cp.exec`` (the B6 must-keep) are untouched;
+# identifier-held RegExps in minified bundles are handled by the AI-context
+# requirement on minified lines below.
+LLM02_REGEX_LITERAL_EXEC_RE = re.compile(r"/[gimsuyvd]*\.exec\s*\(")
 
 
 def _llm02_line_has_dynamic_eval(line: str) -> bool:
     """True when the line carries executable eval/exec evidence."""
-    return bool(LLM_REAL_EVAL_RE.search(line) or LLM_EXEC_ANY_RE.search(line))
+    if LLM_REAL_EVAL_RE.search(line):
+        return True
+    return bool(
+        LLM_EXEC_ANY_RE.search(LLM02_REGEX_LITERAL_EXEC_RE.sub(" ", line))
+    )
 
 
 # D1 (2026-10-17, diffusers): a fixed literal argv list cannot steer which
@@ -1512,6 +1531,52 @@ def _llm05_pip_install_is_prose(line: str) -> bool:
         return False
     opener = min(openers)  # outermost enclosing quote
     return len(re.findall(r"\w+", line[opener + 1:m.start()])) >= 3
+
+
+# G2b/G3 (2026-10-19, prodtest): the vocabulary that makes a claim about an
+# LLM true for this file. Deliberately NARROWER than llm_context_precision's
+# LLM_CONTEXT_TERMS: only tokens that name AI/ML technology, vendors, or
+# libraries (and AI-specific multi-word phrases) count. Generic English words
+# are excluded -- WebGoat's backbone-min.js matched "model" inside
+# ``e.Model=function(...)``, Backone.js's MVC data model, and railsgoat's
+# fullcalendar.min.js likewise; llm_context_precision's broader terms would
+# keep any vendored framework that ships a Model class or a window.prompt
+# call. Used only as evidence to KEEP findings; it never suppresses.
+_AI_CONTEXT_RE = re.compile(
+    r"\b("
+    r"llm|openai|anthropic|gemini|chatgpt|"
+    r"langchain|llama.?index|llamaindex|haystack|gradio|"
+    r"langgraph|tiktoken|ollama|vllm|autogen|huggingface|"
+    r"transformers|torch|peft|diffusers|crewai|chromadb|"
+    r"sentence.?transformers|mcp|"
+    r"system[_ ]?prompt|prompt.?injection|jailbreak|"
+    r"model.?response|model.?output|retrieval.?augmented"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# G3: an AI package named on the install line itself. argip's
+# ``pip install pydantic fastapi aiokafka``, wrongsecrets' ``pip install
+# detect-secrets``/``--user pre-commit`` carry none of these and their files
+# carry no AI context; GenAI-Red-Team-Lab's ``pip install mcp`` does.
+_LLM05_AI_PACKAGE_RE = re.compile(
+    r"\b(?:langchain|llama[-_]?index|llamaindex|llama[-_]?parse|openai|"
+    r"anthropic|transformers|torch|tiktoken|gradio|mcp|haystack|vllm|"
+    r"ollama|autogen|sentence[-_]?transformers|sentencepiece|peft|"
+    r"diffusers|crewai|chromadb|faiss|langgraph)\b",
+    re.IGNORECASE,
+)
+
+# G3: installing a declared dependency manifest (``-r requirements.txt``,
+# editable ``-e .``) is not an ad-hoc supply-chain action -- both must-keep
+# controls (resolver.py, ci.yml) are this shape.
+_LLM05_MANIFEST_INSTALL_RE = re.compile(
+    r"(?:^|\s)(?:-r|--requirement|-e|--editable)(?=\s)"
+)
+
+
+def _llm_file_has_ai_context(content: str) -> bool:
+    return bool(_AI_CONTEXT_RE.search(content or ""))
 
 
 # A2: save_pretrained only becomes model theft next to an exfil sink. Local
@@ -1757,6 +1822,30 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                 # set!") discloses nothing.
                 continue
 
+            if (
+                rule_id in {
+                    "LLM02_INSECURE_OUTPUT_HANDLING",
+                    "PROMPT_TEMPLATE_SECRET_EXPOSURE",
+                }
+                and len(line) > 2000
+                and not _llm_file_has_ai_context(content)
+            ):
+                # G2b: a minified vendor bundle line (19k-88k chars in the
+                # measured WebGoat/railsgoat/dvpwa rows) has no statement
+                # structure -- ``exec(``/``eval(`` co-occurrences and the
+                # ``template.*token`` window are lexical coincidence in
+                # vendored code (RegExp parsing, helpers, tokenization
+                # vocabulary), and with zero AI presence in the file neither
+                # claim ("LLM output reaches execution", "prompt template
+                # exposes a secret") has any support. Minified lines in
+                # files that DO carry AI context keep firing.
+                #
+                # PROMPT_TEMPLATE was revealed behind LLM02's per-line
+                # break after G2 killed those rows (pre-fix scan_llm_file
+                # emitted LLM02 first on bootstrap-editable.min.js:5 and
+                # jquery.min.js:2); both rows are the same vendored-bundle
+                # coincidence.
+                continue
             if rule_id == "LLM02_INSECURE_OUTPUT_HANDLING":
                 if _llm02_fixed_argv_exempt(line, lineno, lines):
                     # Fixed argv list without shell interpretation: output
@@ -1793,6 +1882,20 @@ def scan_llm_file(filepath: str, content: str) -> list[dict]:
                 # package are prose; the package reference itself (dangerous
                 # model_download, langchain hub loads) still fires above.
                 if _llm05_pip_install_is_prose(line):
+                    continue
+                # G3: a bare ``pip install`` in a file with no AI presence,
+                # installing neither an AI package nor a dependency manifest,
+                # is generic tooling -- not "LLM supply chain" (argip's
+                # fastapi/aiokafka install, wrongsecrets' pre-commit and
+                # detect-secrets: 4 measured rows). Every control shape --
+                # ``-r requirements.txt``, ``-e .``, ``pip install
+                # llama-index``, ``pip install mcp`` -- passes one of these
+                # three evidence checks.
+                if not (
+                    _LLM05_AI_PACKAGE_RE.search(line)
+                    or _LLM05_MANIFEST_INSTALL_RE.search(line)
+                    or _llm_file_has_ai_context(content)
+                ):
                     continue
 
             if (

@@ -2477,7 +2477,11 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
                     # ``url = request.args.get(...)`` alias flow.
                     src_token = src_match.group(0).strip()
                     if i != concrete:
-                        if src_token in _SSRF_BARE_WINDOW_SRCS:
+                        # G5 (2026-10-19, prodtest): case-insensitive -- WebGoat's
+                        # security-misconfiguration-task2.js:32 matched "Params"
+                        # inside ``searchParams`` (the URL API, not a request
+                        # surface) and the exact-membership check missed it.
+                        if src_token.lower() in _SSRF_BARE_WINDOW_SRCS:
                             sink_match = None
                     else:
                         url_text = _ssrf_sink_url_text(lines[concrete], sink_re)
@@ -2561,6 +2565,25 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
 
                     if concrete_candidate is None:
                         continue
+
+                    # G5 (2026-10-19, prodtest): a bare ``body``/``query``
+                    # word is user-input evidence only when it sits on a
+                    # human-length line together with the sink. Across lines
+                    # it is prose/local state (the SSRF A9 gate already makes
+                    # this exact argument for bare window words), and on a
+                    # >400-char minified line the source/sink co-location is
+                    # lexical coincidence in vendored code. All 7 measured
+                    # prototype-pollution rows (WebGoat jquery x4 +
+                    # wysihtml5, railsgoat dataTables, dvpwa jquery) were
+                    # bare-token coincidences; qualified ``req.body``/
+                    # ``req.query`` aliases keep firing everywhere,
+                    # cross-line and minified included.
+                    if rule.get("id") == "TAINT_PROTOTYPE_POLLUTION":
+                        _pp_src = src_match.group(0).strip().lower()
+                        if _pp_src in {"body", "query"} and (
+                            concrete_candidate != i or len(lines[i]) > 400
+                        ):
+                            continue
 
                     evidence_line = concrete_candidate + 1
                     snippet = lines[concrete_candidate]

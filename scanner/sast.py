@@ -1319,6 +1319,22 @@ def scan_file(filepath: str) -> list[dict]:
             if rule.get("id") in {"HARDCODED_CREDENTIAL_COMPARISON",
                                   "GENERIC_API_KEY_PASSWORD"} and _is_placeholder_credential(match):
                 continue
+            if rule.get("id") == "PRIVATE_KEY_HEADER":
+                # G4 (2026-10-19, prodtest): the header marker alone is not
+                # key material. WebGoat CryptoUtil.java:49/137 builds/strips
+                # PEM headers as string literals and wrongsecrets
+                # Challenge29.java:59 strips them from a runtime-loaded file
+                # -- none contains a private key. The rule's claim ("Private
+                # key material in source code") requires a base64 key body
+                # between the header and the next END marker (or within 1200
+                # chars when the block is truncated); real embedded key
+                # blocks -- raw multi-line PEMs and single-string Java
+                # literals -- carry that body and keep their finding.
+                _pem_after = source[match.end():match.end() + 1200]
+                _pem_end = re.search(r"-----END", _pem_after)
+                _pem_region = _pem_after[:_pem_end.start()] if _pem_end else _pem_after
+                if not re.search(r"[A-Za-z0-9+/]{48,}={0,2}", _pem_region):
+                    continue
             findings.append(_make_finding(rule, filepath, lineno, snippet, language))
 
     # Enterprise controls. Apply only to relevant languages to avoid noise.
