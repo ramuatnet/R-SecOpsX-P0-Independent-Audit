@@ -536,6 +536,26 @@ def test_prompt_response_status_only_suppressed(tmp_path):
     assert _PROMPT_RESPONSE not in _ids(findings)
 
 
+def test_prompt_response_message_count_only_suppressed(tmp_path):
+    """crAPI chat_service.py:64 -- a response-message COUNT is response
+    metadata, the same class as response.status (it surfaced in the
+    post-I re-scan only because its :63 sibling died)."""
+    findings = _llm(tmp_path, "chat_service.py", '''
+        def summarize(response):
+            logger.debug("Response messages count: %d", len(response.get("messages", [])))
+    ''')
+    assert _PROMPT_RESPONSE not in _ids(findings)
+
+
+def test_prompt_response_content_and_count_kept(tmp_path):
+    """Control: when the actual response DATA is logged alongside a
+    count/status, the finding keeps."""
+    findings = _llm(tmp_path, "inference2.py", '''
+        logger.info(f"reply={response.data} count={len(response)}")
+    ''')
+    assert _PROMPT_RESPONSE in _ids(findings)
+
+
 def test_prompt_response_model_body_kept(tmp_path):
     """Control: crAPI Bot.tsx:97 -- logs the model response BODY."""
     findings = _llm(tmp_path, "Bot.tsx", '''

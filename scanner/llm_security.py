@@ -1739,7 +1739,13 @@ _PROMPT_LOG_TOKEN_RE = re.compile(
 )
 _PROMPT_LOG_STATUS_ONLY_RE = re.compile(
     r"(?:response|prompt)\s*\.\s*"
-    r"(?:status(?:code|text)?|ok|code|headers|url|type)\b",
+    r"(?:status(?:code|text)?|ok|code|headers|url|type)\b"
+    # I7b (2026-10-19): a logged LENGTH is metadata of the same class --
+    # crAPI chat_service.py:64 logs len(response.get("messages", [])), a
+    # message COUNT, not message content. Content logged alongside
+    # (response.data, f-string {prompt}) still leaves a bare token in the
+    # residual and keeps.
+    r"|\blen\s*\(\s*(?:response|prompt)\b",
     re.I,
 )
 _PROMPT_LOG_QUOTED_RE = re.compile(
