@@ -3252,6 +3252,18 @@ def main():
         _safe_print(f"       => {len(docker_findings)} Dockerfile findings")
 
         # --------------------------------------------------
+        # docker-compose IaC Analysis
+        # Compose files were previously never assessed (hardcoded creds,
+        # docker.sock mounts, privileged mode, unpinned images, missing user).
+        # --------------------------------------------------
+        compose_findings = []
+        try:
+            compose_findings = scan_compose(target)
+            _safe_print(f"       => {len(compose_findings)} docker-compose findings")
+        except Exception as exc:
+            _safe_print(f"       => docker-compose scan failed: {exc}")
+
+        # --------------------------------------------------
         # Secret Intelligence Source Scan
         # V4 Phase 1 fix:
         # - V3 enrichment classified only existing findings.
@@ -3275,13 +3287,14 @@ def main():
         raw.extend(k8s_findings)
         raw.extend(tf_findings)
         raw.extend(docker_findings)
+        raw.extend(compose_findings)
         raw.extend(llm_findings)
         raw.extend(advanced_ai_findings)
         raw.extend(api_abuse_findings)
         raw.extend(secret_scan_findings)
     else:
         cbom = aibom = mlbom = apibom = abom = []
-        k8s_findings = tf_findings = docker_findings = []
+        k8s_findings = tf_findings = docker_findings = compose_findings = []
         llm_raw_findings = llm_findings = advanced_ai_findings = []
         api_abuse_findings = secret_scan_findings = []
         llm_precision_stats = {"actionable": 0, "contextual": 0}

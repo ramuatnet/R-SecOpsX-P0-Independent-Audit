@@ -1007,7 +1007,9 @@ class TestDockerStructured:
         (tmp_path / "Dockerfile").write_text(
             "FROM node:latest\n"
             "FROM alpine\n"
+            "MAINTAINER Dev Team <dev@example.com>\n"
             "ADD https://example.com/y.tar /y\n"
+            "ADD requirements.txt /app/requirements.txt\n"
             "ARG API_TOKEN=abc\n"
             "ENV DB_PASSWORD=x\n"
             "RUN apt-get update && apt-get install -y openssh-server sudo \\\n"
@@ -1016,7 +1018,8 @@ class TestDockerStructured:
             "    && curl http://example.com/x | sh \\\n"
             "    && echo AKIAIOSFODNN7EXAMPLE\n"
             "USER root\n"
-            "EXPOSE 22\n", encoding="utf-8")
+            "EXPOSE 22\n"
+            "CMD [\"node\", \"app.js\"]\n", encoding="utf-8")
         from scanner.iac_docker import RULES
         findings = _findings_for(scan_docker, tmp_path, "Dockerfile")
         assert set(_rule_ids(findings)) == {r["rule_id"] for r in RULES}
@@ -1031,18 +1034,21 @@ class TestDockerStructured:
         findings = _findings_for(
             scan_docker, CORPUS / "docker", "curl_pipe_shell.Dockerfile")
         assert [(f["rule_id"], f["line"]) for f in findings] == [
-            ("DOCKER_CURL_PIPE_SHELL", 3)]
+            ("DOCKER_CURL_PIPE_SHELL", 3),
+            ("DOCKER_MISSING_HEALTHCHECK", 1)]
 
     def test_corpus_latest_tag(self):
         findings = _findings_for(
             scan_docker, CORPUS / "docker", "latest_tag.Dockerfile")
         assert [(f["rule_id"], f["line"]) for f in findings] == [
-            ("DOCKER_LATEST_TAG", 1)]
+            ("DOCKER_LATEST_TAG", 1),
+            ("DOCKER_MISSING_HEALTHCHECK", 1)]
 
     def test_corpus_root_user(self):
         findings = _findings_for(
             scan_docker, CORPUS / "docker", "root_user.Dockerfile")
         assert sorted((f["rule_id"], f["line"]) for f in findings) == [
+            ("DOCKER_MISSING_HEALTHCHECK", 1),
             ("DOCKER_MISSING_USER", 1),
             ("DOCKER_RUNS_AS_ROOT", 5),
         ]

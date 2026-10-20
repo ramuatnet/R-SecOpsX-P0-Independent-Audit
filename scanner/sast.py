@@ -136,6 +136,11 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"JAVA_JDBC_SQL_CONCAT","title":"JDBC SQL Concatenation","vuln":"sql_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?:createStatement\s*\(\s*\)|prepareStatement\s*\(\s*\"[^\"]*\"\s*\+|executeQuery\s*\(\s*\"[^\"]*\"\s*\+)"},
     {"id":"JAVA_HQL_JPQL_INJECTION","title":"Hibernate HQL / JPQL Injection","vuln":"orm_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"createQuery\s*\(\s*\"[^\"]*(?:from|select|where)[^\"]*\"\s*\+|@Query\s*\(\s*\"[^\"]*\"\s*\+"},
     {"id":"JAVA_JOOQ_RAW_SQL","title":"jOOQ Raw SQL Injection Indicator","vuln":"orm_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"DSL\.query\s*\(\s*\"[^\"]*\"\s*\+|fetch\s*\(\s*\"[^\"]*\"\s*\+"},
+    # XPath query built by concatenating a variable into an XPath expression.
+    # The literal must contain an XPath construct ([@attr=, //, text(), etc.)
+    # and the file must use the XPath API (guard), so URL/HTML path building is
+    # not a false positive. BenchmarkJava xpathi tests are 0/15 without this.
+    {"id":"JAVA_XPATH_INJECTION","title":"Java XPath Query Built by Concatenation","vuln":"xpath_injection","sev":"High","langs":["java"],"cwe":"CWE-643","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:\[@|//|text\(\)|contains\(|starts-with\()[^\"]*\"\s*\+\s*\w+"},
     {"id":"JAVA_XXE_PARSER","title":"Java XML Parser XXE Risk","vuln":"xxe","sev":"High","langs":["java"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"DocumentBuilderFactory\.newInstance\s*\(|SAXParserFactory\.newInstance\s*\(|XMLInputFactory\.newInstance\s*\(|SAXReader\s*\("},
     {"id":"JAVA_REFLECTION_SETACCESSIBLE","title":"Dangerous Reflection setAccessible(true)","vuln":"dangerous_reflection","sev":"High","langs":["java"],"cwe":"CWE-470","owasp":"A01:2021 - Broken Access Control","pat":r"\.setAccessible\s*\(\s*true\s*\)"},
     {"id":"JAVA_PATH_TRAVERSAL_FILE","title":"Java Path Traversal File Access","vuln":"path_traversal","sev":"High","langs":["java"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"new\s+File\s*\([^)]*(?:request|getParameter|path|filename)|Paths\.get\s*\([^)]*(?:request|getParameter|path|filename)"},
@@ -180,6 +185,22 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"NODE_SSRF_DYNAMIC_URL","title":"Node SSRF Dynamic URL","vuln":"ssrf","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-918","owasp":"A10:2021 - Server-Side Request Forgery","pat":r"(?:fetch|axios\.(?:get|post|request)|http\.request|https\.request)\s*\([^)]*(?:req\.|query|body|params|url)"},
     {"id":"NODE_REDOS_REGEX","title":"Node ReDoS Catastrophic Regex","vuln":"redos","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-1333","owasp":"A05:2021 - Security Misconfiguration","pat":r"new\s+RegExp\s*\([^)]*(?:req\.|query|body)|/\([^/]*\+\)[+*]|/\([^/]*\*\)[+*]"},
     {"id":"NPM_SUPPLY_CHAIN_SCRIPT","title":"NPM Supply Chain Lifecycle Script / Unpinned Dependency","vuln":"supply_chain_script","sev":"Medium","langs":["json"],"cwe":"CWE-829","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"\"(?:preinstall|postinstall|prepare)\"\s*:|\"(?:dependencies|devDependencies)\"\s*:\s*\{[\s\S]*\"[^\"]+\"\s*:\s*\"(?:\*|latest|http|git\+)"},
+    # JS/TS SQL injection via template-literal interpolation. Parameterized
+    # queries use ? / :name placeholders; interpolating ${...} directly into a
+    # SQL string passed to query()/raw() is injection. Confirmed on juice-shop
+    # routes/login.ts:34 (sequelize.query(`SELECT ... '${req.body.email}'`)).
+    {"id":"NODE_SQL_TEMPLATE_INTERPOLATION","title":"JavaScript/TypeScript SQL Built via Template-Literal Interpolation","vuln":"sql_injection","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?is)\.\s*(?:query|raw|rawQuery|execute)\s*\(\s*`[^`]*\b(?:SELECT|INSERT|UPDATE|DELETE|REPLACE|WITH)\b[^`]*\$\{"},
+    # Express app created with no CSRF protection for its state-changing routes.
+    # A "missing control" posture indicator (not a confirmed exploit): fires only
+    # when the same file registers post/put/patch/delete routes and references no
+    # CSRF middleware. Confirmed on juice-shop server.ts:130.
+    {"id":"EXPRESS_CSRF_MISSING","title":"Express App Missing CSRF Protection","vuln":"auth_misconfiguration","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-352","owasp":"A01:2021 - Broken Access Control","pat":r"\bexpress\s*\(\s*\)"},
+    # A JWT payload read via jwt.decode()/decode() in a file that imports
+    # jsonwebtoken but never calls verify(). decode() does NOT check the
+    # signature, so trusting its output is an authentication bypass. Files that
+    # verify (the secure decode-then-verify pattern) are excluded by the guard.
+    # Confirmed on juice-shop routes/authenticatedUsers.ts:20.
+    {"id":"NODE_JWT_DECODE_NO_VERIFY","title":"JWT Decoded Without Signature Verification","vuln":"auth_misconfiguration","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-347","owasp":"A02:2021 - Cryptographic Failures","pat":r"\b(?:jwt\s*\.\s*)?decode\s*\("},
 
     # Go
     {"id":"GO_EXEC_SH_C","title":"Go exec.Command sh -c / User-Controlled Args","vuln":"command_injection","sev":"Critical","langs":["go"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"exec\.Command\s*\(\s*\"(?:sh|bash|cmd)\"\s*,\s*\"-c\"|exec\.Command\s*\([^)]*(?:r\.URL|r\.Form|Query\()"},
@@ -1000,6 +1021,66 @@ def _rate_limit_present(source: str, match: re.Match) -> bool:
     ))
 
 
+def _express_csrf_missing(source: str, match: re.Match, language: str) -> bool:
+    """Report a bare express() app only when it registers state-changing routes
+    and installs no CSRF middleware anywhere in the file.
+
+    A "missing control" posture indicator. Header-based (Authorization) APIs are
+    CSRF-immune, so this is Medium confidence and fires only on the app file
+    that actually wires post/put/patch/delete routes without any csrf/csurf
+    reference — the shape adjudicated on juice-shop server.ts:130.
+    """
+    if language not in {"javascript", "typescript"}:
+        return False
+    # Must register at least one state-changing route in this file.
+    if not re.search(r"\.\s*(?:post|put|patch|delete)\s*\(", source):
+        return False
+    # Any CSRF middleware reference means protection is present (or explicitly
+    # configured) — do not report. csurf is spelled without the "csrf"
+    # substring, so it is listed explicitly.
+    if re.search(r"csrf|csurf|doublecsrf|xsrf", source, re.I):
+        return False
+    return True
+
+
+def _jwt_decode_without_verify(source: str, match: re.Match, language: str) -> bool:
+    """Report a jsonwebtoken decode() in a file that never calls verify().
+
+    decode() returns the payload WITHOUT checking the signature, so trusting it
+    for an auth decision is a bypass. The secure decode-then-verify pattern
+    (juice-shop routes/verify.ts) calls verify() and is excluded. Bare decode()
+    is only reported when the file actually imports/uses jsonwebtoken, so an
+    unrelated base64/codec decode() is not a false positive.
+    """
+    if language not in {"javascript", "typescript"}:
+        return False
+    # Must be a jsonwebtoken context.
+    if "jsonwebtoken" not in source:
+        return False
+    # Secure pattern: the file verifies signatures somewhere.
+    if re.search(r"\bverify\s*\(", source):
+        return False
+    # Bare decode( must be the jsonwebtoken decode (named import or jwt.decode).
+    if not re.search(r"jwt\s*\.\s*decode", match.group(0)):
+        if not re.search(
+            r"import\s*\{[^}]*\bdecode\b[^}]*\}\s*from\s*['\"]jsonwebtoken['\"]"
+            r"|require\s*\(\s*['\"]jsonwebtoken['\"]\s*\)",
+            source,
+        ):
+            return False
+    return True
+
+
+def _java_xpath_injection(source: str, match: re.Match, language: str) -> bool:
+    """Report XPath-concatenation only in files that use the XPath API.
+
+    The rule's literal already requires an XPath construct, but // also occurs
+    in protocol-relative URLs, so the file must reference the XPath API to keep
+    URL/HTML path building out of this rule's blast radius.
+    """
+    return bool(re.search(r"XPathFactory|newXPath|\bXPath\b", source))
+
+
 
 def _is_tenant_isolation_candidate(
     source: str,
@@ -1438,6 +1519,18 @@ def scan_file(filepath: str) -> list[dict]:
                 if not _is_rate_limit_endpoint_match(source, match, language):
                     continue
                 if _rate_limit_present(source, match):
+                    continue
+
+            if rule.get("id") == "EXPRESS_CSRF_MISSING":
+                if not _express_csrf_missing(source, match, language):
+                    continue
+
+            if rule.get("id") == "NODE_JWT_DECODE_NO_VERIFY":
+                if not _jwt_decode_without_verify(source, match, language):
+                    continue
+
+            if rule.get("id") == "JAVA_XPATH_INJECTION":
+                if not _java_xpath_injection(source, match, language):
                     continue
 
             if rule.get("id") == "TENANT_ISOLATION_MISSING":

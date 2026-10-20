@@ -182,6 +182,53 @@ RULES = [
         "framework": "CIS Docker Benchmark",
         "control": "Network Exposure",
     },
+    {
+        # Checkov CKV_DOCKER_2 parity. Fires once per file when no HEALTHCHECK
+        # instruction exists; anchored on the first FROM like DOCKER_MISSING_USER.
+        "rule_id": "DOCKER_MISSING_HEALTHCHECK",
+        "title": "Dockerfile Missing HEALTHCHECK",
+        "severity": "Low",
+        "pattern": re.compile(r"^\s*FROM\s+", re.IGNORECASE),
+        "description": "Dockerfile defines no HEALTHCHECK, so the orchestrator cannot detect an unresponsive container.",
+        "remediation": "Add a HEALTHCHECK instruction that probes the application's health endpoint.",
+        "cwe": "CWE-1059",
+        "framework": "CIS Docker Benchmark",
+        "control": "Container Health Monitoring",
+        "requires_absence_regex": re.compile(r"^\s*HEALTHCHECK\s+", re.IGNORECASE | re.MULTILINE),
+        "requires_presence_regex": re.compile(r"^\s*(?:CMD|ENTRYPOINT)\s+", re.IGNORECASE | re.MULTILINE),
+        "once_per_file": True,
+    },
+    {
+        # Checkov CKV_DOCKER_6 parity. MAINTAINER is a deprecated legacy
+        # instruction; LABEL maintainer=... is the supported replacement.
+        "rule_id": "DOCKER_MAINTAINER_DEPRECATED",
+        "title": "Deprecated MAINTAINER Instruction",
+        "severity": "Low",
+        "pattern": re.compile(r"^\s*MAINTAINER\s+", re.IGNORECASE),
+        "description": "MAINTAINER is a deprecated legacy instruction with no value metadata semantics.",
+        "remediation": "Replace MAINTAINER with a LABEL maintainer=<contact> instruction.",
+        "cwe": "CWE-1059",
+        "framework": "CIS Docker Benchmark",
+        "control": "Image Metadata Hygiene",
+    },
+    {
+        # Checkov CKV_DOCKER_4 parity. ADD only earns its keep for remote URLs
+        # and archives it auto-extracts; for a local file, COPY is preferred
+        # (no surprise extraction, clearer intent). URL/archive exclusion is
+        # done in the handler; the regex fallback excludes URLs and archives.
+        "rule_id": "DOCKER_ADD_VS_COPY",
+        "title": "ADD Used For Local File Instead Of COPY",
+        "severity": "Low",
+        "pattern": re.compile(
+            r"^\s*ADD\s+(?!\S+://)(?!\S+\.(?:tar|tar\.gz|tgz|tar\.bz2|tbz2?|tar\.xz|txz|zip|gz|bz2|xz|7z|rar)\b)",
+            re.IGNORECASE,
+        ),
+        "description": "ADD is used for a local file; COPY is preferred because it does not auto-extract archives or fetch URLs.",
+        "remediation": "Use COPY for local files. Reserve ADD for remote URLs and archives that must be extracted.",
+        "cwe": "CWE-1059",
+        "framework": "CIS Docker Benchmark",
+        "control": "Image Build Integrity",
+    },
 ]
 
 _RULE_BY_ID = {rule["rule_id"]: rule for rule in RULES}
@@ -347,6 +394,14 @@ def scan_docker(target_path: str) -> list[dict[str, Any]]:
         for rule in RULES:
             absence_regex = rule.get("requires_absence_regex")
             if absence_regex and absence_regex.search(text):
+                continue
+
+            # A rule may additionally require a PRESENCE anchor (e.g. the
+            # missing-HEALTHCHECK control only applies to a runnable image that
+            # declares CMD/ENTRYPOINT). Mirrors the structured handler so both
+            # engines share the same semantics.
+            presence_regex = rule.get("requires_presence_regex")
+            if presence_regex and not presence_regex.search(text):
                 continue
 
             once_per_file = bool(rule.get("once_per_file"))

@@ -1160,6 +1160,51 @@ def _dk_add_remote(rid, instructions, ctx, add) -> None:
             add(rid, ins.line, ctx(ins))
 
 
+def _dk_missing_healthcheck(rid, instructions, ctx, add) -> None:
+    # Fires once per file when no HEALTHCHECK instruction exists (CKV_DOCKER_2).
+    # Only meaningful for a RUNNABLE image — one that declares CMD or ENTRYPOINT.
+    # A bare base-image fragment (``FROM node:latest``) or a build-stage stub is
+    # not a service and has nothing to health-probe, so it stays quiet.
+    if any(ins.op == "HEALTHCHECK" for ins in instructions):
+        return
+    if not any(ins.op in ("CMD", "ENTRYPOINT") for ins in instructions):
+        return
+    froms = [ins for ins in instructions if ins.op == "FROM"]
+    if not froms:
+        return
+    add(rid, froms[0].line, ctx(froms[0]))
+
+
+def _dk_maintainer(rid, instructions, ctx, add) -> None:
+    # CKV_DOCKER_6: MAINTAINER is a deprecated legacy instruction.
+    for ins in instructions:
+        if ins.op == "MAINTAINER":
+            add(rid, ins.line, ctx(ins))
+
+
+_ARCHIVE_SUFFIXES = (
+    ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz", ".tbz2", ".tar.xz", ".txz",
+    ".zip", ".gz", ".bz2", ".xz", ".7z", ".rar",
+)
+
+
+def _dk_add_vs_copy(rid, instructions, ctx, add) -> None:
+    # CKV_DOCKER_4: ADD of a LOCAL, non-archive source should be COPY. ADD only
+    # earns its keep for remote URLs and archives it auto-extracts.
+    for ins in instructions:
+        if ins.op != "ADD":
+            continue
+        tokens = [tok for tok in ins.args.split() if not tok.startswith("--")]
+        if not tokens:
+            continue
+        src = tokens[0]
+        if src.startswith(("http://", "https://", "git://", "github.com/")):
+            continue  # remote fetch (DOCKER_ADD_REMOTE_URL owns URLs)
+        if src.lower().endswith(_ARCHIVE_SUFFIXES):
+            continue  # archive auto-extraction is a legitimate ADD use
+        add(rid, ins.line, ctx(ins))
+
+
 def _dk_env_secret(rid, instructions, ctx, add) -> None:
     for ins in instructions:
         if ins.op != "ENV":
@@ -1234,6 +1279,9 @@ _DOCKER_HANDLERS: dict[str, Callable] = {
         r"(apt(-get)?|apk|yum|dnf)\s+.*install\s+.*(openssh-server|ssh)"),
     "DOCKER_CHMOD_777": _content_rule(r"chmod\s+(-R\s+)?777\b"),
     "DOCKER_EXPOSE_SENSITIVE_PORT": _dk_expose,
+    "DOCKER_MISSING_HEALTHCHECK": _dk_missing_healthcheck,
+    "DOCKER_MAINTAINER_DEPRECATED": _dk_maintainer,
+    "DOCKER_ADD_VS_COPY": _dk_add_vs_copy,
 }
 
 
