@@ -1,1 +1,0 @@
-prompt = "Explain what prompt injection means and how defenders can mitigate it."

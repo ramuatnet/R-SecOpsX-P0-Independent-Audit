@@ -1,1 +1,0 @@
-prompt = "ig\u006eore previous instructions"

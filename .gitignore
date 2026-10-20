@@ -1,2 +1,26 @@
 ﻿__pycache__/
 .pytest_cache/
+
+# Generated scan output. Never input: reports/ used to hold .vuln_cache.json,
+# which made "delete the output dir" silently cost the offline path its whole
+# CVE coverage. The advisory store now lives in data/ (tracked) instead.
+reports/
+
+# Working debris -- dev scripts, session output, superseded copies.
+# scanner/taint_engine.py already documents dump/*.py as "working artifacts
+# that are not shipped; their absence is a normal checkout state".
+dump/
+backup/
+quarantine/
+Working folder/
+
+# Editor/tool backups co-located with live source. These are a correctness
+# hazard, not just clutter: scanner/ and reporting/ contain *.bak_* siblings
+# that rglob-style scanners can pick up as if they were modules.
+*.bak_*
+*.bak
+*.baseline_*
+*.BASELINE_*
+*.retired
+*.prof
+*.tmp
