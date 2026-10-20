@@ -1950,7 +1950,20 @@ def _build_dependency_reporting_views(payload: dict) -> None:
 
     payload["dependency_risk_register"] = sorted(advisory_rows, key=_dep_rank, reverse=True)
     payload["top_dependency_risks"] = payload["dependency_risk_register"][:25]
-    payload["top_cves"] = sorted(cve_rows, key=_dep_rank, reverse=True)[:25]
+    # top_cves is the CVE-CENTRIC view: the same CVE resolved from several
+    # lockfile locations (lodash@4.17.21 from two package.json files) must
+    # appear once, keeping the best-ranked instance. The per-package view
+    # (dependency_risk_register) and metadata.cve_count are unaffected.
+    _seen_cves: set[str] = set()
+    _deduped_cve_rows: list[dict] = []
+    for _cve_row in sorted(cve_rows, key=_dep_rank, reverse=True):
+        _cve_id = _cve_row.get("cve")
+        if _valid_report_value(_cve_id) and _cve_id in _seen_cves:
+            continue
+        if _valid_report_value(_cve_id):
+            _seen_cves.add(_cve_id)
+        _deduped_cve_rows.append(_cve_row)
+    payload["top_cves"] = _deduped_cve_rows[:25]
     payload["reachable_vulnerable_packages"] = reachable_vulnerable
     payload["not_observed_vulnerable_packages"] = not_observed_vulnerable
 

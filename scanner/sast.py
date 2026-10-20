@@ -47,7 +47,7 @@ except Exception:
 _F = re.IGNORECASE | re.MULTILINE | re.DOTALL
 
 SCANNABLE_EXT = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".kt", ".scala", ".go",
+    ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".java", ".kt", ".scala", ".go",
     ".rb", ".php", ".cs", ".vb", ".cpp", ".c", ".h", ".hpp", ".rs", ".sh",
     ".env", ".yml", ".yaml", ".properties", ".xml", ".json", ".graphql", ".gql",
     ".gradle", ".csproj", ".config", ".tf", ".Dockerfile", "Dockerfile",
@@ -96,7 +96,8 @@ EXCLUDED_DIRS = {
 }
 
 LANG_BY_EXT = {
-    ".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
+    ".py": "python", ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
+    ".cjs": "javascript", ".ts": "typescript", ".tsx": "typescript",
     ".java": "java", ".kt": "kotlin", ".scala": "scala", ".go": "go", ".php": "php",
     ".cs": "csharp", ".vb": "vbnet", ".xml": "xml", ".properties": "properties",
     ".rs": "rust",
@@ -432,6 +433,53 @@ def _should_scan(path: Path) -> bool:
          or name in SCANNABLE_EXT)
         and not _skip(path)
     )
+
+
+# Third-party SCANNER-RESULT exports. These are tool output, not application
+# source: a findbugs/spotbugs ``BugCollection`` embeds HTML-escaped Java source
+# excerpts in its <LongMessage>, ZAP embeds scanned-page evidence, and the
+# sonar/visualcodegrepper/pmd exports embed rule matches. Reading them as if
+# they were code produced false secrets and hash-usage findings on the BENCHMARK
+# REPO'S OWN shipped result files (6 findings in BenchmarkJava's results/*.xml).
+# Detection is by ROOT ELEMENT — unambiguous tool signatures — never by
+# extension or directory name, so a real application <config>/<settings> XML is
+# still scanned in full.
+_SCANNER_RESULT_XML_ROOTS = frozenset({
+    "BugCollection",       # findbugs / spotbugs / findsecbugs
+    "FindBugsSummary",     # spotbugs summary export
+    "OWASPZAPReport",      # ZAP scan report
+    "CodeIssueCollection", # visualcodegrepper
+    "pmd",                 # PMD
+})
+
+
+def _is_scanner_result_xml(path: Path) -> bool:
+    """True when the file is a third-party scanner-result XML export.
+
+    Reads only a small header (the root element lives at the top), so this is
+    cheap even for the 17-64 MB result files BenchmarkJava ships. The sonar
+    web-API export uses a generic ``<total>`` root, so it additionally requires
+    the corroborating ``<issues>`` + ``<component>`` siblings that only that
+    export carries.
+    """
+    if path.suffix.lower() != ".xml":
+        return False
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            head = fh.read(4096)
+    except OSError:
+        return False
+    stripped = re.sub(r"<\?xml[^>]*\?>", "", head, count=1).lstrip()
+    m = re.match(r"<([A-Za-z_][\w:.-]*)", stripped)
+    if not m:
+        return False
+    root = m.group(1)
+    if root in _SCANNER_RESULT_XML_ROOTS:
+        return True
+    # SonarQube web-API export: root <total> plus <issues>/<component> children.
+    if root == "total" and "<issues>" in head and "<component>" in head:
+        return True
+    return False
 
 
 def _language(path: Path) -> str:
@@ -1295,6 +1343,11 @@ NON_EXECUTABLE_DATA_LANGUAGES = frozenset({"json"})
 
 def scan_file(filepath: str) -> list[dict]:
     path = Path(filepath)
+    # Third-party scanner-result XML exports are tool output, not source.
+    # Checked BEFORE the read so a 64 MB findsecbugs/ZAP export is never even
+    # loaded into memory.
+    if _is_scanner_result_xml(path):
+        return []
     try:
         source = path.read_text(encoding="utf-8", errors="replace")
     except OSError:

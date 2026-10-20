@@ -283,7 +283,15 @@ def _report_path(file_path: Path, target_root: Path) -> str:
         # as_posix(): report paths are a display contract.  str(Path(...)) uses
         # the OS separator, so on Windows this table showed bare names,
         # "a/b" paths and "a\b" paths side by side.
-        return (Path(target_root.name) / file_path.relative_to(target_root)).as_posix()
+        #
+        # Paths are relative to the SCAN TARGET, exactly as every other engine
+        # stores them (see scanner/iac_docker.py). Prepending target_root.name
+        # made terraform findings carry a doubled project prefix
+        # ("juice-shop-git/infrastructure/terraform/networking.tf" when the file
+        # is "infrastructure/terraform/networking.tf" under the target), so
+        # their SARIF/Jira URIs did not resolve inside the scanned tree and
+        # they could not be correlated with same-file SAST/secret findings.
+        return file_path.relative_to(target_root).as_posix()
     except Exception:
         return str(file_path).replace("\\", "/")
 

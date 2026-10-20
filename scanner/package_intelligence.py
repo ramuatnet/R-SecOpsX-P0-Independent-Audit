@@ -43,6 +43,19 @@ KNOWN_ADVISORY_FALLBACKS = {
         "fixed_in": "4.17.21",
         "source": "RSECOpsX_OFFLINE_VALIDATION_CORPUS",
     },
+    # proxy-addr backs Express req.ip/req.ips. A trust subnet written in
+    # IPv4-mapped IPv6 notation with an IPv4-sized prefix (e.g. ::ffff:10.0.0.0/8
+    # instead of /104) trusts EVERY IPv4 address, so any unauthenticated client
+    # can spoof X-Forwarded-For and defeat IP-based access control, rate limiting
+    # and audit logging. Observed at 2.0.7 via autogen's Gatsby dependency; the
+    # only genuine advisory V11's offline store lacked versus Lacework.
+    ("npm", "proxy-addr", "2.0.7"): {
+        "cve": "CVE-2026-90711",
+        "cvss": 9.1,
+        "severity": "Critical",
+        "fixed_in": "2.0.8",
+        "source": "RSECOpsX_OFFLINE_VALIDATION_CORPUS",
+    },
     ("npm", "minimist", "0.0.8"): {
         "cve": "CVE-2020-7598",
         "cvss": 7.5,

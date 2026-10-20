@@ -137,6 +137,43 @@ def _skip(path: Path) -> bool:
 
     return False
 
+
+# Third-party SCANNER-RESULT exports (findbugs/spotbugs BugCollection, ZAP,
+# pmd, sonar, visualcodegrepper). Tool output, not application source: their
+# <LongMessage>/evidence fields embed HTML-escaped code excerpts from ELSEWHERE
+# in the repo, so secrets found there belong to the code under test, not to the
+# export. Detection is by ROOT ELEMENT only — a real <config>/<settings> XML is
+# still scanned in full. Mirrors scanner/sast.py::_is_scanner_result_xml.
+_SCANNER_RESULT_XML_ROOTS = frozenset({
+    "BugCollection",
+    "FindBugsSummary",
+    "OWASPZAPReport",
+    "CodeIssueCollection",
+    "pmd",
+})
+
+
+def _is_scanner_result_xml(path: Path) -> bool:
+    """True when the file is a third-party scanner-result XML export."""
+    if path.suffix.lower() != ".xml":
+        return False
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            head = fh.read(4096)
+    except OSError:
+        return False
+    stripped = re.sub(r"<\?xml[^>]*\?>", "", head, count=1).lstrip()
+    m = re.match(r"<([A-Za-z_][\w:.-]*)", stripped)
+    if not m:
+        return False
+    root = m.group(1)
+    if root in _SCANNER_RESULT_XML_ROOTS:
+        return True
+    if root == "total" and "<issues>" in head and "<component>" in head:
+        return True
+    return False
+
+
 def _is_secret_finding(f: dict) -> bool:
     vt = str(f.get("vuln_type", "")).lower()
     title = str(f.get("title", ""))
@@ -986,6 +1023,7 @@ def _scan_docker_k8s(path,text,lang):
 def scan_file(filepath: str) -> list[dict]:
     path=Path(filepath)
     if _skip(path): return []
+    if _is_scanner_result_xml(path): return []
     suffix=path.suffix.lower()
     if suffix not in SECRET_EXT and path.name not in {".env","application.properties","application.yml","application.yaml","Dockerfile"}: return []
     try: text=path.read_text(encoding="utf-8",errors="replace")

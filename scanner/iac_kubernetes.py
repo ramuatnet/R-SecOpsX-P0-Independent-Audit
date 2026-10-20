@@ -241,7 +241,13 @@ def _finding(
         # as_posix(): report paths are a display contract.  str(Path(...)) uses
         # the OS separator, so on Windows this table showed bare names,
         # "a/b" paths and "a\b" paths side by side.
-        rel_path = (Path(target_root.name) / file_path.relative_to(target_root)).as_posix()
+        #
+        # Paths are relative to the SCAN TARGET, exactly as every other engine
+        # stores them (see scanner/iac_docker.py). Prepending target_root.name
+        # made k8s findings carry a doubled project prefix that did not resolve
+        # inside the scanned tree and could not be correlated with same-file
+        # findings from other engines.
+        rel_path = file_path.relative_to(target_root).as_posix()
     except Exception:
         rel_path = str(file_path).replace("\\", "/")
 
