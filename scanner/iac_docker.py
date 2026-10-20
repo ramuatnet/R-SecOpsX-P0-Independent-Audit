@@ -334,6 +334,16 @@ def scan_docker(target_path: str) -> list[dict[str, Any]]:
         lines = text.splitlines()
         emitted_once: set[str] = set()
 
+        # Stage aliases declared by earlier FROM ... AS lines.  A bare
+        # "FROM <alias>" resolves inside the file, so the unpinned-image
+        # pattern must not flag it -- same semantics as the structured
+        # engine above (an instruction's own alias never guards itself).
+        stage_alias_lines: dict[str, int] = {}
+        for idx, line in enumerate(lines, start=1):
+            alias_m = re.match(r"\s*FROM\s+\S+\s+[Aa][Ss]\s+(\S+)", line)
+            if alias_m:
+                stage_alias_lines.setdefault(alias_m.group(1), idx)
+
         for rule in RULES:
             absence_regex = rule.get("requires_absence_regex")
             if absence_regex and absence_regex.search(text):
@@ -343,6 +353,11 @@ def scan_docker(target_path: str) -> list[dict[str, Any]]:
 
             for idx, line in enumerate(lines, start=1):
                 if rule["pattern"].search(line):
+                    if rule["rule_id"] == "DOCKER_UNPINNED_BASE_IMAGE":
+                        ref_m = re.match(r"\s*FROM\s+([^\s:@]+)", line)
+                        declared = stage_alias_lines.get(ref_m.group(1)) if ref_m else None
+                        if declared is not None and declared < idx:
+                            continue
                     if once_per_file and rule["rule_id"] in emitted_once:
                         continue
 

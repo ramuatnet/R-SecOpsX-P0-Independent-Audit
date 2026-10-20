@@ -1127,17 +1127,28 @@ def _dk_latest_tag(rid, instructions, ctx, add) -> None:
 
 
 def _dk_unpinned(rid, instructions, ctx, add) -> None:
+    # Multi-stage builds: "FROM build AS publish" / "FROM prod as dev"
+    # where the ref is a stage alias declared by an EARLIER FROM is not an
+    # image reference at all -- the builder resolves it inside the file, so
+    # tag/digest pinning is N/A and flagging it is a false positive (seen
+    # on AgentGPT platform/Dockerfile:35 and autogen seed-memory/AgentHost).
+    # Aliases match exactly, the way the builder resolves stage names, and
+    # an instruction's OWN alias only enters the set after its ref is
+    # judged, so "FROM a AS a" still flags the untagged image "a".
+    stages: set[str] = set()
     for ins in instructions:
         if ins.op != "FROM":
             continue
         ref = _from_image(ins.args)
-        if not ref or "@" in ref:
-            continue
-        if "$" in ref:
-            continue  # ARG/variable reference: not statically resolvable
-        if _image_tail_has_tag(ref) is not None:
-            continue
-        add(rid, ins.line, ctx(ins))
+        tokens = [tok for tok in ins.args.split() if not tok.startswith("--")]
+        alias = tokens[2] if len(tokens) >= 3 and tokens[1].lower() == "as" else None
+
+        resolved = ref is not None and ("@" in ref or "$" in ref
+                                        or _image_tail_has_tag(ref) is not None)
+        if ref and not resolved and ref not in stages:
+            add(rid, ins.line, ctx(ins))
+        if alias:
+            stages.add(alias)
 
 
 def _dk_add_remote(rid, instructions, ctx, add) -> None:

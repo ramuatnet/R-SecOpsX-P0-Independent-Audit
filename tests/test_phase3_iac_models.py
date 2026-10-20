@@ -902,6 +902,50 @@ class TestDockerStructured:
         assert _rule_ids(findings) == ["DOCKER_UNPINNED_BASE_IMAGE"]
         assert findings[0]["line"] == 1
 
+    def test_stage_alias_ref_is_not_an_unpinned_image(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text(
+            "FROM python:3.11-slim-buster as prod\n"
+            "FROM prod as dev\n"
+            "FROM alpine\n"
+            "USER app\n", encoding="utf-8")
+        findings = _findings_for(scan_docker, tmp_path, "Dockerfile")
+        # "prod" resolves to the earlier stage (AgentGPT platform:35 shape);
+        # only the genuinely untagged image on line 3 is a finding.
+        assert _rule_ids(findings) == ["DOCKER_UNPINNED_BASE_IMAGE"]
+        assert findings[0]["line"] == 3
+
+    def test_multistage_alias_chain_stays_quiet(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text(
+            "FROM mcr.microsoft.com/dotnet/runtime:7.0 AS base\n"
+            "FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build\n"
+            "FROM build AS publish\n"
+            "FROM base AS final\n"
+            "USER app\n", encoding="utf-8")
+        findings = _findings_for(scan_docker, tmp_path, "Dockerfile")
+        # autogen seed-memory/AgentHost shape: every alias target is a
+        # pinned earlier stage, so pinning is N/A on lines 3 and 4.
+        assert _rule_ids(findings) == []
+
+    def test_alias_only_counts_when_declared_earlier(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text(
+            "FROM shared\n"
+            "FROM alpine:3.19 AS shared\n"
+            "USER app\n", encoding="utf-8")
+        findings = _findings_for(scan_docker, tmp_path, "Dockerfile")
+        # before its declaration a name is just an untagged image ref
+        assert _rule_ids(findings) == ["DOCKER_UNPINNED_BASE_IMAGE"]
+        assert findings[0]["line"] == 1
+
+    def test_fallback_engine_skips_stage_alias_refs(self, tmp_path, monkeypatch):
+        (tmp_path / "Dockerfile").write_text(
+            "FROM alpine:3.19 AS build\n"
+            "FROM build\n"
+            "USER app\n", encoding="utf-8")
+        monkeypatch.setattr("scanner.iac_docker.parse_dockerfile", lambda _s: None)
+        findings = _findings_for(scan_docker, tmp_path, "Dockerfile")
+        # forced line-regex fallback must carry the same stage semantics
+        assert _rule_ids(findings) == []
+
     def test_user_root_vs_named_user(self, tmp_path):
         (tmp_path / "Dockerfile").write_text(
             "FROM alpine:3.19\n"
