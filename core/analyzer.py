@@ -1509,10 +1509,34 @@ def _evidex_sink_candidates(finding: dict, evidence_text: str) -> set[str]:
     ]
     executable_text = "\n".join(executable_lines)
 
-    explicit = _evidex_text(
-        finding.get("sink_category")
-        or finding.get("sink")
-        or finding.get("sink_expr")
+    # RSECOPSX_EVIDEX_SINK_CALL_RECOVERY_20261020
+    # The Java taint line layer (JAVA_TAINT_PATH_TRAVERSAL,
+    # JAVA_TAINT_COMMAND_INJECTION, ...) records its sink in `sink_call`, a
+    # field this extractor never consulted. Every line-layer finding whose
+    # sink could not be re-matched from the raw evidence text produced
+    # candidates == set() -> sink_valid False -> evidence_valid False ->
+    # enrich_finding() returned {} and the finding was silently deleted at
+    # report intake (measured: 128/133 BenchmarkJava path-traversal and
+    # 13/104 command-injection true positives discarded; aligned recall
+    # 27.8%). `sink_call` carries the real sink text ("new
+    # java.io.FileInputStream(" / "pb.start("), and `file` is a substring of
+    # the package-qualified form, so the explicit-map token check below
+    # recovers the candidate it always deserved. Placeholder categories
+    # ("unknown"/"n/a") must not shadow the concrete sink fields that follow.
+    _generic_sink_placeholders = {"", "unknown", "n/a", "na", "none", "null"}
+
+    def _first_concrete_sink(*values) -> str:
+        for value in values:
+            text = _evidex_text(value).strip()
+            if text and text.lower() not in _generic_sink_placeholders:
+                return text
+        return ""
+
+    explicit = _first_concrete_sink(
+        finding.get("sink_category"),
+        finding.get("sink"),
+        finding.get("sink_expr"),
+        finding.get("sink_call"),
     ).lower()
 
     explicit_map = {
@@ -1625,6 +1649,39 @@ def _evidex_sink_candidates(finding: dict, evidence_text: str) -> set[str]:
 
             if terminal in nosql_terminals:
                 candidates.add("nosql")
+
+            # RSECOPSX_EVIDEX_SINK_CALL_RECOVERY_20261020
+            # Java line-layer flows terminate in package-qualified sinks the
+            # alias table cannot spell ("... -> new java.io.FileOutputStream("
+            # / "... -> pb.command(...) -> pb.start(": the alias is
+            # "new fileoutputstream(" / "processbuilder(" and the receiver
+            # breaks the substring). The terminal of a validated source->sink
+            # path is concrete sink evidence, so infer the canonical family
+            # from it. This block requires the " -> " separator above, so
+            # prose-only snippets and bare ".start()" calls with no flow
+            # (e.g. Thread.start) are unaffected and keep failing the gate.
+            if re.search(
+                r"\bfile(?:inputstream|outputstream|reader|writer)?\b"
+                r"|\brandomaccessfile\b",
+                terminal,
+            ):
+                candidates.add("file")
+
+            if terminal.endswith(".start") or "exec" in terminal:
+                candidates.add("command")
+
+            # JDBC statement builders are SQL sinks: the tainted value is
+            # bound into a query/statement ("conn.prepareStatement(",
+            # "stmt.prepareCall(", "batchUpdate(", "addBatch("). The alias
+            # table only spells statement.execute-style calls, so qualified
+            # prepare*/batch terminals produced no candidate and the finding
+            # failed the gate.
+            if re.search(
+                r"(?:^|\.)(?:preparestatement|preparecall|createstatement|"
+                r"batchupdate|addbatch)$",
+                terminal,
+            ):
+                candidates.add("sql")
 
             # For mass-assignment, the benchmark's source->object flow is
             # itself the concrete security evidence. Require an actual taint

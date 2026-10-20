@@ -19,6 +19,19 @@ DOCKER_SPECIAL_NAMES = {
 }
 
 
+def _is_dockerfile_name(name: str) -> bool:
+    # RSECOPSX_DOCKERFILE_NAME_COVERAGE_20261020
+    # Real repos (Open-Assistant, and the Docker Hub convention generally)
+    # ship role-suffixed files the fixed set above cannot enumerate:
+    # Dockerfile.backend, Dockerfile.worker, Dockerfile.server, ...
+    # The checkov/Lacework comparison on Open-Assistant assessed 12 Dockerfiles
+    # while V11 opened exactly 1, so treat any "dockerfile" /
+    # "dockerfile.<role>" name as a Dockerfile. Unrelated files
+    # ("notes.backend") still do not match.
+    name = name.lower()
+    return name == "dockerfile" or name.startswith("dockerfile.")
+
+
 RULES = [
     {
         "rule_id": "DOCKER_RUNS_AS_ROOT",
@@ -246,14 +259,14 @@ def _iter_files(target: Path):
         name = path.name.lower()
         suffix = path.suffix.lower()
 
-        if suffix in DOCKER_EXTENSIONS or name in DOCKER_SPECIAL_NAMES:
+        if suffix in DOCKER_EXTENSIONS or _is_dockerfile_name(name):
             yield path
 
 
 def _is_dockerfile(text: str, path: Path) -> bool:
     name = path.name.lower()
 
-    if name in DOCKER_SPECIAL_NAMES or path.suffix.lower() in DOCKER_EXTENSIONS:
+    if _is_dockerfile_name(name) or path.suffix.lower() in DOCKER_EXTENSIONS:
         return True
 
     return bool(re.search(r"^\s*FROM\s+", text, re.IGNORECASE | re.MULTILINE))
