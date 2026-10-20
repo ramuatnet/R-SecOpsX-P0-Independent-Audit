@@ -18,8 +18,9 @@ WHAT COUNTS AS GROUND TRUTH HERE
 A label is only admissible when its truth does not come from the scanner.
 Three of the four families below take their truth from outside this repo:
 
-    sca/       OSV. ``reports/.vuln_cache.json`` carries 380 pinned
-               package/version pairs with real advisories attached
+    sca/       OSV. ``data/.vuln_cache.json`` (relocated from ``reports/``,
+               which is disposable output and excluded on migration) carries
+               380 pinned package/version pairs with real advisories attached
                (112 PyPI, 261 npm, 7 Maven). The labels are copied from
                those records, so the corpus is anchored to a database that
                published its answer before the scanner existed.

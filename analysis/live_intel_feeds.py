@@ -58,7 +58,7 @@ KEV_FEED_URL = (
 
 USER_AGENT = "R-SecOpsX-INT/1.0"
 
-CACHE_FILE = Path("reports") / ".intel_feed_cache.json"
+CACHE_FILE = Path("data") / ".intel_feed_cache.json"
 CACHE_SCHEMA_VERSION = 1
 
 DEFAULT_TIMEOUT = 10
@@ -120,6 +120,21 @@ def _utc_now_iso() -> str:
 # ---------------------------------------------------------------------------
 # Cache
 # ---------------------------------------------------------------------------
+
+def _default_cache_file() -> Path:
+    """Resolve the default cache location, adopting a pre-relocation copy.
+
+    This cache used to live under reports/ and carried the same flaw as the
+    advisory store: the first thing excluded when the tool was migrated to a
+    server was the only thing EPSS and KEV had to work with offline. A file
+    still at the old path is read from and then overwritten in place -- never
+    deleted, so the operator confirms the new location before discarding it.
+    """
+    if CACHE_FILE.exists():
+        return CACHE_FILE
+    legacy = CACHE_FILE.parent.parent / "reports" / CACHE_FILE.name
+    return legacy if legacy.exists() else CACHE_FILE
+
 
 def _read_cache_file(path: Path) -> dict:
     """Load a cache document, refusing anything we do not understand.
@@ -224,7 +239,7 @@ class EPSSFeed:
                  ttl: float | None = None,
                  timeout: int | None = None):
         self.enabled = live_feeds_enabled() if enabled is None else bool(enabled)
-        self.cache_path = Path(cache_path) if cache_path else CACHE_FILE
+        self.cache_path = Path(cache_path) if cache_path else _default_cache_file()
         self.ttl = DEFAULT_TTL if ttl is None else float(ttl)
         self.timeout = int(timeout) if timeout is not None else _timeout()
         self._cache: dict | None = None
@@ -367,7 +382,7 @@ class KEVFeed:
                  ttl: float | None = None,
                  timeout: int | None = None):
         self.enabled = live_feeds_enabled() if enabled is None else bool(enabled)
-        self.cache_path = Path(cache_path) if cache_path else CACHE_FILE
+        self.cache_path = Path(cache_path) if cache_path else _default_cache_file()
         self.ttl = DEFAULT_TTL if ttl is None else float(ttl)
         self.timeout = int(timeout) if timeout is not None else _timeout(kev=True)
         self._records: dict[str, dict] | None = None
