@@ -663,6 +663,24 @@ def _image_is_latest(value: Any) -> bool:
     return tail.rsplit(":", 1)[-1].lower() == "latest"
 
 
+def _security_context_drops(sc: Any) -> bool:
+    """True when this securityContext drops NET_RAW (or ALL).
+
+    2026-10-21 prodtest/crAPI: CNAP workload-3 fails every container whose
+    capabilities.drop is absent -- the runtime default retains NET_RAW -- and
+    all 10 crAPI manifests genuinely lacked any drop list (source-verified).
+    """
+    if not isinstance(sc, dict):
+        return False
+    caps = sc.get("capabilities")
+    drop = caps.get("drop") if isinstance(caps, dict) else None
+    if isinstance(drop, list):
+        for entry in drop:
+            if isinstance(entry, str) and entry.strip().upper() in {"ALL", "NET_RAW"}:
+                return True
+    return False
+
+
 # (key, rule_id, predicate) — value rules applied to every mapping in a
 # workload document, mirroring the breadth of the old line regex while
 # reading parsed values instead of line shapes.
@@ -1054,6 +1072,20 @@ def evaluate_k8s_rules(
                     elif rule_id == "K8S_MISSING_RESOURCE_LIMITS":
                         satisfied = isinstance(limits, dict) and (
                             "cpu" in limits or "memory" in limits
+                        )
+                    elif rule_id == "K8S_MISSING_ALLOW_PRIVILEGE_ESCALATION":
+                        # Key presence at either level satisfies the
+                        # missing-control rule; an explicitly true value is
+                        # the K8S_ALLOW_PRIVILEGE_ESCALATION presence rule's
+                        # claim, so the two never double-report one manifest.
+                        satisfied = (
+                            "allowPrivilegeEscalation" in container_sc
+                            or "allowPrivilegeEscalation" in pod_sc
+                        )
+                    elif rule_id == "K8S_MISSING_NET_RAW_DROP":
+                        satisfied = (
+                            _security_context_drops(container_sc)
+                            or _security_context_drops(pod_sc)
                         )
                     else:
                         continue  # unknown id: the caller owns that rule

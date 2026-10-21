@@ -5,6 +5,9 @@ metadata:
 spec:
   securityContext:
     runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
   containers:
     - name: app
       image: acme/app:1.0.0

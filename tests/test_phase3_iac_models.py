@@ -568,6 +568,9 @@ class TestKubernetesStructured:
             "      securityContext:\n"
             "        runAsNonRoot: true\n"
             "        readOnlyRootFilesystem: true\n"
+            "        allowPrivilegeEscalation: false\n"
+            "        capabilities:\n"
+            "          drop: [\"ALL\"]\n"
             "      resources:\n"
             "        limits:\n"
             "          cpu: \"100m\"\n", encoding="utf-8")
@@ -621,6 +624,9 @@ class TestKubernetesStructured:
             "spec:\n"
             "  securityContext:\n"
             "    runAsNonRoot: true\n"
+            "    allowPrivilegeEscalation: false\n"
+            "    capabilities:\n"
+            "      drop: [\"ALL\"]\n"
             "  containers:\n"
             "    - name: app\n"
             "      image: acme/app:1.0.0\n"
@@ -646,6 +652,9 @@ class TestKubernetesStructured:
             "      securityContext:\n"
             "        runAsNonRoot: true\n"
             "        readOnlyRootFilesystem: true\n"
+            "        allowPrivilegeEscalation: false\n"
+            "        capabilities:\n"
+            "          drop: [\"ALL\"]\n"
             "      resources:\n"
             "        limits:\n"
             "          cpu: \"100m\"\n"
@@ -656,7 +665,7 @@ class TestKubernetesStructured:
         # Only the second container lacks the controls; every missing rule
         # anchors on the second container's item line.
         assert missing
-        assert all(f["line"] == 15 for f in missing)
+        assert all(f["line"] == 18 for f in missing)
         assert all(f["resource_path"] == "spec.containers[1]" for f in missing)
 
     def test_non_workload_documents_are_ignored(self, tmp_path):
@@ -684,7 +693,9 @@ class TestKubernetesStructured:
             '      "image": "nginx:1.25",\n'
             '      "securityContext": {\n'
             '        "runAsNonRoot": true,\n'
-            '        "readOnlyRootFilesystem": true\n'
+            '        "readOnlyRootFilesystem": true,\n'
+            '        "allowPrivilegeEscalation": false,\n'
+            '        "capabilities": {"drop": ["ALL"]}\n'
             '      },\n'
             '      "resources": {"limits": {"cpu": "100m"}}\n'
             '    }]\n'
@@ -718,6 +729,9 @@ class TestKubernetesStructured:
             "      securityContext:\n"
             "        runAsNonRoot: true\n"
             "        readOnlyRootFilesystem: true\n"
+            "        allowPrivilegeEscalation: false\n"
+            "        capabilities:\n"
+            "          drop: [\"ALL\"]\n"
             "      resources:\n"
             "        limits:\n"
             "          cpu: \"100m\"\n", encoding="utf-8")
@@ -797,7 +811,13 @@ class TestKubernetesStructured:
             "        - name: POSTGRES_PASSWORD\n"
             "          value: hunter2\n"
             "        - name: AWS_ACCESS_KEY_ID\n"
-            "          value: AKIAEXAMPLE\n", encoding="utf-8")
+            "          value: AKIAEXAMPLE\n"
+            # 2026-10-21: a second, entirely unhardened container so the
+            # absence-based rules (K8S_MISSING_ALLOW_PRIVILEGE_ESCALATION,
+            # K8S_MISSING_NET_RAW_DROP, ...) have a trigger; container 1's
+            # explicitly bad values keep the presence rules covered.
+            "    - name: unhardened\n"
+            "      image: acme/sidecar:1.0\n", encoding="utf-8")
         from scanner.iac_kubernetes import MISSING_RULES, RULES
         expected = (
             {r["rule_id"] for r in RULES}

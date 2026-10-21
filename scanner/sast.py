@@ -147,6 +147,23 @@ ENTERPRISE_RULES: list[dict] = [
     # loop already drops comment and docstring/string matches.
     {"id":"PY_TLS_CERT_VALIDATION_DISABLED","title":"Python TLS Certificate Validation Disabled","vuln":"tls_bypass","sev":"Critical","langs":["python"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"\bverify\s*=\s*False\b|\bcheck_hostname\s*=\s*False\b|ssl\._create_unverified_context\s*\(|verify_mode\s*=\s*ssl\.CERT_NONE"},
 
+    # Cookie security flags (2026-10-21, prodtest/pygoat vs CNAP): pygoat
+    # dockerized_labs/broken_auth_lab/app.py:49/51 calls set_cookie without
+    # secure/httponly/samesite -- CNAP DATA-COOKIE-001/002 + INTEG-COOKIE-001,
+    # 6 Medium findings, source-verified. One rule per missing flag (the same
+    # per-flag decomposition the Java CWE-614 servlet rule uses); the guard
+    # extracts the call's argument region and reports only that flag.
+    {"id":"PY_COOKIE_MISSING_SECURE","title":"Cookie Missing Secure Flag","vuln":"insecure_cookie_configuration","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
+    {"id":"PY_COOKIE_MISSING_HTTPONLY","title":"Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_configuration","sev":"Medium","langs":["python"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\.set_cookie\s*\("},
+    {"id":"PY_COOKIE_MISSING_SAMESITE","title":"Cookie Missing SameSite Restriction","vuln":"insecure_cookie_configuration","sev":"Medium","langs":["python"],"cwe":"CWE-1275","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
+    # Django views explicitly exempted from CSRF (2026-10-21, prodtest): CNAP
+    # INTEG-ORIGIN-002 anchors @csrf_exempt on pygoat introduction/apis.py,
+    # mitre.py, playground (10) and crAPI mechanic/views.py:54 -- every one a
+    # real decorator. Java (csrf().disable) and Express (csurf-missing) already
+    # had coverage; the decorator arm is presence-based and cannot fire on the
+    # import line (no @) or in comments (loop-level suppression).
+    {"id":"DJANGO_CSRF_EXEMPT","title":"Django View Exempted from CSRF Protection","vuln":"auth_misconfiguration","sev":"Medium","langs":["python"],"cwe":"CWE-352","owasp":"A01:2021 - Broken Access Control","pat":r"@(?:method_decorator\s*\(\s*)?csrf_exempt\b"},
+
     # Java / Spring Boot
     {"id":"JAVA_OBJECTINPUTSTREAM_DESERIALIZATION","title":"Java ObjectInputStream Insecure Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"new\s+ObjectInputStream\s*\(|\.readObject\s*\("},
     {"id":"JAVA_JACKSON_DEFAULT_TYPING","title":"Jackson Unsafe Default Typing","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"enableDefaultTyping\s*\(|activateDefaultTyping\s*\(|DefaultTyping\.|@JsonTypeInfo"},
@@ -215,6 +232,18 @@ ENTERPRISE_RULES: list[dict] = [
     # when the same file registers post/put/patch/delete routes and references no
     # CSRF middleware. Confirmed on juice-shop server.ts:130.
     {"id":"EXPRESS_CSRF_MISSING","title":"Express App Missing CSRF Protection","vuln":"auth_misconfiguration","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-352","owasp":"A01:2021 - Broken Access Control","pat":r"\bexpress\s*\(\s*\)"},
+    # Open redirect from request input (2026-10-21, prodtest/NodeGoat vs CNAP
+    # INPUT-REDIRECT-001): index.js:72 ``res.redirect(req.query.url)`` is a
+    # source-verified High TP. Only request-derived inputs qualify --
+    # req.path/req.baseUrl stay same-site and literals are not redirects of
+    # user input.
+    {"id":"EXPRESS_OPEN_REDIRECT","title":"Express Open Redirect from Request Input","vuln":"open_redirect","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"res\.redirect\s*\(\s*[^)\n]*(?:req(?:uest)?\.(?:query|body|params|headers))"},
+    # Session cookie with no lifetime (2026-10-21, prodtest/NodeGoat vs CNAP
+    # AUTH-SE...): server.js:78 session({...}) block carries only
+    # ``// TODO: Add "maxAge"`` -- session-scoped cookie, no expiration.
+    # Guard extracts the config region, so the TODO comment (maxAge without a
+    # colon) does not mask the finding; express-session must be imported.
+    {"id":"EXPRESS_SESSION_COOKIE_NO_EXPIRY","title":"Session Cookie Without Expiration","vuln":"auth_misconfiguration","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-613","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\bsession\s*\(\s*\{"},
     # A JWT payload read via jwt.decode()/decode() in a file that imports
     # jsonwebtoken but never calls verify(). decode() does NOT check the
     # signature, so trusting its output is an authentication bypass. Files that
@@ -233,6 +262,13 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"GO_SHARED_MAP_RACE","title":"Go Shared Map/Slice Race Indicator","vuln":"race_condition","sev":"High","langs":["go"],"cwe":"CWE-362","owasp":"A04:2021 - Insecure Design","pat":r"var\s+\w+\s+map\[|go\s+func\s*\(|\w+\s*\[.*\]\s*=\s*"},
     {"id":"GO_UNBOUNDED_READALL","title":"Go Unbounded io.ReadAll / ioutil.ReadAll","vuln":"resource_exhaustion","sev":"High","langs":["go"],"cwe":"CWE-400","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?:io|ioutil)\.ReadAll\s*\(\s*r\.Body\s*\)(?![\s\S]{0,200}MaxBytesReader)"},
     {"id":"GO_TLS_INSECURE_SKIP_VERIFY","title":"Go TLS InsecureSkipVerify true","vuln":"tls_bypass","sev":"Critical","langs":["go"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"InsecureSkipVerify\s*:\s*true"},
+    # Weak hash usage (2026-10-21, prodtest/crAPI vs CNAP CRYPTO-WEAK-002/003):
+    # the md5/sha1 rules covered Java/.NET/JS/Python only. Anchored on the
+    # crypto/md5|sha1 import string and the md5.New|Sum / sha1.New|Sum calls.
+    # (crAPI's own CNAP hits live under vendor/ which stays excluded by
+    # EXCLUDED_DIRS policy -- this rule covers first-party Go source.)
+    {"id":"GO_MD5_USAGE","title":"Go MD5 Usage","vuln":"weak_crypto","sev":"High","langs":["go"],"cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures","pat":r"[\"']crypto/md5[\"']|\bmd5\.(?:New|Sum)\s*\("},
+    {"id":"GO_SHA1_USAGE","title":"Go SHA-1 Usage","vuln":"weak_crypto","sev":"High","langs":["go"],"cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures","pat":r"[\"']crypto/sha1[\"']|\bsha1\.(?:New|Sum)\s*\("},
     {"id":"GO_HARDCODED_CREDENTIAL","title":"Go Hardcoded Credential in Connection String","vuln":"hardcoded_secret","sev":"High","langs":["go"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/"},
     {"id":"GO_SQL_CONCAT_INTERMEDIATE","title":"Go SQL Concatenation via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
     {"id":"GO_PATH_CONCAT","title":"Go Path String Concatenation with Absolute Prefix","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
@@ -343,8 +379,13 @@ REGEX_RULES: list[dict] = [
     # leaf-scoped rationale that already excludes containers.
     {"id":"HARDCODED_CREDENTIAL_COMPARISON","name":"Hardcoded credential authorization comparison","pattern":re.compile(r"\b(?:if|elif|while)\s+(?:not\s+)?[\w.\[\]]*(?<![A-Za-z0-9])(?:api[_-]?key|apikey|access[_-]?key|password|passwd|pwd|passphrase|secret|token|credential)(?:[_\-0-9][\w]*)?\s*(?:==|!=|not\s+in)\s*[\"'](?P<credval>[^\"'\s]{1,128})[\"']", _F),"vuln_type":"hardcoded_secret","note":"A credential-named value is compared against a literal, so the secret is committed to source and doubles as the authorization check.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
     {"id":"PRIVATE_KEY_HEADER","name":"Private Key Header","pattern":re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", _F),"vuln_type":"hardcoded_secret","note":"Private key material in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    {"id":"MD5_USAGE","name":"MD5 Usage","pattern":re.compile(r"hashlib\.md5\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']MD5|MD5CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']md5", _F),"vuln_type":"weak_crypto","note":"MD5 is cryptographically broken.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
-    {"id":"SHA1_USAGE","name":"SHA-1 Usage","pattern":re.compile(r"hashlib\.sha1\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']SHA-?1|SHA1CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']sha1", _F),"vuln_type":"weak_crypto","note":"SHA-1 is deprecated for cryptographic use.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
+    # 2026-10-21 prodtest/pygoat: the qualified `hashlib.md5(` arm missed
+    # ``from hashlib import md5; md5(password.encode())`` (mitre.py:161, CNAP
+    # CRYPTO-WEAK-003 TP). The trailing bare-call arm matches it; the
+    # _aliased_hashlib_match gate below keeps bare md5()/sha1() calls quiet
+    # unless the file imports that name from hashlib.
+    {"id":"MD5_USAGE","name":"MD5 Usage","pattern":re.compile(r"hashlib\.md5\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']MD5|MD5CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']md5|(?<![\w.])md5\s*\(", _F),"vuln_type":"weak_crypto","note":"MD5 is cryptographically broken.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
+    {"id":"SHA1_USAGE","name":"SHA-1 Usage","pattern":re.compile(r"hashlib\.sha1\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']SHA-?1|SHA1CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']sha1|(?<![\w.])sha1\s*\(", _F),"vuln_type":"weak_crypto","note":"SHA-1 is deprecated for cryptographic use.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
     {"id":"FLASK_DEBUG","name":"Flask Debug Mode","pattern":re.compile(r"app\.run\s*\([^)]*debug\s*=\s*True", _F),"vuln_type":"debug_exposure","note":"Flask debug=True exposes interactive debugger in production.","severity":"High","cwe":"CWE-215","owasp":"A05:2021 - Security Misconfiguration"},
     {"id":"SUBPROCESS_SHELL_TRUE","name":"subprocess shell=True","pattern":re.compile(r"subprocess\.\w+\s*\([^)]*shell\s*=\s*True", _F),"vuln_type":"command_injection","note":"subprocess with shell=True enables shell injection.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
     {"id":"OS_SYSTEM","name":"os.system Call","pattern":re.compile(r"os\.system\s*\(", _F),"vuln_type":"command_injection","note":"os.system executes shell commands.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
@@ -1041,6 +1082,100 @@ def _rate_limit_present(source: str, match: re.Match) -> bool:
     ))
 
 
+def _aliased_hashlib_match(source: str, match: re.Match, rule: dict) -> bool:
+    """Gate the bare ``md5(`` / ``sha1(`` arm of MD5_USAGE / SHA1_USAGE.
+
+    The qualified arms (``hashlib.md5(``, ``MessageDigest.getInstance("MD5")``,
+    ``crypto.createHash('md5')``, ``MD5CryptoServiceProvider``) are unambiguous.
+    The trailing bare-call arm only denotes the hashlib algorithm when the file
+    imports that exact name from hashlib -- ``from hashlib import md5`` then
+    calling ``md5(...)`` (pygoat introduction/mitre.py:161, CNAP
+    CRYPTO-WEAK-003). A local helper named md5()/sha1() with no hashlib import
+    is not weak crypto and stays quiet.
+    """
+    head = match.group(0)
+    name = "md5" if rule.get("id") == "MD5_USAGE" else "sha1"
+    if not head.lower().startswith(name):
+        # qualified arm (hashlib.md5(, MessageDigest..., createHash...)
+        return True
+    return bool(re.search(
+        r"from\s+hashlib\s+import\s+[^#\n]*\b" + name + r"\b", source
+    ))
+
+
+# Per-rule "this kwarg is missing from the set_cookie() call" guards. One rule
+# per flag keeps the finding's CWE (614/1004/1275) exact, mirroring the Java
+# servlet cookie rule's per-flag decomposition.
+_PY_COOKIE_FLAG_BY_RULE = {
+    "PY_COOKIE_MISSING_SECURE": r"(?<![\w-])secure\s*=",
+    "PY_COOKIE_MISSING_HTTPONLY": r"(?<![\w-])httponly\s*=",
+    "PY_COOKIE_MISSING_SAMESITE": r"(?<![\w-])samesite\s*=",
+}
+
+
+def _call_region(source: str, start: int, cap: int = 2000) -> str:
+    """Text of the parenthesised call beginning at/below ``start``."""
+    paren = source.find("(", start)
+    if paren == -1:
+        return ""
+    depth = 0
+    i = paren
+    while i < len(source) and i - paren < cap:
+        c = source[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return source[paren:i + 1]
+        i += 1
+    return source[paren:paren + cap]
+
+
+def _py_cookie_flag_missing(source: str, match: re.Match, language: str, flag_re: str) -> bool:
+    """True when the framework set_cookie() call lacks the rule's flag.
+
+    Gates: python only, and the file must name flask/django -- a bespoke
+    object's set_cookie() method is not the framework cookie API.
+    """
+    if language != "python":
+        return False
+    if not re.search(r"\b(?:flask|django)\b", source, re.I):
+        return False
+    region = _call_region(source, match.start(), cap=1500)
+    if not region:
+        return False
+    return not re.search(flag_re, region, re.I)
+
+
+def _express_session_no_expiry(source: str, match: re.Match, language: str) -> bool:
+    """True when an express-session config block sets no cookie lifetime.
+
+    The region scan (not a file-wide text search) is what keeps the NodeGoat
+    ``// TODO: Add "maxAge"`` comment inside the config block from masking the
+    finding: the comment contains the word maxAge but no ``maxAge:`` property.
+    """
+    if language not in {"javascript", "typescript"}:
+        return False
+    if "express-session" not in source:
+        return False
+    depth = 0
+    started = False
+    end = min(len(source), match.start() + 3000)
+    for j in range(match.start(), end):
+        c = source[j]
+        if c in "({":
+            depth += 1
+            started = True
+        elif c in ")}":
+            depth -= 1
+            if started and depth <= 0:
+                end = j + 1
+                break
+    region = source[match.start():end]
+    return not re.search(r"\b(?:maxAge|expires)\s*:", region, re.I)
+
+
 def _express_csrf_missing(source: str, match: re.Match, language: str) -> bool:
     """Report a bare express() app only when it registers state-changing routes
     and installs no CSRF middleware anywhere in the file.
@@ -1493,6 +1628,12 @@ def scan_file(filepath: str) -> list[dict]:
             if (rule.get("id") == "HARDCODED_CREDENTIAL_COMPARISON"
                     and match.group("credval").upper() in _HTTP_METHOD_VERBS):
                 continue
+            if (rule.get("id") in {"MD5_USAGE", "SHA1_USAGE"}
+                    and not _aliased_hashlib_match(source, match, rule)):
+                # 2026-10-21 prodtest/pygoat: the bare md5(/sha1( arm is the
+                # hashlib API only when the file imports that name from
+                # hashlib; a local helper with the same name is not crypto.
+                continue
             if rule.get("id") == "PRIVATE_KEY_HEADER":
                 # G4 (2026-10-19, prodtest): the header marker alone is not
                 # key material. WebGoat CryptoUtil.java:49/137 builds/strips
@@ -1546,6 +1687,16 @@ def scan_file(filepath: str) -> list[dict]:
 
             if rule.get("id") == "EXPRESS_CSRF_MISSING":
                 if not _express_csrf_missing(source, match, language):
+                    continue
+
+            if rule.get("id") in _PY_COOKIE_FLAG_BY_RULE:
+                if not _py_cookie_flag_missing(
+                    source, match, language, _PY_COOKIE_FLAG_BY_RULE[rule["id"]]
+                ):
+                    continue
+
+            if rule.get("id") == "EXPRESS_SESSION_COOKIE_NO_EXPIRY":
+                if not _express_session_no_expiry(source, match, language):
                     continue
 
             if rule.get("id") == "NODE_JWT_DECODE_NO_VERIFY":

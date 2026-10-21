@@ -174,6 +174,40 @@ MISSING_RULES = [
             re.IGNORECASE,
         ),
     },
+    # 2026-10-21 prodtest/crAPI vs CNAP workload-3 + security-2: both engines
+    # only knew the presence-of-bad forms (capabilities.add: [NET_RAW],
+    # allowPrivilegeEscalation: true). CNAP fails the absence-of-good form and
+    # every crAPI manifest genuinely lacks both controls (source-verified: no
+    # capabilities or allowPrivilegeEscalation key anywhere under deploy/).
+    # These are the CIS 5.2.5/5.2.7 checks (kube-bench treats an unset
+    # allowPrivilegeEscalation and an undropped NET_RAW as failures; the
+    # container runtime default keeps NET_RAW). Complementary to the presence
+    # rules: a manifest explicitly set to the bad value is reported once, by
+    # the presence rule -- required_pattern for APE is key-presence, so the
+    # fallback engine stays consistent with the structured one.
+    {
+        "rule_id": "K8S_MISSING_ALLOW_PRIVILEGE_ESCALATION",
+        "title": "Missing allowPrivilegeEscalation=false",
+        "severity": "Medium",
+        "description": "Container never sets allowPrivilegeEscalation: false; the runtime default permits privilege escalation.",
+        "remediation": "Set allowPrivilegeEscalation: false in pod or container securityContext.",
+        "cwe": "CWE-269",
+        "cis": "CIS Kubernetes Benchmark 5.2.5",
+        "required_pattern": re.compile(r"allowPrivilegeEscalation\s*:", re.IGNORECASE),
+    },
+    {
+        "rule_id": "K8S_MISSING_NET_RAW_DROP",
+        "title": "NET_RAW Capability Not Dropped",
+        "severity": "Medium",
+        "description": "Container does not drop NET_RAW (or ALL) capabilities; the runtime default retains NET_RAW.",
+        "remediation": "Add NET_RAW or ALL to securityContext.capabilities.drop.",
+        "cwe": "CWE-250",
+        "cis": "CIS Kubernetes Benchmark 5.2.7",
+        "required_pattern": re.compile(
+            r"drop\s*:[\s\S]{0,200}?[\"']?(?:ALL|NET_RAW)[\"']?",
+            re.IGNORECASE,
+        ),
+    },
 ]
 
 _RULE_BY_ID = {

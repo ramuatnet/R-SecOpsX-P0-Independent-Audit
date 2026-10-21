@@ -663,7 +663,15 @@ def _parse_package_lock(filepath: str) -> list[dict]:
         if not pkg_path.startswith("node_modules/"):
             continue
 
-        name = pkg_path.replace("node_modules/", "", 1)
+        # 2026-10-21 prodtest/crAPI+NodeGoat: nested lock entries
+        # (``node_modules/mkdirp/node_modules/minimist``) were recorded with
+        # PATH-shaped names via str.replace(..., 1), so advisory queries hit a
+        # package that does not exist and every nested duplicate version
+        # silently vanished from the vulnerability set (29 OSV-confirmed
+        # pins: crAPI ajv@8.17.1/qs@6.13.0/..., NodeGoat
+        # minimist@0.0.8/semver@5.7.0/...). The package name is the segment
+        # after the LAST node_modules/; scoped names keep their @scope/.
+        name = pkg_path.rsplit("node_modules/", 1)[-1]
         version = str(meta.get("version") or "unknown")
 
         license_value = meta.get("license") or meta.get("licenses") or "unknown"
