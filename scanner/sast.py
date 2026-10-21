@@ -110,6 +110,11 @@ LANG_BY_EXT = {
     ".java": "java", ".kt": "kotlin", ".scala": "scala", ".go": "go", ".php": "php",
     ".cs": "csharp", ".vb": "vbnet", ".xml": "xml", ".properties": "properties",
     ".rs": "rust",
+    # 2026-10-21 batch-10: railsgoat G15 -- .rb fell through to the bare
+    # "rb" fallback, so every ruby-language-gated rule (RUBY_RAILS_SECRET_TOKEN)
+    # was dead. Mapping the extension is what activates the langs gate; no
+    # other rule lists "ruby" today, so nothing else changes behavior.
+    ".rb": "ruby",
     ".yml": "yaml", ".yaml": "yaml", ".json": "json", ".graphql": "graphql", ".gql": "graphql",
 }
 
@@ -298,6 +303,41 @@ ENTERPRISE_RULES: list[dict] = [
     # key cannot collapse them (batch-8 lesson).
     {"id":"PHP_COOKIE_MISSING_SECURE","title":"PHP Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["php"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"setcookie\s*\("},
     {"id":"PHP_COOKIE_MISSING_HTTPONLY","title":"PHP Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["php"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"setcookie\s*\("},
+    # --- batch 10 (2026-10-21, DVWA/WebGoat/railsgoat joins) ---
+    # G9: the batch-8-era *_SQL_CONCAT rules only see SUPERGLOBAL-IN-SINK
+    # shapes. Every remaining CNAP INJ-SQL-001 true positive on WebGoat (9/9)
+    # and the DVWA sqli lesson builds the query in a VARIABLE a few lines
+    # above the sink (`String query = "..." + param; executeQuery(query)` /
+    # `$query = "SELECT ... '$id'"; mysql_query($query)`). These two rules
+    # close that recall gap with window-based validators; request-input
+    # evidence is still required, so config-interpolated queries (DVWA
+    # includes/DBMS/MySQL.php, adjudicated as no-attacker-control) stay dark.
+    {"id":"JAVA_JDBC_SQL_INTERMEDIATE_QUERY","title":"JDBC SQL via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\b(?:executeQuery|executeUpdate|execute)\s*\(\s*(?P<jvar>[A-Za-z_]\w*)\s*\)|prepareStatement\s*\(\s*(?P<pvar>[A-Za-z_]\w*)\s*[,)]"},
+    {"id":"JAVA_JDBC_SQL_PREPARED_CONCAT","title":"PreparedStatement Built by Concatenation","vuln":"sql_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?i)prepareStatement\s*\(\s*[\"'][^\"']*(?:select|insert|update|delete|where)"},
+    {"id":"PHP_SQL_INTERMEDIATE_QUERY","title":"PHP SQL via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["php"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?:mysql_query|mysqli_query|->query|PDO::query)\s*\("},
+    # G16: DVWA csp/source/jsonp.php -- `echo $callback . "(" . json_encode(...)` with
+    # $callback = $_GET['callback'] (JSONP callback injection). PHP_RAW_ECHO_XSS
+    # only sees `echo $_GET` adjacency.
+    {"id":"PHP_XSS_TAINTED_ECHO","title":"PHP echo/print of Request-Derived Value","vuln":"xss","sev":"High","langs":["php"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"(?<![\w$])(?:echo|print)\s+"},
+    # G17: DVWA view_source.php / view_source_all.php -- $id/$security from
+    # GET interpolated into a file_get_contents path one hop below.
+    {"id":"PHP_PATH_USER_INPUT_VAR","title":"PHP File Read via Request-Derived Variable","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?<![\w$])(?:file_get_contents|fopen|readfile|include|require|include_once|require_once)\s*\(?\s*"},
+    # G18: DVWA weak_id low/medium/high -- session cookie set from time(), an
+    # $_SESSION counter, or md5(counter). Client-chosen NON-session cookies
+    # (cookie-input.php 'id') are a different family and stay dark.
+    {"id":"PHP_SESSION_ID_PREDICTABLE","title":"PHP Predictable Session Identifier","vuln":"weak_session_identifier","sev":"Medium","langs":["php"],"cwe":"CWE-330","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?<![\w$])setcookie\s*\("},
+    # G19: DVWA open_redirect low/medium/high -- header("location: " . $_GET).
+    {"id":"PHP_OPEN_REDIRECT_HEADER","title":"PHP Open Redirect via Location Header","vuln":"open_redirect","sev":"Medium","langs":["php"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"(?i)(?<![\w$])header\s*\(\s*[\"'][^\"']*location\s*:"},
+    # G20: DVWA exec medium/high + api/HealthController -- shell_exec/exec fed
+    # a variable built from request input (str_replace blacklist is bypassable;
+    # php://input json body is one hop away). The impossible.php hardened
+    # variant (ctype_digit-validated octets) and escapeshellarg/escapeshellcmd
+    # wrapping stay dark -- see the validator guards.
+    {"id":"PHP_CMD_INJECTION_INTERMEDIATE","title":"PHP Command Injection via Intermediate Variable","vuln":"command_injection","sev":"Critical","langs":["php"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?<![\w$])(?:shell_exec|exec|system|passthru|popen|proc_open)\s*\("},
+    # G15: railsgoat config/initializers/secret_token.rb:8 -- committed Rails
+    # session-signing key (128-hex). ENV references and short dev strings are
+    # not key material; the language gate keeps docs/markdown examples out.
+    {"id":"RUBY_RAILS_SECRET_TOKEN","title":"Rails Hardcoded Secret Key Base","vuln":"hardcoded_secret","sev":"High","langs":["ruby"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:secret_key_base|secret_token)\s*=\s*[\"'][0-9A-Fa-f]{32,}[\"']"},
     {"id":"GO_HARDCODED_CREDENTIAL","title":"Go Hardcoded Credential in Connection String","vuln":"hardcoded_secret","sev":"High","langs":["go"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/"},
     {"id":"GO_SQL_CONCAT_INTERMEDIATE","title":"Go SQL Concatenation via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
     {"id":"GO_PATH_CONCAT","title":"Go Path String Concatenation with Absolute Prefix","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
@@ -876,6 +916,80 @@ def _match_starts_in_javascript_string(source: str, offset: int, language: str) 
     return quote is not None
 
 
+def _match_starts_in_php_string(source: str, offset: int, language: str) -> bool:
+    """Return True when a PHP regex match starts inside a string/heredoc.
+
+    Batch-10 lesson (DVWA csp/source/high.php): the word ``include`` appears
+    as the PARAMETER NAME ``$_POST['include']``, so a keyword-sink pattern
+    whose validator only inspects the extracted statement fired on the quoted
+    name. A php string position is not code; every batch-10 php rule anchors
+    on real code, so the position check is a pure false-positive guard.
+    Handles '...' / "..." / backtick strings (backslash escapes), // and #
+    line comments, /* */ blocks and heredoc/nowdoc bodies.
+    """
+    if str(language or "").lower() not in {"php"}:
+        return False
+    if offset < 0:
+        return False
+
+    quote = None
+    escaped = False
+    heredoc_label = None
+    i = 0
+    n = min(offset, len(source))
+
+    while i < n:
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+
+        if heredoc_label is not None:
+            if ch == "\n":
+                j = i + 1
+                k = j
+                while k < n and source[k] in " \t":
+                    k += 1
+                if source.startswith(heredoc_label, k):
+                    i = k + len(heredoc_label) - 1
+                    heredoc_label = None
+            i += 1
+            continue
+
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = None
+            i += 1
+            continue
+
+        if ch == "/" and nxt == "/":
+            end = source.find("\n", i)
+            i = n if end == -1 or end > n else end
+            continue
+        if ch == "#":
+            end = source.find("\n", i)
+            i = n if end == -1 or end > n else end
+            continue
+        if ch == "/" and nxt == "*":
+            end = source.find("*/", i + 2)
+            i = n if end == -1 or end + 1 > n else end + 1
+            continue
+        if ch == "<" and source.startswith("<<<", i):
+            m = re.match(r"<<<\s*(['\"]?)([A-Za-z_]\w*)\1\r?\n", source[i:])
+            if m:
+                heredoc_label = m.group(2)
+                i += m.end() - 1
+                continue
+        if ch in {"'", '"', "`"}:
+            quote = ch
+
+        i += 1
+
+    return quote is not None or heredoc_label is not None
+
+
 
 def _is_intentional_dynamic_import_function(source: str, match: re.Match) -> bool:
     """Exclude a fixed Function() wrapper used only to invoke dynamic import.
@@ -1279,6 +1393,372 @@ def _php_cookie_flag_missing(source: str, match: re.Match, language: str, need: 
     argc = commas + 1
     min_argc = 6 if need.lower() == "secure" else 7
     return argc < min_argc
+
+
+# --- batch-10 (2026-10-21): request-derived-value helpers + validators ------
+#
+# Batch 8-9 rules all required the SUPERGLOBAL itself on the sink line. Every
+# remaining confirmed CNAP true positive in the batch-10 joins (WebGoat SQLi,
+# DVWA sqli/weak_id/exec/open_redirect/view_source/jsonp, railsgoat
+# secret_token.rb) instead feeds the sink through a VARIABLE assigned a few
+# lines above. The helpers below implement a bounded backward scan over the
+# preceding window: an identifier is request-derived when its own assignment
+# RHS touches a request source ($_GET/$_POST/$_REQUEST/$_COOKIE/$_FILES,
+# $_SERVER HTTP_/QUERY_/REQUEST_ keys, php://input), optionally propagating
+# one more hop through referencing assignments. ``passes=1`` keeps one-hop
+# chains dark by design -- that is what lets the adjudicated CNAP false
+# positives (DVWA instructions.php whitelist lookup, check_token_high.php
+# processed-body print) stay quiet without a special case.
+
+_PHP_REQUEST_SOURCE_RE = re.compile(
+    r"\$_(?:GET|POST|REQUEST|COOKIE|FILES)\b"
+    r"|\$_SERVER\s*\[\s*[\"'](?:HTTP_|QUERY_STRING|REQUEST_URI)"
+    r"|php://input")
+
+# Wrappers whose output is encoded/safe: when the tainted value only occurs
+# inside one of these calls the echo/print/file statement is not an injection.
+_PHP_SAFE_WRAPPER_RE = re.compile(
+    r"(?:htmlspecialchars|htmlentities|strip_tags|json_encode|intval"
+    r"|addslashes|escapeshellarg|escapeshellcmd)\s*\((?:[^()]|\([^()]*\))*\)")
+
+
+def _php_tainted_vars(source: str, anchor: int, window: int = 1500,
+                      passes: int = 1) -> set:
+    """Identifiers ($-stripped) whose assignment RHS is request-derived.
+
+    Scans backwards from ``anchor`` over a bounded window, collecting
+    ``$name = ...`` assignments. With ``passes > 1`` an identifier whose RHS
+    merely references an already-derived identifier also becomes derived
+    (php://input json body: ``$input = json_decode(file_get_contents(
+    'php://input'))`` then ``$target = $input['target']``).
+    """
+    lo = max(0, anchor - window)
+    region = source[lo:anchor]
+    assignments = re.findall(r"\$([A-Za-z_]\w*)\s*=\s*([^;\n]+)", region)
+    tainted: set = set()
+    for _ in range(max(1, passes)):
+        grew = False
+        for name, rhs in assignments:
+            if name in tainted:
+                continue
+            if _PHP_REQUEST_SOURCE_RE.search(rhs):
+                tainted.add(name)
+                grew = True
+            elif passes > 1 and any(
+                    re.search(r"\$" + re.escape(t) + r"\b", rhs)
+                    for t in tainted):
+                tainted.add(name)
+                grew = True
+        if not grew:
+            break
+    return tainted
+
+
+def _php_statement(source: str, match: re.Match, cap: int = 500) -> str:
+    """Statement text from the match to the next top-level ';' (bounded)."""
+    end = source.find(";", match.start())
+    if end == -1 or end - match.start() > cap:
+        end = min(len(source), match.start() + cap)
+    return source[match.start():end]
+
+
+def _php_tainted_in(text: str, tainted: set) -> bool:
+    return any(re.search(r"\$" + re.escape(t) + r"\b", text) for t in tainted)
+
+
+# Sink taxonomy for the report-side EVIDEX evidence contract. These rules
+# emit regex findings with no taint-engine path, so without a recorded
+# sink_category/taint_path the analyzer's evidence gate (expected-vs-candidate
+# sink intersection, then the path_traversal occurrence gate in main.py)
+# deleted every finding at report intake -- measured on the DVWA re-scan:
+# all 21 path, 3 redirect and 1 xss rows were produced by scan_directory and
+# silently dropped before clean_report.json. The chain recorded here is the
+# validator's own window analysis (which variable, fed from which request
+# source, reaches which sink), so downstream taint-evidence gates treat the
+# finding as the source-to-sink evidence it actually is.
+_PHP_SINK_CATEGORY = {
+    "PHP_SQL_INTERMEDIATE_QUERY": "sql",
+    "JAVA_JDBC_SQL_INTERMEDIATE_QUERY": "sql",
+    "JAVA_JDBC_SQL_PREPARED_CONCAT": "sql",
+    "PHP_XSS_TAINTED_ECHO": "xss",
+    "PHP_PATH_USER_INPUT_VAR": "file",
+    "PHP_OPEN_REDIRECT_HEADER": "redirect",
+    "PHP_CMD_INJECTION_INTERMEDIATE": "command",
+}
+
+
+# Batch-10 php rules subject to the string-position guard (see dispatch).
+_BATCH10_PHP_RULE_IDS = frozenset(_PHP_SINK_CATEGORY) | {
+    "PHP_SESSION_ID_PREDICTABLE",
+}
+
+
+def _php_rule_taint_chain(rule_id: str, source: str, match: re.Match) -> str:
+    """Record which request source reaches the sink, per rule family."""
+    if rule_id == "PHP_CMD_INJECTION_INTERMEDIATE":
+        # 2-hop window: the json-body form chains input -> target -> exec.
+        tainted = _php_tainted_vars(source, match.start(), passes=2)
+    else:
+        tainted = _php_tainted_vars(source, match.start(), passes=1)
+    stmt = _php_statement(source, match)
+    for t in sorted(tainted):
+        if re.search(r"\$" + re.escape(t) + r"\b", stmt):
+            return "$%s -> %s" % (t, match.group(0).split("(")[0].strip())
+    # Direct superglobal at the sink (no variable hop): name it as the source.
+    m = _PHP_REQUEST_SOURCE_RE.search(stmt)
+    if m:
+        return "%s -> %s" % (m.group(0).split("[")[0].strip(),
+                             match.group(0).split("(")[0].strip())
+    return ""
+
+
+def _java_sql_intermediate_query(source: str, match: re.Match, language: str) -> bool:
+    """WebGoat shape: ``String query = \"...\" + param; executeQuery(query)``.
+
+    Fires only when the bare-identifier sink argument was assigned, within the
+    preceding window, a string that contains a SQL keyword AND concatenates a
+    non-literal operand, and the window carries request-parameter evidence
+    (@RequestParam/@PathVariable/@RequestBody/@ModelAttribute/getParameter)
+    plus JDBC context. Fully-literal query variables, parameterised '?'
+    forms and non-JDBC ``executor.execute(task)`` stay dark.
+    """
+    if language != "java":
+        return False
+    gd = match.groupdict() or {}
+    var = gd.get("jvar") or gd.get("pvar") or ""
+    if not var:
+        return False
+    lo = max(0, match.start() - 1500)
+    window = source[lo:match.start()]
+    # JDBC context: the window must name a JDBC statement call, EXCEPT when
+    # the matched sink itself is prepareStatement(queryString, ...) -- the
+    # call is its own context (WebGoat Lesson5b).
+    if not re.search(r"createStatement|prepareStatement",
+                     window + " " + match.group(0)):
+        return False
+    if not re.search(
+            r"@RequestParam|@PathVariable|@RequestBody|@ModelAttribute"
+            r"|getParameter\s*\(", window):
+        return False
+    # LAST assignment wins (WebGoat Lesson5a: `String query = "";` is
+    # re-assigned the concatenated SQL before the sink -- checking only the
+    # first assignment would treat the empty initializer as proof of a
+    # literal query).
+    assigns = list(re.finditer(
+        r"\b" + re.escape(var) + r"\b\s*=\s*([^;]+);", window, re.S))
+    if not assigns:
+        return False
+    rhs = assigns[-1].group(1)
+    if not re.search(r"(?:SELECT|INSERT|UPDATE|DELETE|WHERE|ORDER\s+BY)",
+                     rhs, re.I):
+        return False
+    # Concat with a non-literal operand: '+' followed by an identifier /
+    # method call, not another string quote.
+    return bool(re.search(r"\+\s*[A-Za-z_$]", rhs))
+
+
+def _java_sql_prepared_concat(source: str, match: re.Match, language: str) -> bool:
+    """WebGoat Assignment5/Servers shape: prepareStatement( with the concat
+    spanning multiple lines INSIDE the call (batch-8's JAVA_JDBC_SQL_CONCAT
+    is single-line). Requires a non-literal concat operand inside the balanced
+    call region and request-parameter evidence in the window; literal-only
+    queries and '?' placeholders stay dark.
+    """
+    if language != "java":
+        return False
+    region = _call_region(source, match.start(), cap=2000)
+    if not region:
+        return False
+    if not re.search(r"\+\s*[A-Za-z_$]", region):
+        return False
+    lo = max(0, match.start() - 1500)
+    window = source[lo:match.start()]
+    return bool(re.search(
+        r"@RequestParam|@PathVariable|@RequestBody|getParameter\s*\(", window))
+
+
+def _php_sql_intermediate_query(source: str, match: re.Match, language: str) -> bool:
+    """DVWA sqli/high.php shape: ``$query = \"SELECT ... '$id'\"`` then
+    ``mysql_query($query)``. The sink argument must be a request-derived
+    identifier whose assignment built a SQL string by interpolation or
+    concatenation. Config-interpolated queries (DVWA includes/DBMS/MySQL.php:
+    ``$drop_db = \"DROP DATABASE `{$_DVWA['db_database']}`\"``) carry no
+    attacker control and stay dark -- adjudicated divergence from CNAP.
+    """
+    if language != "php":
+        return False
+    stmt = _php_statement(source, match)
+    lo = max(0, match.start() - 1500)
+    region = source[lo:match.start()]
+    tainted = _php_tainted_vars(source, match.start(), passes=1)
+    # The sink argument is a VARIABLE whose own assignment built the SQL
+    # string from a request-derived part (direct superglobal, or a var one
+    # hop below one).
+    for name in re.findall(r"\$([A-Za-z_]\w*)", stmt):
+        m = re.search(r"\$" + re.escape(name) + r"\b\s*=\s*([^;\n]+)", region)
+        if not m:
+            continue
+        rhs = m.group(1)
+        if (not _PHP_REQUEST_SOURCE_RE.search(rhs)
+                and not _php_tainted_in(rhs, tainted)):
+            continue
+        if not re.search(r"(?:SELECT|INSERT|UPDATE|DELETE|WHERE|DROP)",
+                         rhs, re.I):
+            continue
+        # Non-literal part: '.'-concat with a variable, or a variable
+        # interpolated inside a string literal.
+        if (re.search(r"\.\s*\$", rhs)
+                or re.search(r"[\"'][^\"']*\$\w+", rhs)):
+            return True
+    return False
+
+
+def _php_xss_tainted_echo(source: str, match: re.Match, language: str) -> bool:
+    """DVWA csp/jsonp.php shape: ``echo $callback . '(' . json_encode(..)``
+    with ``$callback = $_GET['callback']`` (JSONP callback injection), plus
+    direct interpolated echo. Safe wrappers (htmlspecialchars/json_encode/...)
+    around the tainted occurrence suppress the finding; a value only one hop
+    beyond request input (check_token_high.php ``print $ret``) stays dark.
+    """
+    if language != "php":
+        return False
+    stmt = _php_statement(source, match)
+    stripped = _PHP_SAFE_WRAPPER_RE.sub("", stmt)
+    if _PHP_REQUEST_SOURCE_RE.search(stripped):
+        return True
+    return _php_tainted_in(stripped, _php_tainted_vars(source, match.start(),
+                                                      passes=1))
+
+
+def _php_path_user_input_var(source: str, match: re.Match, language: str) -> bool:
+    """DVWA view_source.php / view_source_all.php shape: $id/$security from
+    GET interpolated into a file_get_contents path one hop below. basename()
+    wrapping suppresses; whitelisted-map lookups (instructions.php, where a
+    one-hop value is gated through array_key_exists against a fixed table)
+    stay dark because propagation never leaves the direct assignment.
+
+    php://input is deliberately NOT a direct path source: reading the request
+    body via the fixed stream wrapper is the standard JSON API pattern (DVWA
+    api/src/*Controller.php read it on every endpoint) and the PATH is a
+    literal, not attacker-controlled. Body CONTENT reaching a path through a
+    variable still counts, because there the path text is attacker-written.
+    """
+    if language != "php":
+        return False
+    stmt = _php_statement(source, match)
+    if re.search(r"basename\s*\(", stmt):
+        return False
+    if re.search(
+            r"\$_(?:GET|POST|REQUEST|COOKIE|FILES)\b"
+            r"|\$_SERVER\s*\[\s*[\"'](?:HTTP_|QUERY_STRING|REQUEST_URI)", stmt):
+        return True
+    return _php_tainted_in(stmt, _php_tainted_vars(source, match.start(),
+                                                  passes=1))
+
+
+def _php_session_id_predictable(source: str, match: re.Match, language: str) -> bool:
+    """DVWA weak_id low/medium/high: session cookie value from time(), an
+    $_SESSION counter, or md5(counter). Only session-named cookies qualify
+    (dvwaSession/PHPSESSID/...); client-chosen non-session cookies
+    (cookie-input.php 'id', pref.php 'lang') are a different family and stay
+    dark. random_bytes/random_int/session_create_id values are quiet.
+    """
+    if language != "php":
+        return False
+    region = _call_region(source, match.start(), cap=800)
+    if not region or len(region) < 3:
+        return False
+    name_m = re.search(r"[\"']([^\"']+)[\"']", region)
+    if not name_m or not re.search(
+            r"session|PHPSESSID|\bsid\b|sess", name_m.group(1), re.I):
+        return False
+    # Split the call's top-level args (quote/bracket aware) to isolate value.
+    depth, quote, cur, parts = 0, None, [], []
+    for ch in region[1:-1]:
+        if quote:
+            cur.append(ch)
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+            cur.append(ch)
+        elif ch in "([{":
+            depth += 1
+            cur.append(ch)
+        elif ch in ")]}":
+            depth -= 1
+            cur.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+    if len(parts) < 2:
+        return False
+    value = parts[1]
+    if re.search(r"random_bytes|random_int|session_create_id", value, re.I):
+        return False
+    lo = max(0, match.start() - 1500)
+    window = source[lo:match.start()]
+    # The value is often a variable: resolve its own assignment RHS so
+    # `$cookie_value = time(); setcookie("dvwaSession", $cookie_value)` and
+    # `$cookie_value = md5($_SESSION[...]); setcookie(...)` are seen.
+    value_rhs = ""
+    for name in re.findall(r"\$([A-Za-z_]\w*)", value):
+        m = re.search(r"\$" + re.escape(name) + r"\b\s*=\s*([^;\n]+)", window)
+        if m:
+            value_rhs = m.group(1)
+            break
+    predictable = lambda text: bool(re.search(
+        r"(?:time|microtime|rand|mt_rand|uniqid)\s*\(", text))
+    if predictable(value) or (value_rhs and predictable(value_rhs)):
+        return True
+    # Predictable only when an $_SESSION counter is being incremented in the
+    # window and the value derives from $_SESSION (directly or through the
+    # resolved assignment, e.g. md5 of the counter).
+    if re.search(r"\+\+\s*\$_SESSION|\$_SESSION\s*\[[^\]]+\]\s*\+\+", window):
+        if (re.search(r"\$_SESSION", value)
+                or (value_rhs and re.search(r"\$_SESSION", value_rhs))
+                or re.search(r"=\s*\$_SESSION", window)):
+            return True
+    return False
+
+
+def _php_open_redirect_header(source: str, match: re.Match, language: str) -> bool:
+    """DVWA open_redirect low/medium/high: header(\"location: \" . $_GET[...])
+    (lowercase 'location:' included). Static targets and config-derived URLs
+    stay dark (no request evidence in the statement or its direct vars)."""
+    if language != "php":
+        return False
+    stmt = _php_statement(source, match)
+    if _PHP_REQUEST_SOURCE_RE.search(stmt):
+        return True
+    return _php_tainted_in(stmt, _php_tainted_vars(source, match.start(),
+                                                  passes=1))
+
+
+def _php_cmd_injected_var(source: str, match: re.Match, language: str) -> bool:
+    """DVWA exec medium/high + api/HealthController: shell_exec/exec fed a
+    variable built from request input (2 hops: php://input json body counts).
+    Guards keep the hardened impossible.php variant (ctype_digit-validated
+    octets reassembled) and escapeshellarg/escapeshellcmd-wrapped arguments
+    dark -- the blacklist-only str_replace chains in high/medium are
+    bypassable and must fire.
+    """
+    if language != "php":
+        return False
+    stmt = _php_statement(source, match)
+    if re.search(r"escapeshellarg\s*\(|escapeshellcmd\s*\(", stmt):
+        return False
+    lo = max(0, match.start() - 1500)
+    window = source[lo:match.start()]
+    if re.search(r"ctype_digit|ctype_alnum|is_numeric|intval\s*\("
+                 r"|filter_var\s*\([^)]*FILTER_VALIDATE", window):
+        return False
+    return _php_tainted_in(stmt, _php_tainted_vars(source, match.start(),
+                                                  passes=2))
 
 
 def _express_csrf_missing(source: str, match: re.Match, language: str) -> bool:
@@ -1810,6 +2290,47 @@ def scan_file(filepath: str) -> list[dict]:
                 if not _java_cbc_static_iv(source, match, language):
                     continue
 
+            # --- batch 10 (2026-10-21): intermediate-variable sinks -------
+            # PHP position guard first: a keyword-sink pattern can start
+            # inside a string (DVWA csp: $_POST['include'] -- 'include' is a
+            # parameter NAME, not a sink). Anchored rules never match in
+            # string content, so this is a pure FP guard.
+            if rule.get("id") in _BATCH10_PHP_RULE_IDS and _match_starts_in_php_string(
+                    source, match.start(), language):
+                continue
+
+            if rule.get("id") == "JAVA_JDBC_SQL_INTERMEDIATE_QUERY":
+                if not _java_sql_intermediate_query(source, match, language):
+                    continue
+
+            if rule.get("id") == "JAVA_JDBC_SQL_PREPARED_CONCAT":
+                if not _java_sql_prepared_concat(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_SQL_INTERMEDIATE_QUERY":
+                if not _php_sql_intermediate_query(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_XSS_TAINTED_ECHO":
+                if not _php_xss_tainted_echo(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_PATH_USER_INPUT_VAR":
+                if not _php_path_user_input_var(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_SESSION_ID_PREDICTABLE":
+                if not _php_session_id_predictable(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_OPEN_REDIRECT_HEADER":
+                if not _php_open_redirect_header(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_CMD_INJECTION_INTERMEDIATE":
+                if not _php_cmd_injected_var(source, match, language):
+                    continue
+
             if rule.get("id") == "EXPRESS_SESSION_COOKIE_NO_EXPIRY":
                 if not _express_session_no_expiry(source, match, language):
                     continue
@@ -1942,7 +2463,17 @@ def scan_file(filepath: str) -> list[dict]:
             lineno, snippet = _snippet_for_match(rule, source, lines, match.start(), match.end())
             if _is_comment(snippet, language):
                 continue
-            findings.append(_make_finding(rule, filepath, lineno, snippet, language))
+            finding = _make_finding(rule, filepath, lineno, snippet, language)
+            # Batch-10 regex validators resolve the request source in their
+            # own window; carry that chain so report-side evidence gates
+            # (EVIDEX sink contract, path_traversal occurrence gate) can see
+            # the source-to-sink evidence instead of deleting the finding.
+            if finding["rule_id"] in _PHP_SINK_CATEGORY:
+                finding["sink_category"] = _PHP_SINK_CATEGORY[finding["rule_id"]]
+                chain = _php_rule_taint_chain(finding["rule_id"], source, match)
+                if chain:
+                    finding["taint_path"] = chain
+            findings.append(finding)
 
     return findings
 

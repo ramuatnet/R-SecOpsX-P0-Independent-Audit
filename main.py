@@ -1354,12 +1354,24 @@ def _prune_unsupported_occurrences(payload: dict) -> int:
                 # Test specifications and explicit testing placeholders are not
                 # production credential exposure. Keep real key material and
                 # non-test data files eligible for secret findings.
-                ofile = str(occ.get("file", "")).lower()
-                if (
+                ofile = str(occ.get("file", "")).lower().replace("\\", "/")
+                if re.search(r"(?:^|/)db/seeds\.rb$", ofile):
+                    # 2026-10-21 batch-10 (railsgoat adjudication): Rails
+                    # db/seeds.rb is DEPLOYMENT seed data -- `rails db:seed`
+                    # creates the production default accounts from it, so
+                    # committed seed passwords are real default-credential
+                    # exposure (CNAP flags them; railsgoat had 7 silently
+                    # deleted here). The fixture/seed suppression below
+                    # targets JS fixture DATA files, not executable seed
+                    # scripts; normalize separators so the intended
+                    # __fixtures__/... suppression also works on Windows
+                    # paths (the '/'-anchored regexes never matched '\\').
+                    supported = True
+                elif (
                     re.search(r"\.(?:spec|test)\.(?:js|ts|tsx|jsx)$", ofile)
                     or re.search(r"(?:testingpassword|test@test\.com)", low)
                     or re.search(r"(?:^|/)data/static/(?:users|fixtures|test-data)(?:\.|/)", ofile)
-                    or re.search(r"(?:^|/)(?:fixtures?|seed(?:s)?|test-data)(?:/|\.)", ofile)
+                    or re.search(r"(?:^|/)(?:__)?(?:fixtures?|seed(?:s)?|test-data)(?:__)?(?:/|\.)", ofile)
                 ):
                     supported = False
                 else:

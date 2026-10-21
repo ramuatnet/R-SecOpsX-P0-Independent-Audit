@@ -258,9 +258,12 @@ def test_kill_direction_is_structural():
     import inspect
     src = inspect.getsource(sast.scan_file)
     gate_at = src.index("_java_path_arg_proven_constant")
-    # The enterprise loop's append is the LAST append in scan_file.
-    append_at = src.rindex("findings.append(_make_finding(rule, filepath, lineno, snippet, language))")
-    assert gate_at < append_at
+    # The enterprise loop's append is the LAST append in scan_file (batch-10
+    # assigned the construction to a variable first, so the anchor is the
+    # assignment, and the append must still follow the gate).
+    assign_at = src.rindex("finding = _make_finding(rule, filepath, lineno, snippet, language)")
+    append_at = src.index("findings.append(finding)", assign_at)
+    assert gate_at < assign_at < append_at
     # And the guard is a `continue`, i.e. it can only remove.
     guard_region = src[gate_at:append_at]
     assert "continue" in guard_region
