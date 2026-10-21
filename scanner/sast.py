@@ -274,6 +274,30 @@ ENTERPRISE_RULES: list[dict] = [
     # EXCLUDED_DIRS policy -- this rule covers first-party Go source.)
     {"id":"GO_MD5_USAGE","title":"Go MD5 Usage","vuln":"weak_crypto","sev":"High","langs":["go"],"cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures","pat":r"[\"']crypto/md5[\"']|\bmd5\.(?:New|Sum)\s*\("},
     {"id":"GO_SHA1_USAGE","title":"Go SHA-1 Usage","vuln":"weak_crypto","sev":"High","langs":["go"],"cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures","pat":r"[\"']crypto/sha1[\"']|\bsha1\.(?:New|Sum)\s*\("},
+    # --- batch 9 (2026-10-21, DVWA/wrongsecrets joins) ---
+    # DVWA vulnerabilities/api/gen_openapi.php:6 -- CNAP INTEG-ORIGIN-001:
+    # header("Access-Control-Allow-Origin: *"). Cross-language posture rule.
+    # The pattern is deliberately CALL-ANCHORED (header(/setHeader(/addHeader(
+    # /headers[...]=): the header NAME necessarily lives in a string literal,
+    # and the JS string-content suppression at the enterprise dispatch drops
+    # any match that starts inside 'Access-Control-Allow-Origin'. Anchoring
+    # on the sink call keeps the match on code, and reflected-origin echoes
+    # (a different defect family) stay quiet by construction -- see the test
+    # controls in tests/test_lacework_prodtest_batch9_gaps_20261021.py.
+    {"id":"GENERIC_CORS_WILDCARD_ORIGIN","title":"CORS Wildcard Origin","vuln":"insecure_cors_configuration","sev":"Medium","langs":["python","javascript","typescript","php","java"],"cwe":"CWE-942","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?:header|setHeader|add[_]?Header)\s*\(\s*[\"'][^\"']*Access-Control-Allow-Origin\s*:\s*\*[\"']|(?:setHeader|add[_]?Header)\s*\(\s*[\"']Access-Control-Allow-Origin[\"']\s*,\s*[\"']\*[\"']|headers\s*\[\s*[\"']Access-Control-Allow-Origin[\"']\s*\]\s*=\s*[\"']\*[\"']"},
+    # wrongsecrets Challenge54.java:42 + Challenge63.java:41 -- CNAP
+    # CRYPTO-WEAK-002: Cipher.getInstance("AES/CBC/...") fed a static IV
+    # (Challenge63 self-documents the padding oracle). The gate requires an
+    # IvParameterSpec in the window AND a literal assigned to an iv-named
+    # identifier, so AES/GCM with SecureRandom IVs stays quiet.
+    {"id":"JAVA_CIPHER_CBC_STATIC_IV","title":"Java AES/CBC Cipher with Static IV","vuln":"weak_crypto","sev":"High","langs":["java"],"cwe":"CWE-329","owasp":"A02:2021 - Cryptographic Failures","pat":r"Cipher\.getInstance\s*\(\s*[\"'][^\"']*(?:AES|DES)/CBC"},
+    # DVWA setcookie() -- CNAP DATA-COOKIE-001/002 (secure x7, httponly x6).
+    # PHP's setcookie is positional (secure=arg6, httponly=arg7) with a PHP
+    # 7.3+ options-array alternative; the guard handles both forms. Each flag
+    # keeps its own vuln_type so core.deduplicator's (vuln_type, file, line)
+    # key cannot collapse them (batch-8 lesson).
+    {"id":"PHP_COOKIE_MISSING_SECURE","title":"PHP Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["php"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"setcookie\s*\("},
+    {"id":"PHP_COOKIE_MISSING_HTTPONLY","title":"PHP Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["php"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"setcookie\s*\("},
     {"id":"GO_HARDCODED_CREDENTIAL","title":"Go Hardcoded Credential in Connection String","vuln":"hardcoded_secret","sev":"High","langs":["go"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/"},
     {"id":"GO_SQL_CONCAT_INTERMEDIATE","title":"Go SQL Concatenation via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
     {"id":"GO_PATH_CONCAT","title":"Go Path String Concatenation with Absolute Prefix","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
@@ -1087,7 +1111,7 @@ def _rate_limit_present(source: str, match: re.Match) -> bool:
     ))
 
 
-def _aliased_hashlib_match(source: str, match: re.Match, rule: dict) -> bool:
+def _aliased_hashlib_match(source: str, match: re.Match, rule: dict, language: str = "") -> bool:
     """Gate the bare ``md5(`` / ``sha1(`` arm of MD5_USAGE / SHA1_USAGE.
 
     The qualified arms (``hashlib.md5(``, ``MessageDigest.getInstance("MD5")``,
@@ -1097,11 +1121,17 @@ def _aliased_hashlib_match(source: str, match: re.Match, rule: dict) -> bool:
     calling ``md5(...)`` (pygoat introduction/mitre.py:161, CNAP
     CRYPTO-WEAK-003). A local helper named md5()/sha1() with no hashlib import
     is not weak crypto and stays quiet.
+
+    2026-10-21 batch 9 (DVWA): PHP's ``md5()``/``sha1()`` ARE the hash
+    functions with no import ceremony (DVWA mysql.php sha1($password), CNAP
+    CRYPTO-WEAK-003 x20), so the bare arm passes for php directly.
     """
     head = match.group(0)
     name = "md5" if rule.get("id") == "MD5_USAGE" else "sha1"
     if not head.lower().startswith(name):
         # qualified arm (hashlib.md5(, MessageDigest..., createHash...)
+        return True
+    if language == "php":
         return True
     return bool(re.search(
         r"from\s+hashlib\s+import\s+[^#\n]*\b" + name + r"\b", source
@@ -1179,6 +1209,76 @@ def _express_session_no_expiry(source: str, match: re.Match, language: str) -> b
                 break
     region = source[match.start():end]
     return not re.search(r"\b(?:maxAge|expires)\s*:", region, re.I)
+
+
+def _java_cbc_static_iv(source: str, match: re.Match, language: str) -> bool:
+    """True for a CBC cipher call whose IV is a literal (wrongsecrets batch 9).
+
+    Challenge54.java assigns ``byte[] ivBytes = "0123456789abcdef"...`` one
+    line above the Cipher.getInstance call; Challenge63 assigns a constant
+    whose NAME ends in IV. Both shapes need a window scan: the literal is
+    never on the sink line. GCM/SecureRandom shapes carry no IvParameterSpec
+    in the window and stay quiet.
+    """
+    if language != "java":
+        return False
+    # +-1500 chars: in wrongsecrets Challenge63 the IV literal sits in the
+    # class-constant block ~580 chars above the sink -- a 600-char window
+    # only catches it by luck, and other challenge files mount constants
+    # further away.
+    lo = max(0, match.start() - 1500)
+    hi = min(len(source), match.end() + 1500)
+    window = source[lo:hi]
+    if "IvParameterSpec" not in window:
+        return False
+    return bool(
+        re.search(r"(?i)\w*iv\w*\s*=\s*[\"'][^\"']{8,}[\"']", window)
+        or re.search(r"IvParameterSpec\s*\(\s*[\"']", window)
+    )
+
+
+# PHP setcookie is positional: secure is argument 6, httponly argument 7
+# (PHP docs; the 7.3+ options-array form names them instead).
+_PHP_COOKIE_FLAG_BY_RULE = {
+    "PHP_COOKIE_MISSING_SECURE": ("secure", 6),
+    "PHP_COOKIE_MISSING_HTTPONLY": ("httponly", 7),
+}
+
+
+def _php_cookie_flag_missing(source: str, match: re.Match, language: str, need: str) -> bool:
+    """True when the setcookie() call lacks the rule's flag (DVWA batch 9).
+
+    Handles both the positional form (count top-level commas, quote- and
+    bracket-aware) and the PHP 7.3+ ``[... 'secure' => true ...]`` options
+    array (presence of the key satisfies, regardless of value -- presence
+    semantics, same as the python cookie rules).
+    """
+    if language != "php":
+        return False
+    region = _call_region(source, match.start(), cap=1500)
+    if not region or len(region) < 3:
+        return False
+    if re.search(r"[\"']" + need + r"[\"']\s*=>", region, re.I):
+        return False
+    depth = 0
+    commas = 0
+    quote = None
+    for ch in region[1:-1]:
+        if quote:
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            commas += 1
+    argc = commas + 1
+    min_argc = 6 if need.lower() == "secure" else 7
+    return argc < min_argc
 
 
 def _express_csrf_missing(source: str, match: re.Match, language: str) -> bool:
@@ -1634,7 +1734,7 @@ def scan_file(filepath: str) -> list[dict]:
                     and match.group("credval").upper() in _HTTP_METHOD_VERBS):
                 continue
             if (rule.get("id") in {"MD5_USAGE", "SHA1_USAGE"}
-                    and not _aliased_hashlib_match(source, match, rule)):
+                    and not _aliased_hashlib_match(source, match, rule, language)):
                 # 2026-10-21 prodtest/pygoat: the bare md5(/sha1( arm is the
                 # hashlib API only when the file imports that name from
                 # hashlib; a local helper with the same name is not crypto.
@@ -1698,6 +1798,16 @@ def scan_file(filepath: str) -> list[dict]:
                 if not _py_cookie_flag_missing(
                     source, match, language, _PY_COOKIE_FLAG_BY_RULE[rule["id"]]
                 ):
+                    continue
+
+            if rule.get("id") in _PHP_COOKIE_FLAG_BY_RULE:
+                if not _php_cookie_flag_missing(
+                    source, match, language, _PHP_COOKIE_FLAG_BY_RULE[rule["id"]][0]
+                ):
+                    continue
+
+            if rule.get("id") == "JAVA_CIPHER_CBC_STATIC_IV":
+                if not _java_cbc_static_iv(source, match, language):
                     continue
 
             if rule.get("id") == "EXPRESS_SESSION_COOKIE_NO_EXPIRY":

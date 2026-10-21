@@ -821,6 +821,20 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
             if "${" in ver_str:
                 ver_str = _resolve_pom_property(ver_str, pom_properties)
 
+            # 2026-10-21 batch 9 (WebGoat): a dependency that omits <version>
+            # is managed by a parent pom or an imported BOM; following that
+            # chain needs remote resolution (deferred). The dominant LOCAL
+            # convention is worth honouring: WebGoat declares
+            # <commons-lang3.version>3.14.0</commons-lang3.version> while the
+            # commons-lang3 dependency carries no <version>, and CNAP resolved
+            # the pin (3 CVEs) where V11 reported "unknown" and dropped them.
+            # Only an exact "<artifactId>.version" property match is used --
+            # no substring heuristics -- so an unrelated property can never be
+            # attributed to a dependency (jackson-databind, which has no local
+            # property at all, stays honestly unknown).
+            if ver_str == "unknown" and artifact_id not in ("", "unknown"):
+                ver_str = pom_properties.get(f"{artifact_id}.version", "unknown")
+
             pkgs.append({
                 "name": f"{group_id}:{artifact_id}",
                 "version": ver_str,
