@@ -504,11 +504,17 @@ def test_the_cli_exits_1_when_disagreements_remain(tmp_path, capsys):
     def fake_peer(path, extra, timeout):
         return [], None
 
+    # Hermetic: force the availability gate open so this exercises the exit
+    # code contract without requiring the grype binary to be installed (CI
+    # runner has no grype). Mirrors test_a_peer_with_no_runner_is_blocked.
+    avail_orig = differential.peer_available
+    differential.peer_available = lambda tool: (True, "/forced/installed")
     original = differential._PEER_RUNNERS.get("grype")
     differential._PEER_RUNNERS["grype"] = fake_peer
     try:
         code = differential.main(["--tool", "grype", "--target", str(sbom)])
     finally:
+        differential.peer_available = avail_orig
         if original is None:
             differential._PEER_RUNNERS.pop("grype", None)
         else:
@@ -526,11 +532,15 @@ def test_the_cli_exits_0_only_when_the_sides_agree(tmp_path, capsys):
         # resolution works, this is a match and the run is clean.
         return [dict(GRYPE_MATCH)], None
 
+    # Hermetic: force the availability gate open (CI runner has no grype).
+    avail_orig = differential.peer_available
+    differential.peer_available = lambda tool: (True, "/forced/installed")
     original = differential._PEER_RUNNERS.get("grype")
     differential._PEER_RUNNERS["grype"] = agreeing_peer
     try:
         code = differential.main(["--tool", "grype", "--target", str(sbom)])
     finally:
+        differential.peer_available = avail_orig
         if original is None:
             differential._PEER_RUNNERS.pop("grype", None)
         else:
