@@ -336,8 +336,15 @@ class TestTerraformStructured:
             '  }\n'
             '}\n', encoding="utf-8")
         findings = _findings_for(scan_terraform, tmp_path, "enc.tf")
-        assert _rule_ids(findings) == ["TF_UNENCRYPTED_S3_BUCKET"]
-        assert findings[0]["line"] == 1  # only the plain bucket
+        # Core intent: only the `plain` bucket (no inline/sibling encryption)
+        # is flagged for encryption; `inline` and `linked` are respected.
+        # G21: empty buckets (plain, linked) may also emit S3 companion
+        # posture findings (versioning/logging/replication absence); those are
+        # genuine and are asserted separately in test_g21_terraform_posture.
+        unencrypted = [
+            f for f in findings if f["rule_id"] == "TF_UNENCRYPTED_S3_BUCKET"
+        ]
+        assert [f["line"] for f in unencrypted] == [1]
 
     def test_exact_attribute_names_stop_double_fire(self, tmp_path):
         (tmp_path / "rds.tf").write_text(
@@ -412,7 +419,11 @@ class TestTerraformStructured:
             '}\n', encoding="utf-8")
         from scanner.iac_terraform import STRUCTURED_RULE_IDS
         findings = _findings_for(scan_terraform, tmp_path, "sink.tf")
-        assert set(_rule_ids(findings)) == set(STRUCTURED_RULE_IDS)
+        # Core intent: every structured rule fires on this fixture. G21: the
+        # empty "plain" bucket may also emit S3 companion posture findings
+        # (not in STRUCTURED_RULE_IDS); they are genuine and are asserted
+        # separately in test_g21_terraform_posture.
+        assert set(STRUCTURED_RULE_IDS) <= set(_rule_ids(findings))
 
     def test_parse_failure_falls_back_to_regex_engine(self, tmp_path):
         (tmp_path / "broken.tf").write_text(

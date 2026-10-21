@@ -207,12 +207,651 @@ RULES = [
         "framework": "Secret Management",
         "control": "Credential Protection",
     },
+    # --- Batch G21: AWS IAM policy-document least privilege ---------------
+    # The pre-existing TF_IAM_WILDCARD_ACTION only catches a bare `"*"`
+    # element. These close the gap Lacework/CNAP aws-iam-13 / aws-iam-8
+    # surfaced on wrongsecrets aws/irsa.tf: full-service wildcards
+    # (`secretsmanager:*`), partial wildcards (`secretsmanager:Get*`), and
+    # the admin combination (wildcard action + wildcard resource).
+    {
+        "rule_id": "TF_AWS_IAM_WILDCARD_ACTION_SERVICE",
+        "title": "IAM Policy Statement Allows Full-Service or Bare Wildcard Action",
+        "severity": "High",
+        "pattern": re.compile(
+            r'actions?\s*=\s*\[[^\]]*(?:["\']\*["\']|["\'][a-z0-9-]+:\*["\'])',
+            re.IGNORECASE,
+        ),
+        "description": "An IAM policy statement grants a bare '*' or full-service '<service>:*' action, violating least privilege.",
+        "remediation": "Replace wildcard actions with the specific actions the workload requires.",
+        "cwe": "CWE-732",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "IAM Least Privilege",
+    },
+    {
+        "rule_id": "TF_AWS_IAM_PARTIAL_WILDCARD_ACTION",
+        "title": "IAM Policy Statement Allows Partial Wildcard Action",
+        "severity": "Medium",
+        "pattern": re.compile(
+            r'actions?\s*=\s*\[[^\]]*["\'][a-z0-9-]+:[A-Za-z0-9]*\*+[A-Za-z0-9]*["\']',
+            re.IGNORECASE,
+        ),
+        "description": "An IAM policy statement grants a verb-level wildcard action (e.g. secretsmanager:Get*), which is broader than least privilege.",
+        "remediation": "Enumerate the exact API actions instead of using verb wildcards.",
+        "cwe": "CWE-732",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "IAM Least Privilege",
+    },
+    {
+        "rule_id": "TF_AWS_IAM_ADMIN_WILDCARD",
+        "title": "IAM Policy Allows Administrative Privileges (Wildcard Action + Resource)",
+        "severity": "Critical",
+        "pattern": re.compile(
+            r'(?=.*actions?\s*=\s*\[[^\]]*(?:["\']\*["\']|["\'][a-z0-9-]+:\*["\']))'
+            r'(?=.*resources?\s*=\s*\[[^\]]*["\']\*["\'])',
+            re.IGNORECASE,
+        ),
+        "description": "An IAM policy statement combines a wildcard action with a wildcard resource, granting full administrative privileges.",
+        "remediation": "Scope both the actions and the resources to the minimum required.",
+        "cwe": "CWE-266",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "Privileged Access Management",
+    },
 ]
 
 _RULE_BY_ID = {rule["rule_id"]: rule for rule in RULES}
 _STRUCTURED_RULES = [
     rule for rule in RULES if rule["rule_id"] in STRUCTURED_RULE_IDS
 ]
+
+
+# ---------------------------------------------------------------------------
+# Batch G21: cloud-posture rules (CNAP's GKE/AKS/KeyVault/Storage/IAM posture
+# families on wrongsecrets). Unlike RULES (which flag a matching pattern),
+# these evaluate the ABSENCE or PRESENCE of a security control *within* a
+# resource block. `kind`:
+#   "absence"      -> flag when `pattern` is NOT found in the block (missing
+#                     hardening control; secure config absent).
+#   "presence"     -> flag when `pattern` IS found (explicitly insecure value).
+#   "resource_type"-> flag any resource whose type is in `types`.
+# Each rule is scoped to a set of terraform resource `types`.
+POSTURE_RULES: list[dict[str, Any]] = [
+    # ---- GKE cluster (google_container_cluster) -------------------------
+    {
+        "rule_id": "TF_GKE_PRIVATE_CONTROL_PLANE",
+        "title": "GKE Control Plane Is Not Private",
+        "severity": "Critical",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'private_cluster_config\s*\{[^}]*enable_private_endpoint\s*=\s*true',
+            re.IGNORECASE,
+        ),
+        "description": "The GKE cluster's control plane endpoint is publicly reachable (private_cluster_config.enable_private_endpoint is not true).",
+        "remediation": "Set private_cluster_config { enable_private_endpoint = true } so the API server is only reachable internally.",
+        "cwe": "CWE-284",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Private Cluster",
+    },
+    {
+        "rule_id": "TF_GKE_PRIVATE_NODES",
+        "title": "GKE Nodes Are Not Private",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'private_cluster_config\s*\{[^}]*private_nodes\s*=\s*true',
+            re.IGNORECASE,
+        ),
+        "description": "GKE nodes are assigned public IPs (private_cluster_config.private_nodes is not true).",
+        "remediation": "Set private_cluster_config { private_nodes = true } so nodes have only internal IPs.",
+        "cwe": "CWE-284",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Private Cluster",
+    },
+    {
+        "rule_id": "TF_GKE_NETWORK_POLICY",
+        "title": "GKE Network Policy Not Enabled",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'network_policy\s*\{[^}]*enabled\s*=\s*true',
+            re.IGNORECASE,
+        ),
+        "description": "Kubernetes NetworkPolicy is disabled on the cluster, so pod traffic is unrestricted.",
+        "remediation": "Add a network_policy block with enabled = true and enforce pod-level network policy.",
+        "cwe": "CWE-923",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Network Policy",
+    },
+    {
+        "rule_id": "TF_GKE_SECURE_BOOT",
+        "title": "GKE Secure Boot Not Enabled",
+        "severity": "High",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'shielded_instance_config\s*\{[^}]*enable_secure_boot\s*=\s*true',
+            re.IGNORECASE,
+        ),
+        "description": "Shielded GKE nodes do not have secure boot enabled, so unsigned kernel modules can load.",
+        "remediation": "Set node_config.shielded_instance_config { enable_secure_boot = true }.",
+        "cwe": "CWE-494",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Shielded Nodes",
+    },
+    {
+        "rule_id": "TF_GKE_INTEGRITY_MONITORING",
+        "title": "GKE Integrity Monitoring Not Enabled",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'shielded_instance_config\s*\{[^}]*enable_integrity_monitoring\s*=\s*true',
+            re.IGNORECASE,
+        ),
+        "description": "Shielded GKE nodes do not have integrity monitoring, so boot-component tampering is not alerted.",
+        "remediation": "Set node_config.shielded_instance_config { enable_integrity_monitoring = true }.",
+        "cwe": "CWE-354",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Shielded Nodes",
+    },
+    {
+        "rule_id": "TF_GKE_SHIELDED_NODES",
+        "title": "GKE Shielded Nodes Not Enabled",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(r'enable_shielded_nodes\s*=\s*true', re.IGNORECASE),
+        "description": "Shielded GKE Nodes are not enabled on the cluster.",
+        "remediation": "Set enable_shielded_nodes = true on the cluster.",
+        "cwe": "CWE-1188",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Shielded Nodes",
+    },
+    {
+        "rule_id": "TF_GKE_INTRANODE_VISIBILITY",
+        "title": "GKE Intranode Visibility Not Enabled",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'enable_intranode_visibility\s*=\s*true', re.IGNORECASE
+        ),
+        "description": "Intranode visibility is disabled, so flow logs between nodes are not captured.",
+        "remediation": "Set enable_intranode_visibility = true on the cluster.",
+        "cwe": "CWE-778",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Cluster Networking",
+    },
+    {
+        "rule_id": "TF_GKE_ALIAS_IP",
+        "title": "GKE Alias IP Ranges Not Enabled",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(r'ip_allocation_policy\s*\{', re.IGNORECASE),
+        "description": "Alias IP ranges are not configured on the cluster.",
+        "remediation": "Add an ip_allocation_policy block to enable alias IP ranges.",
+        "cwe": "CWE-1188",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Cluster Networking",
+    },
+    {
+        "rule_id": "TF_GKE_CLIENT_CERT",
+        "title": "GKE Client Certificate Authentication Not Disabled",
+        "severity": "Medium",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'client_certificate_config\s*\{[^}]*issue_client_certificate\s*=\s*false',
+            re.IGNORECASE,
+        ),
+        "description": "The cluster does not explicitly disable client-certificate authentication to the API server.",
+        "remediation": "Set master_auth.client_certificate_config { issue_client_certificate = false }.",
+        "cwe": "CWE-287",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Authentication",
+    },
+    {
+        "rule_id": "TF_GKE_METADATA_SERVER",
+        "title": "GKE Metadata Server (Workload Identity) Not Enabled",
+        "severity": "Low",
+        "types": {"google_container_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'workload_metadata_config\s*\{[^}]*node_metadata\s*=\s*"GKE_METADATA_SERVER"',
+            re.IGNORECASE,
+        ),
+        "description": "The GKE metadata server is not enabled, so pods can read node metadata (kubelet credentials, instance identity tokens).",
+        "remediation": "Set node_config.workload_metadata_config { node_metadata = \"GKE_METADATA_SERVER\" }.",
+        "cwe": "CWE-200",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GKE Metadata Server",
+    },
+    # ---- GCP IAM: direct principal grants (google_*_iam_member) ----------
+    {
+        "rule_id": "TF_GCP_IAM_DIRECT_MEMBER",
+        "title": "GCP IAM Permissions Granted Directly to a Principal",
+        "severity": "Medium",
+        "types": {
+            "google_service_account_iam_member",
+            "google_project_iam_member",
+            "google_secret_manager_secret_iam_member",
+            "google_storage_bucket_iam_member",
+            "google_compute_instance_iam_member",
+            "google_folder_iam_member",
+            "google_organization_iam_member",
+            "google_kms_crypto_key_iam_member",
+            "google_kms_key_ring_iam_member",
+        },
+        "kind": "resource_type",
+        "pattern": re.compile(r'.'),
+        "description": "IAM permissions are granted directly to an individual principal (google_*_iam_member) instead of to a role/group, which is hard to audit and manage at scale.",
+        "remediation": "Grant roles to groups or service accounts via google_*_iam_binding / google_*_iam_policy instead of per-principal _iam_member.",
+        "cwe": "CWE-269",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GCP IAM Least Privilege",
+    },
+    # ---- GCP VPC: subnet flow logs --------------------------------------
+    {
+        "rule_id": "TF_GCP_SUBNET_FLOW_LOGS",
+        "title": "GCP VPC Subnet Flow Logs Not Enabled",
+        "severity": "Low",
+        "types": {"google_compute_subnetwork"},
+        "kind": "absence",
+        "pattern": re.compile(r'log_config\s*\{', re.IGNORECASE),
+        "description": "VPC flow logs are not enabled on the subnet, so traffic metadata is not recorded for audit.",
+        "remediation": "Add a log_config block to the subnet to enable VPC flow logs.",
+        "cwe": "CWE-778",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "VPC Flow Logging",
+    },
+    # ---- GCP Storage bucket logging --------------------------------------
+    {
+        "rule_id": "TF_GCP_STORAGE_LOGGING",
+        "title": "GCP Storage Bucket Logging Not Enabled",
+        "severity": "Low",
+        "types": {"google_storage_bucket"},
+        "kind": "absence",
+        "pattern": re.compile(r'logging\s*\{', re.IGNORECASE),
+        "description": "The GCS bucket does not have access logging enabled.",
+        "remediation": "Add a logging block to the bucket to record access events.",
+        "cwe": "CWE-778",
+        "framework": "CIS Google Cloud Platform Benchmark",
+        "control": "GCS Access Logging",
+    },
+    # ---- AWS Secrets Manager: KMS encryption ----------------------------
+    {
+        "rule_id": "TF_AWS_SECRETS_KMS",
+        "title": "Secrets Manager Secret Not Encrypted with KMS",
+        "severity": "High",
+        "types": {"aws_secretsmanager_secret"},
+        "kind": "absence",
+        "pattern": re.compile(r'kms_key_id\s*=', re.IGNORECASE),
+        "description": "The Secrets Manager secret does not specify a KMS CMK, so it relies on the default AWS-managed key.",
+        "remediation": "Set kms_key_id to a customer-managed KMS key for the secret.",
+        "cwe": "CWE-311",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "Secrets Encryption",
+    },
+    # ---- Azure AKS (azurerm_kubernetes_cluster) -------------------------
+    {
+        "rule_id": "TF_AZURE_AKS_NETWORK_POLICY",
+        "title": "AKS Cluster Network Policy Not Configured",
+        "severity": "High",
+        "types": {"azurerm_kubernetes_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'network_profile\s*\{[^}]*network_policy\s*=', re.IGNORECASE
+        ),
+        "description": "The AKS cluster has no network policy, so pod traffic is unrestricted.",
+        "remediation": "Set network_profile.network_policy to \"azure\" or \"calico\".",
+        "cwe": "CWE-923",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "AKS Network Policy",
+    },
+    {
+        "rule_id": "TF_AZURE_AKS_PRIVATE",
+        "title": "AKS Cluster Is Not Private",
+        "severity": "Medium",
+        "types": {"azurerm_kubernetes_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'private_cluster_enabled\s*=\s*true', re.IGNORECASE
+        ),
+        "description": "The AKS API server is reachable from the public internet (private_cluster_enabled is not true).",
+        "remediation": "Set private_cluster_enabled = true so the API server is only reachable internally.",
+        "cwe": "CWE-284",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "AKS Private Cluster",
+    },
+    {
+        "rule_id": "TF_AZURE_AKS_DISK_ENCRYPTION",
+        "title": "AKS Cluster Disk Encryption Set Not Configured",
+        "severity": "Medium",
+        "types": {"azurerm_kubernetes_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(r'disk_encryption_set_id\s*=', re.IGNORECASE),
+        "description": "The AKS cluster does not use a customer-managed disk encryption set.",
+        "remediation": "Set disk_encryption_set_id to a customer-managed Azure Disk Encryption Set.",
+        "cwe": "CWE-311",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "AKS Encryption",
+    },
+    {
+        "rule_id": "TF_AZURE_AKS_POLICY_ADDON",
+        "title": "AKS Azure Policy Add-on Not Enabled",
+        "severity": "Low",
+        "types": {"azurerm_kubernetes_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(r'azure_policy_enabled\s*=\s*true', re.IGNORECASE),
+        "description": "The AKS cluster does not enable the Azure Policy add-on for centralized policy enforcement.",
+        "remediation": "Set azure_policy_enabled = true on the cluster.",
+        "cwe": "CWE-1188",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "AKS Policy Enforcement",
+    },
+    {
+        "rule_id": "TF_AZURE_AKS_MONITORING",
+        "title": "AKS Logging to Azure Monitor Not Configured",
+        "severity": "Low",
+        "types": {"azurerm_kubernetes_cluster"},
+        "kind": "absence",
+        "pattern": re.compile(r'oms_agent\s*\{', re.IGNORECASE),
+        "description": "The AKS cluster does not send container logs to Azure Monitor / Log Analytics.",
+        "remediation": "Add an oms_agent block pointing at a Log Analytics workspace.",
+        "cwe": "CWE-778",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "AKS Monitoring",
+    },
+    # ---- Azure Key Vault ------------------------------------------------
+    {
+        "rule_id": "TF_AZURE_KV_PURGE_PROTECTION",
+        "title": "Azure Key Vault Purge Protection Disabled",
+        "severity": "High",
+        "types": {"azurerm_key_vault"},
+        "kind": "presence",
+        "pattern": re.compile(
+            r'purge_protection_enabled\s*=\s*false', re.IGNORECASE
+        ),
+        "description": "Purge protection is explicitly disabled, allowing key vault secrets/keys to be permanently deleted.",
+        "remediation": "Set purge_protection_enabled = true.",
+        "cwe": "CWE-704",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Key Vault Purge Protection",
+    },
+    {
+        "rule_id": "TF_AZURE_KV_NETWORK_ACL",
+        "title": "Azure Key Vault Has No Network Access Restrictions",
+        "severity": "High",
+        "types": {"azurerm_key_vault"},
+        "kind": "absence",
+        "pattern": re.compile(r'network_acls\s*\{', re.IGNORECASE),
+        "description": "The Key Vault has no network ACL, so it is reachable from any network.",
+        "remediation": "Add a network_acls block with default_action = \"Deny\" and appropriate bypass/rules.",
+        "cwe": "CWE-284",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Key Vault Network Access",
+    },
+    {
+        "rule_id": "TF_AZURE_KV_SECRET_EXPIRATION",
+        "title": "Azure Key Vault Secret Has No Expiration Date",
+        "severity": "Medium",
+        "types": {"azurerm_key_vault_secret"},
+        "kind": "absence",
+        "pattern": re.compile(r'expiration_date\s*=', re.IGNORECASE),
+        "description": "The Key Vault secret has no expiration date set, so it is never rotated.",
+        "remediation": "Set expiration_date on the secret.",
+        "cwe": "CWE-613",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Key Vault Secret Rotation",
+    },
+    {
+        "rule_id": "TF_AZURE_KV_SECRET_CONTENT_TYPE",
+        "title": "Azure Key Vault Secret Has No Content Type",
+        "severity": "Low",
+        "types": {"azurerm_key_vault_secret"},
+        "kind": "absence",
+        "pattern": re.compile(r'content_type\s*=', re.IGNORECASE),
+        "description": "The Key Vault secret has no content type defined, reducing secret-management metadata.",
+        "remediation": "Set content_type on the secret (e.g. \"password\", \"certificate\").",
+        "cwe": "CWE-1188",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Key Vault Secret Metadata",
+    },
+    # ---- Azure Storage account ------------------------------------------
+    {
+        "rule_id": "TF_AZURE_STORAGE_PUBLIC_ACCESS",
+        "title": "Azure Storage Account Public Network Access Not Disabled",
+        "severity": "High",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'public_network_access_enabled\s*=\s*false', re.IGNORECASE
+        ),
+        "description": "The storage account allows public network access.",
+        "remediation": "Set public_network_access_enabled = false.",
+        "cwe": "CWE-284",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Account Network Access",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_HTTPS",
+        "title": "Azure Storage Account HTTPS Not Enforced",
+        "severity": "Critical",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'enable_https_traffic_only\s*=\s*true', re.IGNORECASE
+        ),
+        "description": "The storage account does not enforce HTTPS-only traffic.",
+        "remediation": "Set enable_https_traffic_only = true.",
+        "cwe": "CWE-319",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Account Encryption in Transit",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_TLS",
+        "title": "Azure Storage Account Minimum TLS Version Not 1.2",
+        "severity": "High",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'min_tls_version\s*=\s*"TLS1_2"', re.IGNORECASE
+        ),
+        "description": "The storage account does not set the minimum TLS version to TLS 1.2.",
+        "remediation": "Set min_tls_version = \"TLS1_2\".",
+        "cwe": "CWE-326",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Account TLS Version",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_DEFAULT_DENY",
+        "title": "Azure Storage Network Rules Default Action Not Deny",
+        "severity": "High",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'network_rules\s*\{[^}]*default_action\s*=\s*"Deny"', re.IGNORECASE
+        ),
+        "description": "The storage account network rules do not default to Deny, so unmatched traffic is allowed.",
+        "remediation": "Add network_rules { default_action = \"Deny\" }.",
+        "cwe": "CWE-284",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Account Network Rules",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_BYPASS",
+        "title": "Azure Storage Network Rules Bypass Not Set",
+        "severity": "High",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'network_rules\s*\{[^}]*bypass\s*=', re.IGNORECASE
+        ),
+        "description": "The storage account network rules do not define which trusted Microsoft services may bypass them.",
+        "remediation": "Add network_rules { bypass = [\"AzureServices\"] } (or the minimal required set).",
+        "cwe": "CWE-284",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Account Network Rules",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_CMK",
+        "title": "Azure Storage Account Customer-Managed Key Not Configured",
+        "severity": "High",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(r'customer_managed_key\s*\{', re.IGNORECASE),
+        "description": "The storage account does not use a customer-managed key for encryption.",
+        "remediation": "Add a customer_managed_key block referencing a Key Vault key.",
+        "cwe": "CWE-311",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Account Encryption at Rest",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_QUEUE_LOGGING",
+        "title": "Azure Storage Queue Logging Not Enabled",
+        "severity": "Low",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'queue_properties\s*\{[^}]*logging\s*\{', re.IGNORECASE
+        ),
+        "description": "The storage account does not enable queue service logging.",
+        "remediation": "Add queue_properties { logging { read = true write = true delete = true } }.",
+        "cwe": "CWE-778",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Queue Logging",
+    },
+    {
+        "rule_id": "TF_AZURE_STORAGE_BLOB_LOGGING",
+        "title": "Azure Storage Blob Logging Not Enabled",
+        "severity": "Low",
+        "types": {"azurerm_storage_account"},
+        "kind": "absence",
+        "pattern": re.compile(
+            r'blob_properties\s*\{[^}]*logging\s*\{', re.IGNORECASE
+        ),
+        "description": "The storage account does not enable blob service access logging (read/write/delete requests are not recorded).",
+        "remediation": "Add blob_properties { logging { read = true write = true delete = true } }.",
+        "cwe": "CWE-778",
+        "framework": "CIS Microsoft Azure Foundations Benchmark",
+        "control": "Storage Blob Logging",
+    },
+]
+
+
+# G21: file-level companion-resource checks for S3 bucket hardening. A bare
+# `aws_s3_bucket` resource with no matching companion resource anywhere in the
+# file is missing that hardening control (CNAP aws-storage-1/2/7/general-9).
+S3_COMPANION_RULES: list[dict[str, Any]] = [
+    {
+        "rule_id": "TF_AWS_S3_PUBLIC_ACCESS_ABSENT",
+        "title": "S3 Bucket Missing Public Access Block",
+        "severity": "High",
+        "companion": "aws_s3_bucket_public_access_block",
+        "description": "The S3 bucket has no aws_s3_bucket_public_access_block, so its public-access settings are unmanaged.",
+        "remediation": "Add an aws_s3_bucket_public_access_block with all four block settings enabled.",
+        "cwe": "CWE-284",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "S3 Public Access",
+    },
+    {
+        "rule_id": "TF_AWS_S3_VERSIONING_ABSENT",
+        "title": "S3 Bucket Versioning Not Enabled",
+        "severity": "Medium",
+        "companion": "aws_s3_bucket_versioning",
+        "description": "The S3 bucket has no aws_s3_bucket_versioning, so object versions are not preserved.",
+        "remediation": "Add an aws_s3_bucket_versioning resource with status = \"Enabled\".",
+        "cwe": "CWE-693",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "S3 Versioning",
+    },
+    {
+        "rule_id": "TF_AWS_S3_ACCESS_LOGGING_ABSENT",
+        "title": "S3 Bucket Access Logging Not Enabled",
+        "severity": "Medium",
+        "companion": "aws_s3_bucket_logging",
+        "description": "The S3 bucket has no aws_s3_bucket_logging, so request records are not captured.",
+        "remediation": "Add an aws_s3_bucket_logging resource targeting a log bucket.",
+        "cwe": "CWE-778",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "S3 Access Logging",
+    },
+    {
+        "rule_id": "TF_AWS_S3_REPLICATION_ABSENT",
+        "title": "S3 Bucket Cross-Region Replication Not Enabled",
+        "severity": "Medium",
+        "companion": "aws_s3_bucket_replication_configuration",
+        "description": "The S3 bucket has no replication configuration, so objects are not replicated for redundancy/recovery.",
+        "remediation": "Add an aws_s3_bucket_replication_configuration resource.",
+        "cwe": "CWE-693",
+        "framework": "CIS AWS Foundations Benchmark",
+        "control": "S3 Replication",
+    },
+]
+
+
+def _resource_type(unit_text: str) -> str | None:
+    """Return the resource type for a logical unit that opens a
+    ``resource "type" "name" {`` block, else None (data sources, modules,
+    providers, variables, etc.)."""
+    m = re.match(r'\s*resource\s+"([^"]+)"', unit_text)
+    return m.group(1) if m else None
+
+
+def _evaluate_posture_rules(
+    logical_units: list[tuple[int, str]],
+    cleaned_text: str,
+    file_path: Path,
+    target: Path,
+) -> list[dict[str, Any]]:
+    """Evaluate absence/presence-of-control posture rules per resource block,
+    plus file-level S3 companion-resource checks."""
+    out: list[dict[str, Any]] = []
+    resource_units = [
+        (ln, txt) for ln, txt in logical_units if _resource_type(txt)
+    ]
+
+    for rule in POSTURE_RULES:
+        for ln, txt in resource_units:
+            rtype = _resource_type(txt)
+            if rtype not in rule["types"]:
+                continue
+            kind = rule["kind"]
+            if kind == "resource_type":
+                out.append(_finding(rule, file_path, ln, txt, target))
+                continue
+            matched = rule["pattern"].search(txt) is not None
+            if kind == "absence" and not matched:
+                out.append(_finding(rule, file_path, ln, txt, target))
+            elif kind == "presence" and matched:
+                out.append(_finding(rule, file_path, ln, txt, target))
+
+    # File-level S3 companion checks. Scoped deliberately to *unconfigured*
+    # buckets — `resource "aws_s3_bucket" "x" {}` with no inline acl /
+    # encryption / versioning / logging. That is exactly the neglected-bucket
+    # shape Lacework/CNAP flagged on wrongsecrets aws/shared-state/main.tf.
+    # A bucket that declares any inline security config is left alone: most
+    # orgs enforce BlockPublicAccess / encryption at the account level, which
+    # Terraform does not manage here, so flagging every non-configured-inline
+    # bucket would be a false-positive source. (Comment-stripped text so a
+    # commented-out companion does not suppress the finding.)
+    empty_bucket = re.compile(
+        r'resource\s+"aws_s3_bucket"\s+"[^"]+"\s*\{\s*\}', re.IGNORECASE
+    )
+    for rule in S3_COMPANION_RULES:
+        if rule["companion"] in cleaned_text:
+            continue
+        for ln, txt in resource_units:
+            if _resource_type(txt) != "aws_s3_bucket":
+                continue
+            if not empty_bucket.search(txt):
+                continue
+            out.append(_finding(rule, file_path, ln, txt, target))
+
+    return out
 
 
 def _iter_files(target: Path):
@@ -690,6 +1329,14 @@ def scan_terraform(target_path: str) -> list[dict[str, Any]]:
                 findings.append(
                     _structured_finding(match, file_path, target),
                 )
+
+        # Batch G21: cloud-posture rules (absence/presence of controls) and
+        # file-level S3 companion-resource checks. These run regardless of
+        # HCL parse success — they operate on comment-stripped logical units,
+        # which the regex path already produces for unparseable files too.
+        findings.extend(
+            _evaluate_posture_rules(logical_units, cleaned_text, file_path, target)
+        )
 
     return findings
 
