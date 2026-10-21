@@ -33,7 +33,14 @@ _F = re.IGNORECASE | re.MULTILINE
 
 SECRET_EXT = {
     ".py", ".js", ".ts", ".java", ".cs", ".go", ".php",
-    ".env", ".properties", ".yml", ".yaml", ".json", ".xml", ".config", ".ini", ".cfg", ".conf", ".toml", ".tf", ".hcl", ".tfvars", ".pem", ".key", ".p12", ".pfx"
+    ".env", ".properties", ".yml", ".yaml", ".json", ".xml", ".config", ".ini", ".cfg", ".conf", ".toml", ".tf", ".hcl", ".tfvars", ".pem", ".key", ".p12", ".pfx",
+    # S1 (2026-10-21, prodtest/llama_index vs FortiCNAPP secrets scope):
+    # documentation and notebooks were outside the sweep while CNAP reported
+    # 26 secret locations in .md/.ipynb.  Real credential material does land
+    # there (gigachat README holds a base64 client credential), so the scope
+    # widens -- paired with the doc-class value gate in scan_file so tutorial
+    # stand-ins do not arrive as Critical findings.
+    ".md", ".ipynb",
 }
 # I2 (2026-10-19, prodtest/ethernaut): "out" joins the exclusion policy
 # (forge build artifacts under contracts/out/ produced 11 CONFIG rows).
@@ -326,6 +333,89 @@ _TERRAFORM_REFERENCE = re.compile(
 def _looks_like_terraform_reference(v):
     value = str(v or "").strip().strip('"\'`')
     return bool(_TERRAFORM_REFERENCE.fullmatch(value))
+
+
+# ---------------------------------------------------------------------------
+# S1 doc-class gate (2026-10-21, prodtest/llama_index vs FortiCNAPP).
+# .md/.ipynb are now in SECRET_EXT; widening alone is NOT safe.  A 2509-file
+# doc sweep on the llama corpus produced 20 findings and the sampled values
+# were documentation stand-ins (``postgresql://user:password@``,
+# ``{username}:{password}@host:{port}``, ``YOUR_CLIENT_SECRET``,
+# ``auth_client_secret=resource_owner_config``) -- the exact placeholder
+# class CNAP rated High with 0/12 probed real.  This gate withholds a
+# doc-class finding only when EVERY credential value on its line is provably
+# a stand-in; a line whose value cannot be judged keeps its finding, so real
+# material (gigachat README base64 credential) is never dropped for noise.
+# The gate runs ONLY for .md/.ipynb: every other suffix keeps the exact
+# filter chain it had before S1.
+# ---------------------------------------------------------------------------
+_DOC_CLASS_EXTS = frozenset({".md", ".ipynb"})
+
+# Stand-in literals used as tutorial credentials.  Deliberately an EXACT
+# word list: "supersecret" is a weak-but-real password and keeps its
+# finding -- only values that ARE the word "password" or equally
+# self-declaring defaults are withheld.
+_DOC_PLACEHOLDER_VALUES = frozenset({
+    "password", "passwd", "pass", "pwd", "secret", "token", "username",
+    "user", "postgres", "mysql", "changeme", "pleaseletmein", "admin",
+    "guest", "root", "example", "demo", "test", "host", "localhost",
+    "your_client_secret", "your_api_key", "client_secret",
+})
+
+_DOC_URI_USERINFO = re.compile(r"://([^/\s\"'@]+):([^/\s\"'@]+)@")
+_DOC_ASSIGN_VALUE = re.compile(
+    r"(?i)(?:credentials?|secrets?|tokens?|passwords?|passwd|passphrase"
+    r"|client[_ -]?secret|api[_ -]?key|private[_ -]?key|access[_ -]?(?:key|token)"
+    r"|dsn|conn(?:ection)?[_ -]?string|conn_str)\s*[:=]\s*[\"']?([^\s\"',)&\\]{3,})"
+)
+
+
+def _is_doc_placeholder_value(v: str) -> bool:
+    raw = str(v or "").strip().strip("`").rstrip("\\").strip("\"'").strip()
+    if not raw:
+        return True
+    if "{" in raw or "}" in raw or "${" in raw:
+        return True                      # {username}:{password} / ${VAR} template
+    if raw.startswith("<") and raw.endswith(">"):
+        return True                      # <password> angle stand-in
+    s = raw.lower().strip("{}")
+    if s in _DOC_PLACEHOLDER_VALUES:
+        return True
+    if DECOY_CONTAINS.search(raw) or _CAMEL_PLACEHOLDER_PREFIX.match(raw):
+        return True
+    if _is_masked_secret(raw) or _ENV_VAR_NAME_VALUE.match(raw):
+        return True                      # xxxx masks / SCREAMING_SNAKE env NAMES
+    # snake_case identifiers NAME a variable holding the credential
+    # (auth_client_secret=resource_owner_config).  Pure-letter words are
+    # kept: they can be real weak passwords.
+    if re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+", s):
+        return True
+    return False
+
+
+def _doc_line_candidates(line: str) -> list:
+    vals = [m.group(2) for m in _DOC_URI_USERINFO.finditer(line)]
+    for m in _DOC_ASSIGN_VALUE.finditer(line):
+        v = m.group(1)
+        if "://" in v:
+            # An assigned URI is judged by its userinfo password part, the
+            # part that is credential material.
+            u = _DOC_URI_USERINFO.search(v)
+            if u:
+                vals.append(u.group(2))
+            continue
+        vals.append(v)
+    return vals
+
+
+def _is_doc_placeholder_finding(f: dict, lines: list) -> bool:
+    ln = f.get("line") or 0
+    if not (0 < ln <= len(lines)):
+        return False                     # cannot judge -> keep the finding
+    vals = _doc_line_candidates(lines[ln - 1])
+    if not vals:
+        return False                     # cannot judge -> keep the finding
+    return all(_is_doc_placeholder_value(v) for v in vals)
 
 
 # Values that name a credential rather than BEING one.  Each exclusion is a
@@ -1156,6 +1246,9 @@ def scan_file(filepath: str) -> list[dict]:
     findings=canonical
     if _is_translated_text_or_seed_dataset(path):
         findings=[f for f in findings if f.get("rule_id")!="CONFIG_CONTEXTUAL_CREDENTIAL"]
+    # S1 doc-class gate: only .md/.ipynb pass through it (see helpers).
+    if suffix in _DOC_CLASS_EXTS:
+        findings=[f for f in findings if not _is_doc_placeholder_finding(f, lines)]
     seen=set(); unique=[]
     for f in findings:
         k=(f.get("rule_id"),f.get("file"),f.get("line"),f.get("vuln_type"))

@@ -127,6 +127,17 @@ def _priority(sev: str) -> str:
 ENTERPRISE_RULES: list[dict] = [
     {"id":"NODE_CHILD_PROCESS_EXEC","title":"Node.js child_process.exec Command Execution","vuln":"command_injection","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"\bchild_process\.(?:exec|execSync|execFile|execFileSync)\s*\("},
     {"id":"NODE_IMPORTED_CHILD_PROCESS_EXEC","title":"Node.js imported child_process.exec Command Execution","vuln":"command_injection","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?<![.\w])(?:exec|execSync|execFile|execFileSync)\s*\("},
+    # Python
+    # L1 (2026-10-21, prodtest/llama_index vs FortiCNAPP INTEG-TLS-001): the
+    # tls_bypass family covered Go/PHP/.NET only, and crypto_misuse_engine's
+    # CERT_VALIDATION_DISABLED table is enrichment over already-existing
+    # findings (main.py:3962 summary payload) so it never creates one --
+    # Python requests/urllib3/httpx certificate-validation disables were
+    # invisible (llama vectara/base.py:107 missed while CNAP reported it).
+    # Anchored on the API surfaces requests/httpx/ssl actually use; the scan
+    # loop already drops comment and docstring/string matches.
+    {"id":"PY_TLS_CERT_VALIDATION_DISABLED","title":"Python TLS Certificate Validation Disabled","vuln":"tls_bypass","sev":"Critical","langs":["python"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"\bverify\s*=\s*False\b|\bcheck_hostname\s*=\s*False\b|ssl\._create_unverified_context\s*\(|verify_mode\s*=\s*ssl\.CERT_NONE"},
+
     # Java / Spring Boot
     {"id":"JAVA_OBJECTINPUTSTREAM_DESERIALIZATION","title":"Java ObjectInputStream Insecure Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"new\s+ObjectInputStream\s*\(|\.readObject\s*\("},
     {"id":"JAVA_JACKSON_DEFAULT_TYPING","title":"Jackson Unsafe Default Typing","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"enableDefaultTyping\s*\(|activateDefaultTyping\s*\(|DefaultTyping\.|@JsonTypeInfo"},
