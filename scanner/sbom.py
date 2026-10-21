@@ -55,8 +55,14 @@ def advisory_service_status() -> dict:
 import json
 import re
 import xml.etree.ElementTree as ET
-from packaging.version import InvalidVersion, Version
 from pathlib import Path
+
+# 2026-10-21 CI fix: `from packaging.version import InvalidVersion, Version`
+# lived here but neither name was referenced anywhere in this module (it has
+# its own Maven ComparableVersion-style tokenizer below). The dead import
+# broke the documented "stdlib-only at import time" contract that CI's
+# e2e/golden-corpus jobs rely on (bare python 3.12 runner): both died at
+# import with ModuleNotFoundError: No module named 'packaging'.
 
 from core.license_catalog import infer_package_license
 

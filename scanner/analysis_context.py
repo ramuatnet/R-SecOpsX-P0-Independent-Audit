@@ -108,10 +108,19 @@ def _context_relative_path(
 def _load_yaml_config(config_path: Path) -> dict[str, Any]:
     try:
         import yaml
-    except ImportError as exc:
-        raise RuntimeError(
-            "PyYAML is required to load config/analysis_context.yaml"
-        ) from exc
+    except ImportError:
+        # PyYAML is optional repo-wide (scanner/mlbom.py, scanner/iac_models.py
+        # both degrade). Enrichment is additive-only metadata and never
+        # suppresses findings, so a missing PyYAML must not abort the scan:
+        # degrade to an empty config (enrichment disabled). Keeps the CLI's
+        # documented "stdlib-only" contract honoured by CI's bare runner.
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "PyYAML unavailable; skipping analysis-context enrichment for %s",
+            config_path,
+        )
+        return {}
 
     if not config_path.is_file():
         raise FileNotFoundError(
