@@ -153,9 +153,14 @@ ENTERPRISE_RULES: list[dict] = [
     # 6 Medium findings, source-verified. One rule per missing flag (the same
     # per-flag decomposition the Java CWE-614 servlet rule uses); the guard
     # extracts the call's argument region and reports only that flag.
-    {"id":"PY_COOKIE_MISSING_SECURE","title":"Cookie Missing Secure Flag","vuln":"insecure_cookie_configuration","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
-    {"id":"PY_COOKIE_MISSING_HTTPONLY","title":"Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_configuration","sev":"Medium","langs":["python"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\.set_cookie\s*\("},
-    {"id":"PY_COOKIE_MISSING_SAMESITE","title":"Cookie Missing SameSite Restriction","vuln":"insecure_cookie_configuration","sev":"Medium","langs":["python"],"cwe":"CWE-1275","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
+    # Each flag carries its OWN vuln_type: core.deduplicator.root_key() is
+    # (vuln_type, file, line), so a shared family name would collapse the
+    # three claims into one per call and the last rule would never survive
+    # (measured on the pygoat after-scan: SAMESITE 0 of 14 source calls).
+    # The CWEs (614/1004/1275) are distinct, so the taxonomy is not stretched.
+    {"id":"PY_COOKIE_MISSING_SECURE","title":"Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
+    {"id":"PY_COOKIE_MISSING_HTTPONLY","title":"Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["python"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\.set_cookie\s*\("},
+    {"id":"PY_COOKIE_MISSING_SAMESITE","title":"Cookie Missing SameSite Restriction","vuln":"insecure_cookie_samesite_flag","sev":"Medium","langs":["python"],"cwe":"CWE-1275","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
     # Django views explicitly exempted from CSRF (2026-10-21, prodtest): CNAP
     # INTEG-ORIGIN-002 anchors @csrf_exempt on pygoat introduction/apis.py,
     # mitre.py, playground (10) and crAPI mechanic/views.py:54 -- every one a

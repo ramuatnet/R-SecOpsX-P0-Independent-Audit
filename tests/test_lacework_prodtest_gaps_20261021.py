@@ -230,6 +230,37 @@ def test_sast_set_cookie_outside_web_framework_suppressed(tmp_path):
     assert not _cookie_ids(findings), _cookie_ids(findings)
 
 
+def test_cookie_flags_survive_production_dedup(tmp_path):
+    """The aggregation boundary, not scan_file, is where per-flag rules died.
+
+    core.deduplicator.root_key() keys on (vuln_type, file, line); when the
+    three rules shared one family vuln_type, the pygoat after-scan collapsed
+    them to one representative per call and PY_COOKIE_MISSING_SAMESITE
+    reported 0 of 14 source calls. Each flag keeps its own vuln_type, so all
+    three claims must come through group_findings as distinct findings.
+    """
+    from core.deduplicator import group_findings
+
+    findings = _sast(tmp_path, "app.py", '''
+        from flask import Flask
+
+        app = Flask(__name__)
+
+        def login(resp, token):
+            resp.set_cookie("session", token, max_age=3600)
+            return resp
+    ''')
+    assert _cookie_ids(findings) == {
+        "PY_COOKIE_MISSING_SECURE",
+        "PY_COOKIE_MISSING_HTTPONLY",
+        "PY_COOKIE_MISSING_SAMESITE",
+    }, _cookie_ids(findings)
+    grouped = group_findings(findings)
+    grouped_ids = {str(f.get("rule_id")) for f in grouped}
+    assert _cookie_ids(findings) <= grouped_ids, (
+        "cookie per-flag findings collapsed at the deduplicator: %r" % grouped_ids)
+
+
 # ---------------------------------------------------------------------------
 # G4 -- django csrf_exempt
 # ---------------------------------------------------------------------------
