@@ -46,6 +46,15 @@ except Exception:
 
 _F = re.IGNORECASE | re.MULTILINE | re.DOTALL
 
+# IANA HTTP method names (RFC 9110).  A comparison literal that is one of
+# these can never be secret material, so HARDCODED_CREDENTIAL_COMPARISON's
+# claim ("the secret is committed to source") is false by construction --
+# django csrf.py:345 ``if token_source != "POST":`` fired only because the
+# variable carried the ``token`` noun while the literal is a routing verb.
+_HTTP_METHOD_VERBS = frozenset(
+    {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE"}
+)
+
 SCANNABLE_EXT = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".java", ".kt", ".scala", ".go",
     ".rb", ".php", ".cs", ".vb", ".cpp", ".c", ".h", ".hpp", ".rs", ".sh",
@@ -1480,6 +1489,9 @@ def scan_file(filepath: str) -> list[dict]:
                 continue
             if rule.get("id") in {"HARDCODED_CREDENTIAL_COMPARISON",
                                   "GENERIC_API_KEY_PASSWORD"} and _is_placeholder_credential(match):
+                continue
+            if (rule.get("id") == "HARDCODED_CREDENTIAL_COMPARISON"
+                    and match.group("credval").upper() in _HTTP_METHOD_VERBS):
                 continue
             if rule.get("id") == "PRIVATE_KEY_HEADER":
                 # G4 (2026-10-19, prodtest): the header marker alone is not

@@ -34,6 +34,14 @@ def _pinned_version(spec: str) -> str:
     raw = str(spec or "").strip()
     if not raw:
         return "unknown"
+    # D1 (2026-10-21, django prodtest): a PEP 508 environment marker begins
+    # at the first ';' -- ``tzdata; sys_platform == 'win32'`` leaked the
+    # marker's own ``==`` into the pin regex and reported version 'win32'.
+    # VCS/URL refs carry no registry identity and are skipped upstream, so
+    # no legitimate pin can follow a ';'.
+    raw = raw.split(";", 1)[0].strip()
+    if not raw:
+        return "unknown"
     m = _EXACT_PIN.search(raw)
     if m and "*" not in m.group(1):
         return m.group(1)
@@ -99,8 +107,12 @@ def _poetry_rows(table, direct: bool, text: str, path: Path) -> list[dict]:
 
 def _find_line(text: str, name: str) -> int:
     """Best-effort 1-based line of the declaration; 1 when not locatable."""
+    # D2 (2026-10-21, django prodtest): PEP 621 array entries put a
+    # specifier directly after the name (``"asgiref>=3.12.1",``), which the
+    # old ``[:=]]``-only class missed, collapsing provenance to line 1.
+    # ``>`` ``~`` ``^`` ``<`` ``)`` cover >=/~= /^/ (>=) requirement shapes.
     m = re.search(
-        r'(?m)^[ \t]*["\']?' + re.escape(name) + r'["\']?[ \t]*[:=\]]',
+        r'(?m)^[ \t]*["\']?' + re.escape(name) + r'["\']?[ \t]*[:=\])>~^<]',
         text,
     )
     return text[: m.start()].count("\n") + 1 if m else 1
