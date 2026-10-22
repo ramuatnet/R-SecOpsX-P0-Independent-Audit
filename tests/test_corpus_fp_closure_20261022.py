@@ -69,9 +69,13 @@ SAFE_ROWS = [
 #: (dir, fixture, rule id, line, lang) — python's two taint rows are
 #: asserted through vuln_type because the corpus representative for
 #: vulnerable_app.py L27 is the same-line window rule (group merge).
+#: Bucket C supersedes one entry: VulnerableServlet L39
+#: (JAVA_TAINT_PATH_TRAVERSAL) is the duplicate of the label-anchored
+#: multipart construction row L38 and now dies in the post-guard pair
+#: pass (tests/test_corpus_dup_closure_20261022.py); its keep control
+#: moved there as the constructed no-partner case.
 VULN_KEEP = [
     ("sast/java", "VulnerableServlet.java", "JAVA_TAINT_COMMAND_INJECTION", 32, "java"),
-    ("sast/java", "VulnerableServlet.java", "JAVA_TAINT_PATH_TRAVERSAL", 39, "java"),
     ("sast/java", "VulnerableServlet.java", "TAINT_MULTIPART_TRAVERSAL", 38, "java"),
     ("sast/php", "vulnerable.php", "PHP_PATH_USER_INPUT_VAR", 27, "php"),
     ("sast/rust", "vulnerable.rs", "RUST_COMMAND_EXEC", 33, "rust"),

@@ -126,6 +126,12 @@ class TestHonestyContracts:
             "RUST_PATH_FORMAT",
             "CPP_HARDCODED_CREDENTIAL",
             "CPP_PATH_SNPRINTF_INTERP",
+            # 2026-10-22 bucket C pair dedup: kill decided by the
+            # post-guard _pair_dedupe pass (partner row + receiver
+            # identity), not by a per-finding branch.
+            "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
+            "JAVA_JDBC_SQL_CONCAT",
+            "RUST_SQL_FORMAT",
         }
 
     def test_env_kill_switch_disables_the_pass(self, tmp_path, monkeypatch):

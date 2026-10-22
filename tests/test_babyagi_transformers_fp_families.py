@@ -268,14 +268,31 @@ def test_source_reference_values_suppressed(tmp_path):
 
 
 def test_source_real_tokens_still_reported(tmp_path):
-    """Control: the corpus/e2e secret fixtures keep their findings."""
+    """Control: the corpus/e2e secret fixtures keep their findings.
+
+    Bucket C (2026-10-22) changed WHICH rule claims a line, never
+    WHETHER the line is claimed: a literal a provider signature already
+    reports no longer doubles as SOURCE_HARDCODED_CREDENTIAL (the
+    signature row is the finding), and a lone name-gated credential
+    keeps SOURCE (see tests/test_corpus_dup_closure_20261022.py).
+    """
     findings = _sec(tmp_path, "real_secrets.py", '''
         GITHUB_TOKEN = "ghp_0123456789abcdefghij0123456789abcd"
         OPENAI_API_KEY = "sk-proj-0123456789abcdefghij0123456789abcd"
         JWT_SIGNING_SECRET = "a-signing-key-of-sufficient-length-0123456789"
         API_KEY = "sk-live-hardcoded-secret-0123456789"
     ''')
-    assert "SOURCE_HARDCODED_CREDENTIAL" in _ids(findings)
+    ids = _ids(findings)
+    assert "GITHUB_TOKEN" in ids
+    assert "OPENAI_KEY" in ids
+    assert "JWT_SIGNING_SECRET" in ids
+    # Every real token line keeps its claim (now under the signature rule
+    # alone). The sk-live-hardcoded-secret literal on L5 never produced a
+    # row -- the SOURCE value gate rejects it -- before or after C.
+    reported = {int(f.get("line") or 0) for f in findings}
+    assert {2, 3, 4} <= reported, findings
+    assert "SOURCE_HARDCODED_CREDENTIAL" not in ids, (
+        "signature-claimed lines must not double as the fallback")
 
 
 # ---------------------------------------------------------------------------

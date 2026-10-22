@@ -997,7 +997,10 @@ def _scan_source_assignments(path,text,lang):
             # value is an env-var NAME. Shared with the sast GENERIC gate;
             # both engines must agree or one copy hides the other.
             continue
-        line=text[:m.start()].count('\n')+1
+        # Anchor on the IDENTIFIER, not the match start: the leading
+        # ``\\s*`` may swallow a blank line above the assignment, which
+        # reported JWT_SIGNING_SECRET at L2 instead of L3 (bucket C).
+        line=text[:m.start(1)].count('\n')+1
         out.append(_build_finding('SOURCE_HARDCODED_CREDENTIAL','Hardcoded credential in source code','hardcoded_secret','High','CWE-798',path,line,f'{m.group(1)}=[REDACTED]',lang))
     return out
 
@@ -1253,7 +1256,45 @@ def scan_file(filepath: str) -> list[dict]:
     for f in findings:
         k=(f.get("rule_id"),f.get("file"),f.get("line"),f.get("vuln_type"))
         if k not in seen: seen.add(k); unique.append(f)
-    return unique
+    return _defer_fallback_claims(unique)
+
+#: Generic fallback claims (bucket C, 2026-10-22). One literal, one
+#: claim: every fallback yields to a SPECIFIC rule on the same
+#: (file, line) — a provider signature claim for the name-gated SOURCE
+#: rule, any sibling claim for the entropy layer — and a fallback alone
+#: on its line keeps. Same canonicalization idea as the K8S/CONFIG
+#: overlap above, one layer down.
+_SECRET_FALLBACKS = frozenset({"GENERIC_HIGH_ENTROPY_SECRET",
+                               "SOURCE_HARDCODED_CREDENTIAL"})
+
+
+def _defer_fallback_claims(findings: list[dict]) -> list[dict]:
+    """Drop shadowed generic layers: signature > name-gated > entropy.
+
+    Kill-on-proof: a claim is removed only when ANOTHER rule already
+    reports the same literal at the same (file, line) — proximity
+    elsewhere never defers (the jwt L2/L3 case is the anchor bug, fixed
+    by anchoring ``_scan_source_assignments`` on its identifier group,
+    after which both rows share line 3 and defer here).
+    """
+    non_generic: set = set()
+    signature: set = set()
+    for f in findings:
+        loc = (f.get("file"), f.get("line"))
+        if f.get("rule_id") != "GENERIC_HIGH_ENTROPY_SECRET":
+            non_generic.add(loc)
+        if f.get("rule_id") not in _SECRET_FALLBACKS:
+            signature.add(loc)
+    out = []
+    for f in findings:
+        loc = (f.get("file"), f.get("line"))
+        rule = f.get("rule_id")
+        if rule == "GENERIC_HIGH_ENTROPY_SECRET" and loc in non_generic:
+            continue
+        if rule == "SOURCE_HARDCODED_CREDENTIAL" and loc in signature:
+            continue
+        out.append(f)
+    return out
 
 def scan_secret_intelligence(target_path: str) -> dict:
     target = Path(target_path)

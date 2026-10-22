@@ -1338,6 +1338,24 @@ def scan_terraform(target_path: str) -> list[dict[str, Any]]:
             _evaluate_posture_rules(logical_units, cleaned_text, file_path, target)
         )
 
+    # Bucket C (2026-10-22): one statement, one claim. The statement-level
+    # G21 rule already reports a bare "*" (its own scope says so), so the
+    # pre-existing line rule yields on exactly the lines it claims and
+    # keeps every line it does not. Kill-on-proof: the yielding row only
+    # disappears when the surviving statement row exists on that line of
+    # that file; the two rules stay independent everywhere else.
+    service_lines = {
+        (f.get("full_path") or f.get("file_path"), f.get("line"))
+        for f in findings
+        if f.get("rule_id") == "TF_AWS_IAM_WILDCARD_ACTION_SERVICE"
+    }
+    findings = [
+        f for f in findings
+        if f.get("rule_id") != "TF_IAM_WILDCARD_ACTION"
+        or (f.get("full_path") or f.get("file_path"), f.get("line"))
+        not in service_lines
+    ]
+
     return findings
 
 def main() -> None:

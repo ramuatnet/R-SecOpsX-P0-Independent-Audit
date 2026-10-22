@@ -85,6 +85,21 @@ measured on tests/vuln-test-corpus/sast)
   python/rust/cpp grammars are LOCAL-only wheels under the same honesty
   contract: absent → ``parse()`` is None → every finding keeps, and each
   grammar-dependent test skips itself.
+* Bucket C — pair dedup, one defect one row (2026-10-22). After the
+  guard pass reduces the list, a POST-pass drops duplicate rows whose
+  canonical partner row is still present in the same enclosing function
+  and names the same object: the ``ObjectInputStream`` ctor beside its
+  ``readObject`` sink, the bare ``createStatement()`` context row beside
+  the ``executeQuery(sql)`` intermediate-sink row, a ``format!`` SQL
+  build beside its ``prepare(&sql)`` consumption, and a
+  ``TAINT_PATH`` consumption beside the multipart construction row that
+  carries the label anchor. Partner presence in the SURVIVING list is
+  the proof — a partner removed by a guard can never justify a kill —
+  and receiver identity is the proof both rows describe one flow. The
+  engine-side twins (terraform wildcard overlap, secret fallback
+  layers) live with their scanners; see ``_defer_fallback_claims`` in
+  ``scanner/secret_intelligence.py`` and the deferral before
+  ``scan_terraform`` returns.
 
 NOT HERE (deliberately):
 * ``TAINT_MULTIPART_TRAVERSAL`` gets a guard-dominance KILL only: the src
@@ -132,6 +147,11 @@ VALIDATED_RULE_IDS = frozenset({
     "RUST_PATH_FORMAT",
     "CPP_HARDCODED_CREDENTIAL",
     "CPP_PATH_SNPRINTF_INTERP",
+    # Bucket C pair dedup 2026-10-22 (see _PAIR_RULES: these carry a
+    # per-finding "keep" and are decided by the post-guard pair pass).
+    "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
+    "JAVA_JDBC_SQL_CONCAT",
+    "RUST_SQL_FORMAT",
 })
 
 _EXT_TO_LANG = {
@@ -247,7 +267,9 @@ def apply_ast_validation(findings: list[dict], filepath: str) -> list[dict]:
         if isinstance(verdict, tuple) and verdict[0] == "reanchor":
             _reanchor(finding, verdict[1], ctx)
         kept.append(finding)
-    return kept
+    # Bucket C: the pair pass runs AFTER the guard loop above, so it only
+    # ever sees partners that survived their own validators.
+    return _pair_dedupe(kept, ctx)
 
 
 def _reanchor(finding: dict, new_row: int, ctx: _FileContext) -> None:
@@ -575,6 +597,92 @@ def _python_render_literal_kill(finding: dict, ctx: _FileContext):
     if any(token in template for token in _XSS_UNSAFE_TOKENS):
         return "keep"
     return "kill"
+
+
+# ---------------------------------------------------------------------------
+# Pair dedup: one defect, one row (bucket C, 2026-10-22)
+# ---------------------------------------------------------------------------
+
+#: (duplicate rule id, canonical partner rule id, variable extracted from
+#: the DUPLICATE row's snippet, variable extracted from the PARTNER row's
+#: snippet). A kill requires BOTH rows in the surviving list, inside the
+#: SAME enclosing function, naming the same object — partner presence
+#: proves the canonical anchor still reports the defect, receiver
+#: identity proves the two rows describe one flow. Rows whose variable
+#: cannot be extracted keep (for JDBC that also protects the
+#: literal-concat ``executeQuery("..." + x)`` rows, whose proof never
+#: has an intermediate-variable sibling).
+_PAIR_RULES = (
+    # L48 ctor row vs the L50 ``ois.readObject()`` label anchor.
+    ("JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
+     "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
+     re.compile(r"(\w+)\s*=\s*new\s+ObjectInputStream\s*\("),
+     re.compile(r"(\w+)\s*\.\s*readObject\s*\(")),
+    # L22 bare ``createStatement()`` context vs the L23
+    # ``stmt.executeQuery(sql)`` row carrying SAST-SQLI.
+    ("JAVA_JDBC_SQL_CONCAT",
+     "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
+     re.compile(r"(\w+)\s*=\s*[^;]*createStatement\s*\("),
+     re.compile(r"(\w+)\s*\.\s*execute(?:Query|Update)?\s*\(")),
+    # L13 ``format!`` build vs the L14 ``prepare(&sql)`` label anchor.
+    ("RUST_SQL_FORMAT",
+     "RUST_SQL_SINK",
+     re.compile(r"let\s+(?:mut\s+)?(\w+)\s*=\s*format!"),
+     re.compile(r"\.\s*(?:prepare|execute|query)\s*\(\s*&(\w+)")),
+    # L39 ``new FileInputStream(f)`` consumption vs the L38 multipart
+    # construction row (the SAST-PATH label anchor).
+    ("JAVA_TAINT_PATH_TRAVERSAL",
+     "TAINT_MULTIPART_TRAVERSAL",
+     re.compile(r"new\s+File\w*\s*\(\s*(\w+)"),
+     re.compile(r"(\w+)\s*=\s*(?:new\s+File\s*\(|Paths\s*\.\s*get\s*\()")),
+)
+
+
+def _pair_dedupe(kept: list[dict], ctx: _FileContext) -> list[dict]:
+    """Drop duplicate rows whose canonical partner survived the guards.
+
+    Post-guard by construction: ``kept`` is the list the guard pass
+    already reduced, so a partner removed by a guard can never justify a
+    kill — the remaining row then stands or falls on its own bucket-B
+    validator, untouched. Missing grammar never reaches here
+    (``apply_ast_validation`` returned earlier); a row outside any
+    function keeps; an unextractable variable keeps. Every path that is
+    not a proven pair is a keep.
+    """
+    kill_ids: set[int] = set()
+    for dup_rule, keep_rule, dup_rx, keep_rx in _PAIR_RULES:
+        partners = []
+        for row in kept:
+            if row.get("rule_id") != keep_rule:
+                continue
+            match = keep_rx.search(str(row.get("snippet") or ""))
+            if not match:
+                continue
+            func = ts.find_enclosing_function(
+                ctx.tree, ctx.lang, int(row.get("line") or 0))
+            if func is None:
+                continue
+            partners.append((match.group(1),
+                             (ts.node_start_row(func), ts.node_end_row(func))))
+        if not partners:
+            continue
+        for row in kept:
+            if row.get("rule_id") != dup_rule:
+                continue
+            match = dup_rx.search(str(row.get("snippet") or ""))
+            if not match:
+                continue
+            func = ts.find_enclosing_function(
+                ctx.tree, ctx.lang, int(row.get("line") or 0))
+            if func is None:
+                continue
+            span = (ts.node_start_row(func), ts.node_end_row(func))
+            if any(var == match.group(1) and fspan == span
+                   for var, fspan in partners):
+                kill_ids.add(id(row))
+    if not kill_ids:
+        return kept
+    return [row for row in kept if id(row) not in kill_ids]
 
 
 # ---------------------------------------------------------------------------
