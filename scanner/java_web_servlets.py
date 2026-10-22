@@ -14,15 +14,30 @@ numbers:
     permissive (transitive taint)     0.5569   0.4115   <- rejected
     strict (single-hop taint)        0.0000   0.0000   <- detects nothing
 
-The permissive variant lifts XSS recall from 0.2358 but fires on 86 of 209
-declared-benign cases. Trading 137 true findings for 86 false ones is not a fix,
-and shipping it would have improved the headline recall number while degrading
-the tool. The strict variant is precise because it is blind: BenchmarkJava never
-assigns a variable directly from a request source (`String param = ""` then
-`param = values[0]`), so single-hop taint matches nothing at all. Recall 0.0000 is
-not a pass. XSS therefore remains an OPEN gap with these measurements recorded
-against it, rather than being papered over with a rule that cannot work on the
-code it needs to detect.
+The permissive variant lifts XSS recall from the then-current 0.2358 (58 of
+246, the G-101 baseline recorded in docs/gap_analysis.md) but fires on 86 of
+209 declared-benign cases. Trading 137 true findings for 86 false ones is not a
+fix, and shipping it would have improved the headline recall number while
+degrading the tool. The strict variant is precise because it is blind:
+BenchmarkJava never assigns a variable directly from a request source
+(`String param = ""` then `param = values[0]`), so single-hop taint matches
+nothing at all. Recall 0.0000 is not a pass.
+
+MEASUREMENT RECONCILIATION (2026-10-22, G24)
+--------------------------------------------
+The "XSS is an OPEN gap" reading is STALE at the tool level and remains true
+only for THIS module, which still deliberately ships no XSS rule. The G-101
+0.2358 figure is a historical point-in-time baseline (58 of 246, taken when
+overall BenchmarkJava recall was 0.6064 after the G-100 path-traversal fix);
+it predates the Java taint layer that now covers the servlet XSS shape.
+Measured on the current pipeline (benchmark dump findings34_fp0.json,
+2026-10-22): xss 246 found of 246 expected-vulnerable, 246 CWE-aligned, fpT 0
+and fpF 0 over 209 declared-benign cases, every one of the 246 rows emitted by
+`JAVA_TAINT_XSS` as CWE-79. Re-deriving these numbers needs
+`python -m analysis.validation.owasp_benchmark --benchmark-dir <clone>`; they
+come from the taint engine, not from a servlet-window rule, which is why the
+rejected designs above were never needed. Do not read the paragraph above as a
+claim that the product still misses servlet XSS.
 
 THE COOKIE RULE, AND WHY IT IS VARIABLE-SCOPED
 ----------------------------------------------
