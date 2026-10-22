@@ -138,6 +138,11 @@ _CWE_TO_CLASS = {
     "CWE-1008": "IAC-EXPOSED-SERVICE",
     "CWE-200": "IAC-EXPOSED-SERVICE",
     "CWE-770": "IAC-RESOURCE-EXHAUSTION",
+    # CWE-1059 is Doxygen's "missing HEALTHCHECK" note and the CWE Checkov's
+    # CKV_DOCKER_2 carries; DOCKER_MISSING_HEALTHCHECK fires on it verbatim
+    # (Low, first FROM), so the mapping lets the labels say what the scanner
+    # already reports (bucket D, 2026-10-22).
+    "CWE-1059": "IAC-MISSING-HEALTHCHECK",
 }
 
 

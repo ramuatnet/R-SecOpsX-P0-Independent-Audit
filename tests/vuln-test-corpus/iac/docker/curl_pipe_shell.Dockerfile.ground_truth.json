@@ -1,6 +1,6 @@
 {
   "fixture": "curl_pipe_shell.Dockerfile",
-  "expected_count": 1,
+  "expected_count": 2,
   "expected_findings": [
     {
       "rule_id": "IAC-INSECURE-DOWNLOAD",
@@ -9,6 +9,14 @@
       "severity": "High",
       "cwe": "CWE-494",
       "evidence": "RUN curl -fsSL"
+    },
+    {
+      "rule_id": "IAC-MISSING-HEALTHCHECK",
+      "file": "curl_pipe_shell.Dockerfile",
+      "line": 1,
+      "severity": "Low",
+      "cwe": "CWE-1059",
+      "evidence": "FROM python:3.12-slim"
     }
   ]
 }

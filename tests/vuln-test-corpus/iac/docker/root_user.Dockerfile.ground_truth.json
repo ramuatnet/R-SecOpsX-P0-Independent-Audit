@@ -1,6 +1,6 @@
 {
   "fixture": "root_user.Dockerfile",
-  "expected_count": 2,
+  "expected_count": 3,
   "expected_findings": [
     {
       "rule_id": "IAC-PRIVILEGED-CONTAINER",
@@ -8,6 +8,14 @@
       "line": 1,
       "severity": "Medium",
       "cwe": "CWE-250",
+      "evidence": "FROM node:18-slim"
+    },
+    {
+      "rule_id": "IAC-MISSING-HEALTHCHECK",
+      "file": "root_user.Dockerfile",
+      "line": 1,
+      "severity": "Low",
+      "cwe": "CWE-1059",
       "evidence": "FROM node:18-slim"
     },
     {

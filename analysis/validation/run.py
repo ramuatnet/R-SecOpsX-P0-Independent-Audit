@@ -562,9 +562,14 @@ def main(argv: list[str] | None = None) -> int:
 
     dup_total = sum(d.get("duplicate_count", 0) for d in result["details"])
     spur_total = sum(d.get("spurious_count", 0) for d in result["details"])
-    if dup_total or spur_total:
-        print()
-        print("false positives, split by cause:")
+    print()
+    print("false positives, split by cause:")
+    if not (dup_total or spur_total):
+        # A clean corpus still gets the section: silence reads like the
+        # report forgot to look, and the split IS the actionable part.
+        print("  none        0   every finding matches a label and no")
+        print("               %s   defect is reported twice" % "")
+    else:
         print("  duplicates   %3d   the defect WAS found; a second rule or a" % dup_total)
         print("               %3s   second line reports it again" % "")
         print("  spurious     %3d   the rule fired where the defect is not" % spur_total)
