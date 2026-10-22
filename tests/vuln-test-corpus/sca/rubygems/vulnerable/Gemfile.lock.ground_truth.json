@@ -13,8 +13,17 @@
       "version": "7.0.3.1",
       "source": "OSV",
       "note": "CVE copied verbatim from OSV record GHSA-9822-6m93-xqf4"
-    }
+    },
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "actionpack", "cve": "CVE-2023-28362", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: per-package row (the fixture's original label documented only the rails metapackage). Version-verified: fixed_versions=['6.1.7.4','7.0.5.1'] > 7.0.3.1. GHSA-4g8v-vg43-wpgf"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Low", "cwe": null, "evidence": "actionpack", "cve": "CVE-2023-22795", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['6.1.7.1','7.0.4.1'] > 7.0.3.1. GHSA-8xww-x3g3-6jcv"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "actionpack", "cve": "CVE-2023-22797", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['7.0.4.1'] > 7.0.3.1. GHSA-9445-4cr6-336r"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "actionpack", "cve": "CVE-2024-26143", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: same advisory as the rails row above, reported per package (per-package rows are the product's shape). fixed_versions=['7.0.8.1','7.1.3.1'] > 7.0.3.1. GHSA-9822-6m93-xqf4"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "actionpack", "cve": "CVE-2024-28103", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['6.1.7.8','7.0.8.4','7.1.3.4','7.2.0.beta2'] > 7.0.3.1. GHSA-fwhr-88qx-h9g7"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Low", "cwe": null, "evidence": "actionpack", "cve": "CVE-2023-22792", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['5.2.8.15','6.1.7.1','7.0.4.1'] > 7.0.3.1. GHSA-p84v-45xj-wwqj"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "actionpack", "cve": "CVE-2024-47887", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['6.1.7.9','7.0.8.5','7.1.4.1','7.2.1.1'] > 7.0.3.1. GHSA-vfg9-r3fq-jvx4"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Low", "cwe": null, "evidence": "actionpack", "cve": "CVE-2024-54133", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['7.0.8.7','7.1.5.1','7.2.2.1','8.0.0.1'] > 7.0.3.1. GHSA-vfm5-rmrh-j26v"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "actionpack", "cve": "CVE-2024-41128", "package": "actionpack", "version": "7.0.3.1", "source": "OSV", "note": "added 2026-10-22: fixed_versions=['6.1.7.9','7.0.8.5','7.1.4.1','7.2.1.1'] > 7.0.3.1. GHSA-x76w-6vjr-8xgj"}
   ],
-  "expected_count": 1,
-  "expected_cves": ["CVE-2024-26143"]
+  "expected_count": 10,
+  "expected_cves": ["CVE-2024-26143", "CVE-2023-28362", "CVE-2023-22795", "CVE-2023-22797", "CVE-2024-28103", "CVE-2023-22792", "CVE-2024-47887", "CVE-2024-54133", "CVE-2024-41128"]
 }

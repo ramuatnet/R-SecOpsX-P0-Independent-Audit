@@ -100,9 +100,12 @@ class TestHonestyContracts:
         assert result is findings  # identical list, not merely equal
 
     def test_validated_rule_set_is_closed(self):
-        # Scope creep guard: the pass may touch exactly these nine rules.
+        # Scope creep guard: the pass may touch exactly these rules.
         # (V1.12a added TAINT_MULTIPART_TRAVERSAL as a guard-dominance
-        # KILL-only validator — it can never make the rule fire.)
+        # KILL-only validator — it can never make the rule fire.
+        # 2026-10-22 golden-corpus closure added ten more kill-on-proof
+        # ids — each pinned by tests/test_corpus_fp_closure_20261022.py
+        # with a vulnerable-twin keep control.)
         assert VALIDATED_RULE_IDS == {
             "PHP_HARDCODED_CREDENTIAL",
             "PHP_INCLUDE_CONCAT_PATH",
@@ -113,6 +116,16 @@ class TestHonestyContracts:
             "DOTNET_SQL_INTERPOLATED",
             "DOTNET_PROCESS_START_INFO",
             "DOTNET_PATH_COMBINE_TRAVERSAL",
+            "JAVA_PATH_TRAVERSAL_FILE",
+            "JAVA_TAINT_COMMAND_INJECTION",
+            "JAVA_TAINT_PATH_TRAVERSAL",
+            "PHP_PATH_USER_INPUT_VAR",
+            "TAINT_COMMAND_INJECTION",
+            "TAINT_XSS",
+            "RUST_COMMAND_EXEC",
+            "RUST_PATH_FORMAT",
+            "CPP_HARDCODED_CREDENTIAL",
+            "CPP_PATH_SNPRINTF_INTERP",
         }
 
     def test_env_kill_switch_disables_the_pass(self, tmp_path, monkeypatch):
@@ -124,7 +137,7 @@ class TestHonestyContracts:
         assert apply_ast_validation(findings, str(target)) is findings
 
     def test_unknown_extension_unchanged(self, tmp_path):
-        target = tmp_path / "a.py"
+        target = tmp_path / "a.rb"  # ruby stays outside _EXT_TO_LANG
         target.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding("GO_PATH_CONCAT", target, 1, 'p := "/var/www/" + n')]
         assert apply_ast_validation(findings, str(target)) is findings

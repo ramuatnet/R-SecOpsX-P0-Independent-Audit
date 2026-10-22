@@ -51,6 +51,12 @@ _LANGUAGE_SPECS: dict[str, tuple[str, str]] = {
     "csharp": ("tree_sitter_c_sharp", "language"),
     "php": ("tree_sitter_php", "language_php"),
     "java": ("tree_sitter_java", "language"),
+    # Golden-corpus FP closure (2026-10-22): three more LOCAL-only wheels,
+    # same honesty contract as every entry above — absent here, parse()
+    # returns None, validators keep every finding, tests skip themselves.
+    "python": ("tree_sitter_python", "language"),
+    "rust": ("tree_sitter_rust", "language"),
+    "cpp": ("tree_sitter_cpp", "language"),
 }
 
 #: Function-like node types per language, used to attribute a finding to
@@ -71,7 +77,34 @@ FUNCTION_TYPES: dict[str, frozenset[str]] = {
     "tsx": frozenset({"function_declaration", "function_expression",
                       "generator_function_declaration", "method_definition",
                       "arrow_function"}),
+    # Node types verified against the installed wheels — see
+    # tests/test_corpus_fp_closure_20261022.py (skip-gated on absence).
+    "python": frozenset({"function_definition"}),
+    "rust": frozenset({"function_item"}),
+    "cpp": frozenset({"function_definition"}),
 }
+
+#: The `if` node type per language. Every grammar here except Rust spells it
+#: ``if_statement``; tree-sitter-rust spells it ``if_expression`` (verified
+#: against the installed wheel — a guard walk that assumed one spelling
+#: would silently never match a Rust guard and keep every finding).
+_IF_NODE_TYPES: dict[str, frozenset[str]] = {
+    "javascript": frozenset({"if_statement"}),
+    "typescript": frozenset({"if_statement"}),
+    "tsx": frozenset({"if_statement"}),
+    "go": frozenset({"if_statement"}),
+    "csharp": frozenset({"if_statement"}),
+    "php": frozenset({"if_statement"}),
+    "java": frozenset({"if_statement"}),
+    "python": frozenset({"if_statement"}),
+    "rust": frozenset({"if_expression"}),
+    "cpp": frozenset({"if_statement"}),
+}
+
+
+def if_node_types(lang_key: str) -> frozenset[str]:
+    """Grammar-appropriate ``if`` node types (default: ``if_statement``)."""
+    return _IF_NODE_TYPES.get(lang_key, frozenset({"if_statement"}))
 
 _PARSERS: dict[str, Any] = {}
 _LOAD_ERRORS: dict[str, str] = {}

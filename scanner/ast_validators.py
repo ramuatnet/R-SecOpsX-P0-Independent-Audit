@@ -58,6 +58,33 @@ measured on tests/vuln-test-corpus/sast)
   non-literal argument is guarded by a traversal/whitelist check with an
   early exit (``filename.Contains("..") || Path.IsPathRooted(filename)`` +
   ``return BadRequest(...)``); one unguarded operand keeps the finding.
+* Golden-corpus closure 2026-10-22: ten more ids join the closed set, all
+  kill-on-proof reusing the machinery above.
+  ``JAVA_PATH_TRAVERSAL_FILE`` / ``JAVA_TAINT_COMMAND_INJECTION`` /
+  ``JAVA_TAINT_PATH_TRAVERSAL`` — Java ``matches()``-whitelist and
+  ``..``-traversal guards with an early exit, proven over every variable
+  in the finding's ``taint_chain`` (or the snippet when no chain exists).
+  ``PHP_PATH_USER_INPUT_VAR`` — the same guard machinery as
+  ``PHP_INCLUDE_CONCAT_PATH`` (``strpos(..) !== false`` + ``die``).
+  ``TAINT_COMMAND_INJECTION`` (Python) — whitelist guard
+  (``parts[0] not in allowed`` + early return) over the chain.
+  ``TAINT_XSS`` (Python) — a PURE string-literal template passed to
+  Flask's ``render_template_string`` is auto-escaped, so taint reaching
+  only template *variables* is safe; an f-string/concatenated/tainted
+  template is SSTI and a ``|safe``/``autoescape false`` template turns
+  the data back into markup — every one of those keeps.
+  ``RUST_COMMAND_EXEC`` / ``RUST_PATH_FORMAT`` /
+  ``CPP_PATH_SNPRINTF_INTERP`` — whitelist/traversal guard over the
+  snippet's identifiers; additionally the C++/Rust
+  ``if (bad) { /* reject */ } else { USE }`` shape kills only when the
+  rejection branch is comment-only (a branch that executes anything
+  non-exiting is not proof of rejection and keeps the finding; exit-based
+  rejection stays on the classic path above).
+  ``CPP_HARDCODED_CREDENTIAL`` — the same credential-name gate as the
+  PHP rule (``const char* sql = "SELECT ..."`` is a query, not a secret).
+  python/rust/cpp grammars are LOCAL-only wheels under the same honesty
+  contract: absent → ``parse()`` is None → every finding keeps, and each
+  grammar-dependent test skips itself.
 
 NOT HERE (deliberately):
 * ``TAINT_MULTIPART_TRAVERSAL`` gets a guard-dominance KILL only: the src
@@ -94,6 +121,17 @@ VALIDATED_RULE_IDS = frozenset({
     "DOTNET_PROCESS_START_INFO",
     "DOTNET_PATH_COMBINE_TRAVERSAL",
     "TAINT_MULTIPART_TRAVERSAL",
+    # Golden-corpus closure 2026-10-22 (kill-on-proof; see header).
+    "JAVA_PATH_TRAVERSAL_FILE",
+    "JAVA_TAINT_COMMAND_INJECTION",
+    "JAVA_TAINT_PATH_TRAVERSAL",
+    "PHP_PATH_USER_INPUT_VAR",
+    "TAINT_COMMAND_INJECTION",
+    "TAINT_XSS",
+    "RUST_COMMAND_EXEC",
+    "RUST_PATH_FORMAT",
+    "CPP_HARDCODED_CREDENTIAL",
+    "CPP_PATH_SNPRINTF_INTERP",
 })
 
 _EXT_TO_LANG = {
@@ -107,6 +145,13 @@ _EXT_TO_LANG = {
     ".cjs": "javascript",
     ".ts": "typescript",
     ".tsx": "tsx",
+    # LOCAL-only wheels (2026-10-22): absent grammar = parse() None = keep.
+    ".py": "python",
+    ".rs": "rust",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".c": "cpp",
 }
 
 #: Variable names that make a string assignment credential-shaped.
@@ -120,8 +165,11 @@ _TRAVERSAL_TOKENS = (
     "str_contains", "GetFullPath", "Path.Clean", "contains(",
 )
 
-#: Tokens that make a guard a WHITELIST check.
-_WHITELIST_TOKENS = ("in_array", ".contains(", "allowed", "whitelist")
+#: Tokens that make a guard a WHITELIST check. ``matches(`` is Java's
+#: canonical validation idiom (``if (input.matches("[a-z0-9]+"))``).
+_WHITELIST_TOKENS = (
+    "in_array", ".contains(", "allowed", "whitelist", "matches(",
+)
 
 #: Executables that interpret their arguments through a shell grammar.
 _SHELL_BINARIES = frozenset({
@@ -239,6 +287,16 @@ def _validate(finding: dict, rule_id: str, ctx: _FileContext):
         return _dotnet_process(finding, ctx)
     if rule_id == "DOTNET_PATH_COMBINE_TRAVERSAL":
         return _dotnet_path_combine(finding, ctx)
+    if rule_id in _TAINT_CHAIN_GUARD_RULES:
+        return _taint_guard_kill(finding, ctx)
+    if rule_id in _SNIPPET_GUARD_RULES:
+        return _snippet_guard_kill(finding, ctx)
+    if rule_id == "PHP_PATH_USER_INPUT_VAR":
+        return _traversal_concat(finding, ctx, _php_concat_var)
+    if rule_id == "CPP_HARDCODED_CREDENTIAL":
+        return _cpp_credential(finding, ctx)
+    if rule_id == "TAINT_XSS":
+        return _python_render_literal_kill(finding, ctx)
     return "keep"
 
 
@@ -298,12 +356,24 @@ def _guarded_var_kill(finding: dict, ctx: _FileContext, var: str):
     finding that sits INSIDE the consequence, i.e. inside the region the
     guard proved safe; a finding after the whole statement would sit on
     the bad-check path instead and is kept.
+
+    A third shape needs no exit at all: the C++/Rust
+    ``if (bad) { /* reject */ } else { USE }`` idiom. The alternative
+    executes only when the condition is false, so a finding INSIDE it is
+    killed when the rejection branch is comment/whitespace-only and the
+    condition carries traversal-family vocabulary (``find("..")``,
+    ``contains("..")``): the author's empty branch is the bad-path
+    sink-hole. Whitelist-family conditions are deliberately excluded from
+    this shape — in an empty-then branch they read inverted
+    (``if (allowed(x)) {} else { use(x); }``) — and a rejection branch
+    that executes anything non-exiting is not proof of rejection.
     """
     _EXIT_RE = r"\breturn\b|\bthrow\b|die\s*\(|exit\s*\("
     row = int(finding.get("line") or 0)
     scope = _scope(ctx, row)
+    if_types = ts.if_node_types(ctx.lang)
     for node in ts.walk(scope):
-        if node.type != "if_statement" or ts.node_row(node) >= row:
+        if node.type not in if_types or ts.node_row(node) >= row:
             continue
         condition = node.child_by_field_name("condition")
         # Body field differs per grammar: C#/Go/Java use `consequence`,
@@ -344,12 +414,26 @@ def _guarded_var_kill(finding: dict, ctx: _FileContext, var: str):
                     break
         if alternative is None:
             continue
-        if not (ts.node_start_row(consequence) <= row
+        if (ts.node_start_row(consequence) <= row
                 <= ts.node_end_row(consequence)):
-            continue        # finding outside the proven-safe region
-        if re.search(_EXIT_RE, ts.node_text(alternative)):
+            if re.search(_EXIT_RE, ts.node_text(alternative)):
+                return "kill"
+            continue        # inside the proven-safe branch, no exit after
+        # C++/Rust reject-comment idiom (see docstring, shape three).
+        if (ts.node_start_row(alternative) <= row
+                <= ts.node_end_row(alternative)
+                and _branch_is_comment_only(consequence)
+                and any(token in cond_text for token in _TRAVERSAL_TOKENS)):
             return "kill"
     return "keep"
+
+
+def _branch_is_comment_only(node) -> bool:
+    """True when a branch body performs no executable statement."""
+    substantive = [child for child in node.children
+                   if child.type not in ("{", "}", "(", ")")
+                   and "comment" not in child.type]
+    return not substantive
 
 
 def _multipart_guard_kill(finding: dict, ctx: _FileContext):
@@ -364,6 +448,133 @@ def _multipart_guard_kill(finding: dict, ctx: _FileContext):
     if not m:
         return "keep"
     return _guarded_var_kill(finding, ctx, m.group(0))
+
+
+# ---------------------------------------------------------------------------
+# Chain/snippet guard kills (2026-10-22 golden-corpus closure)
+# ---------------------------------------------------------------------------
+
+#: Taint-engine rules whose findings carry a ``taint_chain``; a guard that
+#: constrains ANY variable on the flow path proves the sink value validated.
+_TAINT_CHAIN_GUARD_RULES = frozenset({
+    "JAVA_PATH_TRAVERSAL_FILE",
+    "JAVA_TAINT_COMMAND_INJECTION",
+    "JAVA_TAINT_PATH_TRAVERSAL",
+    "TAINT_COMMAND_INJECTION",
+})
+
+#: Window rules with no chain state; the subject is every identifier in the
+#: snippet (each candidate still needs family token + early exit to kill).
+_SNIPPET_GUARD_RULES = frozenset({
+    "RUST_COMMAND_EXEC",
+    "RUST_PATH_FORMAT",
+    "CPP_PATH_SNPRINTF_INTERP",
+})
+
+
+def _chain_idents(chain) -> list[str]:
+    """First identifier of each chain element (``cmd``, ``parts[0]``,
+    ``request.args.get('cmd', '')`` → request, ...)."""
+    out = []
+    for element in chain or []:
+        match = re.search(r"[A-Za-z_]\w*", str(element))
+        if match:
+            out.append(match.group(0))
+    return out
+
+
+def _snippet_idents(snippet: str) -> list[str]:
+    return [m.group(0) for m in re.finditer(r"[A-Za-z_]\w*", snippet or "")]
+
+
+def _taint_guard_kill(finding: dict, ctx: _FileContext):
+    """Kill when a guard constrains any variable on the taint path.
+
+    The chain is the flow the engine proved (source → ... → sink); a
+    whitelist/traversal guard with an early exit over any chain member
+    constrains the value reaching the sink. Without a chain the snippet's
+    identifiers are the fallback (window-style rows enriched with flow).
+    """
+    chain = finding.get("taint_chain")
+    idents = _chain_idents(chain) if chain else _snippet_idents(
+        str(finding.get("snippet") or ""))
+    for var in dict.fromkeys(idents):
+        if _guarded_var_kill(finding, ctx, var) == "kill":
+            return "kill"
+    return "keep"
+
+
+def _snippet_guard_kill(finding: dict, ctx: _FileContext):
+    """Guard kill driven by the snippet's identifiers (no chain state).
+
+    Kill-on-proof only: every candidate still needs the full triple —
+    variable mention, validation-family token, early exit — before the
+    finding's line inside the reasoning scope.
+    """
+    for var in dict.fromkeys(_snippet_idents(str(finding.get("snippet") or ""))):
+        if _guarded_var_kill(finding, ctx, var) == "kill":
+            return "kill"
+    return "keep"
+
+
+# ---------------------------------------------------------------------------
+# C++ hard-coded credentials: same credential-name gate as the PHP rule
+# ---------------------------------------------------------------------------
+
+_CPP_CRED_ASSIGN = re.compile(
+    r"(?:const\s+)?char\s*\*?\s*(\w+)(?:\s*\[\s*\])?\s*=")
+
+
+def _cpp_credential(finding: dict, ctx: _FileContext):
+    """``const char* sql = "SELECT ..."`` is a query, not a credential.
+
+    The rule matches ANY ``const char* name = "8+ chars"``; the variable
+    name must be credential-shaped, exactly like the PHP rule's gate.
+    An array declaration the extractor cannot read keeps (conservative).
+    """
+    snippet = str(finding.get("snippet") or "").strip()
+    match = _CPP_CRED_ASSIGN.search(snippet)
+    if match and not _CRED_NAME_RE.search(match.group(1)):
+        return "kill"
+    return "keep"
+
+
+# ---------------------------------------------------------------------------
+# Python render_template_string: literal template ⇒ auto-escaped data
+# ---------------------------------------------------------------------------
+
+#: A PURE string literal (no f-prefix — interpolation is not a literal).
+_LITERAL_TEMPLATE = re.compile(
+    r"""^([rub]{0,2}"(?:[^"\\]|\\.)*"|[rub]{0,2}'(?:[^'\\]|\\.)*')"""
+    r"""\s*(?:,|\))""")
+
+#: Constructs that turn escaped data back into markup.
+_XSS_UNSAFE_TOKENS = ("|safe", "autoescape false", "autoescape=False")
+
+
+def _python_render_literal_kill(finding: dict, ctx: _FileContext):
+    """Kill a TAINT_XSS row whose template is a pure string literal.
+
+    Flask enables autoescape for template strings (``select_autoescape``
+    with ``default_for_string``), so taint that reaches only template
+    *variables* renders escaped. The proof dies the moment interpolation
+    enters the template: an f-string/concatenated/tainted template is
+    SSTI, and a ``|safe`` filter or ``autoescape false`` block hands the
+    data back to the browser as markup. Non-Flask renderers never carry
+    ``render_template_string`` in the snippet, so the check is inert there.
+    """
+    snippet = str(finding.get("snippet") or "")
+    if "render_template_string" not in snippet:
+        return "keep"
+    call = snippet[snippet.index("render_template_string"):]
+    args = call[call.index("(") + 1:].lstrip() if "(" in call else ""
+    match = _LITERAL_TEMPLATE.match(args)
+    if not match:
+        return "keep"          # f-string / concatenation / tainted template
+    template = match.group(1)
+    if any(token in template for token in _XSS_UNSAFE_TOKENS):
+        return "keep"
+    return "kill"
 
 
 # ---------------------------------------------------------------------------

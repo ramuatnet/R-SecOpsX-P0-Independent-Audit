@@ -6,8 +6,10 @@
     {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "lodash", "cve": "CVE-2020-28500", "package": "lodash", "version": "4.17.15"},
     {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "lodash", "cve": "CVE-2021-23337", "package": "lodash", "version": "4.17.15"},
     {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "lodash", "cve": "CVE-2025-13465", "package": "lodash", "version": "4.17.15"},
-    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "lodash", "cve": "CVE-2020-8203", "package": "lodash", "version": "4.17.15"}
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "lodash", "cve": "CVE-2020-8203", "package": "lodash", "version": "4.17.15"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "lodash", "cve": "CVE-2026-2950", "package": "lodash", "version": "4.17.15", "note": "added 2026-10-22: OSV record GHSA-f23m-r3pf-42rh, published after this fixture was labelled (2026-10-11). Version-verified: querybatch returned it for lodash@4.17.15 and fixed_versions=['4.18.0'] > 4.17.15."},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "lodash", "cve": "CVE-2026-4800", "package": "lodash", "version": "4.17.15", "note": "added 2026-10-22: OSV record GHSA-r5fr-rjxr-66jc, published after this fixture was labelled (2026-10-11). Version-verified: querybatch returned it for lodash@4.17.15 and fixed_versions=['4.18.0'] > 4.17.15."}
   ],
-  "expected_count": 6,
-  "expected_cves": ["CVE-2024-43796", "CVE-2024-29041", "CVE-2020-28500", "CVE-2021-23337", "CVE-2025-13465", "CVE-2020-8203"]
+  "expected_count": 8,
+  "expected_cves": ["CVE-2024-43796", "CVE-2024-29041", "CVE-2020-28500", "CVE-2021-23337", "CVE-2025-13465", "CVE-2020-8203", "CVE-2026-2950", "CVE-2026-4800"]
 }
