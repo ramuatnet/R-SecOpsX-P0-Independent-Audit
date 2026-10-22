@@ -85,6 +85,19 @@ measured on tests/vuln-test-corpus/sast)
   python/rust/cpp grammars are LOCAL-only wheels under the same honesty
   contract: absent → ``parse()`` is None → every finding keeps, and each
   grammar-dependent test skips itself.
+* Benchmark FP0 closure (2026-10-22). ``JAVA_XPATH_INJECTION`` and
+  ``JAVA_JDBC_SQL_INTERMEDIATE_QUERY`` are window rules that proved shape
+  plus file-level request evidence, never that the concatenated operand
+  actually carried attacker data. The OWASP Benchmark negative tests are
+  exactly that gap: the query is still concatenated, but the operand was
+  assigned a compile-time constant through a folded condition, a
+  constant switch selector, a literal-keyed map/list lookup, or a call
+  whose every argument is a constant. ``_java_concat_operand_kill`` runs
+  a small abstract interpreter over the method (plus same-file callee
+  resolution) and kills only when EVERY possible value of the
+  concatenation is provably request-independent. It deliberately does
+  NOT kill a Base64 encode+decode roundtrip (the identity function, not
+  a sanitizer), which is the one negative test we leave firing.
 * Bucket C — pair dedup, one defect one row (2026-10-22). After the
   guard pass reduces the list, a POST-pass drops duplicate rows whose
   canonical partner row is still present in the same enclosing function
@@ -152,6 +165,10 @@ VALIDATED_RULE_IDS = frozenset({
     "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
     "JAVA_JDBC_SQL_CONCAT",
     "RUST_SQL_FORMAT",
+    # Benchmark FP0 closure 2026-10-22: constant-operand kill, see
+    # _java_concat_operand_kill and tests/test_benchmark_fp0_20261022.py.
+    "JAVA_XPATH_INJECTION",
+    "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
 })
 
 _EXT_TO_LANG = {
@@ -319,6 +336,9 @@ def _validate(finding: dict, rule_id: str, ctx: _FileContext):
         return _cpp_credential(finding, ctx)
     if rule_id == "TAINT_XSS":
         return _python_render_literal_kill(finding, ctx)
+    if rule_id in ("JAVA_XPATH_INJECTION",
+                   "JAVA_JDBC_SQL_INTERMEDIATE_QUERY"):
+        return _java_concat_operand_kill(finding, ctx, rule_id)
     return "keep"
 
 
@@ -597,6 +617,830 @@ def _python_render_literal_kill(finding: dict, ctx: _FileContext):
     if any(token in template for token in _XSS_UNSAFE_TOKENS):
         return "keep"
     return "kill"
+
+
+# ---------------------------------------------------------------------------
+# Java concat operand proven request-independent (benchmark FP closure)
+# ---------------------------------------------------------------------------
+#
+# ``JAVA_XPATH_INJECTION`` and ``JAVA_JDBC_SQL_INTERMEDIATE_QUERY`` are
+# WINDOW rules. They prove shape — an XPath/SQL literal concatenated with an
+# identifier, or a JDBC sink fed an intermediate query variable — plus
+# file-level request evidence (``getParameter`` appears above), but they
+# never prove the concatenated operand carries attacker data. The OWASP
+# Benchmark negatives are exactly that gap: the query string is still built
+# by concatenation while the operand was assigned a COMPILE-TIME CONSTANT,
+# reached through
+#
+#   * a folded condition   -- ``if ((7 * 42) - num > 200) bar = "..."``
+#                             with ``int num = 86`` (or the ternary/switch
+#                             spelling of the same shape),
+#   * a literal container  -- ``map.get("keyA")`` whose last ``put`` under
+#                             that literal key stored a literal, or
+#                             ``list.get(1)`` after a straight-line
+#                             add/remove sequence,
+#   * a constant-argument call -- ``thing.doSomething(g)`` with ``g`` a
+#                             literal and every other argument likewise.
+#
+# ``_java_concat_operand_kill`` runs a small abstract interpreter over ONE
+# Java method (plus same-file callee resolution) and asks a single
+# question: is every possible value of the row's concatenation provably
+# request-INDEPENDENT? Three answers:
+#
+#   INDEP   -- built only from literals / folded constants / literal-keyed
+#              container reads / calls whose receiver and arguments are all
+#              INDEP;
+#   DEP     -- a request reader (``getParameter`` family) or a value derived
+#              from one;
+#   UNKNOWN -- everything else (unresolvable identifiers, arrays, fields,
+#              non-constant indices, unresolved calls, unparseable shapes).
+#
+# KILL requires INDEP for EVERY possible value; a join with a DEP or
+# UNKNOWN value (a live branch that assigns ``param``, a Base64
+# encode+decode roundtrip that is the identity, a non-constant list index)
+# keeps the finding. The interpreter only ever widens: every decision it
+# cannot make becomes UNKNOWN -> keep. Nothing here can make a rule fire.
+#
+# Deliberate non-kill: ``Base64.decodeBase64(..encodeBase64(param))`` is a
+# lossless roundtrip, not a sanitizer, so that operand stays DEP even when
+# an oracle labels the test safe (BenchmarkTest00941).
+
+#: Abstract value lattice for the operand interpreter.
+_J_INDEP = "indep"
+_J_DEP = "dep"
+_J_UNKNOWN = "unknown"
+_J_INDEP_SET = frozenset({_J_INDEP})
+_J_UNKNOWN_SET = frozenset({_J_UNKNOWN})
+
+#: Node types that are request-independent by construction.
+_J_LITERALS = frozenset({
+    "string_literal", "character_literal", "decimal_integer_literal",
+    "hex_integer_literal", "octal_integer_literal", "binary_integer_literal",
+    "decimal_floating_point_literal", "hex_floating_point_literal",
+    "true", "false", "null_literal",
+})
+
+#: Methods that RETURN request/environment data regardless of arguments.
+#: Without this gate a nullary ``System.getenv()`` would look independent.
+_J_SOURCE_METHODS = frozenset({
+    "getParameter", "getParameterValues", "getParameterMap",
+    "getParameterNames", "getHeader", "getHeaders", "getHeaderNames",
+    "getCookies", "getInputStream", "getReader", "getQueryString",
+    "getRequestURI", "getRequestURL", "getPathInfo", "getPathTranslated",
+    "getRemoteUser", "getRemoteAddr", "getAttribute",
+    "getenv", "getProperty", "getProperties", "getResourceAsStream",
+    "readLine", "nextLine",
+    # OWASP Benchmark helper that reads the request; not a sanitizer.
+    "getTheValue",
+})
+
+#: Declarations the interpreter must not descend into while walking a body.
+_J_NESTED_DECLS = frozenset({
+    "method_declaration", "constructor_declaration", "class_declaration",
+    "interface_declaration", "enum_declaration", "lambda_expression",
+})
+
+
+def _j_ident(node) -> str:
+    """Text of a name-ish child, or '' when absent."""
+    return ts.node_text(node).strip() if node is not None else ""
+
+
+def _j_single(node):
+    """The single substantive child of a wrapper node (parens/casts), or None."""
+    kids = [c for c in node.children if c.type not in ("(", ")", ",", ";")]
+    return kids[0] if len(kids) == 1 else None
+
+
+def _j_args(invocation) -> list:
+    """Argument expressions of a method invocation / object creation."""
+    args = invocation.child_by_field_name("arguments")
+    if args is None:
+        return []
+    return [c for c in args.children
+            if c.type not in ("(", ")", ",", "{", "}")]
+
+
+def _j_operand(node):
+    """Operator text of a binary/unary expression ('' when absent)."""
+    op = node.child_by_field_name("operator")
+    if op is not None:
+        return ts.node_text(op).strip()
+    for child in node.children:
+        if not child.is_named:
+            return ts.node_text(child).strip()
+    return ""
+
+
+def _j_key(const) -> tuple:
+    """Hashable container key for a constant tuple."""
+    return (const[0], const[1])
+
+
+class _JEnv:
+    """Per-method abstract state: possible values, constants, containers."""
+
+    __slots__ = ("values", "consts", "containers")
+
+    def __init__(self):
+        self.values: dict[str, frozenset] = {}
+        self.consts: dict[str, tuple] = {}
+        self.containers: dict[str, dict] = {}
+
+    def copy(self):
+        clone = _JEnv()
+        clone.values = dict(self.values)
+        clone.consts = dict(self.consts)
+        clone.containers = {
+            name: ({"kind": box.get("kind"),
+                    "items": (dict(box["items"])
+                              if box.get("kind") == "map" else
+                              list(box["items"]))}
+                   if box.get("kind") else {"kind": None})
+            for name, box in self.containers.items()
+        }
+        return clone
+
+
+def _j_container_merge(left, right) -> dict:
+    if not left or not right or not left.get("kind") or not right.get("kind"):
+        return {"kind": None}
+    if left["kind"] != right["kind"]:
+        return {"kind": None}
+    if left["kind"] == "map":
+        items = {}
+        for key in set(left["items"]) | set(right["items"]):
+            items[key] = (left["items"].get(key, _J_UNKNOWN_SET)
+                          | right["items"].get(key, _J_UNKNOWN_SET))
+        return {"kind": "map", "items": items}
+    size = max(len(left["items"]), len(right["items"]))
+    items = []
+    for index in range(size):
+        a = (left["items"][index] if index < len(left["items"])
+             else _J_UNKNOWN_SET)
+        b = (right["items"][index] if index < len(right["items"])
+             else _J_UNKNOWN_SET)
+        items.append(a | b)
+    return {"kind": "list", "items": items}
+
+
+def _j_env_merge(left: _JEnv, right: _JEnv) -> _JEnv:
+    """Join two branch states. Every unknown axis widens (never narrows)."""
+    out = _JEnv()
+    for name in set(left.values) | set(right.values):
+        a = left.values.get(name, frozenset())
+        b = right.values.get(name, frozenset())
+        out.values[name] = (a | b) if (a and b) else (a or b)
+    for name in set(left.consts) & set(right.consts):
+        if left.consts[name] == right.consts[name]:
+            out.consts[name] = left.consts[name]
+    for name in set(left.containers) | set(right.containers):
+        out.containers[name] = _j_container_merge(
+            left.containers.get(name), right.containers.get(name))
+    return out
+
+
+def _j_combine(*sets) -> frozenset:
+    """Result values of an operation over every combination of operands."""
+    result = set()
+    for values in sets:
+        if not values:
+            return _J_UNKNOWN_SET
+        if _J_DEP in values:
+            return frozenset({_J_DEP})
+    for values in sets:
+        if _J_UNKNOWN in values or values != _J_INDEP_SET:
+            return _J_UNKNOWN_SET
+        result.add(_J_INDEP)
+    return frozenset(result or {_J_INDEP})
+
+
+def _j_receiver_value(node, env: _JEnv, ctx: _FileContext, depth: int, seen):
+    """Value of a method-invocation receiver (``thing`` in ``thing.f()``)."""
+    if node is None:
+        return _J_INDEP_SET
+    if node.type == "identifier":
+        name = ts.node_text(node)
+        if name == "this":
+            return _J_INDEP_SET
+        values = env.values.get(name)
+        if values is not None:
+            return values or _J_UNKNOWN_SET
+        # Not a local: a capitalised name is a type reference (static call),
+        # anything else (a field, an aliased object) is unresolved.
+        return _J_INDEP_SET if name[:1].isupper() else _J_UNKNOWN_SET
+    if node.type in ("field_access", "scoped_identifier",
+                     "scoped_type_identifier"):
+        # A fully-qualified TYPE reference (``org.owasp...ThingFactory``) is
+        # the static-call receiver shape: the LAST segment is the type name
+        # and is capitalised; the leading segments are package qualifiers.
+        text = ts.node_text(node).strip().rstrip(".")
+        last = text.rsplit(".", 1)[-1]
+        return _J_INDEP_SET if last[:1].isupper() else _J_UNKNOWN_SET
+    return _j_eval(node, env, ctx, depth + 1, seen)
+
+
+def _j_method_index(ctx: _FileContext) -> dict:
+    index = getattr(ctx, "_java_methods", None)
+    if index is None:
+        index = {}
+        for node in ts.walk(ctx.tree.root_node):
+            if node.type not in ("method_declaration", "constructor_declaration"):
+                continue
+            name = node.child_by_field_name("name")
+            if name is not None:
+                index.setdefault(ts.node_text(name), []).append(node)
+        ctx._java_methods = index
+    return index
+
+
+def _j_find_method(ctx: _FileContext, name: str, argc: int | None = None):
+    """The single same-file declaration named ``name``; None when absent
+    or ambiguous (ambiguity is not proof).
+
+    ``argc`` narrows by formal-parameter count: an interface signature and
+    its single implementation (plus an unrelated same-named helper of a
+    different arity) are not ambiguity for a call of known arity. A
+    declaration without a body can never prove a return value, so bodied
+    candidates win; a remaining tie stays None.
+    """
+    found = _j_method_index(ctx).get(name) or []
+    if argc is not None:
+        narrowed = [node for node in found if _j_arity(node) == argc]
+        if narrowed:
+            found = narrowed
+    bodied = [node for node in found
+              if node.child_by_field_name("body") is not None]
+    if bodied:
+        found = bodied
+    return found[0] if len(found) == 1 else None
+
+
+def _j_arity(fn) -> int:
+    params = fn.child_by_field_name("parameters")
+    if params is None:
+        return 0
+    return len([c for c in params.children
+                if c.type in ("formal_parameter", "spread_parameter",
+                              "receiver_parameter")])
+
+
+
+def _j_walk_shallow(node):
+    """Pre-order walk that stops at nested declarations (methods/classes)."""
+    yield node
+    if node.type in _J_NESTED_DECLS:
+        return
+    for child in node.children:
+        yield from _j_walk_shallow(child)
+
+
+def _j_unescape(body: str) -> str:
+    out = []
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if char == "\\" and index + 1 < len(body):
+            nxt = body[index + 1]
+            out.append({"n": "\n", "t": "\t", "r": "\r", "b": "\b",
+                        "f": "\f", "0": "\0"}.get(nxt, nxt))
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def _j_const(node, env: _JEnv, ctx: _FileContext, depth: int = 0):
+    """Compile-time value of an expression: ('int'|'str'|'char'|'bool', v)."""
+    if node is None or depth > 12:
+        return None
+    kind = node.type
+    text = ts.node_text(node).strip()
+    if kind == "decimal_integer_literal":
+        try:
+            return ("int", int(text.replace("_", "")))
+        except ValueError:
+            return None
+    if kind == "hex_integer_literal":
+        try:
+            return ("int", int(text.replace("_", ""), 16))
+        except ValueError:
+            return None
+    if kind == "character_literal" and len(text) >= 3:
+        body = _j_unescape(text[1:-1])
+        return ("char", body) if len(body) == 1 else None
+    if kind == "string_literal" and len(text) >= 2:
+        return ("str", _j_unescape(text[1:-1]))
+    if kind == "true":
+        return ("bool", True)
+    if kind == "false":
+        return ("bool", False)
+    if kind in ("parenthesized_expression", "cast_expression"):
+        inner = (_j_single(node) if kind == "parenthesized_expression"
+                 else node.child_by_field_name("value"))
+        return _j_const(inner, env, ctx, depth + 1)
+    if kind == "identifier":
+        return env.consts.get(ts.node_text(node))
+    if kind == "unary_expression":
+        operand = [c for c in node.children
+                   if c.is_named and c.type != "comment"]
+        value = _j_const(operand[-1], env, ctx, depth + 1) if operand else None
+        op = _j_operand(node)
+        if value is None:
+            return None
+        if op == "!" and value[0] == "bool":
+            return ("bool", not value[1])
+        if op == "-" and value[0] == "int":
+            return ("int", -value[1])
+        if op == "+" and value[0] == "int":
+            return value
+        return None
+    if kind == "binary_expression":
+        left = _j_const(node.child_by_field_name("left"), env, ctx, depth + 1)
+        right = _j_const(node.child_by_field_name("right"), env, ctx, depth + 1)
+        if left is None or right is None:
+            return None
+        op = _j_operand(node)
+        if op == "+" and left[0] in ("str", "char") and right[0] in ("str", "char"):
+            return ("str", str(left[1]) + str(right[1]))
+        if op in ("+", "-", "*", "/", "%"):
+            if left[0] != "int" or right[0] != "int":
+                return None
+            if op == "+":
+                return ("int", left[1] + right[1])
+            if op == "-":
+                return ("int", left[1] - right[1])
+            if op == "*":
+                return ("int", left[1] * right[1])
+            if right[1] == 0:
+                return None
+            if op == "/":
+                return ("int", left[1] // right[1])
+            return ("int", left[1] % right[1])
+        if left[0] != right[0]:
+            return None
+        if op in (">", ">=", "<", "<="):
+            if left[0] not in ("int", "str", "char"):
+                return None
+            return ("bool", {">": left[1] > right[1],
+                             ">=": left[1] >= right[1],
+                             "<": left[1] < right[1],
+                             "<=": left[1] <= right[1]}[op])
+        if op in ("==", "!="):
+            equal = left[1] == right[1]
+            return ("bool", equal if op == "==" else not equal)
+        if op in ("&&", "||") and left[0] == "bool" and right[0] == "bool":
+            return ("bool", (left[1] and right[1]) if op == "&&"
+                    else (left[1] or right[1]))
+        return None
+    if kind == "ternary_expression":
+        cond = _j_const(node.child_by_field_name("condition"), env, ctx, depth + 1)
+        if cond is None or cond[0] != "bool":
+            return None
+        arm = ("consequence" if cond[1] else "alternative")
+        return _j_const(node.child_by_field_name(arm), env, ctx, depth + 1)
+    if kind == "method_invocation":
+        name = _j_ident(node.child_by_field_name("name"))
+        args = _j_args(node)
+        if name == "charAt" and len(args) == 1:
+            index = _j_const(args[0], env, ctx, depth + 1)
+            receiver = _j_const(node.child_by_field_name("object"), env, ctx,
+                                depth + 1)
+            if (index is not None and index[0] == "int" and receiver is not None
+                    and receiver[0] in ("str", "char")
+                    and 0 <= index[1] < len(receiver[1])):
+                return ("char", receiver[1][index[1]])
+        return None
+    return None
+
+
+def _j_const_bool(node, env: _JEnv, ctx: _FileContext, depth: int = 0):
+    value = _j_const(node, env, ctx, depth)
+    return value[1] if value is not None and value[0] == "bool" else None
+
+
+def _j_container_of(node, env: _JEnv, ctx: _FileContext):
+    """Fresh container created by ``new HashMap/ArrayList/..()``, else None."""
+    if node is None or node.type != "object_creation_expression":
+        return None
+    type_text = _j_ident(node.child_by_field_name("type"))
+    if not type_text:
+        return None
+    if "Map" in type_text:
+        return {"kind": "map", "items": {}}
+    if "List" in type_text or "Set" in type_text or "Deque" in type_text:
+        return {"kind": "list", "items": []}
+    return None
+
+
+def _j_set(env: _JEnv, name: str, value_node, ctx: _FileContext,
+           depth: int) -> _JEnv:
+    env.values[name] = (frozenset()
+                        if value_node is None
+                        else _j_eval(value_node, env, ctx, depth + 1))
+    const = _j_const(value_node, env, ctx, depth + 1)
+    if const is None:
+        env.consts.pop(name, None)
+    else:
+        env.consts[name] = const
+    container = _j_container_of(value_node, env, ctx)
+    if container is None:
+        env.containers.pop(name, None)
+    else:
+        env.containers[name] = container
+    return env
+
+
+def _j_effect(invocation, env: _JEnv, ctx: _FileContext, depth: int) -> _JEnv:
+    """Model container mutations (``put``/``add``/``remove``/``set``/...)."""
+    name = _j_ident(invocation.child_by_field_name("name"))
+    obj = invocation.child_by_field_name("object")
+    args = _j_args(invocation)
+    if obj is None or obj.type != "identifier":
+        return env
+    target = ts.node_text(obj)
+    box = env.containers.get(target)
+    if box is None:
+        return env
+    kind = box.get("kind")
+    if kind == "map":
+        if name == "put" and len(args) == 2:
+            key = _j_const(args[0], env, ctx, depth + 1)
+            if key is None:
+                env.containers[target] = {"kind": None}
+            else:
+                box["items"][_j_key(key)] = _j_eval(args[1], env, ctx, depth + 1)
+        elif name in ("putAll", "clear", "remove", "compute", "merge",
+                      "replace", "replaceAll", "putIfAbsent"):
+            env.containers[target] = {"kind": None}
+        return env
+    if kind == "list":
+        if name == "add" and len(args) == 1:
+            box["items"].append(_j_eval(args[0], env, ctx, depth + 1))
+        elif name == "add" and len(args) == 2:
+            index = _j_const(args[0], env, ctx, depth + 1)
+            if index is None or index[0] != "int" or not (
+                    0 <= index[1] <= len(box["items"])):
+                env.containers[target] = {"kind": None}
+            else:
+                box["items"].insert(
+                    index[1], _j_eval(args[1], env, ctx, depth + 1))
+        elif name == "set" and len(args) == 2:
+            index = _j_const(args[0], env, ctx, depth + 1)
+            if index is None or index[0] != "int" or not (
+                    0 <= index[1] < len(box["items"])):
+                env.containers[target] = {"kind": None}
+            else:
+                box["items"][index[1]] = _j_eval(args[1], env, ctx, depth + 1)
+        elif name == "remove" and len(args) == 1:
+            index = _j_const(args[0], env, ctx, depth + 1)
+            if index is None or index[0] != "int" or not (
+                    0 <= index[1] < len(box["items"])):
+                env.containers[target] = {"kind": None}
+            else:
+                box["items"].pop(index[1])
+        elif name in ("clear", "addAll", "removeAll", "retainAll", "sort"):
+            env.containers[target] = {"kind": None}
+        return env
+    return env
+
+
+def _j_eval(node, env: _JEnv, ctx: _FileContext, depth: int = 0,
+            seen=frozenset()) -> frozenset:
+    """Possible values of an expression: subset of {INDEP, DEP, UNKNOWN}."""
+    if node is None or depth > 10:
+        return _J_UNKNOWN_SET
+    kind = node.type
+    if kind in _J_LITERALS:
+        return _J_INDEP_SET
+    if kind == "identifier":
+        name = ts.node_text(node)
+        values = env.values.get(name)
+        if not values:
+            return _J_UNKNOWN_SET
+        return values
+    if kind == "parenthesized_expression":
+        inner = _j_single(node)
+        return _j_eval(inner, env, ctx, depth + 1, seen)
+    if kind == "cast_expression":
+        return _j_eval(node.child_by_field_name("value"), env, ctx, depth + 1,
+                       seen)
+    if kind == "binary_expression":
+        if _j_operand(node) == "+":
+            return _j_combine(
+                _j_eval(node.child_by_field_name("left"), env, ctx, depth + 1,
+                        seen),
+                _j_eval(node.child_by_field_name("right"), env, ctx, depth + 1,
+                        seen))
+        # Arithmetic/comparison results are not string payloads: no proof.
+        return _J_UNKNOWN_SET
+    if kind == "ternary_expression":
+        truth = _j_const_bool(node.child_by_field_name("condition"), env, ctx,
+                              depth + 1)
+        if truth is True:
+            return _j_eval(node.child_by_field_name("consequence"), env, ctx,
+                           depth + 1, seen)
+        if truth is False:
+            return _j_eval(node.child_by_field_name("alternative"), env, ctx,
+                           depth + 1, seen)
+        return (_j_eval(node.child_by_field_name("consequence"), env, ctx,
+                        depth + 1, seen)
+                | _j_eval(node.child_by_field_name("alternative"), env, ctx,
+                          depth + 1, seen))
+    if kind == "object_creation_expression":
+        args = _j_args(node)
+        if not args:
+            return _J_INDEP_SET
+        return _j_combine(*[_j_eval(arg, env, ctx, depth + 1, seen)
+                            for arg in args])
+    if kind == "method_invocation":
+        return _j_call_eval(node, env, ctx, depth, seen)
+    return _J_UNKNOWN_SET
+
+
+def _j_call_eval(invocation, env: _JEnv, ctx: _FileContext, depth: int,
+                 seen) -> frozenset:
+    name = _j_ident(invocation.child_by_field_name("name"))
+    obj = invocation.child_by_field_name("object")
+    args = _j_args(invocation)
+    if name in ("get", "getOrDefault") and obj is not None \
+            and obj.type == "identifier" and args:
+        box = env.containers.get(ts.node_text(obj))
+        if box is not None and box.get("kind") == "map":
+            key = _j_const(args[0], env, ctx, depth + 1)
+            if key is None:
+                return _J_UNKNOWN_SET
+            return box["items"].get(_j_key(key), _J_UNKNOWN_SET)
+        if box is not None and box.get("kind") == "list":
+            index = _j_const(args[0], env, ctx, depth + 1)
+            if index is not None and index[0] == "int" and 0 <= index[1] < len(
+                    box["items"]):
+                return box["items"][index[1]]
+            return _J_UNKNOWN_SET
+    if name in _J_SOURCE_METHODS:
+        return frozenset({_J_DEP})
+    callee = _j_find_method(ctx, name, len(args))
+    if callee is not None and name not in seen and depth < 6:
+        values = [_j_eval(arg, env, ctx, depth + 1, seen) for arg in args]
+        consts = [_j_const(arg, env, ctx, depth + 1) for arg in args]
+        return _j_function_return(callee, values, consts, ctx, depth + 1,
+                                  seen | {name})
+    combined = [_j_eval(arg, env, ctx, depth + 1, seen) for arg in args]
+    if obj is not None:
+        combined.append(_j_receiver_value(obj, env, ctx, depth, seen))
+    return _j_combine(*combined) if combined else _J_UNKNOWN_SET
+
+
+def _j_bind_formals(fn, values, consts) -> _JEnv:
+    env = _JEnv()
+    params = fn.child_by_field_name("parameters")
+    formals = [] if params is None else [
+        c for c in params.children
+        if c.type in ("formal_parameter", "spread_parameter",
+                      "receiver_parameter")]
+    for index, formal in enumerate(formals):
+        name = _j_ident(formal.child_by_field_name("name"))
+        if not name:
+            continue
+        env.values[name] = (values[index] if index < len(values)
+                            else _J_UNKNOWN_SET)
+        if index < len(consts) and consts[index] is not None:
+            env.consts[name] = consts[index]
+    return env
+
+
+def _j_entry_env(scope) -> _JEnv:
+    """Entry state: every formal parameter is UNKNOWN (no caller proof)."""
+    return _j_bind_formals(scope, [], [])
+
+
+def _j_function_return(fn, values, consts, ctx: _FileContext, depth: int,
+                       seen) -> frozenset:
+    """Join of every ``return`` expression value of a same-file method."""
+    env = _j_bind_formals(fn, values, consts)
+    body = fn.child_by_field_name("body")
+    env = _j_exec(body, env, ctx, 10 ** 9, depth)
+    out = frozenset()
+    for node in _j_walk_shallow(body) if body is not None else []:
+        if node.type != "return_statement":
+            continue
+        exprs = [c for c in node.children
+                 if c.is_named and c.type != "comment"]
+        out |= (_j_eval(exprs[0], env, ctx, depth + 1, seen) if exprs
+                else _J_INDEP_SET)
+    return out or _J_UNKNOWN_SET
+
+
+def _j_run_groups(groups, start: int, env: _JEnv, ctx: _FileContext,
+                  limit_row: int, depth: int) -> _JEnv:
+    for group in groups[start:]:
+        for child in group.children:
+            if child.type == "switch_label":
+                continue
+            if ts.node_start_row(child) > limit_row:
+                return env
+            env = _j_exec(child, env, ctx, limit_row, depth + 1)
+            if child.type in ("break_statement", "return_statement",
+                              "throw_statement"):
+                return env
+        if group.type == "switch_rule":     # arrow form: no fall-through
+            return env
+    return env
+
+
+def _j_switch(node, env: _JEnv, ctx: _FileContext, limit_row: int,
+              depth: int) -> _JEnv:
+    condition = node.child_by_field_name("condition")
+    body = node.child_by_field_name("body")
+    if condition is None or body is None:
+        return env
+    groups = [c for c in body.children
+              if c.type in ("switch_block_statement_group", "switch_rule")]
+    if not groups:
+        return env
+    selector = _j_const(condition, env, ctx, depth + 1)
+    if selector is None:
+        states = [_j_run_groups(groups, index, env.copy(), ctx, limit_row, depth)
+                  for index in range(len(groups))]
+        joined = states[0]
+        for state in states[1:]:
+            joined = _j_env_merge(joined, state)
+        return joined
+    start = None
+    has_default = False
+    for index, group in enumerate(groups):
+        for label in group.children:
+            if label.type != "switch_label":
+                continue
+            text = ts.node_text(label).strip()
+            if text == "default":
+                if start is None:
+                    has_default = True
+                continue
+            for child in label.children:
+                if child.type in ("case", ":", ","):
+                    continue
+                if _j_const(child, env, ctx, depth + 1) == selector:
+                    start = index
+                    break
+            if start is not None:
+                break
+        if start is not None:
+            break
+    if start is None:
+        if not has_default:
+            return env
+        for index, group in enumerate(groups):
+            if any(ts.node_text(label).strip() == "default"
+                   for label in group.children
+                   if label.type == "switch_label"):
+                start = index
+                break
+    if start is None:
+        return env
+    return _j_run_groups(groups, start, env, ctx, limit_row, depth)
+
+
+def _j_exec(node, env: _JEnv, ctx: _FileContext, limit_row: int,
+            depth: int = 0) -> _JEnv:
+    """Linear abstract execution of one statement/block; returns the state."""
+    if node is None or depth > 30:
+        return env
+    kind = node.type
+    if kind in ("block", "constructor_body", "switch_block"):
+        for child in node.children:
+            if ts.node_start_row(child) > limit_row:
+                break
+            env = _j_exec(child, env, ctx, limit_row, depth + 1)
+        return env
+    if kind == "local_variable_declaration":
+        for child in node.children:
+            if child.type != "variable_declarator":
+                continue
+            name = _j_ident(child.child_by_field_name("name"))
+            if not name:
+                continue
+            env = _j_set(env, name, child.child_by_field_name("value"), ctx,
+                         depth)
+        return env
+    if kind == "expression_statement":
+        for child in node.children:
+            if child.is_named:
+                env = _j_exec(child, env, ctx, limit_row, depth + 1)
+        return env
+    if kind == "assignment_expression":
+        left = node.child_by_field_name("left")
+        if left is not None and left.type == "identifier":
+            env = _j_set(env, ts.node_text(left),
+                         node.child_by_field_name("right"), ctx, depth)
+        return env
+    if kind == "method_invocation":
+        return _j_effect(node, env, ctx, depth)
+    if kind == "if_statement":
+        truth = _j_const_bool(node.child_by_field_name("condition"), env, ctx,
+                             depth + 1)
+        consequence = node.child_by_field_name("consequence")
+        alternative = node.child_by_field_name("alternative")
+        if alternative is None:
+            kids = node.children
+            for position, child in enumerate(kids):
+                if child.type == "else" and position + 1 < len(kids):
+                    alternative = kids[position + 1]
+                    break
+        if truth is True:
+            return _j_exec(consequence, env, ctx, limit_row, depth + 1)
+        if truth is False:
+            return (_j_exec(alternative, env, ctx, limit_row, depth + 1)
+                    if alternative is not None else env)
+        then_state = _j_exec(consequence, env.copy(), ctx, limit_row, depth + 1)
+        else_state = (_j_exec(alternative, env.copy(), ctx, limit_row, depth + 1)
+                      if alternative is not None else env.copy())
+        return _j_env_merge(then_state, else_state)
+    if kind in ("switch_expression", "switch_statement"):
+        return _j_switch(node, env, ctx, limit_row, depth)
+    if kind in ("try_statement", "try_with_resources_statement"):
+        before = env.copy()
+        env = _j_exec(node.child_by_field_name("body"), env, ctx, limit_row,
+                      depth + 1)
+        # The body may throw at any point: the pre-state joins in (widening).
+        return _j_env_merge(env, before)
+    if kind in ("for_statement", "enhanced_for_statement", "while_statement",
+                "do_statement"):
+        before = env.copy()
+        env = _j_exec(node.child_by_field_name("body"), env, ctx, limit_row,
+                      depth + 1)
+        return _j_env_merge(env, before)
+    if kind in _J_NESTED_DECLS:
+        return env
+    return env
+
+
+def _j_row_value(scope, row: int):
+    """The value expression assigned on ``row`` (declarator or assignment).
+
+    Multiple candidates on the row are ambiguous -> None (keep)."""
+    found = []
+    for node in ts.walk(scope):
+        if ts.node_start_row(node) != row:
+            continue
+        if node.type == "variable_declarator":
+            value = node.child_by_field_name("value")
+            if value is not None:
+                found.append(value)
+        elif node.type == "assignment_expression":
+            value = node.child_by_field_name("right")
+            if value is not None:
+                found.append(value)
+    return found[0] if len(found) == 1 else None
+
+
+def _j_sink_invocation(scope, row: int):
+    """The JDBC sink invocation starting on ``row`` (None when ambiguous)."""
+    found = []
+    for node in ts.walk(scope):
+        if node.type != "method_invocation" or ts.node_start_row(node) != row:
+            continue
+        if _j_ident(node.child_by_field_name("name")) in (
+                "prepareStatement", "prepareCall", "executeQuery",
+                "executeUpdate", "execute"):
+            found.append(node)
+    return found[0] if len(found) == 1 else None
+
+
+def _java_concat_operand_kill(finding: dict, ctx: _FileContext, rule_id: str):
+    """Kill the window finding when the concatenation is provably constant.
+
+    The proof is a value judgement about the WHOLE expression assigned at
+    the anchor row (or, for the JDBC rule, the intermediate query variable
+    passed to the sink): every possible value must be INDEP. One DEP or
+    UNKNOWN alternative keeps the finding.
+    """
+    row = int(finding.get("line") or 0)
+    if row <= 0:
+        return "keep"
+    scope = ts.find_enclosing_function(ctx.tree, ctx.lang, row)
+    if scope is None:
+        return "keep"
+    body = scope.child_by_field_name("body")
+    if body is None:
+        return "keep"
+    env = _j_entry_env(scope)
+    if rule_id == "JAVA_XPATH_INJECTION":
+        expr = _j_row_value(scope, row)
+        if expr is None:
+            return "keep"
+        env = _j_exec(body, env, ctx, row, 0)
+        return "kill" if _j_eval(expr, env, ctx) == _J_INDEP_SET else "keep"
+    sink = _j_sink_invocation(scope, row)
+    if sink is None:
+        return "keep"
+    args = _j_args(sink)
+    if not args or args[0].type != "identifier":
+        return "keep"
+    env = _j_exec(body, env, ctx, row, 0)
+    values = env.values.get(ts.node_text(args[0]), _J_UNKNOWN_SET)
+    return "kill" if values == _J_INDEP_SET else "keep"
 
 
 # ---------------------------------------------------------------------------

@@ -132,6 +132,12 @@ class TestHonestyContracts:
             "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
             "JAVA_JDBC_SQL_CONCAT",
             "RUST_SQL_FORMAT",
+            # 2026-10-22 benchmark FP0 closure: constant-operand kill
+            # (_java_concat_operand_kill), pinned by
+            # tests/test_benchmark_fp0_20261022.py with negative shapes
+            # and vulnerable-twin keep controls.
+            "JAVA_XPATH_INJECTION",
+            "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
         }
 
     def test_env_kill_switch_disables_the_pass(self, tmp_path, monkeypatch):
