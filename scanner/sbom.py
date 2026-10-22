@@ -740,6 +740,217 @@ def _resolve_pom_property(value: str, properties: dict, max_depth: int = 5) -> s
     return "unknown" if "${" in current else current
 
 
+# ---------------------------------------------------------------------------
+# A2 (2026-10-22): parent-pom / imported-BOM managed version resolution.
+#
+# A dependency that omits <version> has it supplied by dependencyManagement
+# somewhere up the chain (WebGoat jackson-databind -> spring-boot-starter-
+# parent:4.1.0 -> spring-boot-dependencies -> ${jackson.version}); G14's
+# local "<artifactId>.version" convention does not reach there, so the pin
+# stayed "unknown" and its CVEs were dropped while CNAP resolved them.
+# This walks parent chains and import-scoped BOMs on Maven Central with an
+# on-disk pom cache. Every failure mode (offline, 404, cycle, budget,
+# malformed XML) degrades to "unknown" -- the honest value -- never a guess.
+# ---------------------------------------------------------------------------
+
+_MAVEN_CENTRAL = "https://repo1.maven.org/maven2"
+_MAVEN_POM_CACHE_PATH = Path("data") / ".maven_pom_cache.json"
+_POM_FETCH_MEMO: dict = {}
+_POM_MANAGED_MEMO: dict = {}
+_MAX_POM_FETCHES = 10
+
+
+def _maven_pom_url(group_id: str, artifact_id: str, version: str) -> str:
+    return "%s/%s/%s/%s/%s-%s.pom" % (
+        _MAVEN_CENTRAL, "/".join(group_id.split(".")), artifact_id,
+        version, artifact_id, version)
+
+
+def _fetch_maven_pom(group_id: str, artifact_id: str, version: str):
+    """Raw pom text from the local cache or Maven Central; None on any
+    failure so the caller degrades to "unknown"."""
+    key = "%s:%s:%s" % (group_id, artifact_id, version)
+    if key in _POM_FETCH_MEMO:
+        return _POM_FETCH_MEMO[key]
+    text = None
+    cache: dict = {}
+    try:
+        if _MAVEN_POM_CACHE_PATH.exists():
+            cache = json.loads(_MAVEN_POM_CACHE_PATH.read_text(encoding="utf-8"))
+            text = cache.get(key)
+    except Exception:
+        cache = {}
+    if text is None:
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                _maven_pom_url(group_id, artifact_id, version),
+                headers={"User-Agent": "R-SecOpsX-SBOM"})
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                text = resp.read().decode("utf-8", errors="replace")
+            try:
+                cache[key] = text
+                _MAVEN_POM_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                _MAVEN_POM_CACHE_PATH.write_text(
+                    json.dumps(cache), encoding="utf-8")
+            except Exception:
+                pass
+        except Exception:
+            text = None
+    _POM_FETCH_MEMO[key] = text
+    return text
+
+
+def _pom_coords_and_dm(pom_text: str):
+    """-> (version, properties, dm entries [(g, a, version, is_import)],
+    parent coords | None) for one pom document."""
+    try:
+        root = ET.fromstring(pom_text)
+    except Exception:
+        return None
+    ns = re.match(r"\{.*\}", root.tag)
+    prefix = ns.group(0) if ns else ""
+    version = (root.findtext(f"{prefix}version") or "").strip()
+    parent_coords = None
+    parent = root.find(f"{prefix}parent")
+    if parent is not None:
+        pg = (parent.findtext(f"{prefix}groupId") or "").strip()
+        pa = (parent.findtext(f"{prefix}artifactId") or "").strip()
+        pv = (parent.findtext(f"{prefix}version") or "").strip()
+        if pa:
+            parent_coords = (pg, pa, pv)
+        if not version:
+            version = pv
+    props: dict = {}
+    for prop_block in root.iter(f"{prefix}properties"):
+        for child in prop_block:
+            key = (
+                child.tag[len(prefix):]
+                if prefix and child.tag.startswith(prefix)
+                else child.tag
+            )
+            if child.text and child.text.strip():
+                props[key] = child.text.strip()
+    dm = []
+    for dm_block in root.iter(f"{prefix}dependencyManagement"):
+        for dep in dm_block.iter(f"{prefix}dependency"):
+            g = (dep.findtext(f"{prefix}groupId") or "").strip()
+            a = (dep.findtext(f"{prefix}artifactId") or "").strip()
+            v = (dep.findtext(f"{prefix}version") or "").strip()
+            scope = (dep.findtext(f"{prefix}scope") or "").strip()
+            if not a:
+                continue
+            dm.append((g, a, v, scope == "import"))
+    return version, props, dm, parent_coords
+
+
+def _resolve_pom_managed_versions(pom_path: str, needed=None) -> dict:
+    """(groupId, artifactId) -> managed version over a pom's dm chain.
+
+    One bounded walk per pom (memoized on the pom path + needed set): the
+    pom's OWN dependencyManagement wins, then imported BOMs (fetched from
+    Maven Central, honouring property inheritance and ${project.version}),
+    then the parent chain -- Maven's own precedence. Two ordering rules
+    keep the walk focused on what the consuming pom actually needs:
+    imports whose groupId prefixes a requested coordinate's group are
+    walked first (com.fasterxml.jackson:bom for com.fasterxml.jackson.core:
+    databind -- the real spring-boot-dependencies imports 45 BOMs and
+    jackson-bom sorts in the middle), and the walk stops as soon as every
+    requested coordinate is resolved. A visited set makes parent cycles
+    safe and _MAX_POM_FETCHES caps the walk. Any read/fetch/parse failure
+    simply yields fewer managed coordinates.
+    """
+    memo_key = (pom_path, frozenset(needed) if needed else None)
+    if memo_key in _POM_MANAGED_MEMO:
+        return _POM_MANAGED_MEMO[memo_key]
+    managed: dict = {}
+    needed_set = set(needed or ())
+
+    def _import_rank(import_group: str) -> int:
+        if not needed_set or not import_group:
+            return 1
+        return 0 if any(ng.startswith(import_group)
+                        for ng, _na in needed_set) else 1
+
+    try:
+        root_text = Path(pom_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return managed
+    parsed = _pom_coords_and_dm(root_text)
+    if not parsed:
+        return managed
+    _, root_props, root_dm, root_parent = parsed
+
+    # The consuming pom's own dependencyManagement is the strongest source.
+    for dg, da, dv, is_import in root_dm:
+        if is_import or not dv:
+            continue
+        resolved = _resolve_pom_property(dv, root_props)
+        if resolved != "unknown":
+            managed.setdefault((dg, da), resolved)
+    if needed_set and needed_set.issubset(managed):
+        _POM_MANAGED_MEMO[memo_key] = managed
+        return managed
+
+    # BFS: imported BOMs before the parent chain (own entries beat imports
+    # beat inherited ones), target-family imports first. Queue items carry
+    # the props they inherit.
+    queue = []
+    imports = []
+    for dg, da, dv, is_import in root_dm:
+        if is_import:
+            resolved = _resolve_pom_property(dv, root_props) if dv else "unknown"
+            if resolved != "unknown":
+                imports.append((dg, da, resolved, dict(root_props)))
+    imports.sort(key=lambda item: _import_rank(item[0]))
+    queue.extend(imports)
+    if root_parent and root_parent[2]:
+        queue.append((root_parent[0], root_parent[1], root_parent[2],
+                      dict(root_props)))
+    visited = set()
+    fetches = 0
+    while queue and fetches < _MAX_POM_FETCHES:
+        g, a, v, inherited = queue.pop(0)
+        if (g, a, v) in visited:
+            continue
+        visited.add((g, a, v))
+        fetches += 1
+        text = _fetch_maven_pom(g, a, v)
+        if not text:
+            continue
+        parsed = _pom_coords_and_dm(text)
+        if not parsed:
+            continue
+        pversion, props, dm, parent = parsed
+        merged = dict(inherited)
+        # ${project.version} always refers to the pom being interpolated,
+        # never to an importer's -- so it is set unconditionally (and is
+        # not an inheritable property between poms).
+        merged.pop("project.version", None)
+        merged.pop("project.parent.version", None)
+        merged.update(props)
+        merged["project.version"] = pversion or v
+        imports = []
+        for dg, da, dv, is_import in dm:
+            resolved = _resolve_pom_property(dv, merged) if dv else "unknown"
+            if is_import:
+                if resolved != "unknown":
+                    imports.append((dg, da, resolved, dict(merged)))
+                continue
+            if resolved != "unknown":
+                managed.setdefault((dg, da), resolved)
+        if needed_set and needed_set.issubset(managed):
+            break
+        imports.sort(key=lambda item: _import_rank(item[0]))
+        queue.extend(imports)
+        if parent and parent[2]:
+            resolved = _resolve_pom_property(parent[2], merged)
+            if resolved != "unknown":
+                queue.append((parent[0], parent[1], resolved, dict(merged)))
+    _POM_MANAGED_MEMO[memo_key] = managed
+    return managed
+
+
 def _parse_pom_xml(filepath: str) -> list[dict]:
     """
     Parse Maven pom.xml and include manifest location.
@@ -792,6 +1003,31 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
         if project_version:
             pom_properties.setdefault("project.version", project_version)
 
+        # Coordinates that will land "unknown" from local sources alone;
+        # the A2 chain-walk below uses them to order and early-stop its
+        # (bounded, cached) traversal of parent poms / imported BOMs.
+        needed_managed: set = set()
+        for dep in root.iter(f"{prefix}dependency"):
+            _a = dep.find(f"{prefix}artifactId")
+            _g = dep.find(f"{prefix}groupId")
+            _v = dep.find(f"{prefix}version")
+            if _a is None or (_v is not None and _v.text and _v.text.strip()):
+                continue
+            _aid = (_a.text or "").strip()
+            _gid = (_g.text.strip() if _g is not None and _g.text
+                    else "unknown")
+            if not _aid or _gid == "unknown":
+                continue
+            _ver = (_v.text.strip() if _v is not None and _v.text
+                    else "unknown")
+            if "${" in _ver:
+                _ver = _resolve_pom_property(_ver, pom_properties)
+            if _ver == "unknown" and pom_properties.get(
+                    f"{_aid}.version", "unknown") != "unknown":
+                continue
+            if _ver == "unknown":
+                needed_managed.add((_gid, _aid))
+
         for dep in root.iter(f"{prefix}dependency"):
             group = dep.find(f"{prefix}groupId")
             artifact = dep.find(f"{prefix}artifactId")
@@ -840,6 +1076,19 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
             # property at all, stays honestly unknown).
             if ver_str == "unknown" and artifact_id not in ("", "unknown"):
                 ver_str = pom_properties.get(f"{artifact_id}.version", "unknown")
+
+            # A2 (2026-10-22): still unknown -> the version lives in the
+            # parent-pom / imported-BOM dependencyManagement chain. One
+            # bounded, cached chain-walk per pom (target-family imports
+            # first, stopping once every needed coordinate resolves);
+            # offline or unresolvable degrades to "unknown" (never a guess).
+            if ver_str == "unknown" and group_id not in ("", "unknown"):
+                try:
+                    managed = _resolve_pom_managed_versions(
+                        filepath, needed=needed_managed)
+                    ver_str = managed.get((group_id, artifact_id), "unknown")
+                except Exception:
+                    ver_str = "unknown"
 
             pkgs.append({
                 "name": f"{group_id}:{artifact_id}",

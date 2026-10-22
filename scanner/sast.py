@@ -1415,6 +1415,89 @@ _PHP_REQUEST_SOURCE_RE = re.compile(
     r"|\$_SERVER\s*\[\s*[\"'](?:HTTP_|QUERY_STRING|REQUEST_URI)"
     r"|php://input")
 
+# A1b (2026-10-22, DVWA sqli/source/high.php vs CNAP INJ-SQL-001): a
+# $_SESSION value is request-derived ONLY when some file in the corpus
+# assigns it from a request source (session-input.php:
+# `$_SESSION['id'] = $_POST['id']`). Session state is otherwise server-set
+# (login rows from the database, flash data), which is why $_SESSION is not
+# a general request source -- but DVWA's high-security SQLi variant routes
+# the POST through the session and then interpolates it into the query, so
+# rejecting the superglobal outright left a genuine injection dark. The
+# corpus pre-pass below proves, per scan, exactly which keys carry request
+# data; unproven keys keep the old quiet behavior.
+_CORPUS_SESSION_SOURCE_KEYS: set = set()
+
+_SESSION_ASSIGN_RE = re.compile(
+    r"\$_SESSION\s*\[\s*['\"]([\w\-]+)['\"]\s*\]\s*=\s*([^;\n]+)")
+
+# Cache for the request-source regex extended with corpus-proven session
+# keys. Rebuilt only when the proven-key set changes (per scan_directory
+# pre-pass); concurrent workers may race the rebuild benignly -- they all
+# compute the same regex for the same key snapshot.
+_DIRECT_SOURCE_CACHE = {"keys": None, "re": _PHP_REQUEST_SOURCE_RE}
+
+
+def _collect_corpus_session_keys(target) -> set:
+    """Pre-pass over a corpus: $_SESSION keys proven request-derived.
+
+    A key qualifies when some php file assigns it from a request source
+    either directly (`$_SESSION['id'] = $_POST['id']`) or through a bounded
+    two-pass variable closure (`$id = $_POST['id']; $_SESSION['id'] = $id`)
+    -- the same semantics as _php_tainted_vars, per file. The resulting set
+    is published module-wide for the scan_file workers (read-only once the
+    pool starts). Any read failure simply yields fewer proven keys.
+    """
+    keys: set = set()
+    try:
+        php_files = list(Path(target).rglob("*.php"))
+    except OSError:
+        php_files = []
+    for fp in php_files:
+        if _skip(fp):
+            continue
+        try:
+            text = fp.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        assignments = re.findall(r"\$([A-Za-z_]\w*)\s*=\s*([^;\n]+)", text)
+        tainted: set = set()
+        for _ in range(2):
+            grew = False
+            for name, rhs in assignments:
+                if name in tainted:
+                    continue
+                if _PHP_REQUEST_SOURCE_RE.search(rhs) or any(
+                        re.search(r"\$" + re.escape(t) + r"\b", rhs)
+                        for t in tainted):
+                    tainted.add(name)
+                    grew = True
+            if not grew:
+                break
+        for key, rhs in _SESSION_ASSIGN_RE.findall(text):
+            if _PHP_REQUEST_SOURCE_RE.search(rhs) or any(
+                    re.search(r"\$" + re.escape(t) + r"\b", rhs)
+                    for t in tainted):
+                keys.add(key)
+    _CORPUS_SESSION_SOURCE_KEYS.clear()
+    _CORPUS_SESSION_SOURCE_KEYS.update(keys)
+    return keys
+
+
+def _php_direct_source_re():
+    """Request sources for the php validators: request superglobals plus
+    corpus-proven session keys (never matches when no keys were proven)."""
+    snap = frozenset(_CORPUS_SESSION_SOURCE_KEYS)
+    if _DIRECT_SOURCE_CACHE["keys"] != snap:
+        if snap:
+            _DIRECT_SOURCE_CACHE["re"] = re.compile(
+                _PHP_REQUEST_SOURCE_RE.pattern
+                + r"|\$_SESSION\s*\[\s*['\"](?:%s)['\"]\s*\]"
+                % "|".join(re.escape(k) for k in sorted(snap)))
+        else:
+            _DIRECT_SOURCE_CACHE["re"] = _PHP_REQUEST_SOURCE_RE
+        _DIRECT_SOURCE_CACHE["keys"] = snap
+    return _DIRECT_SOURCE_CACHE["re"]
+
 # Wrappers whose output is encoded/safe: when the tainted value only occurs
 # inside one of these calls the echo/print/file statement is not an injection.
 _PHP_SAFE_WRAPPER_RE = re.compile(
@@ -1441,7 +1524,7 @@ def _php_tainted_vars(source: str, anchor: int, window: int = 1500,
         for name, rhs in assignments:
             if name in tainted:
                 continue
-            if _PHP_REQUEST_SOURCE_RE.search(rhs):
+            if _php_direct_source_re().search(rhs):
                 tainted.add(name)
                 grew = True
             elif passes > 1 and any(
@@ -1495,8 +1578,10 @@ _BATCH10_PHP_RULE_IDS = frozenset(_PHP_SINK_CATEGORY) | {
 
 def _php_rule_taint_chain(rule_id: str, source: str, match: re.Match) -> str:
     """Record which request source reaches the sink, per rule family."""
-    if rule_id == "PHP_CMD_INJECTION_INTERMEDIATE":
-        # 2-hop window: the json-body form chains input -> target -> exec.
+    if rule_id in ("PHP_CMD_INJECTION_INTERMEDIATE",
+                   "PHP_SQL_INTERMEDIATE_QUERY"):
+        # 2-hop window: the json-body form chains input -> decode -> sink
+        # (cmd: exec; sql: the intermediate query variable).
         tainted = _php_tainted_vars(source, match.start(), passes=2)
     else:
         tainted = _php_tainted_vars(source, match.start(), passes=1)
@@ -1504,8 +1589,21 @@ def _php_rule_taint_chain(rule_id: str, source: str, match: re.Match) -> str:
     for t in sorted(tainted):
         if re.search(r"\$" + re.escape(t) + r"\b", stmt):
             return "$%s -> %s" % (t, match.group(0).split("(")[0].strip())
+    if rule_id == "PHP_SQL_INTERMEDIATE_QUERY":
+        # The sink argument is itself an intermediate variable: the
+        # request-derived operand sits in THAT variable's assignment (one
+        # hop further up than the sink statement). Proven here so the
+        # EVIDEX evidence gate sees a real source-to-sink chain.
+        region = source[max(0, match.start() - 1500):match.start()]
+        for t in sorted(tainted):
+            for nm in set(re.findall(r"\$([A-Za-z_]\w*)", stmt)):
+                am = re.search(
+                    r"\$" + re.escape(nm) + r"\b\s*=\s*([^;\n]+)", region)
+                if am and re.search(r"\$" + re.escape(t) + r"\b", am.group(1)):
+                    return "$%s -> %s" % (
+                        t, match.group(0).split("(")[0].strip())
     # Direct superglobal at the sink (no variable hop): name it as the source.
-    m = _PHP_REQUEST_SOURCE_RE.search(stmt)
+    m = _php_direct_source_re().search(stmt)
     if m:
         return "%s -> %s" % (m.group(0).split("[")[0].strip(),
                              match.group(0).split("(")[0].strip())
@@ -1590,16 +1688,20 @@ def _php_sql_intermediate_query(source: str, match: re.Match, language: str) -> 
     stmt = _php_statement(source, match)
     lo = max(0, match.start() - 1500)
     region = source[lo:match.start()]
-    tainted = _php_tainted_vars(source, match.start(), passes=1)
+    # Two hops: the php://input JSON body arrives as
+    # `$json = file_get_contents('php://input'); $data = json_decode($json);`
+    # and the query concatenates `$data->field` (DVWA
+    # change_user_details.php:47-48) -- one pass tainted only `$json`.
+    tainted = _php_tainted_vars(source, match.start(), passes=2)
     # The sink argument is a VARIABLE whose own assignment built the SQL
-    # string from a request-derived part (direct superglobal, or a var one
-    # hop below one).
+    # string from a request-derived part (direct superglobal, corpus-proven
+    # session key, or a var one hop below one).
     for name in re.findall(r"\$([A-Za-z_]\w*)", stmt):
         m = re.search(r"\$" + re.escape(name) + r"\b\s*=\s*([^;\n]+)", region)
         if not m:
             continue
         rhs = m.group(1)
-        if (not _PHP_REQUEST_SOURCE_RE.search(rhs)
+        if (not _php_direct_source_re().search(rhs)
                 and not _php_tainted_in(rhs, tainted)):
             continue
         if not re.search(r"(?:SELECT|INSERT|UPDATE|DELETE|WHERE|DROP)",
@@ -2506,6 +2608,13 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
     target = Path(target_path)
     all_files = [f for f in target.rglob("*") if f.is_file() and _should_scan(f)]
     all_findings: list[dict] = []
+
+    # A1b corpus pre-pass: prove which $_SESSION keys carry request data
+    # before the workers start (they only read the published set).
+    try:
+        _collect_corpus_session_keys(target)
+    except Exception:
+        pass
 
     def _scan(fp: Path) -> list[dict]:
         results = scan_file(str(fp))
