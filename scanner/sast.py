@@ -133,6 +133,11 @@ BASE_REMEDIATION = {
     "resource_exhaustion": ["Set explicit request/body/upload limits and operation timeouts at the server boundary.", "For GraphQL or expensive queries, enforce depth/complexity limits before execution.", "Stream large inputs where possible and rate-limit expensive operations; add tests for oversized and repeated requests."],
     "race_condition": ["Protect shared mutable state with locks/transactions.", "Use idempotency keys for duplicate actions.", "Make check-and-act operations atomic."],
     "api_rate_limit": ["Add server-side per-account/per-IP/per-tenant limits appropriate to the endpoint.", "Add progressive backoff for login/OTP/reset and idempotency keys for payment or other duplicate-sensitive actions.", "Return 429 on throttling, emit abuse metrics, and add burst/replay regression tests."],
+    "buffer_overflow": ["Use bounded string functions (strncpy/snprintf) and always pass the destination size.", "Validate and length-limit untrusted input before copying into fixed buffers.", "Prefer fixed-size or dynamically-sized containers over raw char* buffers."],
+    "format_string": ["Never pass untrusted or variable data as the printf format argument; use a literal format string.", "Use printf(\"%s\", value) so the value is an argument, not the format.", "Audit %n usage and disable it where the runtime allows."],
+    "use_after_free": ["Set the pointer to NULL immediately after free() and check before reuse.", "Do not dereference a pointer after it has been freed; clear all aliases.", "Prefer RAII/smart pointers or an ownership discipline that prevents double-free/use-after-free."],
+    "session_fixation": ["Regenerate/clear the session identifier before establishing an authenticated session.", "In Flask-Login, call session.clear() (or rotate the session id) before login_user().", "Reject pre-set session cookies at login and invalidate the anonymous session id."],
+    "host_header_injection": ["Do not build absolute URLs or emails from the untrusted Host header.", "Use a configured, allow-listed base URL/host for outbound links and password-reset emails.", "Validate the Host header against an expected host allow-list at the edge."],
 }
 
 def _priority(sev: str) -> str:
@@ -410,6 +415,39 @@ ENTERPRISE_RULES: list[dict] = [
         "pat": r"""(?i)(?:login|sign[-_]?in|otp|password[-_]?reset|reset|invite|coupon|refresh|payment|checkout|transfer(?![-_]?encod)|redeem)""",
         "remediation": BASE_REMEDIATION["api_rate_limit"],
     },
+
+    # --- G23 coverage-audit gap fixes (2026-10-22, red-first) -------------
+    # Every arm below is NON-JAVA so the OWASP Benchmark identity diff stays
+    # empty by construction (benchmark fixtures are Java). Each rule carries a
+    # window/context guard wired in scan_file's dispatch so literals, escaped
+    # values and ownership-checked/validated flows stay dark.
+    # F1 JS/TS XSS (audit: no JS/TS XSS rule existed).
+    {"id":"NODE_DOM_XSS","title":"JavaScript DOM XSS via innerHTML/outerHTML/insertAdjacentHTML/document.write","vuln":"xss","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"\.\s*(?:innerHTML|outerHTML)\s*=|insertAdjacentHTML\s*\(|document\.write(?:ln)?\s*\("},
+    {"id":"EXPRESS_REFLECTED_XSS","title":"Express Reflected XSS via res.send/end/write","vuln":"xss","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"\bres\.(?:send|end|write)\s*\("},
+    # F2 C/C++ memory safety (audit: no C/C++ arm existed).
+    {"id":"CPP_UNSAFE_STRING_FUNCTION","title":"C/C++ Unbounded String Function","vuln":"buffer_overflow","sev":"High","langs":["cpp","c"],"cwe":"CWE-120","owasp":"A04:2021 - Insecure Design","pat":r"\b(?:strcpy|strcat|gets|sprintf|vsprintf)\s*\("},
+    {"id":"CPP_FORMAT_STRING","title":"C/C++ Format String Built from a Variable","vuln":"format_string","sev":"High","langs":["cpp","c"],"cwe":"CWE-134","owasp":"A03:2021 - Injection","pat":r"(?P<cfunc>\b(?:printf|fprintf|sprintf|snprintf|vprintf|vfprintf|vsprintf|vsnprintf))\s*\("},
+    {"id":"CPP_USE_AFTER_FREE","title":"C/C++ Use After Free","vuln":"use_after_free","sev":"High","langs":["cpp","c"],"cwe":"CWE-416","owasp":"A04:2021 - Insecure Design","pat":r"\bfree\s*\(\s*(?P<uaf_ptr>\w+)\s*\)"},
+    # F3 Generic REST IDOR as a FINDING (audit: only summary-level/GraphQL
+    # before). Ownership-gated so a handler that checks the object's owner in
+    # the same function stays dark.
+    {"id":"NODE_IDOR_OBJECT_FETCH","title":"Node.js Object Fetch by Request-Supplied ID Without Ownership Check","vuln":"idor","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","pat":r"\.\s*(?:findByPk|findById|getById|getByPk|findByPkOr404)\s*\("},
+    {"id":"PY_IDOR_OBJECT_FETCH","title":"Python ORM Object Fetch by Request-Supplied ID Without Ownership Check","vuln":"idor","sev":"High","langs":["python"],"cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","pat":r"\.\s*objects\s*\.\s*(?:get|filter)\s*\(|(?<![A-Za-z0-9_])get_object_or_404\s*\("},
+    # F4 session fixation + cookie flags (audit: finding-level thin).
+    {"id":"FLASK_SESSION_FIXATION","title":"Flask-Login login_user Without Session Key Rotation","vuln":"session_fixation","sev":"Medium","langs":["python"],"cwe":"CWE-384","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?<![A-Za-z0-9_])login_user\s*\("},
+    {"id":"DJANGO_SESSION_COOKIE_INSECURE","title":"Django Session Cookie Security Flag Disabled","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bSESSION_COOKIE_(?:SECURE|HTTPONLY)\s*=\s*False\b"},
+    {"id":"EXPRESS_COOKIE_MISSING_SECURE","title":"Express Cookie Missing secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bres\.cookie\s*\("},
+    # F5 single-arm fill-ins (only provable shapes).
+    {"id":"PY_XML_ENTITIES","title":"Python lxml XML External Entity Risk","vuln":"xxe","sev":"High","langs":["python"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"\betree\.(?:parse|fromstring|XML)\s*\(|\bXMLParser\s*\("},
+    {"id":"PHP_XXE_LIBXML","title":"PHP libxml XML External Entity Risk","vuln":"xxe","sev":"High","langs":["php"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?<![A-Za-z0-9_])(?:simplexml_load_(?:string|file)|loadXML|libxml_disable_entity_loader)\s*\("},
+    {"id":"PY_REDOS_NESTED_QUANTIFIER","title":"Python ReDoS Nested Quantifier Regex","vuln":"redos","sev":"Medium","langs":["python"],"cwe":"CWE-1333","owasp":"A03:2021 - Injection","pat":r"\bre\.(?:compile|match|search|fullmatch|findall|finditer|sub|subn)\s*\("},
+    {"id":"PHP_REDOS_NESTED_QUANTIFIER","title":"PHP preg ReDoS Nested Quantifier Regex","vuln":"redos","sev":"Medium","langs":["php"],"cwe":"CWE-1333","owasp":"A03:2021 - Injection","pat":r"(?<![A-Za-z0-9_])preg_(?:match|match_all|replace|split|grep)\s*\("},
+    {"id":"PY_LOG_INJECTION","title":"Python Logging of Untrusted Request Data","vuln":"log_injection","sev":"Medium","langs":["python"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"(?i)(?:\blog(?:ging)?|\blogger|app\.logger|_logger)\s*\.\s*(?:info|warning|error|debug|exception|critical|log)\s*\([^)]*(?<![A-Za-z0-9_])(?:request|req)\."},
+    {"id":"PHP_LOG_INJECTION","title":"PHP Logging of Untrusted Request Data","vuln":"log_injection","sev":"Medium","langs":["php"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"(?<![A-Za-z0-9_])(?:error_log|syslog|trigger_error)\s*\([^)]*\$_(?:GET|POST|REQUEST|COOKIE)"},
+    {"id":"HOST_HEADER_INJECTION","title":"Host Header Used to Construct URL or Email","vuln":"host_header_injection","sev":"Medium","langs":["php","python"],"cwe":"CWE-644","owasp":"A03:2021 - Injection","pat":r"\$_SERVER\s*\[\s*[\"']HTTP_HOST[\"']\s*\]|request\.headers\s*\[\s*[\"']Host[\"']\s*\]|request\.headers\.get\s*\(\s*[\"']Host[\"']"},
+    {"id":"NODE_WEBSOCKET_SINK","title":"Node.js WebSocket Message Flowing to Dangerous Sink","vuln":"code_injection","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"\.\s*on\s*\(\s*[\"'](?:message|data)[\"']"},
+    {"id":"PY_TAR_EXTRACTALL","title":"Python tarfile Extract Without Member Validation","vuln":"zipslip","sev":"High","langs":["python"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\.extractall\s*\("},
+
     # Rate-limit detection is validated by _is_rate_limit_endpoint_match().
     # The regex only locates abuse-prone endpoint strings; the validator requires
     # server-side route evidence so frontend navigation/API references do not fire.
@@ -1923,6 +1961,354 @@ def _java_xpath_injection(source: str, match: re.Match, language: str) -> bool:
     return bool(re.search(r"XPathFactory|newXPath|\bXPath\b", source))
 
 
+# --- G23 coverage-audit gap-fix validators (2026-10-22) ---------------------
+#
+# Window/context guards for the non-Java gap rules added in ENTERPRISE_RULES.
+# Each guard is a pure function of (source, match, language) wired into
+# scan_file's dispatch: literals, escaped values, hardened parsers,
+# ownership-checked handlers and validated extractions all stay dark.
+
+_JS_DOM_SOURCE_RE = re.compile(
+    r"(?:req|request)\s*\.\s*(?:query|params|body|headers)"
+    r"|location\s*\.\s*(?:hash|search|href|pathname)"
+    r"|document\s*\.\s*(?:URL|referrer|cookie|documentElement)"
+    r"|window\s*\.\s*name"
+    r"|localStorage|sessionStorage", re.I)
+
+# Genuine HTML-context escapers. URL encoding (encodeURI) is deliberately NOT
+# here: it does not stop HTML/JS injection.
+_JS_XSS_ESCAPER_RE = re.compile(
+    r"DOMPurify|escapeHtml|escapeHTML|htmlEscape|sanitize|_.escape"
+    r"|he\.encode|textContent|createTextNode|encodeForHTML|bleach", re.I)
+
+
+def _js_var_tainted(source: str, ident: str, pos: int) -> bool:
+    """True when ``ident`` was assigned from a request/DOM source above ``pos``."""
+    lo = max(0, pos - 1400)
+    region = source[lo:pos]
+    m = re.search(r"(?<![.\w$])" + re.escape(ident) + r"\s*=\s*([^;\n]+)", region)
+    return bool(m and _JS_DOM_SOURCE_RE.search(m.group(1)))
+
+
+def _js_dom_xss(source: str, match: re.Match, language: str) -> bool:
+    """DOM sink fed a request/DOM-derived value. Literals and escaped values
+    stay dark; a bare identifier is resolved one hop to its assignment."""
+    if language not in {"javascript", "typescript"}:
+        return False
+    rhs = source[match.end():]
+    m = re.search(r"[;\n]", rhs)
+    rhs = rhs[: m.start()] if m else rhs[:300]
+    if _JS_XSS_ESCAPER_RE.search(rhs):
+        return False
+    if _JS_DOM_SOURCE_RE.search(rhs):
+        return True
+    stripped = rhs.strip().rstrip(")")
+    if re.fullmatch(r"[A-Za-z_$][\w$]*", stripped):
+        return _js_var_tainted(source, stripped, match.start())
+    return False
+
+
+def _express_reflected_xss(source: str, match: re.Match, language: str) -> bool:
+    """res.send/end/write reflecting req.query|params|body (raw HTML)."""
+    if language not in {"javascript", "typescript"}:
+        return False
+    args = _call_region(source, match.start(), cap=500)
+    if not args:
+        return False
+    if _JS_XSS_ESCAPER_RE.search(args):
+        return False
+    return bool(re.search(r"(?:req|request)\s*\.\s*(?:query|params|body)\b", args))
+
+
+_CPP_FMT_INDEX = {
+    "printf": 0, "vprintf": 0,
+    "fprintf": 1, "vfprintf": 1,
+    "sprintf": 1, "vsprintf": 1,
+    "snprintf": 2, "vsnprintf": 2,
+}
+
+
+def _split_call_args(region: str) -> list:
+    """Top-level (quote/bracket-aware) argument strings of a ``(...)`` region."""
+    inner = region[1:-1] if region.startswith("(") else region
+    parts, cur, depth, quote = [], [], 0, None
+    for ch in inner:
+        if quote:
+            cur.append(ch)
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+            cur.append(ch)
+        elif ch in "([{":
+            depth += 1
+            cur.append(ch)
+        elif ch in ")]}":
+            depth -= 1
+            cur.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+    return [p.strip() for p in parts]
+
+
+def _cpp_format_string(source: str, match: re.Match, language: str) -> bool:
+    """printf-family call whose format-position argument is a variable (CWE-134)."""
+    if language not in {"c", "cpp"}:
+        return False
+    func = match.groupdict().get("cfunc") or ""
+    idx = _CPP_FMT_INDEX.get(func)
+    if idx is None:
+        return False
+    region = _call_region(source, match.start(), cap=600)
+    if not region:
+        return False
+    args = _split_call_args(region)
+    if len(args) <= idx:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z_]\w*", args[idx]))
+
+
+def _cpp_use_after_free(source: str, match: re.Match, language: str) -> bool:
+    """free(p) followed by p-> / p[ / p. / p++ within ~12 lines, with no
+    intervening reassignment or NULL (the safe free-then-null pattern)."""
+    if language not in {"c", "cpp"}:
+        return False
+    ptr = (match.groupdict() or {}).get("uaf_ptr") or ""
+    if not ptr:
+        return False
+    esc = re.escape(ptr)
+    after = source[match.end(): match.end() + 1400]
+    for ln in after.splitlines()[:12]:
+        if re.search(r"\b" + esc + r"\s*=\s*(?:NULL|nullptr|0|\w)", ln):
+            return False
+        if re.search(r"\b" + esc + r"\s*(?:->|\[|\.|\+\+|--)", ln):
+            return True
+    return False
+
+
+_JS_REQUEST_ID_RE = re.compile(
+    r"(?:req|request)\s*\.\s*(?:params|query|body)\b")
+_PY_REQUEST_ID_RE = re.compile(
+    r"request\.(?:GET|POST|PUT|PATCH|data|query_params|view_kwargs|args)\b")
+# Ownership predicate tokens: an object owner/user comparison in the same
+# function means the handler is not an open IDOR.
+_JS_OWNERSHIP_RE = re.compile(
+    r"userId|user_id|ownerId|owner_id|\bowner\b|createdBy|created_by"
+    r"|(?:req|request)\s*\.\s*user\b|current_user|\.owner\b", re.I)
+_PY_OWNERSHIP_RE = re.compile(
+    r"request\.user|current_user|\bowner\b|created_by|user_id|userId|\.user\b", re.I)
+
+
+def _js_function_body_span(source: str, pos: int):
+    """(start,end) of the innermost brace block containing pos, else None."""
+    depth = 0
+    i = pos
+    open_idx = -1
+    while i > 0:
+        i -= 1
+        c = source[i]
+        if c == "}":
+            depth += 1
+        elif c == "{":
+            if depth == 0:
+                open_idx = i
+                break
+            depth -= 1
+    if open_idx == -1:
+        return None
+    depth = 0
+    j = open_idx
+    while j < len(source):
+        c = source[j]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return (open_idx, j + 1)
+        j += 1
+    return (open_idx, len(source))
+
+
+def _py_def_body_span(source: str, pos: int):
+    """(start,end) approximation of the python def-body enclosing pos."""
+    defs = list(re.finditer(r"^[ \t]*def\s+\w+", source[:pos], re.M))
+    if not defs:
+        return None
+    start = defs[-1].start()
+    nxt = re.search(r"\n(?:[ \t]*def\s|[ \t]*class\s|[ \t]*@)", source[pos:])
+    end = pos + nxt.start() if nxt else len(source)
+    return (start, end)
+
+
+def _idor_object_fetch(source, match, language, request_re, own_re) -> bool:
+    """ORM fetch by a request-supplied id with NO ownership predicate in the
+    enclosing function (the honest REST-IDOR sub-shape)."""
+    region = _call_region(source, match.start(), cap=400)
+    if not region or not request_re.search(region):
+        return False
+    if language in {"javascript", "typescript"}:
+        span = _js_function_body_span(source, match.start())
+    else:
+        span = _py_def_body_span(source, match.start())
+    body = (source[span[0]:span[1]] if span
+            else source[max(0, match.start() - 1500): match.start() + 1500])
+    return not own_re.search(body)
+
+
+_PY_SESSION_ROTATE_RE = re.compile(
+    r"session\s*\.\s*(?:clear|pop|regenerate|rotate)|cycle_key|"
+    r"flush\s*\(\s*\)|session_identifier")
+
+
+def _flask_session_fixation(source: str, match: re.Match, language: str) -> bool:
+    """login_user() in a function that never rotates/clears the session id."""
+    if language != "python":
+        return False
+    span = _py_def_body_span(source, match.start())
+    body = (source[span[0]:span[1]] if span
+            else source[max(0, match.start() - 800): match.start() + 800])
+    return not _PY_SESSION_ROTATE_RE.search(body)
+
+
+def _express_cookie_missing_secure(source: str, match: re.Match, language: str) -> bool:
+    """res.cookie(...) call whose options lack secure: true."""
+    if language not in {"javascript", "typescript"}:
+        return False
+    region = _call_region(source, match.start(), cap=800)
+    if not region:
+        return False
+    return not re.search(r"secure\s*:\s*true", region, re.I)
+
+
+def _py_xml_entities(source: str, match: re.Match, language: str) -> bool:
+    """lxml parse (entities resolved by default) with no hardening/defusedxml."""
+    if language != "python":
+        return False
+    if "defusedxml" in source:
+        return False
+    if not re.search(r"\blxml\b", source):
+        return False
+    region = source[max(0, match.start() - 300): match.end() + 300]
+    if re.search(
+            r"resolve_entities\s*=\s*False|no_network\s*=\s*True"
+            r"|load_dtd\s*=\s*False", region):
+        return False
+    return True
+
+
+def _php_xxe_libxml(source: str, match: re.Match, language: str) -> bool:
+    """simplexml/DOM load of request input, or an explicit entity-loader
+    re-enable (libxml_disable_entity_loader(false))."""
+    if language != "php":
+        return False
+    region = _call_region(source, match.start(), cap=400)
+    if not region:
+        return False
+    if re.search(r"libxml_disable_entity_loader\s*\(\s*(?:false|0)\b", region):
+        return True
+    return bool(re.search(r"\$_(?:GET|POST|REQUEST|COOKIE|FILES)\b|php://input", region))
+
+
+def _has_nested_quantifier(pat: str) -> bool:
+    """Conservative nested-quantifier / identical-alternation signature."""
+    if re.search(r"\([^()]*[+*]\)\s*[+*+]", pat):
+        return True
+    if re.search(r"\((\w+)\|\1\)\s*[+*]", pat):
+        return True
+    return False
+
+
+def _regex_literal_arg(region: str):
+    m = re.search(r"[rRbBuUfF]{0,2}(['\"])(.*?)\1", region)
+    return m.group(2) if m else None
+
+
+def _py_redos(source: str, match: re.Match, language: str) -> bool:
+    """re.* call whose regex literal carries a nested quantifier."""
+    if language != "python":
+        return False
+    region = _call_region(source, match.start(), cap=300)
+    if not region:
+        return False
+    lit = _regex_literal_arg(region)
+    return bool(lit and _has_nested_quantifier(lit))
+
+
+def _php_redos(source: str, match: re.Match, language: str) -> bool:
+    """preg_* call whose pattern literal carries a nested quantifier."""
+    if language != "php":
+        return False
+    region = _call_region(source, match.start(), cap=300)
+    if not region:
+        return False
+    m = re.search(r"(['\"])(.*?)\1", region)
+    return bool(m and _has_nested_quantifier(m.group(2)))
+
+
+_HOST_URL_CONTEXT_RE = re.compile(
+    r"https?://|mailto:|(?<![A-Za-z0-9_])mail\s*\(|\burl\b|Location\s*:", re.I)
+
+
+def _host_header_injection(source: str, match: re.Match, language: str) -> bool:
+    """Host header value used to build a URL/email (not merely displayed)."""
+    window = source[max(0, match.start() - 400): match.end() + 400]
+    return bool(_HOST_URL_CONTEXT_RE.search(window))
+
+
+_WS_SINK_PARAM_RE = re.compile(
+    r"\(?\s*([A-Za-z_$][\w$]*)\s*\)?\s*=>|function\s*\w*\s*\(\s*([A-Za-z_$][\w$]*)")
+_WS_SINK_RE = re.compile(
+    r"\beval\s*\(|new\s+Function\s*\(|\.\s*innerHTML\s*=|child_process"
+    r"|\.exec(?:Sync)?\s*\(|\bdb\w*\s*\.\s*(?:query|run|exec)\s*\(")
+
+
+def _node_websocket_sink(source: str, match: re.Match, language: str) -> bool:
+    """WebSocket 'message'/'data' handler whose payload reaches a dangerous sink."""
+    if language not in {"javascript", "typescript"}:
+        return False
+    region = _call_region(source, match.start(), cap=1000)
+    if not region or not _WS_SINK_RE.search(region):
+        return False
+    pm = _WS_SINK_PARAM_RE.search(region)
+    param = (pm.group(1) or pm.group(2)) if pm else None
+    if not param:
+        return True
+    esc = re.escape(param)
+    return bool(re.search(
+        r"\beval\s*\(\s*" + esc + r"\b"
+        r"|\bnew\s+Function\s*\(\s*" + esc + r"\b"
+        r"|\.\s*innerHTML\s*=\s*[^\n;]*" + esc + r"\b"
+        r"|\.exec(?:Sync)?\s*\(\s*[^\n;]*" + esc + r"\b"
+        r"|\bdb\w*\s*\.\s*(?:query|run|exec)\s*\(\s*[^\n;]*" + esc + r"\b",
+        region))
+
+
+def _py_tar_extractall(source: str, match: re.Match, language: str) -> bool:
+    """tarfile extractall with no member validation in the surrounding window.
+
+    The regex anchors on ``.extractall`` so the finding sits on the call line;
+    this guard restricts it to tarfile (zipfile.extractall is already claimed
+    by the pre-existing GENERIC_ZIPSLIP rule) and requires no member check.
+    """
+    if language != "python":
+        return False
+    pre = source[max(0, match.start() - 250): match.start()]
+    if not re.search(r"\btarfile\b", pre):
+        return False
+    window = source[max(0, match.start() - 300): match.end() + 300]
+    if re.search(
+            r"data_filter|extraction_filter|getmembers|namelist"
+            r"|commonpath|is_within", window, re.I):
+        return False
+    return True
+
+
 
 def _is_tenant_isolation_candidate(
     source: str,
@@ -2439,6 +2825,69 @@ def scan_file(filepath: str) -> list[dict]:
 
             if rule.get("id") == "NODE_JWT_DECODE_NO_VERIFY":
                 if not _jwt_decode_without_verify(source, match, language):
+                    continue
+
+            # --- G23 coverage-audit gap-fix validators (2026-10-22) -------
+            if rule.get("id") == "NODE_DOM_XSS":
+                if not _js_dom_xss(source, match, language):
+                    continue
+
+            if rule.get("id") == "EXPRESS_REFLECTED_XSS":
+                if not _express_reflected_xss(source, match, language):
+                    continue
+
+            if rule.get("id") == "CPP_FORMAT_STRING":
+                if not _cpp_format_string(source, match, language):
+                    continue
+
+            if rule.get("id") == "CPP_USE_AFTER_FREE":
+                if not _cpp_use_after_free(source, match, language):
+                    continue
+
+            if rule.get("id") == "NODE_IDOR_OBJECT_FETCH":
+                if not _idor_object_fetch(
+                        source, match, language, _JS_REQUEST_ID_RE, _JS_OWNERSHIP_RE):
+                    continue
+
+            if rule.get("id") == "PY_IDOR_OBJECT_FETCH":
+                if not _idor_object_fetch(
+                        source, match, language, _PY_REQUEST_ID_RE, _PY_OWNERSHIP_RE):
+                    continue
+
+            if rule.get("id") == "FLASK_SESSION_FIXATION":
+                if not _flask_session_fixation(source, match, language):
+                    continue
+
+            if rule.get("id") == "EXPRESS_COOKIE_MISSING_SECURE":
+                if not _express_cookie_missing_secure(source, match, language):
+                    continue
+
+            if rule.get("id") == "PY_XML_ENTITIES":
+                if not _py_xml_entities(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_XXE_LIBXML":
+                if not _php_xxe_libxml(source, match, language):
+                    continue
+
+            if rule.get("id") == "PY_REDOS_NESTED_QUANTIFIER":
+                if not _py_redos(source, match, language):
+                    continue
+
+            if rule.get("id") == "PHP_REDOS_NESTED_QUANTIFIER":
+                if not _php_redos(source, match, language):
+                    continue
+
+            if rule.get("id") == "HOST_HEADER_INJECTION":
+                if not _host_header_injection(source, match, language):
+                    continue
+
+            if rule.get("id") == "NODE_WEBSOCKET_SINK":
+                if not _node_websocket_sink(source, match, language):
+                    continue
+
+            if rule.get("id") == "PY_TAR_EXTRACTALL":
+                if not _py_tar_extractall(source, match, language):
                     continue
 
             if rule.get("id") == "JAVA_XPATH_INJECTION":
