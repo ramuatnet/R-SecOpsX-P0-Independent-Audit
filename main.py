@@ -3294,6 +3294,39 @@ def main():
         except Exception as exc:
             _safe_print(f"       => Secret Intelligence scan failed: {exc}")
 
+        # --------------------------------------------------
+        # G-016 Git-history secret scan
+        # A credential committed and then removed is invisible to every
+        # working-tree engine; this reports only what is NO LONGER in the
+        # working tree, so it cannot duplicate the scan above. Non-git
+        # targets degrade to available=False inside the engine.
+        # --------------------------------------------------
+        git_history_findings = []
+        git_history_summary = {"available": False, "commits_scanned": 0,
+                               "files_scanned": 0, "truncated": False,
+                               "findings": 0}
+        try:
+            from scanner.git_history_secrets import scan_git_history
+            _step("Scanning Git History for Removed Secrets")
+            git_hist = scan_git_history(target)
+            git_history_findings = git_hist.get("findings") or []
+            git_history_summary = {
+                "available": bool(git_hist.get("available")),
+                "commits_scanned": int(git_hist.get("commits_scanned") or 0),
+                "files_scanned": int(git_hist.get("files_scanned") or 0),
+                "truncated": bool(git_hist.get("truncated")),
+                "findings": len(git_history_findings),
+            }
+            if git_history_summary["available"]:
+                _safe_print(
+                    f"       => {len(git_history_findings)} history-only "
+                    f"secret findings "
+                    f"({git_history_summary['commits_scanned']} commits)"
+                    + (" [TRUNCATED]" if git_history_summary["truncated"]
+                       else ""))
+        except Exception as exc:
+            _safe_print(f"       => Git-history secret scan failed: {exc}")
+
         _step("Deduplicating, scoring, correlating attack paths")
 
         raw.extend(k8s_findings)
@@ -3304,11 +3337,15 @@ def main():
         raw.extend(advanced_ai_findings)
         raw.extend(api_abuse_findings)
         raw.extend(secret_scan_findings)
+        raw.extend(git_history_findings)
     else:
         cbom = aibom = mlbom = apibom = abom = []
         k8s_findings = tf_findings = docker_findings = compose_findings = []
         llm_raw_findings = llm_findings = advanced_ai_findings = []
-        api_abuse_findings = secret_scan_findings = []
+        api_abuse_findings = secret_scan_findings = git_history_findings = []
+        git_history_summary = {"available": False, "commits_scanned": 0,
+                               "files_scanned": 0, "truncated": False,
+                               "findings": 0}
         llm_precision_stats = {"actionable": 0, "contextual": 0}
 
     # Final defense-in-depth boundary: every engine must remain inside the
@@ -3431,6 +3468,7 @@ def main():
     payload["secret_intelligence_summary"] = secret_intelligence_summary(
         payload.get("findings", [])
     )
+    payload["git_history_secret_summary"] = git_history_summary
 
     secret_validation_candidates = _collect_secret_findings(payload.get("findings", []))
     secret_live_summary = apply_optional_live_secret_validation(
