@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_idor.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Same fetch, but the ownership predicate (owner=request.user) is part of the query itself, so the database can only return the caller's own row. Any finding here is a false positive."
+}

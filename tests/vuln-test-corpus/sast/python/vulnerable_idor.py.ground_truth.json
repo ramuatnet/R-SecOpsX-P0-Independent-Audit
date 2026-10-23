@@ -1,0 +1,17 @@
+{
+  "fixture": "vulnerable_idor.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-IDOR",
+      "file": "vulnerable_idor.py",
+      "line": 9,
+      "severity": "High",
+      "cwe": "CWE-639",
+      "evidence": "Invoice.objects.get(pk=request.GET[\"id\"])",
+      "cve": null,
+      "note": "object fetched by a request-supplied id; the handler holds no ownership predicate, so any caller can read any invoice"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": []
+}

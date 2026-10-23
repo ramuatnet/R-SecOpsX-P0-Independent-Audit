@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_xss.php",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Same request parameter, but passed through htmlspecialchars with ENT_QUOTES before echo. Any finding here is a false positive."
+}

@@ -1,0 +1,17 @@
+{
+  "fixture": "vulnerable_tls.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-TLSBYPASS",
+      "file": "vulnerable_tls.py",
+      "line": 9,
+      "severity": "Critical",
+      "cwe": "CWE-295",
+      "evidence": "verify=False",
+      "cve": null,
+      "note": "certificate verification explicitly disabled for the outbound call"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": []
+}

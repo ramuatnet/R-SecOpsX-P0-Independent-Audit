@@ -114,6 +114,14 @@ CANONICAL_RULES = frozenset({
     "SAST-HARDCRED",    # CWE-798  a credential literal committed to source
     "SAST-XSS",         # CWE-79   untrusted data written into a response unsafely
     "SAST-DEBUG",       # CWE-215  a debug/verbose switch left on for production
+    # The four classes G24 added because they had no way to be asserted as
+    # ground truth at all (2026-10-23). CWE-918/639/295 are carried verbatim
+    # by TAINT_SSRF_EXPANDED, PY_IDOR_OBJECT_FETCH and
+    # PY_TLS_CERT_VALIDATION_DISABLED; PHP_XSS_TAINTED_ECHO already carried
+    # CWE-79, so SAST-XSS predates this addition but was unused until now.
+    "SAST-SSRF",        # CWE-918  outbound request destination is attacker-controlled
+    "SAST-IDOR",        # CWE-639  object fetched by request id, no ownership check
+    "SAST-TLSBYPASS",   # CWE-295  certificate/hostname validation switched off
     # SCA
     "SCA-VULN-DEP",     # a pinned dependency version carrying a known advisory
     # Secrets

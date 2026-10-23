@@ -1,0 +1,17 @@
+{
+  "fixture": "vulnerable_xss.php",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-XSS",
+      "file": "vulnerable_xss.php",
+      "line": 4,
+      "severity": "High",
+      "cwe": "CWE-79",
+      "evidence": "echo $_GET['comment'];",
+      "cve": null,
+      "note": "request parameter echoed with no output encoding; the defect is stated by PHP's own echo semantics"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": []
+}

@@ -143,6 +143,16 @@ _CWE_TO_CLASS = {
     # (Low, first FROM), so the mapping lets the labels say what the scanner
     # already reports (bucket D, 2026-10-22).
     "CWE-1059": "IAC-MISSING-HEALTHCHECK",
+    # SAST classes the V0.1 vocabulary could not name (G24 corpus expansion,
+    # 2026-10-23). XSS/SSRF/IDOR/TLS were the four classes with no ground
+    # truth; CWE-79 already had SAST-XSS, but CWE-918/639/295 had no class at
+    # all, so a label asserting "this outbound request destination is
+    # attacker-controlled" was inexpressible. The CWEs are read off the
+    # shipped rules (TAINT_SSRF_EXPANDED, PY_IDOR_OBJECT_FETCH,
+    # PY_TLS_CERT_VALIDATION_DISABLED all carry them verbatim).
+    "CWE-918": "SAST-SSRF",
+    "CWE-639": "SAST-IDOR",
+    "CWE-295": "SAST-TLSBYPASS",
 }
 
 

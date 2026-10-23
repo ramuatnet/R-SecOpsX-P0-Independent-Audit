@@ -1,0 +1,17 @@
+{
+  "fixture": "vulnerable_ssrf.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-SSRF",
+      "file": "vulnerable_ssrf.py",
+      "line": 11,
+      "severity": "High",
+      "cwe": "CWE-918",
+      "evidence": "return requests.get(target, timeout=10).text",
+      "cve": null,
+      "note": "target is request.args['url'] at line 10; the outbound destination is wholly attacker-controlled"
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": []
+}

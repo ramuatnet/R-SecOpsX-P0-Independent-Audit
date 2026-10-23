@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_tls.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Same call with verification explicitly on (verify=True, the library default). Any finding here is a false positive."
+}

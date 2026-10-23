@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_ssrf.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "The outbound destination is a deploy-time constant; the view takes no input that can reach the request target. Any finding here is a false positive."
+}
