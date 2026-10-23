@@ -437,6 +437,14 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"FLASK_SESSION_FIXATION","title":"Flask-Login login_user Without Session Key Rotation","vuln":"session_fixation","sev":"Medium","langs":["python"],"cwe":"CWE-384","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?<![A-Za-z0-9_])login_user\s*\("},
     {"id":"DJANGO_SESSION_COOKIE_INSECURE","title":"Django Session Cookie Security Flag Disabled","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bSESSION_COOKIE_(?:SECURE|HTTPONLY)\s*=\s*False\b"},
     {"id":"EXPRESS_COOKIE_MISSING_SECURE","title":"Express Cookie Missing secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bres\.cookie\s*\("},
+    # P4 cookie arms (2026-10-23): Go and .NET set cookies through named
+    # struct/options fields, so the missing-option shape is the same one the
+    # Express gate already proves: a known cookie-setting call whose option
+    # block lacks the flag, not a blanket report of every SetCookie.
+    {"id":"GO_COOKIE_MISSING_SECURE","title":"Go Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["go"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bhttp\.SetCookie\s*\("},
+    {"id":"GO_COOKIE_MISSING_HTTPONLY","title":"Go Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["go"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\bhttp\.SetCookie\s*\("},
+    {"id":"DOTNET_COOKIE_MISSING_SECURE","title":".NET Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["csharp"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bResponse\s*\.\s*Cookies\s*\.\s*(?:Append|Add)\s*\("},
+    {"id":"DOTNET_COOKIE_MISSING_HTTPONLY","title":".NET Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["csharp"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\bResponse\s*\.\s*Cookies\s*\.\s*(?:Append|Add)\s*\("},
     # F5 single-arm fill-ins (only provable shapes).
     {"id":"PY_XML_ENTITIES","title":"Python lxml XML External Entity Risk","vuln":"xxe","sev":"High","langs":["python"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"\betree\.(?:parse|fromstring|XML)\s*\(|\bXMLParser\s*\("},
     {"id":"PHP_XXE_LIBXML","title":"PHP libxml XML External Entity Risk","vuln":"xxe","sev":"High","langs":["php"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?<![A-Za-z0-9_])(?:simplexml_load_(?:string|file)|loadXML|libxml_disable_entity_loader)\s*\("},
@@ -2148,17 +2156,57 @@ def _py_def_body_span(source: str, pos: int):
 
 def _idor_object_fetch(source, match, language, request_re, own_re) -> bool:
     """ORM fetch by a request-supplied id with NO ownership predicate in the
-    enclosing function (the honest REST-IDOR sub-shape)."""
-    region = _call_region(source, match.start(), cap=400)
-    if not region or not request_re.search(region):
-        return False
+    enclosing function (the honest REST-IDOR sub-shape).
+
+    Request evidence takes two shapes (G23 direct, G24 one hop):
+      * the request expression inside the call window itself, or
+      * one hop back: an identifier inside the fetch call is ASSIGNED from a
+        request expression in the same handler body
+        (oid = request.GET["id"]; ...objects.get(pk=oid)).  A fetch whose
+        argument never receives request data (constant, config, whitelisted)
+        stays dark, and the ownership gate is unchanged.
+    """
     if language in {"javascript", "typescript"}:
         span = _js_function_body_span(source, match.start())
     else:
         span = _py_def_body_span(source, match.start())
     body = (source[span[0]:span[1]] if span
             else source[max(0, match.start() - 1500): match.start() + 1500])
-    return not own_re.search(body)
+    if own_re.search(body):
+        return False
+    region = _call_region(source, match.start(), cap=400)
+    if region and request_re.search(region):
+        return True
+    return _fetch_arg_from_request(source, match, body, request_re)
+
+
+_IDOR_ARG_ID_RE = re.compile(r"\b([A-Za-z_$][\w$]*)\b")
+
+
+def _fetch_arg_from_request(source, match, body, request_re) -> bool:
+    """One hop back: some identifier inside the fetch call is assigned from a
+    request expression in the same handler body."""
+    paren = source.find("(", match.end() - 1)
+    if paren == -1:
+        return False
+    depth = 0
+    j = paren
+    while j < len(source) and j - paren < 300:
+        if source[j] == "(":
+            depth += 1
+        elif source[j] == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        j += 1
+    args = source[paren + 1: j]
+    for ident in {m.group(1) for m in _IDOR_ARG_ID_RE.finditer(args)}:
+        assign = re.compile(
+            r"\b(?:const|let|var)?\s*" + re.escape(ident)
+            + r"\s*=\s*(?!=)" + request_re.pattern)
+        if assign.search(body):
+            return True
+    return False
 
 
 _PY_SESSION_ROTATE_RE = re.compile(
@@ -2184,6 +2232,30 @@ def _express_cookie_missing_secure(source: str, match: re.Match, language: str) 
     if not region:
         return False
     return not re.search(r"secure\s*:\s*true", region, re.I)
+
+
+# (langs, flag regex that must be present for the cookie to be safe).
+# Go names the fields in a net/http.Cookie literal; .NET sets properties on
+# a CookieOptions object. Both are structurally the same missing-option
+# gate as the Express arm: the call region must carry the flag.
+_COOKIE_FLAG_RULES = {
+    "GO_COOKIE_MISSING_SECURE": ({"go"}, r"Secure\s*:\s*true"),
+    "GO_COOKIE_MISSING_HTTPONLY": ({"go"}, r"HttpOnly\s*:\s*true"),
+    "DOTNET_COOKIE_MISSING_SECURE": ({"csharp"}, r"Secure\s*=\s*true"),
+    "DOTNET_COOKIE_MISSING_HTTPONLY": ({"csharp"}, r"HttpOnly\s*=\s*true"),
+}
+
+
+def _cookie_missing_flag(source: str, match: re.Match, language: str,
+                         rule_id: str) -> bool:
+    """A known cookie-setting call whose option block lacks the rule's flag."""
+    langs, flag_re = _COOKIE_FLAG_RULES[rule_id]
+    if language not in langs:
+        return False
+    region = _call_region(source, match.start(), cap=800)
+    if not region:
+        return False
+    return not re.search(flag_re, region)
 
 
 def _py_xml_entities(source: str, match: re.Match, language: str) -> bool:
@@ -2860,6 +2932,11 @@ def scan_file(filepath: str) -> list[dict]:
 
             if rule.get("id") == "EXPRESS_COOKIE_MISSING_SECURE":
                 if not _express_cookie_missing_secure(source, match, language):
+                    continue
+
+            if rule.get("id") in _COOKIE_FLAG_RULES:
+                if not _cookie_missing_flag(source, match, language,
+                                            rule.get("id")):
                     continue
 
             if rule.get("id") == "PY_XML_ENTITIES":
