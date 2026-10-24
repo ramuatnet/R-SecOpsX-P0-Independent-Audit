@@ -58,6 +58,7 @@ _HTTP_METHOD_VERBS = frozenset(
 SCANNABLE_EXT = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".java", ".kt", ".scala", ".go",
     ".rb", ".php", ".cs", ".vb", ".cpp", ".c", ".h", ".hpp", ".rs", ".sh",
+    ".sol", ".erb",
     ".env", ".yml", ".yaml", ".properties", ".xml", ".json", ".graphql", ".gql",
     ".gradle", ".csproj", ".config", ".tf", ".Dockerfile", "Dockerfile",
 }
@@ -115,6 +116,11 @@ LANG_BY_EXT = {
     # was dead. Mapping the extension is what activates the langs gate; no
     # other rule lists "ruby" today, so nothing else changes behavior.
     ".rb": "ruby",
+    # 2026-10-23 G7: .sol had no mapping (and was not in SCANNABLE_EXT), so
+    # Solidity sources never reached the rule loop at all. .erb likewise:
+    # Rails templates are where the ERB XSS shape actually lives.
+    ".sol": "solidity",
+    ".erb": "ruby",
     ".yml": "yaml", ".yaml": "yaml", ".json": "json", ".graphql": "graphql", ".gql": "graphql",
 }
 
@@ -138,6 +144,9 @@ BASE_REMEDIATION = {
     "use_after_free": ["Set the pointer to NULL immediately after free() and check before reuse.", "Do not dereference a pointer after it has been freed; clear all aliases.", "Prefer RAII/smart pointers or an ownership discipline that prevents double-free/use-after-free."],
     "session_fixation": ["Regenerate/clear the session identifier before establishing an authenticated session.", "In Flask-Login, call session.clear() (or rotate the session id) before login_user().", "Reject pre-set session cookies at login and invalidate the anonymous session id."],
     "host_header_injection": ["Do not build absolute URLs or emails from the untrusted Host header.", "Use a configured, allow-listed base URL/host for outbound links and password-reset emails.", "Validate the Host header against an expected host allow-list at the edge."],
+    "origin_confusion": ["Never authorize with tx.origin: it identifies the transaction origin, not the contract being called, so any intermediate contract can inherit it.", "Authorize with msg.sender against explicit owner/role checks.", "For proxy/upgrade paths, verify the caller through a trusted registry or owner slot."],
+    "weak_randomness": ["Do not derive outcomes from block attributes (timestamp, number, difficulty, prevrandao, blockhash): every validator sees and mildly influences them.", "Use a commit-reveal scheme or a verifiable randomness source (VRF) for anything of value.", "Reserve block.timestamp for time constraints, never for results."],
+    "unchecked_call_result": ["The low-level call family returns a success boolean that silently discards failure when ignored; check it and revert on false.", "Wrap in require(success, ...) so a failed value transfer or state change cannot pass unnoticed.", "Prefer a typed interface call over a raw call when the callee is known."],
 }
 
 def _priority(sev: str) -> str:
@@ -343,6 +352,25 @@ ENTERPRISE_RULES: list[dict] = [
     # session-signing key (128-hex). ENV references and short dev strings are
     # not key material; the language gate keeps docs/markdown examples out.
     {"id":"RUBY_RAILS_SECRET_TOKEN","title":"Rails Hardcoded Secret Key Base","vuln":"hardcoded_secret","sev":"High","langs":["ruby"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:secret_key_base|secret_token)\s*=\s*[\"'][0-9A-Fa-f]{32,}[\"']"},
+    # G7 Ruby arms (2026-10-23): direct request-derived source into a named
+    # sink, the same honesty bar PHP_RAW_ECHO_XSS sets. Whitelisted or
+    # local-variable equivalents stay dark because the source token is what
+    # each pattern requires, not the sink alone.
+    {"id":"RUBY_CMD_INJECTION","title":"Ruby Command Execution with Request-Derived Input","vuln":"command_injection","sev":"Critical","langs":["ruby"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"\b(?:system|exec|spawn|popen)\s*\(\s*(?:params\b|request\b)|\b(?:system|exec|spawn|popen)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)|`[^`\n]*#\{[^}]*\b(?:params|request)|%x[!\(\{][^)\}\n]*#\{[^}]*\b(?:params|request)|open\s*\(\s*\"\|[^\"\n]*?#\{[^}]*\b(?:params|request)"},
+    {"id":"RUBY_CODE_INJECTION","title":"Ruby eval of Request-Derived Input","vuln":"code_injection","sev":"Critical","langs":["ruby"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"\b(?:eval|instance_eval|class_eval|module_eval)\s*\(\s*(?:params\b|request\b)|\b(?:eval|instance_eval|class_eval|module_eval)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)"},
+    {"id":"RUBY_SQL_INJECTION","title":"Ruby SQL Built by String Interpolation of Request Data","vuln":"sql_injection","sev":"High","langs":["ruby"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\.(?:where|find_by_sql|order|select_all)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request|session\b)|\.connection\s*\.\s*execute\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)|\bfind_by_sql\s*\(\s*(?:params\b|request\b)"},
+    {"id":"RUBY_PATH_TRAVERSAL","title":"Ruby File API Fed Request Data Verbatim","vuln":"path_traversal","sev":"High","langs":["ruby"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\bsend_file\s*\(\s*(?:params\b|request\b)|\bFile\.(?:read|open|foreach|readlines)\s*\(\s*(?:params\b|request\b)|\brender\s+file:\s*(?:params\b|request\b)"},
+    {"id":"RUBY_XSS_ERB","title":"ERB Output Escaping Disabled on Request-Derived Value","vuln":"xss","sev":"High","langs":["ruby"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"<%=[^\n]*\b(?:params|request)\b[^\n]*(?:\.html_safe\b|\braw\b)|<%=[^\n]*\braw\s*\(?\s*[^\n]*\b(?:params|request)\b"},
+    {"id":"RUBY_INSECURE_DESER","title":"Ruby Marshal/YAML Deserialization of Request or Cookie Data","vuln":"insecure_deserialization","sev":"Critical","langs":["ruby"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"\bMarshal\.load\s*\(\s*(?:params\b|request\b|cookies\b)|\bYAML\.(?:unsafe_load|load)\s*\(\s*(?:params\b|request\b|cookies\b)"},
+    # G7 Solidity arms (2026-10-23): the three provable shapes. tx.origin in
+    # an authorization comparison, a randomness-flavoured variable fed from
+    # block attributes, and a low-level call whose success boolean is
+    # discarded (bare statement). payable(x).call(...) receivers with
+    # parentheses are outside the shipped sub-shape for SOL_UNCHECKED_CALL,
+    # deliberately: the pattern anchors on a bare identifier receiver.
+    {"id":"SOL_TX_ORIGIN_AUTH","title":"Solidity tx.origin Used for Authorization","vuln":"origin_confusion","sev":"High","langs":["solidity"],"cwe":"CWE-346","owasp":"A01:2021 - Broken Access Control","pat":r"\brequire\s*\([^;\n]*\btx\.origin\b|\bif\s*\(\s*[^;\n]*\btx\.origin\b|\btx\.origin\s*=="},
+    {"id":"SOL_WEAK_RANDOMNESS","title":"Solidity Randomness Derived from Block Attributes","vuln":"weak_randomness","sev":"High","langs":["solidity"],"cwe":"CWE-330","owasp":"A02:2021 - Cryptographic Failures","pat":r"(?i)(?:rand\w*|nonce\w*|lottery\w*|winner\w*|shuffle\w*|jackpot\w*|raffle\w*)[^\n]{0,160}\b(?:block\.(?:timestamp|number|difficulty|prevrandao)|blockhash\s*\()|(?:block\.(?:timestamp|number|difficulty|prevrandao)|blockhash\s*\()[^\n]{0,160}(?:rand\w*|nonce\w*|lottery\w*|winner\w*|shuffle\w*|jackpot\w*|raffle\w*)"},
+    {"id":"SOL_UNCHECKED_CALL","title":"Solidity Low-Level Call Result Ignored","vuln":"unchecked_call_result","sev":"Medium","langs":["solidity"],"cwe":"CWE-252","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?m)^\s*[A-Za-z_$][\w$]*\s*\.\s*(?:call|staticcall|delegatecall)\s*(?:\{[^}\n]*\})?\s*\([^;\n]*\)\s*;"},
     {"id":"GO_HARDCODED_CREDENTIAL","title":"Go Hardcoded Credential in Connection String","vuln":"hardcoded_secret","sev":"High","langs":["go"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/"},
     {"id":"GO_SQL_CONCAT_INTERMEDIATE","title":"Go SQL Concatenation via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
     {"id":"GO_PATH_CONCAT","title":"Go Path String Concatenation with Absolute Prefix","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
@@ -706,6 +734,7 @@ _LINE_COMMENT_PREFIXES = {
     "c": ("//",),
     "cpp": ("//",),
     "php": ("//", "#"),
+    "solidity": ("//",),
     "vbnet": ("'",),
     "xml": ("<!--",),
     "graphql": ("#",),
@@ -721,6 +750,7 @@ _BLOCK_COMMENT_DELIMS = {
     "csharp": ("/*", "*/"),
     "c": ("/*", "*/"),
     "cpp": ("/*", "*/"),
+    "solidity": ("/*", "*/"),
     "php": ("/*", "*/"),
     "xml": ("<!--", "-->"),
 }
