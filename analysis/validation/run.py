@@ -532,6 +532,14 @@ def main(argv: list[str] | None = None) -> int:
                              "the corpus: classify every finding as "
                              "LIKELY_FP / NEEDS_REVIEW / LIKELY_REAL from "
                              "the FP families the live test suite documents")
+    parser.add_argument("--brain", action="store_true",
+                        help="run the security brain instead of scoring the "
+                             "corpus: six levels of self-validation "
+                             "(static integrity, control gates, loop "
+                             "invariants, shape invariants, adversarial, "
+                             "meta) against the scanner's own controls")
+    parser.add_argument("--brain-levels", default=None,
+                        help="comma-separated subset for --brain, e.g. L1,L4")
     args = parser.parse_args(argv)
 
     _setup_logging(args.verbose)
@@ -540,6 +548,12 @@ def main(argv: list[str] | None = None) -> int:
         from .triage_report import main as _triage_main
 
         return _triage_main(["--report", args.triage])
+
+    if args.brain:
+        from .brain import main as _brain_main
+
+        extra = ["--levels", args.brain_levels] if args.brain_levels else []
+        return _brain_main(extra)
 
     root = Path(args.corpus)
     if not root.is_absolute():
