@@ -527,9 +527,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-gaps", type=int, default=12,
                         help="how many gap classes to name")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("--triage", metavar="REPORT",
+                        help="triage a clean_report.json instead of scoring "
+                             "the corpus: classify every finding as "
+                             "LIKELY_FP / NEEDS_REVIEW / LIKELY_REAL from "
+                             "the FP families the live test suite documents")
     args = parser.parse_args(argv)
 
     _setup_logging(args.verbose)
+
+    if args.triage:
+        from .triage_report import main as _triage_main
+
+        return _triage_main(["--report", args.triage])
+
     root = Path(args.corpus)
     if not root.is_absolute():
         root = (Path.cwd() / root).resolve()
