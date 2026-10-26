@@ -103,6 +103,13 @@ EXCLUDED_DIRS = {
     # "log" function in PROMPT_RESPONSE). Sibling output dirs ("output",
     # "outputs", "artifacts") were already excluded; "out" was not.
     "out",
+    # I18 (2026-10-26, aclean report): i18n property bundles under
+    # src/main/resources/bundle/ are translation files, not source. Their
+    # values contain credential-shaped words ("password", "token", "secret")
+    # in 12 languages, producing 64 CONFIG_CONTEXTUAL_CREDENTIAL findings
+    # per file. "bundle" is the standard Maven/Gradle location for i18n
+    # resource bundles.
+    "bundle",
 }
 
 LANG_BY_EXT = {
@@ -652,10 +659,16 @@ def _skip(path: Path) -> bool:
     # Node_Modules / BUILD / Venv cannot bypass the exclusion policy.
     excluded_files = {str(name).lower() for name in EXCLUDED_FILES}
     excluded_dirs = {str(name).lower() for name in EXCLUDED_DIRS}
-    return (
+    if (
         path.name.lower() in excluded_files
         or any(str(part).lower() in excluded_dirs for part in path.parts)
-    )
+        # I19 (2026-10-26, aclean): a scanner-result JSON export inside the
+        # tree is tool output, not source. 98 rows on the aclean corpus came
+        # from reading one export's own evidence back as code.
+        or _is_scanner_result_json(path)
+    ):
+        return True
+    return False
 
 
 def _should_scan(path: Path) -> bool:
@@ -683,6 +696,41 @@ _SCANNER_RESULT_XML_ROOTS = frozenset({
     "CodeIssueCollection", # visualcodegrepper
     "pmd",                 # PMD
 })
+
+
+def _is_scanner_result_json(path: Path) -> bool:
+    """True when the file is a SECURITY-SCANNER RESULT export (JSON).
+
+    Third-party scanner exports embed evidence from ELSEWHERE in the repo, so
+    findings read off them double-count real findings and invent new ones. The
+    aclean corpus carried ``RBI7SASTSBOMSCA-result.json``: 98 rows whose
+    snippets are that export's own text, matched again as if it were source.
+
+    Detection is by CONTENT -- the report schema's own markers
+    (``metadata.tool`` + ``total_findings`` + a ``findings`` list whose members
+    carry ``rule_id``) -- and never by filename, so an application JSON that
+    happens to hold a ``findings`` array without the report envelope is still
+    scanned. The header read is bounded like the XML variant below.
+    """
+    if path.suffix.lower() != ".json":
+        return False
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            head = fh.read(4096)
+    except OSError:
+        return False
+    # The report envelope: a metadata block naming the tool, a total_findings
+    # counter beside it, and a findings array. Requiring BOTH the counter and
+    # the tool name keeps a config file that merely mentions "findings" clean.
+    if '"total_findings"' not in head:
+        return False
+    if '"tool"' not in head:
+        return False
+    if '"findings"' not in head:
+        return False
+    # Corroborate the findings-array member shape: rule_id is the one key every
+    # finding carries and no benign config file does.
+    return '"rule_id"' in head
 
 
 def _is_scanner_result_xml(path: Path) -> bool:

@@ -44,8 +44,12 @@ SECRET_EXT = {
 }
 # I2 (2026-10-19, prodtest/ethernaut): "out" joins the exclusion policy
 # (forge build artifacts under contracts/out/ produced 11 CONFIG rows).
+# I18 (2026-10-26, aclean report): "bundle" joins too -- i18n property
+# bundles under src/main/resources/bundle/ carry credential-shaped words
+# ("password", "token", "secret") as TRANSLATION VALUES in 12 languages,
+# and the generic key/value parser read each pair as a committed secret.
 # Keep in sync with scanner.sast.EXCLUDED_DIRS.
-EXCLUDED = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "vendor", "out"}
+EXCLUDED = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "vendor", "out", "bundle"}
 
 # Machine-generated dependency manifests. Their "keys" are package names,
 # integrity hashes and engine ranges, so a credential-shaped key inside one is
@@ -110,6 +114,30 @@ def _language(path: Path) -> str:
     }.get(path.suffix.lower(), "unknown")
 
 
+def _is_scanner_result_json(path: Path) -> bool:
+    """True when the file is a SECURITY-SCANNER RESULT export (JSON).
+
+    Mirrors scanner/sast.py's detector: detection is by CONTENT -- the report
+    schema's own markers (``total_findings`` + ``tool`` + a ``findings`` array
+    whose members carry ``rule_id``) -- and never by filename. A bounded header
+    read keeps this cheap on large exports.
+    """
+    if path.suffix.lower() != ".json":
+        return False
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            head = fh.read(4096)
+    except OSError:
+        return False
+    if '"total_findings"' not in head:
+        return False
+    if '"tool"' not in head:
+        return False
+    if '"findings"' not in head:
+        return False
+    return '"rule_id"' in head
+
+
 def _skip(path: Path) -> bool:
     """Return True for paths that should not be scanned by Secret Intelligence."""
     excluded = {str(item).lower() for item in EXCLUDED}
@@ -127,6 +155,12 @@ def _skip(path: Path) -> bool:
     }
 
     if path.name.lower() in artifact_names:
+        return True
+
+    # I19 (2026-10-26, aclean): a scanner-result JSON export inside the tree is
+    # tool output, not source. Its evidence fields embed text from ELSEWHERE in
+    # the repo, so secrets read off it duplicate or invent locations.
+    if _is_scanner_result_json(path):
         return True
 
     artifact_dirs = {
