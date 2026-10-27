@@ -1,0 +1,33 @@
+codeshield_rule,cwe,language,our_coverage,verdict,action,reason
+SAST-001,CWE-89,python,TAINT_SQL_INJECTION,equivalent,none,ours is taint-backed
+SAST-002,CWE-78,python,TAINT_CMDI,equivalent,none,
+SAST-003,CWE-798,*,CONFIG_CONTEXTUAL_CREDENTIAL+secret engine,rejected,none,"broad keyword, no entropy; their entropy idea ported as a validator"
+SAST-004,CWE-22,python,TAINT_MULTIPART_TRAVERSAL/JAVA_J3_PATH_TRAVERSAL,equivalent,none,
+SAST-005,CWE-79,*,SAST-XSS,equivalent,none,
+SAST-006,CWE-327,*,CBOM+JAVA_J2_WEAK_RANDOM,equivalent,none,
+SAST-007,CWE-502,python,SAST-DESER/PYTHON_PICKLE_*,equivalent,none,
+SAST-008,CWE-489,*,missing,missing,CS_DEBUG_IN_PRODUCTION (disabled),narrowed to pdb/breakpoint/debugger
+SAST-009,CWE-918,python,TAINT_SSRF_EXPANDED,equivalent,none,ours is taint-backed
+SAST-010,CWE-601,*,*_OPEN_REDIRECT,equivalent,none,
+SAST-011,CWE-94,*,EVAL_CALL,idea_ported,accuracy-layer confirm,eval+request coupling as source-boundary confirm
+SAST-012,CWE-330,python,JAVA_J2_WEAK_RANDOM,equivalent,none,
+SAST-013,CWE-89,javascript,NODE_SQL_TEMPLATE_INTERPOLATION,equivalent,none,
+SAST-014,CWE-1321,javascript,TAINT_PROTOTYPE_POLLUTION,rejected,none,broad Object.assign match is low precision
+SAST-015,CWE-295,*,PY_TLS/DOTNET_CERT/GO_TLS rules,equivalent,none,
+SAST-016,CWE-547,*,missing,rejected,none,private IPs in configs are normal; high-FP
+SEC-001,CWE-798,*,AWS_ACCESS_KEY,equivalent,none,
+SEC-002,CWE-798,*,AWS_SECRET_KEY,equivalent,none,
+SEC-003,CWE-798,*,GITHUB_TOKEN,equivalent,none,
+SEC-004,CWE-798,*,GOOGLE_API_KEY,equivalent,none,
+SEC-005/006/014,CWE-321,*,Hardcoded Private Key/PRIVATE_KEY_HEADER,equivalent,none,
+SEC-007,CWE-798,*,JWT_SIGNING_SECRET,equivalent,none,
+SEC-008,CWE-798,*,SLACK_TOKEN,equivalent,none,
+SEC-009,CWE-798,*,STRIPE_SECRET_KEY,equivalent,none,
+SEC-010,CWE-798,*,generic engine (value-validated),equivalent,none,
+SEC-011,CWE-798,*,STRUCTURED_CONNECTION_CREDENTIAL,equivalent,none,
+SEC-012,CWE-798,*,missing,missing,CS_BEARER_TOKEN (disabled),
+SEC-013,CWE-798,*,GENERIC_API_KEY_PASSWORD,equivalent,none,
+idea:entropy-gate,CWE-798,*,accuracy layer secret validator,idea_ported,ported,"Shannon entropy (MIT, attributed)"
+idea:minified/test-scope,n/a,*,accuracy layer file filter,idea_ported,ported,
+idea:aho-corasick,n/a,*,n/a,rejected,none,engine-coupled; forbidden by constraints
+plugin:api-security,various,*,api_abuse engine,rejected,none,broad keyword patterns below our precision bar
