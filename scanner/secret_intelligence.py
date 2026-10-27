@@ -135,7 +135,9 @@ def _is_scanner_result_json(path: Path) -> bool:
         return False
     if '"findings"' not in head and '"secret-id"' not in head:
         return False
-    return '"rule_id"' in head
+    # Member identity: rule_id (SAST export) or secret-id (the VA combined
+    # secrets export's row shape). A benign config file carries neither.
+    return '"rule_id"' in head or '"secret-id"' in head
 
 
 def _skip(path: Path) -> bool:

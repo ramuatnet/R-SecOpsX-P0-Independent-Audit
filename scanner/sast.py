@@ -729,8 +729,9 @@ def _is_scanner_result_json(path: Path) -> bool:
     if '"findings"' not in head and '"secret-id"' not in head:
         return False
     # Corroborate the findings-array member shape: rule_id is the one key every
-    # finding carries and no benign config file does.
-    return '"rule_id"' in head
+    # finding carries and no benign config file does. Secrets exports carry
+    # secret-id instead (the VA combined export's row shape).
+    return '"rule_id"' in head or '"secret-id"' in head
 
 
 def _is_scanner_result_xml(path: Path) -> bool:
