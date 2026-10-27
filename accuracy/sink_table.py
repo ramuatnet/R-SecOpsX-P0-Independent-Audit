@@ -24,10 +24,26 @@ _SINK_FAMILIES = {
         re.compile(r"\b(?:Runtime\.getRuntime\(\)\.exec|ProcessBuilder|"
                    r"subprocess\.(?:run|call|Popen|check_output)|os\.system|"
                    r"os\.popen|child_process\.exec)\b", re.I),
+        # PHP command sinks: shell_exec/popen/proc_open carry an underscore
+        # prefix, so the \b(?:eval|exec) boundary above never matched them and
+        # the layer reported "no command sink" for a literal
+        # system($_GET['cmd']) -- a false-negative-producing verdict, not an
+        # FP-avoiding one.
+        re.compile(r"\b(?:system|shell_exec|passthru|popen|proc_open|"
+                   r"pcntl_exec|expect_popen)\s*\(", re.I),
+        re.compile(r"(?<![`\\])`[^`\n]{1,200}`"),
     ], "TAINT_CMDI", "server"),
     "code_eval": ([
         re.compile(r"\b(?:eval|exec)\s*\(", re.I),
         re.compile(r"\bScriptEngine\.eval|\.eval\s*\(\s*script\b", re.I),
+        # PHP code-execution sinks beyond eval(): assert() (pre-8 evaluated
+        # strings), request-controlled callables, create_function(), and the
+        # /e modifier on preg_replace().
+        re.compile(r"\b(?:assert|call_user_func|call_user_func_array|"
+                   r"create_function|forward_static_call)\s*\(", re.I),
+        re.compile(r"\bpreg_replace\s*\(\s*['\"].{0,160}?/[a-z]{0,7}e[a-z]{0,7}['\"]",
+                   re.I),
+        re.compile(r"\$_(?:GET|POST|REQUEST|COOKIE)\s*\[[^\]]{1,60}\]\s*\("),
     ], "TAINT_CODE_INJECTION", "server"),
     "file_path": ([
         re.compile(r"\bnew\s+(?:java\.io\.)?File\s*\(", re.I),

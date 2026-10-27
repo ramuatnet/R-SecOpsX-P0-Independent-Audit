@@ -89,8 +89,15 @@ def _pack_hits(code):
 def test_pack_ids_unique_and_collision_free():
     ids = [r["id"] for r in RULES]
     assert len(ids) == len(set(ids))
-    legacy = {r.get("id") for r in sast.ENTERPRISE_RULES}
-    assert not (set(ids) & legacy), "pack id collides with a legacy rule id"
+    live = [r.get("id") for r in sast.ENTERPRISE_RULES]
+    # Registered by scanner/sast.py: every pack id is present exactly once,
+    # and nothing else was renamed or duplicated by the registration block.
+    for rid in ids:
+        assert live.count(rid) == 1, "%s registered %d times" % (
+            rid, live.count(rid))
+    assert not any(i is None for i in live)
+    compiled = {r.get("id") for r in sast.COMPILED_ENTERPRISE_RULES}
+    assert set(ids) <= compiled, "pack ids missing from the compiled table"
 
 
 def test_pack_patterns_are_redos_safe():
@@ -152,6 +159,58 @@ def test_disable_switch(monkeypatch):
     monkeypatch.setenv(DISABLE_ENV, "0")
     assert enabled() is False
     assert as_sast_rules() == []
+
+
+def test_pack_survives_the_report_pipeline(tmp_path):
+    """The measurement that matters: a finding that scan_file() produces but
+    clean_report.json silently drops is not detection. EVIDEX deletes any
+    finding whose sink category it cannot see, so the pack's rule ids must
+    carry a sink_category (see _PHP_SINK_CATEGORY in scanner/sast.py)."""
+    from core.finding_model import normalize_payload
+    from core.analyzer import build_report_payload
+    from scanner.sast import scan_directory
+
+    src = tmp_path / "shell.php"
+    src.write_text(
+        '<?php\n'
+        'assert($_REQUEST[0]);\n'
+        'call_user_func($_POST["f"]);\n'
+        '$fn = $_POST["g"];\n'
+        '$fn();\n'
+        'file_put_contents("shell.php", $_POST["c"]);\n'
+        '$_GET["f"]($_GET["a"]);\n'
+        'create_function("", $_GET["c"]);\n'
+        'preg_replace("/.*/e", $_POST["c"], "x");\n'
+        'extract($_GET);\n',
+        encoding="utf-8",
+    )
+    raw = scan_directory(str(tmp_path), workers=1)
+    normalized = [normalize_payload({"findings": [f]})["findings"][0]
+                  for f in raw]
+    payload = build_report_payload(normalized, [], str(tmp_path))
+    reported = {f.get("rule_id") for f in payload.get("findings") or []}
+    expected = {
+        "PHP_ASSERT_REQUEST_CODE_EXEC",
+        "PHP_DYNAMIC_CALLABLE_REQUEST",
+        "PHP_VARIABLE_FUNCTION_REQUEST",
+        "PHP_WEBSHELL_DROPPER_REQUEST",
+        "PHP_CREATE_FUNCTION_REQUEST",
+        "PHP_PREG_REPLACE_EVAL_MODIFIER",
+        "PHP_EXTRACT_REQUEST_SCOPE_INJECTION",
+    }
+    assert expected <= reported, "silently dropped: %s" % (expected - reported)
+
+
+def test_php_command_sink_is_recognised_by_the_layer():
+    """A literal system($_GET['cmd']) must not be called a false positive just
+    because the sink table only knew the Java/Python command sinks."""
+    import re
+    from accuracy.sink_table import sinks_for
+
+    text = '<?php system($_GET["cmd"]); ?>'
+    assert any(p.search(text) for p in sinks_for("command")), \
+        "PHP system()/shell_exec() missing from the command sink family"
+    assert re.search(r"\bshell_exec\s*\(", "shell_exec($_POST['x']);")
 
 
 def test_pack_summary_reports_redos_state():

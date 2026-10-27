@@ -107,6 +107,17 @@ _SSRF_SAFE = [
         r"allowed_hosts|ALLOWED_HOSTS|allow_?list|is_safe_url|validate_url|"
         r"permitted_domains|urlparse\s*\([^)]*\)\.netloc"),
 ]
+# Upload-specific: basename()/normalization is NOT containment here (it strips
+# traversal, not the extension), so _PATH_SAFE must not be reused as-is.
+_UPLOAD_SAFE = [
+    _ce("extension_allowlist",
+        r"in_array\s*\([^)]{0,80}(?:ext|type)|allowedExtensions\s*|"
+        r"endsWith\s*\(\s*['\"]\.|extension_whitelist|"
+        r"preg_match\s*\([^)]{0,60}(?:jpg|png|gif|pdf)"),
+    _ce("generated_destination_name",
+        r"random_bytes\s*\(|bin2hex\s*\(|uniqid\s*\(|uuid|tempnam\s*\(",
+        note="destination name is generated, not taken from the client"),
+]
 _SECRET_PLACEHOLDER = [
     # NOTE: 'redacted' / [REDACTED] deliberately absent -- the report layer's
     # own privacy redaction is NOT a placeholder. Counterevidence must never
@@ -266,7 +277,12 @@ CONTRACTS: dict[str, dict] = {
         "An externally influenced value may be evaluated as executable code "
         "without an explicit trust boundary.",
         vuln_types=_c("code_injection"),
-        rule_ids=_c("TAINT_CODE_INJECTION", "EVAL_CALL", "SAST-CODEINJ"),
+        rule_ids=_c("TAINT_CODE_INJECTION", "EVAL_CALL", "SAST-CODEINJ",
+                    "PHP_ASSERT_REQUEST_CODE_EXEC",
+                    "PHP_DYNAMIC_CALLABLE_REQUEST",
+                    "PHP_CREATE_FUNCTION_REQUEST",
+                    "PHP_VARIABLE_FUNCTION_REQUEST",
+                    "PHP_PREG_REPLACE_EVAL_MODIFIER"),
         required=_c("sink"),
         optional=_c("data_flow", "source"),
         counterevidence=_VALIDATION_PRESENT,
@@ -290,6 +306,37 @@ CONTRACTS: dict[str, dict] = {
         limitations=("a `../` sequence inside a comment, example or string "
                      "literal is not a flow; the presence of normalization "
                      "helpers is counterevidence, not proof of containment"),
+    ),
+    "unrestricted_upload": _contract(
+        "unrestricted_upload",
+        "An uploaded file may be written under a client-influenced name or "
+        "type without an effective extension/content-type allowlist.",
+        vuln_types=_c("unrestricted_upload"),
+        rule_ids=_c("PHP_UPLOAD_CLIENT_FILENAME",
+                    "PHP_UPLOAD_INDIRECT_CLIENT_FILENAME",
+                    "PHP_WEBSHELL_DROPPER_REQUEST"),
+        rule_prefixes=_c("UPLOAD_"),
+        required=_c("sink"),
+        optional=_c("data_flow", "source"),
+        counterevidence=_UPLOAD_SAFE,
+        requires_dataflow=True,
+        limitations=("basename() strips traversal but not the extension, so "
+                     "it is not containment; a random generated destination "
+                     "name is the only shape that removes the claim"),
+    ),
+    "variable_injection": _contract(
+        "variable_injection",
+        "Request parameters may be imported into the local symbol table, "
+        "letting an attacker overwrite program variables.",
+        vuln_types=_c("variable_injection"),
+        rule_ids=_c("PHP_EXTRACT_REQUEST_SCOPE_INJECTION"),
+        required=_c("sink"),
+        optional=_c("data_flow", "source"),
+        counterevidence=_VALIDATION_PRESENT,
+        requires_dataflow=True,
+        limitations=("extract() with EXTR_SKIP or an explicit key list is "
+                     "not the same claim; only request-sourced arrays are "
+                     "matched"),
     ),
     "ssrf": _contract(
         "ssrf",

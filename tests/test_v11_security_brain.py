@@ -204,11 +204,12 @@ def test_rule_table_sweep_covers_all_engines():
            if c["name"] == "_chk_L3_all_engine_rule_tables_wellformed"][0]
     assert row["status"] == "pass", row["evidence"]
     # The sweep must have covered the wide tables, not just a token few.
-    # 319 = 160 enterprise + 17 regex + 13 known-secret + 10 generic-secret
+    # 328 = 169 enterprise (160 + 9 PHP webshell pack, registered in sast.py)
+    # + 17 regex + 13 known-secret + 10 generic-secret
     # + 18 tf + 17 docker + 12 k8s + 5 missing-rules + 40 llm + 10 cbom
     # + 10 pii-patterns + 7 pii-exposure. Pinned exactly on purpose: adding
     # or dropping a rule must fail this test and force a conscious update.
-    assert "319 rules across 12 tables" in row["evidence"], row["evidence"]
+    assert "328 rules across 12 tables" in row["evidence"], row["evidence"]
 
 
 def test_iac_secrets_probes_report_per_fixture_counts():

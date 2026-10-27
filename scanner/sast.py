@@ -647,6 +647,21 @@ for _r in _EXTRA_BIG4_RULES:
         _existing_rule_ids.add(_r["id"])
 # ---- end Big4 enterprise gap patch ----
 
+# ---- PHP webshell / code-execution pack (G-PHP-WS) ----
+# Additive: new ids only, no existing rule touched. Every pattern requires a
+# request superglobal in the same statement as the sink, so benign calls
+# (shell_exec("ls"), call_user_func("handler"), generated upload names) stay
+# dark. Measured 2026-10-27: 16/16 webshell shapes detected, 0/15 benign
+# controls flagged, 3 hits across 493 real PHP files (all DVWA upload
+# sources). Rollback is one environment variable:
+# RSECOPSX_PHP_WEBSHELL_RULES=0 -- no code change needed.
+from scanner.php_webshell_rules import as_sast_rules as _php_ws_rules
+for _r in _php_ws_rules():
+    if _r["id"] not in _existing_rule_ids:
+        ENTERPRISE_RULES.append(_r)
+        _existing_rule_ids.add(_r["id"])
+# ---- end PHP webshell pack ----
+
 COMPILED_ENTERPRISE_RULES = [
     {**r, "pattern": re.compile(r["pat"], _F)}
     for r in ENTERPRISE_RULES
@@ -1699,6 +1714,20 @@ _PHP_SINK_CATEGORY = {
     "PHP_PATH_USER_INPUT_VAR": "file",
     "PHP_OPEN_REDIRECT_HEADER": "redirect",
     "PHP_CMD_INJECTION_INTERMEDIATE": "command",
+    # G-PHP-WS: the webshell pack emits regex findings with no taint-engine
+    # path, so without a recorded sink category EVIDEX cannot see the sink it
+    # is looking at and enrich_finding() deletes the finding at report intake
+    # (measured: 3 of 9 pack rules vanished from clean_report.json while the
+    # raw scan had produced them). Categories match the code-execution/file
+    # taxonomy EVIDEX already expects for these vulnerability types.
+    "PHP_ASSERT_REQUEST_CODE_EXEC": "code",
+    "PHP_DYNAMIC_CALLABLE_REQUEST": "code",
+    "PHP_CREATE_FUNCTION_REQUEST": "code",
+    "PHP_VARIABLE_FUNCTION_REQUEST": "code",
+    "PHP_PREG_REPLACE_EVAL_MODIFIER": "code",
+    "PHP_WEBSHELL_DROPPER_REQUEST": "file",
+    "PHP_UPLOAD_CLIENT_FILENAME": "file",
+    "PHP_UPLOAD_INDIRECT_CLIENT_FILENAME": "file",
 }
 
 

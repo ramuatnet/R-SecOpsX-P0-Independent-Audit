@@ -1,8 +1,9 @@
 # PHP webshell / code-execution rule pack
 
-Status: **measured, committed, NOT yet registered** — registration is a
-6-line additive block in `scanner/sast.py` shown at the bottom of this file.
-Until that block lands, the pack has no effect on scans.
+Status: **registered and measured end to end** (commit `26f94ce` added the
+pack; the registration block now lives in `scanner/sast.py` immediately after
+the Big4 block). Rollback without a code change:
+`RSECOPSX_PHP_WEBSHELL_RULES=0`.
 
 ## Why the pack exists
 
@@ -81,6 +82,37 @@ upload sources is the precision evidence; there is no large real-world PHP
 codebase on this host, so this is a bounded measurement, not a claim-level
 precision percentage.
 
+## End-to-end evidence (registration measured, not assumed)
+
+First run after registration: 3 of the 9 rules produced findings at
+`scan_file()` level and then **disappeared from `clean_report.json`** —
+`core/analyzer.enrich_finding()` deletes any finding whose EVIDEX evidence
+gate cannot see a sink category, and `assert()`, `call_user_func()` and the
+variable-function call were not in its catalogue. This is the same silent-loss
+mode already documented for the Batch-10 PHP rules (`_PHP_SINK_CATEGORY` in
+`scanner/sast.py`), so the fix follows the same mechanism: the nine pack ids
+now declare `sink_category` (`code` for the five code-execution rules, `file`
+for the three upload/dropper rules).
+
+Second run on a synthetic tree (one webshell file, one DVWA `low.php`, one
+benign control file):
+
+| Stage | Result |
+|---|---|
+| raw `scan_directory` | 8 findings (7 pack rules + PHP taint) |
+| `build_report_payload` | 8 findings (nothing silently dropped) |
+| UFIB release | 6 CONFIRMED released / 1 INSUFFICIENT_EVIDENCE held |
+| accuracy layer | 6 TRUE_POSITIVE, 1 NEEDS_REVIEW (`extract()`), **0 false-positive verdicts** |
+| benign control file | 0 pack findings |
+
+The layer also had to be corrected: `accuracy/sink_table.py` knew only the
+Java/Python command sinks, so a literal `system($_GET['cmd'])` was scored
+`LIKELY_FALSE_POSITIVE` with the reason "flagged line/window contains no
+command sink" — a false-negative-producing verdict. The command family now
+carries `system|shell_exec|passthru|popen|proc_open|pcntl_exec` and backticks;
+the code family carries `assert|call_user_func*|create_function` and the
+`/e` modifier.
+
 ## Interaction with the accuracy layer
 
 `accuracy.validators.upload_check` now also accepts `unrestricted_upload`
@@ -90,11 +122,10 @@ findings (rule id contains `UPLOAD`) and recognises PHP hardening
 NEEDS_REVIEW**, never deleted; the verdict and reason are kept in the audit
 output.
 
-## Registration diff (requires approval — touches `scanner/sast.py`)
+## Registration block (applied in `scanner/sast.py`)
 
-Insert immediately after the Big4 block (line 648,
-`# ---- end Big4 enterprise gap patch ----`) and before
-`COMPILED_ENTERPRISE_RULES = [`:
+Inserted immediately after the Big4 block (`# ---- end Big4 enterprise gap
+patch ----`) and before `COMPILED_ENTERPRISE_RULES = [`:
 
 ```python
 # ---- PHP webshell / code-execution pack (G-PHP-WS) ----
@@ -114,6 +145,17 @@ Rollback without a code change: `RSECOPSX_PHP_WEBSHELL_RULES=0` makes
 
 ## Known limits
 
+- **Pre-existing LFI drop (measured, not introduced here):** main.py's
+  path-traversal occurrence gate (around line 1326) keeps an occurrence only
+  when its taint path contains `file|path|filename|dest|target|name`. The PHP
+  chain is `$_GET -> include` with the snippet `include($p);`, so a real
+  request-controlled include is removed before UFIB sees it
+  (`PHP_PATH_USER_INPUT_VAR` and `PHP_LFI_RFI_INCLUDE`). This affects the
+  legacy rules exactly as much as the new ones; the proposed narrow fix is to
+  treat `include|require` (and `fopen|readfile|file_get_contents`) as file
+  sinks in that gate when the occurrence's own taint path proves a request
+  source. Not applied here — it changes legacy gate behaviour and needs its
+  own measured batch.
 - Indirect webshell drops (`$body = $_POST['c']; file_put_contents($f, $body)`)
   are not modelled; only request data inside the sink call is matched.
 - Request-controlled **paths** remain traversal territory (`PHP_PATH_*`), not
