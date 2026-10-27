@@ -896,6 +896,42 @@ def _privacy_pii_hits_bounded(text, path, target):
                 merged.append(item)
     return merged
 
+def _pii_evidence_window(text: str, pii_types, before: int = 60, after: int = 180) -> str:
+    """Return a snippet centred on the first matched PII token.
+
+    The chunked reader hands this code one window of a file, so evidence
+    taken from ``text[:240]`` is the head of that window, not the match --
+    for minified bundles it is the import block. Anchor the snippet on the
+    earliest pattern match of the reported types instead, keeping the same
+    total size. Callers keep the legacy slice whenever no offset can be
+    established (no reported type, no match, non-text input).
+    """
+    if not isinstance(text, str) or not text:
+        return ""
+
+    wanted = set(pii_types or ())
+    if not wanted:
+        return text[:240]
+
+    offset = None
+    for pii_type, pattern, _risk, _description in _V17925_COMPILED_PII_PATTERNS:
+        if pii_type not in wanted:
+            continue
+        match = pattern.search(text)
+        if match is not None and (offset is None or match.start() < offset):
+            offset = match.start()
+
+    if offset is None:
+        return text[:240]
+
+    start = max(0, offset - before)
+    end = min(len(text), offset + after)
+    return (
+        ("..." if start else "")
+        + text[start:end]
+        + ("..." if end < len(text) else "")
+    )
+
 def _redact_pii_evidence(text: str) -> str:
     """Redact PII from evidence while preserving structure and idempotence."""
     import re
@@ -1277,7 +1313,7 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
                 "privacy_exposure_confirmed": bool(exposed),
                 "file": _rel(path, target),
                 "line": line_no,
-                "snippet": _redact_pii_evidence(text[:240]),
+                "snippet": _redact_pii_evidence(_pii_evidence_window(text, pii_hits)),
                 "pii_types": sorted(set(pii_hits)),
                 "privacy_domain": "Data Privacy / PII Exposure",
                 "third_party_transfer_hint": third_party,
