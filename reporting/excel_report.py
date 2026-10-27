@@ -5,7 +5,10 @@ FIX LOG (v2 †’ v3):
   1. BUG  SBOM sheet: pkg.get("direct", True) replaced with pkg.get("type", "Direct")
              to match the string field now produced by sbom.py v3
   2. BUG  File column: str(Path(...).name) fails on Windows-style backslash paths
-             on Linux/macOS; replaced with os.path.basename() (cross-platform)
+             on Linux/macOS; replaced with os.path.basename() (cross-platform).
+             Later: the Findings sheet now shows the relative path, not the
+             basename, because same-named files in different modules rendered
+             as identical rows (see _display_file).
   3. WARN Findings sheet: "Confidence" and "Score Rationale" columns added,
              surfacing score_finding() breakdown and taint confidence per finding
   4. WARN  Findings sheet: "Affected Files" column added, showing all files
@@ -665,6 +668,22 @@ def _excel_evidence_valid(finding: dict) -> str:
     return verdict
 
 
+def _display_file(raw) -> str:
+    """Relative path for the Findings sheet, matching Technical Evidence.
+
+    Findings used to print only the basename, so two different modules with
+    the same file name at the same line rendered as identical rows: the STR
+    report's 36 "duplicate" groups are 88 distinct files spread across
+    rbi-ie, rbi-import, rbi-export and rbi-interlink. Showing the path is
+    what lets a reader locate the finding; it is also what Technical
+    Evidence already does with the same field.
+    """
+    text = str(raw or "").replace("\\", "/").strip()
+    while text.startswith("./"):
+        text = text[2:]
+    return text
+
+
 def _findings(ws, payload):
     ws.title = "Findings"
     # FIX #3: added Confidence and Score Rationale columns
@@ -682,7 +701,7 @@ def _findings(ws, payload):
     ]
     widths = [
         4,   28,   30,   32,   12,   10,   10,
-        28,  42,   6,
+        58,  58,   6,
         14,  28,   12,
         30,  28,   24,   20,
         18,  8,
@@ -703,11 +722,12 @@ def _findings(ws, payload):
         rem        = f.get("remediation", [])
         instances  = f.get("instances", 1)
 
-        # FIX #2: cross-platform file name extraction
-        primary_file   = os.path.basename(f.get("file", ""))
-        # FIX #4: show all affected files (basename of each)
+        # FIX #2: the relative path, not the basename -- two modules can hold
+        # the same file name at the same line and would look like duplicates.
+        primary_file   = _display_file(f.get("file", ""))
+        # FIX #4: show all affected files (relative path of each)
         affected_files = f.get("affected_files", [f.get("file", "")])
-        affected_str   = "; ".join(os.path.basename(fp) for fp in affected_files)
+        affected_str   = "; ".join(_display_file(fp) for fp in affected_files)
 
         score_explanation = f.get("score_breakdown", {}).get("explanation", "")
         cm = _fallback_compliance(f)
