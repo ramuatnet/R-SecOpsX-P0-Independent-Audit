@@ -279,7 +279,10 @@ _UPLOAD_PARAM = re.compile(
 _UPLOAD_VALIDATION = re.compile(
     r"endsWith\s*\(\s*['\"]\.|allowedExtensions\s*|getContentType\s*\(\s*\)|"
     r"contentType\s*\.equals|assertValidUpload|extension_whitelist|"
-    r"\.equals\s*\(\s*['\"]\.", re.I)
+    r"\.equals\s*\(\s*['\"]\.|"
+    # PHP upload hardening: extension/MIME assertions and image probing
+    r"getimagesize\s*\(|mime_content_type\s*\(|pathinfo\s*\(|"
+    r"in_array\s*\([^)]{0,80}ext|_ext\b", re.I)
 
 
 def upload_check(finding: dict, window_text: str):
@@ -293,7 +296,9 @@ def upload_check(finding: dict, window_text: str):
     rid = str(finding.get("rule_id") or "").upper()
     vt = str(finding.get("vuln_type") or "").lower()
     if not ("MULTIPART" in rid or "TRAVERSAL" in rid or "PATH" in rid
-            or "zipslip" in vt or "path_traversal" in vt):
+            or "UPLOAD" in rid
+            or "zipslip" in vt or "path_traversal" in vt
+            or "unrestricted_upload" in vt):
         return None
     m = _UPLOAD_SINK.search(window_text)
     if not m:
