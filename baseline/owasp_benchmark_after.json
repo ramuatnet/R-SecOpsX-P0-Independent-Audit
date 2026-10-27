@@ -1,0 +1,139 @@
+{
+ "categories": {
+  "cmdi": {
+   "true_total": 126,
+   "detected": 126,
+   "detected_cwe_aligned": 126,
+   "false_total": 125,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "crypto": {
+   "true_total": 130,
+   "detected": 130,
+   "detected_cwe_aligned": 130,
+   "false_total": 116,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "hash": {
+   "true_total": 129,
+   "detected": 129,
+   "detected_cwe_aligned": 129,
+   "false_total": 107,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "ldapi": {
+   "true_total": 27,
+   "detected": 27,
+   "detected_cwe_aligned": 27,
+   "false_total": 32,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "pathtraver": {
+   "true_total": 133,
+   "detected": 133,
+   "detected_cwe_aligned": 133,
+   "false_total": 135,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "securecookie": {
+   "true_total": 36,
+   "detected": 36,
+   "detected_cwe_aligned": 36,
+   "false_total": 31,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "sqli": {
+   "true_total": 272,
+   "detected": 272,
+   "detected_cwe_aligned": 272,
+   "false_total": 232,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "trustbound": {
+   "true_total": 83,
+   "detected": 83,
+   "detected_cwe_aligned": 83,
+   "false_total": 43,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "weakrand": {
+   "true_total": 218,
+   "detected": 218,
+   "detected_cwe_aligned": 218,
+   "false_total": 275,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  },
+  "xpathi": {
+   "true_total": 15,
+   "detected": 15,
+   "detected_cwe_aligned": 15,
+   "false_total": 20,
+   "fp_tests": 1,
+   "fp_findings": 1,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.05
+  },
+  "xss": {
+   "true_total": 246,
+   "detected": 246,
+   "detected_cwe_aligned": 246,
+   "false_total": 209,
+   "fp_tests": 0,
+   "fp_findings": 0,
+   "recall": 1.0,
+   "recall_cwe_aligned": 1.0,
+   "fp_rate": 0.0
+  }
+ },
+ "overall": {
+  "true_total": 1415,
+  "detected": 1415,
+  "detected_cwe_aligned": 1415,
+  "false_total": 1325,
+  "fp_tests": 1,
+  "fp_findings": 1,
+  "recall": 1.0,
+  "recall_cwe_aligned": 1.0,
+  "fp_rate": 0.0007547169811320754
+ },
+ "off_target_findings": 15,
+ "tests_with_findings": 1416,
+ "scored_in_seconds": 0.01
+}
