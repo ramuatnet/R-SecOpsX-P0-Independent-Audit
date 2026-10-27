@@ -3459,6 +3459,21 @@ def main():
                 f"(policy {_rm.get('policy_version')}, "
                 f"status {_rm.get('scan_status')})")
 
+    # ------------------------------------------------------------------
+    # Accuracy layer (post-detection validation & suppression). Additive:
+    # never removes findings; with RSECOPSX_ACCURACY_LAYER=0 it is a no-op
+    # and the output is byte-identical to the legacy run (snapshot-tested).
+    # ------------------------------------------------------------------
+    from accuracy.config import layer_enabled as _acc_enabled
+    if _acc_enabled():
+        _step("Accuracy layer")
+        from accuracy.layer import apply_accuracy_layer
+        payload = apply_accuracy_layer(payload, target)
+        _acc = payload.get("accuracy") or {}
+        _safe_print(f"       => accuracy: {_acc.get('filtered_count', 0)} "
+                    f"filtered / {len(_acc.get('audit', []))} audited "
+                    f"({', '.join(f'{k}={v}' for k, v in sorted((_acc.get('counts') or {}).items()))})")
+
     try:
         from core.v11_intelligence import enrich_payload as _enrich_v11_intelligence
         payload = _enrich_v11_intelligence(payload)
