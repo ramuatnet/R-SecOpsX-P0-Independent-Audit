@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -235,7 +236,13 @@ def query_nvd_by_cpe(cpe: str) -> list[dict]:
 
     req = urllib.request.Request(url, headers=_nvd_headers(), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+                # Match the working NVD connection: TLS 1.2 only.
+        # Default certificate verification remains enabled.
+        _nvd_ssl_context = ssl.create_default_context()
+        _nvd_ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+        _nvd_ssl_context.maximum_version = ssl.TLSVersion.TLSv1_2
+        with urllib.request.urlopen(
+                req, timeout=20, context=_nvd_ssl_context) as resp:
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
     except (urllib.error.URLError, TimeoutError, OSError,
             ValueError) as exc:
@@ -247,7 +254,7 @@ def query_nvd_by_cpe(cpe: str) -> list[dict]:
         })
         return []
 
-    vulns = body.get("vulnabilities") if isinstance(body, dict) else None
+    vulns = body.get("vulnerabilities") if isinstance(body, dict) else None
     if not isinstance(vulns, list):
         # The NVD OMITS the array entirely when a query matches nothing;
         # a present 'totalResults' proves the service answered, so an empty
@@ -263,7 +270,7 @@ def query_nvd_by_cpe(cpe: str) -> list[dict]:
         status["available"] = False
         status["failures"].append({
             "cpe": wildcard,
-            "reason": "response had no 'vulnabilities' list",
+            "reason": "response had no 'vulnerabilities' list",
             "error_type": "UnexpectedResponseShape",
         })
         return []
