@@ -1340,6 +1340,20 @@ def _prune_unsupported_occurrences(payload: dict) -> int:
                         "->" in taint
                         and re.search(r"(?:file|path|filename|dest|target|name)", low + "\n" + taint)
                     )
+                    if not supported and "->" in taint:
+                        # A PHP include/require family call IS a filesystem sink
+                        # even when the tainted parameter is named "page" or
+                        # "tpl". The PHP taint engine records the chain from the
+                        # tainted variable to the sink ("$p -> include"), not
+                        # from the request superglobal, so requiring a path word
+                        # in the snippet drops a request-controlled include.
+                        # Scope: the argument must be a variable -- a literal
+                        # include('config.php') carries no taint path at all and
+                        # is still pruned by the branch above.
+                        supported = bool(
+                            re.search(r"(?:include_once|include|require_once|require|"
+                                      r"fopen|readfile|file_get_contents|file)\s*\(\s*\$", low)
+                        )
                     if not supported and re.search(r"fs\.(?:read|write|append)|readfile|writefile|createwritestream", low):
                         supported = bool(re.search(r"(?:filePath|filename|fileName|dest|target|user.*path|path\s*=)", low))
 
