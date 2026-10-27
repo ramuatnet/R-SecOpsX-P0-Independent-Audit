@@ -1415,9 +1415,14 @@ def _privacy_findings(ws, payload):
     _title(ws, "Privacy / PII Exposure Findings")
     summary = payload.get("privacy_data_exposure_summary", {}) or {}
     rows = summary.get("indicators", []) or []
+    # Older payloads carry no split; derive it from the rows they do carry.
+    # (The summary keeps at most 500 rows, so a stored count wins when present.)
+    _pii_rows = sum(1 for i in rows if i.get("pii_types"))
     meta = [
         ("Status", summary.get("summary_status", "NOT_AVAILABLE")),
         ("Total Privacy Indicators", summary.get("total_privacy_indicators", 0)),
+        ("PII Data Indicators", summary.get("pii_data_indicators", _pii_rows)),
+        ("Context-Only Indicators", summary.get("context_only_indicators", len(rows) - _pii_rows)),
         ("Critical Privacy Indicators", summary.get("critical_privacy_indicators", 0)),
         ("High Privacy Indicators", summary.get("high_privacy_indicators", 0)),
         ("Third-Party Transfer Indicators", summary.get("third_party_transfer_indicators", 0)),

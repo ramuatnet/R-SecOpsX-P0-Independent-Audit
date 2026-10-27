@@ -1438,6 +1438,11 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
             deduplicated_privacy_findings.append(_indicator)
 
     raw_privacy_evidence_count = len(indicators)
+    # A context signal (e.g. SENSITIVE_DATA_FLOW_CONTEXT) is a privacy
+    # indicator but carries no PII data element, so it must not be read as a
+    # PII observation. Report the split instead of hiding it in the total.
+    pii_data_indicators = sum(1 for i in indicators if i.get("pii_types"))
+    context_only_indicators = raw_privacy_evidence_count - pii_data_indicators
     deduplicated_privacy_finding_count = len(deduplicated_privacy_findings)
     unclassified_privacy_indicators = sum(
         1 for i in indicators if i.get("privacy_evidence_state") not in {"OBSERVED_ONLY", "EXPOSED"}
@@ -1465,6 +1470,11 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
         "high_privacy_indicators": high,
         "third_party_transfer_indicators": third_party_count,
         "pii_type_counts": pii_type_counts,
+        # The total counts every row on the sheet; these two split it so a
+        # context signal is not mistaken for a PII observation.
+        "pii_data_indicators": pii_data_indicators,
+        "context_only_indicators": context_only_indicators,
+        "count_semantics": "TOTAL_INCLUDES_CONTEXT_ONLY_ROWS;PII_DATA_INDICATORS_HAVE_AT_LEAST_ONE_PII_TYPE",
         # V17.9 PRIVACY EVIDENCE SEMANTICS
         "raw_privacy_evidence_count": raw_privacy_evidence_count,
         "deduplicated_privacy_finding_count": deduplicated_privacy_finding_count,
