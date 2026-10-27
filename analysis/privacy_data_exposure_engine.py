@@ -896,6 +896,24 @@ def _privacy_pii_hits_bounded(text, path, target):
                 merged.append(item)
     return merged
 
+def _pii_match_offset(text: str, pii_types):
+    """Offset of the earliest match among the reported PII types, or None."""
+    if not isinstance(text, str) or not text:
+        return None
+
+    wanted = set(pii_types or ())
+    if not wanted:
+        return None
+
+    offset = None
+    for pii_type, pattern, _risk, _description in _V17925_COMPILED_PII_PATTERNS:
+        if pii_type not in wanted:
+            continue
+        match = pattern.search(text)
+        if match is not None and (offset is None or match.start() < offset):
+            offset = match.start()
+    return offset
+
 def _pii_evidence_window(text: str, pii_types, before: int = 60, after: int = 180) -> str:
     """Return a snippet centred on the first matched PII token.
 
@@ -909,18 +927,7 @@ def _pii_evidence_window(text: str, pii_types, before: int = 60, after: int = 18
     if not isinstance(text, str) or not text:
         return ""
 
-    wanted = set(pii_types or ())
-    if not wanted:
-        return text[:240]
-
-    offset = None
-    for pii_type, pattern, _risk, _description in _V17925_COMPILED_PII_PATTERNS:
-        if pii_type not in wanted:
-            continue
-        match = pattern.search(text)
-        if match is not None and (offset is None or match.start() < offset):
-            offset = match.start()
-
+    offset = _pii_match_offset(text, pii_types)
     if offset is None:
         return text[:240]
 
@@ -1212,11 +1219,21 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
         _privacy_v5_done = 0
 
         _privacy_v5_chunk_no = 0
+        _privacy_v5_line_next = 1
         for _privacy_v5_chunk in _privacy_v5_stream_chunks(path):
             _privacy_v5_chunk_no += 1
-            line_no = _privacy_v5_chunk_no
             line = _privacy_v5_chunk
-            text = _privacy_v5_chunk.strip()
+            _privacy_v5_left = line.lstrip()
+            text = _privacy_v5_left.rstrip()
+            # The stream yields contiguous blocks, so the newline count of
+            # everything yielded so far is the line number of this block's
+            # first character. Stripping may drop leading newlines; count
+            # them separately so a match is not reported a few lines early.
+            _privacy_v5_line_base = _privacy_v5_line_next
+            _privacy_v5_line_next += line.count("\n")
+            _privacy_v5_leading_lines = (
+                line[:len(line) - len(_privacy_v5_left)].count("\n")
+            )
 
             _privacy_v5_done = min(
                 _privacy_v5_size,
@@ -1298,6 +1315,20 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
             # Only a matched exposure sink may retain HIGH/CRITICAL semantics.
             if not exposed:
                 max_risk = "LOW"
+
+            # Report a real source line, not the block index. Anchor on the
+            # earliest matched PII token; rows without a PII token (exposure
+            # context only) report the first line of the analysed block.
+            _privacy_v5_match_offset = _pii_match_offset(text, pii_hits)
+            line_no = (
+                _privacy_v5_line_base
+                + _privacy_v5_leading_lines
+                + (
+                    text.count("\n", 0, _privacy_v5_match_offset)
+                    if _privacy_v5_match_offset is not None
+                    else 0
+                )
+            )
 
             indicators.append({
                 "indicator": indicator_name,
