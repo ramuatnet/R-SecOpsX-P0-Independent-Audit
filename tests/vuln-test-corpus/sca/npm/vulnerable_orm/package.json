@@ -1,0 +1,10 @@
+{
+  "name": "vulnerable-orm-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node API with an ORM and a JWT stack pinned at vulnerable versions.",
+  "dependencies": {
+    "sequelize": "6.37.3",
+    "jsonwebtoken": "0.4.0"
+  }
+}

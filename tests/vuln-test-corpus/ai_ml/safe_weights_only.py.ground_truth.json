@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_weights_only.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "safetensors has no pickle payload, and torch.load is called with weights_only=True (L16). Any finding here is a false positive."
+}

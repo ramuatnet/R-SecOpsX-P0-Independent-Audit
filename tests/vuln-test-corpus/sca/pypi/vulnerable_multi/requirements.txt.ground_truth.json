@@ -1,0 +1,23 @@
+{
+  "fixture": "requirements.txt",
+  "expected_findings": [
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "High", "cwe": null, "evidence": "jinja2==2.10", "cve": "CVE-2019-10906", "advisory_id": "GHSA-462w-v97r-4m45", "package": "jinja2", "version": "2.10", "fixed_versions": ["2.10.1"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "jinja2==2.10", "cve": "CVE-2020-28493", "advisory_id": "GHSA-g3rq-g295-4j3m", "package": "jinja2", "version": "2.10", "fixed_versions": ["2.11.3"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "jinja2==2.10", "cve": "CVE-2024-22195", "advisory_id": "GHSA-h5c8-rqwp-cp95", "package": "jinja2", "version": "2.10", "fixed_versions": ["3.1.3"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "jinja2==2.10", "cve": "CVE-2024-34064", "advisory_id": "GHSA-h75v-3vvj-5mfj", "package": "jinja2", "version": "2.10", "fixed_versions": ["3.1.4"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "High", "cwe": null, "evidence": "jinja2==2.10", "cve": "CVE-2024-56326", "advisory_id": "GHSA-q2x7-8rv6-6q7h", "package": "jinja2", "version": "2.10", "fixed_versions": ["3.1.5"], "source": "OSV", "note": "id and fixed version from GHSA-q2x7-8rv6-6q7h (Medium); severity High is the higher of this CVE's two mirrors, PYSEC-2026-1475, same convention as the existing requirements.txt label."},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "jinja2==2.10", "cve": "CVE-2025-27516", "advisory_id": "GHSA-cpwx-vrp4-4pq7", "package": "jinja2", "version": "2.10", "fixed_versions": ["3.1.6"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Critical", "cwe": null, "evidence": "pyyaml==3.13", "cve": "CVE-2017-18342", "advisory_id": "GHSA-rprw-h62v-c2w7", "package": "pyyaml", "version": "3.13", "fixed_versions": ["5.1"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Critical", "cwe": null, "evidence": "pyyaml==3.13", "cve": "CVE-2020-14343", "advisory_id": "GHSA-8q59-q68h-6hv4", "package": "pyyaml", "version": "3.13", "fixed_versions": ["5.4"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "requests==2.31.0", "cve": "CVE-2024-35195", "advisory_id": "GHSA-9wx4-h78v-vm56", "package": "requests", "version": "2.31.0", "fixed_versions": ["2.32.0"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "requests==2.31.0", "cve": "CVE-2024-47081", "advisory_id": "GHSA-9hjg-9r4m-mvj7", "package": "requests", "version": "2.31.0", "fixed_versions": ["2.32.4"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "requirements.txt", "line": 0, "severity": "Medium", "cwe": null, "evidence": "requests==2.31.0", "cve": "CVE-2026-25645", "advisory_id": "GHSA-gc5v-m9x4-r6x2", "package": "requests", "version": "2.31.0", "fixed_versions": ["2.33.0"], "source": "OSV"}
+  ],
+  "expected_count": 11,
+  "expected_cves": [
+    "CVE-2019-10906", "CVE-2020-28493", "CVE-2024-22195", "CVE-2024-34064",
+    "CVE-2024-56326", "CVE-2025-27516", "CVE-2017-18342", "CVE-2020-14343",
+    "CVE-2024-35195", "CVE-2024-47081", "CVE-2026-25645"
+  ],
+  "notes": "Three pinned AI-service dependencies, eleven advisory claims. Line 0 is deliberate and is the SCA convention: an advisory is a claim about a component, not a line, and one requirements line (jinja2==2.10) carries six distinct CVE claims -- a line-anchored label can only name one of them, so all of these are component-anchored. CVEs and severities are read from the OSV records for exactly these pins (cache snapshot 2026-10-27), collapsed to one claim per CVE: OSV mirrors several CVEs through both a GHSA and a PYSEC record, and those are one advisory each, not two. Severity is the highest stated by any mirror of the same CVE."
+}

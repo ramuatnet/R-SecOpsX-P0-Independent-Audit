@@ -1,0 +1,14 @@
+{
+  "fixture": "package.json",
+  "expected_findings": [
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "sequelize", "cve": "CVE-2026-30951", "advisory_id": "GHSA-6457-6jrx-69cr", "package": "sequelize", "version": "6.37.3", "fixed_versions": ["6.37.8"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Critical", "cwe": null, "evidence": "sequelize", "cve": "CVE-2026-69240", "advisory_id": "GHSA-v8fg-2rw7-q452", "package": "sequelize", "version": "6.37.3", "fixed_versions": ["6.37.4"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Critical", "cwe": null, "evidence": "jsonwebtoken", "cve": "CVE-2015-9235", "advisory_id": "GHSA-c7hr-j4mj-j2w6", "package": "jsonwebtoken", "version": "0.4.0", "fixed_versions": ["4.2.2"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "High", "cwe": null, "evidence": "jsonwebtoken", "cve": "CVE-2022-23539", "advisory_id": "GHSA-8cf7-32gw-wr33", "package": "jsonwebtoken", "version": "0.4.0", "fixed_versions": ["9.0.0"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "jsonwebtoken", "cve": "CVE-2022-23540", "advisory_id": "GHSA-qwph-4952-7xr6", "package": "jsonwebtoken", "version": "0.4.0", "fixed_versions": ["9.0.0"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "package.json", "line": 0, "severity": "Medium", "cwe": null, "evidence": "jsonwebtoken", "cve": "CVE-2022-23541", "advisory_id": "GHSA-hjrf-2m68-5959", "package": "jsonwebtoken", "version": "0.4.0", "fixed_versions": ["9.0.0"], "source": "OSV"}
+  ],
+  "expected_count": 6,
+  "expected_cves": ["CVE-2026-30951", "CVE-2026-69240", "CVE-2015-9235", "CVE-2022-23539", "CVE-2022-23540", "CVE-2022-23541"],
+  "notes": "Exact pins, not ranges, so OSV can evaluate the version itself. Both packages are pinned far below their fixed versions. CVEs, severities and fixed versions are read from the OSV records for these pins (cache snapshot 2026-10-27)."
+}

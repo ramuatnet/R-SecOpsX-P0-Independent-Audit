@@ -1,0 +1,17 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    json (2.18.0)
+    puma (6.6.1)
+    rails-html-sanitizer (1.6.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  json
+  puma
+  rails-html-sanitizer
+
+BUNDLED WITH
+   2.5.23

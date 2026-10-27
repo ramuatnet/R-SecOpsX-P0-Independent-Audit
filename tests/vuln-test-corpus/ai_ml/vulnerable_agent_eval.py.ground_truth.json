@@ -1,0 +1,18 @@
+{
+  "fixture": "vulnerable_agent_eval.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-CODEINJ",
+      "file": "vulnerable_agent_eval.py",
+      "line": 16,
+      "severity": "Critical",
+      "cwe": "CWE-94",
+      "evidence": "eval(code)",
+      "cve": null,
+      "note": "code is the model completion, which the prompt author influences; eval() runs it in the host process. CWE-94 from an external control sphere."
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": [],
+  "notes": "Model output executed as code. The label anchors at eval(), which is both where the sink is and the line the engine reports."
+}

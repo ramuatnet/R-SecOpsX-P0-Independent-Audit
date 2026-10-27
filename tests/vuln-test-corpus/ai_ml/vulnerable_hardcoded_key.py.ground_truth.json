@@ -1,0 +1,18 @@
+{
+  "fixture": "vulnerable_hardcoded_key.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-HARDCRED",
+      "file": "vulnerable_hardcoded_key.py",
+      "line": 10,
+      "severity": "Critical",
+      "cwe": "CWE-798",
+      "evidence": "openai.api_key = \"sk-proj-AbCdEf0123456789AbCdEf0123456789AbCdEf01\"",
+      "cve": null,
+      "note": "A provider credential literal committed to source is CWE-798 regardless of which detector has a pattern for the format. The value is made up and authorises nothing. MAINTAINER NOTE: the fixture source must never call the value fake/mock/sample/synthetic/placeholder -- analysis.ufib_contracts._SECRET_PLACEHOLDER reads any of those words in the file as decisive counterevidence and the secret contract then abstains, which would make this label fail for a reason that has nothing to do with detection."
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": [],
+  "notes": "Hardcoded AI provider key inside an otherwise normal service file, so this also checks that the SAST family picks up credential literals and not only the secrets family."
+}

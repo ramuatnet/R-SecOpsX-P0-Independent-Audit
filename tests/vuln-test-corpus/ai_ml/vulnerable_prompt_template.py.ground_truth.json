@@ -1,0 +1,18 @@
+{
+  "fixture": "vulnerable_prompt_template.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-CODEINJ",
+      "file": "vulnerable_prompt_template.py",
+      "line": 20,
+      "severity": "High",
+      "cwe": "CWE-94",
+      "evidence": "env.from_string(template).render()",
+      "cve": null,
+      "note": "template is request.args['t']; from_string compiles attacker-controlled template syntax, which is server-side template injection (CWE-94). Measured as a MISS today: there is no rule for jinja2 from_string from request data. The label is from the CWE semantics of the shape, not from the scanner, and is deliberately kept so the gap stays visible."
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": [],
+  "notes": "Known false negative, labelled rather than dropped. Do not delete this fixture to make the score look better: a corpus that only contains what the tool detects measures nothing."
+}

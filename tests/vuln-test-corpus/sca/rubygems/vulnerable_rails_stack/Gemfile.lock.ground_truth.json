@@ -1,0 +1,13 @@
+{
+  "fixture": "Gemfile.lock",
+  "expected_findings": [
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "High", "cwe": null, "evidence": "json", "cve": "CVE-2026-33210", "advisory_id": "GHSA-3m6g-2423-7cp3", "package": "json", "version": "2.18.0", "fixed_versions": ["2.15.2.1", "2.17.1.2", "2.19.2"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Low", "cwe": null, "evidence": "json", "cve": "CVE-2026-54696", "advisory_id": "GHSA-x2f5-4prf-w687", "package": "json", "version": "2.18.0", "fixed_versions": ["2.19.9"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "High", "cwe": null, "evidence": "puma", "cve": "CVE-2026-47736", "advisory_id": "GHSA-qpgp-93vx-g8v8", "package": "puma", "version": "6.6.1", "fixed_versions": ["7.2.1", "8.0.2"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "High", "cwe": null, "evidence": "puma", "cve": "CVE-2026-47737", "advisory_id": "GHSA-2vqw-3mp8-cgmx", "package": "puma", "version": "6.6.1", "fixed_versions": ["7.2.1", "8.0.2"], "source": "OSV"},
+    {"rule_id": "SCA-VULN-DEP", "file": "Gemfile.lock", "line": 0, "severity": "Medium", "cwe": null, "evidence": "rails-html-sanitizer", "cve": "CVE-2026-73648", "advisory_id": "GHSA-cj75-f6xr-r4g7", "package": "rails-html-sanitizer", "version": "1.6.2", "fixed_versions": ["1.7.1"], "source": "OSV"}
+  ],
+  "expected_count": 5,
+  "expected_cves": ["CVE-2026-33210", "CVE-2026-54696", "CVE-2026-47736", "CVE-2026-47737", "CVE-2026-73648"],
+  "notes": "A locked Rails web stack. Every version was queried against OSV for exactly that pin, and all five advisory records carry a CVE -- loofah 2.25.0 was rejected as the pin here because two of its five records have no CVE, and a CVE-less claim's comparator identity is (package, version), so two of them cannot be told apart. CVEs, severities and fixed versions are copied verbatim from the cache snapshot 2026-10-27. Line 0 is the component convention: a gem advisory is a claim about the component, not a line."
+}

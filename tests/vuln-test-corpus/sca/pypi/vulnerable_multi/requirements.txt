@@ -1,0 +1,7 @@
+# AI service dependencies pinned as they ship today (OSV snapshot 2026-10-27).
+# Every version below was queried against OSV for exactly this pin, so each
+# advisory listed in the label applies to the pinned version -- none is a
+# range guess.
+jinja2==2.10
+pyyaml==3.13
+requests==2.31.0

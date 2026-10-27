@@ -1,0 +1,7 @@
+{
+  "fixture": "safe_agent_dispatch.py",
+  "expected_findings": [],
+  "expected_count": 0,
+  "expected_cves": [],
+  "notes": "Control for vulnerable_agent_eval.py and vulnerable_hardcoded_key.py. Dispatch selects from a fixed mapping with no eval and no getattr on input (L21-25), and the key is read from os.environ (L14). Any finding here is a false positive."
+}

@@ -1,0 +1,18 @@
+{
+  "fixture": "vulnerable_pickle_input.py",
+  "expected_findings": [
+    {
+      "rule_id": "SAST-DESER",
+      "file": "vulnerable_pickle_input.py",
+      "line": 13,
+      "severity": "Critical",
+      "cwe": "CWE-502",
+      "evidence": "pickle.loads(request.data)",
+      "cve": null,
+      "note": "The byte stream comes straight from the request, and pickle.loads executes whatever the stream says. Labelled from that behaviour, not from the rule that reports it."
+    }
+  ],
+  "expected_count": 1,
+  "expected_cves": [],
+  "notes": "Attacker-controlled pickle. Both the pattern rule and the taint engine report it; either satisfies the label because the comparator keys on class, not rule id."
+}
