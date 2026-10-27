@@ -26,7 +26,17 @@ SCAN_EXTENSIONS = {
     ".json", ".yml", ".yaml", ".xml", ".properties", ".env", ".txt", ".md",
 }
 
-SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "target", ".next"}
+SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "target", ".next",
+             # I2/I18 parity (2026-10-26, aclean): the privacy engine walks the
+             # same tree as the SAST and Secret engines and scans .properties,
+             # so forge output under out/, i18n resource bundles under bundle/
+             # and vendored third-party code reach THIS table too. Translated
+             # UI strings, tool output and vendor code are not personal-data
+             # subjects of the scanned application; scanning them turned the
+             # aclean corpus's 6 property bundles into privacy indicators on
+             # top of their 380 credential rows. Keep in sync with
+             # scanner.sast.EXCLUDED_DIRS like the other engines.
+             "out", "bundle", "vendor"}
 
 PII_PATTERNS = [
     ("AADHAAR", r"\b(?:aadhaar|aadhar|uidai)\b|\b\d{4}[ -]?\d{4}[ -]?\d{4}\b", "CRITICAL", "India national identifier"),

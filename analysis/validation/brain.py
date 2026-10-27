@@ -356,6 +356,58 @@ def _chk_L1_language_gates_not_orphaned() -> str:
     return "%d language gates, all reachable from SCANNABLE_EXT" % len(LANG_BY_EXT)
 
 
+def _chk_L1_pii_nonproduction_gate() -> str:
+    """CLAIM: the privacy engine's nonproduction gate suppresses documentation,
+    localization, spec, seed and git-transport contexts -- markers match the
+    RELATIVE path with slash semantics, so nested shapes are the contract --
+    while production application paths stay scannable."""
+    import tempfile
+
+    from analysis.privacy_data_exposure_engine import _is_non_production_text
+
+    d = Path(tempfile.mkdtemp(prefix="rsx_brain_pii_gate_"))
+    rows = [
+        # (relative shape, text, expected gated?)
+        ("src/i18n/strings.py", "x = 1", True),
+        ("webapp/locales/messages.js", "x = 1", True),
+        ("docs/guide.md", "contact@example.com", True),
+        ("README.md", "contact@example.com", True),
+        ("dist/sbom.json", "x = 1", True),
+        ("src/tests/test_api.py", "x = 1", True),
+        ("ui/Search.spec.ts", "x = 1", True),
+        ("db/seeds/users.py", "x = 1", True),
+        ("git.txt", "git+ssh://git@github.com/acme/repo", True),
+        ("src/payments/service.py", "x = 1", False),
+        ("app/config/settings.py", "x = 1", False),
+    ]
+    bad = []
+    for rel, text, want in rows:
+        got = _is_non_production_text(d / rel, text, str(d))
+        if got != want:
+            bad.append("%s -> %s, want %s"
+                       % (rel, "gated" if got else "scannable",
+                          "gated" if want else "scannable"))
+    assert not bad, "; ".join(bad)
+    return "11/11 gate rows correct: 9 suppression shapes, 2 production passages"
+
+
+def _chk_L1_pii_skip_dirs_in_sync() -> str:
+    """CLAIM: the privacy engine refuses the same generated/i18n directories
+    the other engines refuse -- it walks the same tree and scans .properties,
+    so a narrower SKIP_DIRS rescan-reads translation tables as data subjects
+    (the aclean corpus carried 6 such bundles) and tool output under out/."""
+    from analysis.privacy_data_exposure_engine import SKIP_DIRS as PII_SKIP
+    from scanner.sast import EXCLUDED_DIRS as SAST_EXCLUDED
+
+    pii = {str(x).lower() for x in PII_SKIP}
+    drift = sorted(SYNC_FLOOR - pii)
+    assert not drift, (
+        "privacy SKIP_DIRS drift: %r not excluded -- the privacy engine would "
+        "walk directories every other engine refuses" % drift)
+    return "floor of %d shared exclusions present; PII skips %d dirs" % (
+        len(SYNC_FLOOR), len(pii))
+
+
 # ======================================================================
 # L2 -- loop invariants
 # ======================================================================
@@ -562,15 +614,34 @@ def _chk_L3_all_engine_rule_tables_wellformed() -> str:
         if str(r.get("risk") or "").upper() not in risks:
             bad.append("cbom/%s illegal risk %r" % (r.get("component"), r.get("risk")))
 
+    # Privacy -- (name, pattern-string, risk, description) rows; the risk
+    # vocabulary is the CBOM-style one, and an uncompilable pattern here is a
+    # crash waiting for the first file that reaches it.
+    from analysis.privacy_data_exposure_engine import (
+        EXPOSURE_PATTERNS as PII_EXPOSURE,
+        PII_PATTERNS as PII_ROWS,
+    )
+    for table, label in ((PII_ROWS, "pii.patterns"),
+                         (PII_EXPOSURE, "pii.exposure")):
+        for row in table:
+            name, pat, risk, desc = row[0], row[1], row[2], row[3]
+            if not name or not desc:
+                bad.append("%s/%s unnamed or undescribed" % (label, name))
+            if not _usable(pat):
+                bad.append("%s/%s pattern does not compile" % (label, name))
+            if str(risk or "").upper() not in risks:
+                bad.append("%s/%s illegal risk %r" % (label, name, risk))
+
     total = (len(sast.ENTERPRISE_RULES) + len(sast.REGEX_RULES)
              + len(secret_intelligence.KNOWN_SECRET_RULES)
              + len(secret_intelligence.SECRET_RULES)
              + len(iac_terraform.RULES) + len(iac_docker.RULES)
              + len(iac_kubernetes.RULES) + len(iac_kubernetes.MISSING_RULES)
-             + len(llm_security.LLM_RULES) + len(CRYPTO_RULES))
+             + len(llm_security.LLM_RULES) + len(CRYPTO_RULES)
+             + len(PII_ROWS) + len(PII_EXPOSURE))
     assert not bad, "%d defects across %d rules: %s" % (
         len(bad), total, "; ".join(bad[:4]))
-    return "%d rules across 10 tables well-formed (identity, severity, cwe, pattern)" % total
+    return "%d rules across 12 tables well-formed (identity, severity/risk, cwe, pattern)" % total
 
 
 def _chk_L3_findings_carry_legal_shape() -> str:
@@ -729,6 +800,53 @@ def _chk_L4_bundle_gate_has_teeth() -> str:
               and si._skip(d / "bundle" / "messages.properties"))
     assert closed, "restoring 'bundle' did not close the gates"
     return "mutation opened both gates, restoration closed both, sets intact"
+
+
+def _chk_L4_privacy_engine_crash_free_and_gated() -> str:
+    """CLAIM: enrich_privacy_data_exposure scans a real-looking file without
+    raising, returns the documented summary shape, is deterministic across
+    two runs, and the nonproduction gate holds BEHAVIORALLY -- a nested i18n
+    file with the same evidence contributes zero indicators while the
+    production file contributes its own."""
+    import tempfile
+
+    from analysis.privacy_data_exposure_engine import (
+        enrich_privacy_data_exposure as enrich,
+    )
+
+    d = Path(tempfile.mkdtemp(prefix="rsx_brain_pii_"))
+    (d / "service.py").write_text(
+        'user_email = "alice@acme-corp.example"\n', encoding="utf-8")
+    gated = d / "src" / "i18n"
+    gated.mkdir(parents=True)
+    (gated / "strings.py").write_text(
+        'user_email = "bob@acme-corp.example"\n', encoding="utf-8")
+
+    a = enrich(str(d), live_progress=False)
+    b = enrich(str(d), live_progress=False)
+    assert isinstance(a, dict), "enrich returned %s" % type(a).__name__
+
+    required = ("total_privacy_indicators", "indicators",
+                "privacy_classification_complete", "pii_type_counts",
+                "raw_privacy_evidence_count")
+    missing = [k for k in required if k not in a]
+    assert not missing, "summary shape missing %r" % missing
+    assert isinstance(a["privacy_classification_complete"], bool), (
+        "classification_complete is not a bool")
+    assert isinstance(a["indicators"], list), "indicators is not a list"
+
+    assert a == b, "two identical privacy runs disagreed -- nondeterministic"
+
+    counted = [i for i in a["indicators"]
+               if str(i.get("file", "")).replace("\\\\", "/") == "service.py"]
+    gated_hits = [i for i in a["indicators"]
+                  if "i18n" in str(i.get("file", "")).replace("\\\\", "/")]
+    assert counted, "the production file produced no indicators -- probe broken"
+    assert not gated_hits, (
+        "the gated i18n file contributed %d indicator(s): the "
+        "nonproduction gate does not hold behaviorally" % len(gated_hits))
+    return "2 deterministic runs; summary shape legal; production file -> %d indicator(s), i18n file -> 0" % (
+        len(counted),)
 
 
 def _chk_L4_word_boundary_control_has_teeth() -> str:

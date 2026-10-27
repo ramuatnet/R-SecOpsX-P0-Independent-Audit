@@ -26,6 +26,8 @@ compile pass dominating). Subset runs keep the rest fast.
 """
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from analysis.validation.brain import Brain
@@ -134,18 +136,65 @@ def test_cli_returns_int_exit_codes():
 
 
 def test_new_engine_coverage_present():
-    """L1 must gate the secrets path and language reachability; L3 must sweep
-    every engine's rule table; L4 must probe iac+secrets through the corpus
-    machinery and prove the bundle gate load-bearing."""
+    """L1 must gate the secrets path, language reachability AND the privacy
+    gate; L3 must sweep every engine's rule table including PII; L4 must
+    probe iac+secrets through the corpus machinery, prove the bundle gate
+    load-bearing, and hold the privacy engine to its behavioral contract."""
     brain = Brain()
     l1 = {n for n, _ in brain._checks["L1"]}
     assert {"_chk_L1_secrets_nonproduction_gate",
-            "_chk_L1_language_gates_not_orphaned"} <= l1
+            "_chk_L1_language_gates_not_orphaned",
+            "_chk_L1_pii_nonproduction_gate",
+            "_chk_L1_pii_skip_dirs_in_sync"} <= l1
     l3 = {n for n, _ in brain._checks["L3"]}
     assert "_chk_L3_all_engine_rule_tables_wellformed" in l3
     l4 = {n for n, _ in brain._checks["L4"]}
     assert {"_chk_L4_iac_and_secrets_engines_crash_free",
-            "_chk_L4_bundle_gate_has_teeth"} <= l4
+            "_chk_L4_bundle_gate_has_teeth",
+            "_chk_L4_privacy_engine_crash_free_and_gated"} <= l4
+
+
+def test_privacy_gate_suppresses_and_passes_by_contract():
+    """Direct teeth for the PII gate: nested localization and spec shapes are
+    gated, production paths are not -- asserting the RELATIVE-path slash
+    semantics the engine documents rather than the shape an outsider would
+    guess."""
+    import tempfile
+
+    from analysis.privacy_data_exposure_engine import _is_non_production_text
+
+    d = tempfile.mkdtemp(prefix="rsx_brain_pii_teeth_")
+    gated = _is_non_production_text(
+        pathlib.Path(d) / "src" / "i18n" / "strings.py", "x = 1", d)
+    passed = _is_non_production_text(
+        pathlib.Path(d) / "src" / "payments" / "service.py", "x = 1", d)
+    assert gated and not passed
+
+
+def test_privacy_engine_behavioral_gate_and_determinism():
+    """The enrich-level contract: a production file with a concrete email
+    yields its indicator, a nested i18n file with the same evidence yields
+    none, and two runs agree exactly."""
+    import tempfile
+
+    from analysis.privacy_data_exposure_engine import (
+        enrich_privacy_data_exposure as enrich,
+    )
+
+    d = pathlib.Path(tempfile.mkdtemp(prefix="rsx_brain_pii_run_"))
+    (d / "service.py").write_text(
+        'user_email = "alice@acme-corp.example"\n', encoding="utf-8")
+    (d / "src" / "i18n").mkdir(parents=True)
+    (d / "src" / "i18n" / "strings.py").write_text(
+        'user_email = "bob@acme-corp.example"\n', encoding="utf-8")
+
+    a = enrich(str(d), live_progress=False)
+    b = enrich(str(d), live_progress=False)
+    assert a == b
+    files = {str(i.get("file", "")).replace("\\", "/")
+             for i in a["indicators"]}
+    assert any(f.endswith("service.py") for f in files), files
+    assert not any("i18n" in f for f in files), files
 
 
 def test_rule_table_sweep_covers_all_engines():
@@ -155,11 +204,11 @@ def test_rule_table_sweep_covers_all_engines():
            if c["name"] == "_chk_L3_all_engine_rule_tables_wellformed"][0]
     assert row["status"] == "pass", row["evidence"]
     # The sweep must have covered the wide tables, not just a token few.
-    # 302 = 160 enterprise + 17 regex + 13 known-secret + 10 generic-secret
-    # + 18 tf + 17 docker + 12 k8s + 5 missing-rules + 40 llm + 10 cbom.
-    # Pinned exactly on purpose: adding or dropping a rule must fail this
-    # test and force a conscious update.
-    assert "302 rules across 10 tables" in row["evidence"], row["evidence"]
+    # 319 = 160 enterprise + 17 regex + 13 known-secret + 10 generic-secret
+    # + 18 tf + 17 docker + 12 k8s + 5 missing-rules + 40 llm + 10 cbom
+    # + 10 pii-patterns + 7 pii-exposure. Pinned exactly on purpose: adding
+    # or dropping a rule must fail this test and force a conscious update.
+    assert "319 rules across 12 tables" in row["evidence"], row["evidence"]
 
 
 def test_iac_secrets_probes_report_per_fixture_counts():
