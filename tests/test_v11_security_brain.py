@@ -131,3 +131,66 @@ def test_cli_returns_int_exit_codes():
     from analysis.validation.brain import main
 
     assert main(["--levels", "L1"]) == 0
+
+
+def test_new_engine_coverage_present():
+    """L1 must gate the secrets path and language reachability; L3 must sweep
+    every engine's rule table; L4 must probe iac+secrets through the corpus
+    machinery and prove the bundle gate load-bearing."""
+    brain = Brain()
+    l1 = {n for n, _ in brain._checks["L1"]}
+    assert {"_chk_L1_secrets_nonproduction_gate",
+            "_chk_L1_language_gates_not_orphaned"} <= l1
+    l3 = {n for n, _ in brain._checks["L3"]}
+    assert "_chk_L3_all_engine_rule_tables_wellformed" in l3
+    l4 = {n for n, _ in brain._checks["L4"]}
+    assert {"_chk_L4_iac_and_secrets_engines_crash_free",
+            "_chk_L4_bundle_gate_has_teeth"} <= l4
+
+
+def test_rule_table_sweep_covers_all_engines():
+    brain = Brain()
+    verdict = brain.run(only=["L3"])
+    row = [c for c in verdict["checks"]
+           if c["name"] == "_chk_L3_all_engine_rule_tables_wellformed"][0]
+    assert row["status"] == "pass", row["evidence"]
+    # The sweep must have covered the wide tables, not just a token few.
+    # 302 = 160 enterprise + 17 regex + 13 known-secret + 10 generic-secret
+    # + 18 tf + 17 docker + 12 k8s + 5 missing-rules + 40 llm + 10 cbom.
+    # Pinned exactly on purpose: adding or dropping a rule must fail this
+    # test and force a conscious update.
+    assert "302 rules across 10 tables" in row["evidence"], row["evidence"]
+
+
+def test_iac_secrets_probes_report_per_fixture_counts():
+    brain = Brain()
+    verdict = brain.run(only=["L4"])
+    row = [c for c in verdict["checks"]
+           if c["name"] == "_chk_L4_iac_and_secrets_engines_crash_free"][0]
+    assert row["status"] == "pass", row["evidence"]
+    for fixture in ("iam_wildcard.tf", "root_user.Dockerfile",
+                    "privileged_pod.yaml", "aws_credentials.py"):
+        assert fixture in row["evidence"], (fixture, row["evidence"])
+
+
+def test_language_gate_check_rejects_orphan_mapping(monkeypatch):
+    """Teeth for the orphan-gate check: a LANG_BY_EXT key SCANNABLE_EXT
+    refuses must fail the level (the G7/.sol shape)."""
+    import scanner.sast as sast
+
+    def orphan_probe() -> str:
+        """CLAIM: an orphaned language gate must fail the L1 check (fixture)."""
+        from analysis.validation import brain as brain_mod
+
+        monkeypatch.setattr(
+            sast, "LANG_BY_EXT", {**sast.LANG_BY_EXT, ".zz9": "fictitious"})
+        brain_mod._chk_L1_language_gates_not_orphaned()
+        return "unreachable -- the orphan must have raised"
+
+    brain = Brain()
+    brain.add_check("L1", orphan_probe)
+    verdict = brain.run(only=["L1"])
+    row = [c for c in verdict["checks"]
+           if c["name"] == "orphan_probe"][0]
+    assert row["status"] == "fail"
+    assert "orphaned" in row["evidence"]

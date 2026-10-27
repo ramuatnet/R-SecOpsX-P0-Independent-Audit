@@ -305,6 +305,57 @@ def _chk_L1_multipart_sink_word_boundary() -> str:
     return "boundary kills identifier tails, keeps 2/2 constructors"
 
 
+def _chk_L1_secrets_nonproduction_gate() -> str:
+    """CLAIM: the secrets path gate suppresses exactly the nonproduction
+    contexts it promises (tests/fixtures/docs/examples, case-insensitive) and
+    leaves production-looking paths scannable -- the gate that forced the
+    corpus's secrets fixtures through temp copies must itself be under test."""
+    from pathlib import Path as _Path
+
+    from scanner.secret_intelligence import _is_nonproduction_context
+
+    suppressed = [
+        "tests/payments/test_api.py",
+        "tests/vuln-test-corpus/fixtures/key.py",
+        "docs/examples/credentials.md",
+        "mock/service.py",
+        "SPEC/integration.py",
+        "TESTS/UPPER/config.py",          # case-insensitive contract
+    ]
+    scannable = [
+        "src/payments/service.py",
+        "app/config/settings.py",
+        "deploy/prod/terraform/main.tf",
+        "application.properties",
+    ]
+    bad = []
+    for p in suppressed:
+        if not _is_nonproduction_context(_Path(p)):
+            bad.append("%s should be suppressed" % p)
+    for p in scannable:
+        if _is_nonproduction_context(_Path(p)):
+            bad.append("%s should be SCANNABLE" % p)
+    assert not bad, "; ".join(bad)
+    return "6/6 nonproduction paths suppressed, 4/4 production paths scannable"
+
+
+def _chk_L1_language_gates_not_orphaned() -> str:
+    """CLAIM: every language gate SAST declares is reachable -- an extension
+    mapped in LANG_BY_EXT that SCANNABLE_EXT refuses is a dead gate, and the
+    G7 (.sol) and G15 (.erb) incidents were exactly this shape in reverse."""
+    from scanner.sast import LANG_BY_EXT, SCANNABLE_EXT
+
+    scannable = {str(x).lower() for x in SCANNABLE_EXT}
+    orphans = sorted(
+        ext for ext in LANG_BY_EXT
+        if str(ext).lower() not in scannable
+        and str(ext).lower().lstrip(".") not in scannable
+    )
+    assert not orphans, (
+        "orphaned language gates (mapped but never scanned): %r" % orphans)
+    return "%d language gates, all reachable from SCANNABLE_EXT" % len(LANG_BY_EXT)
+
+
 # ======================================================================
 # L2 -- loop invariants
 # ======================================================================
@@ -426,6 +477,102 @@ def _chk_L3_taint_rule_tables_wellformed() -> str:
     return "%d taint rules well-formed" % len(ENTERPRISE_TAINT_RULES)
 
 
+def _chk_L3_all_engine_rule_tables_wellformed() -> str:
+    """CLAIM: every rule in EVERY engine's table states an identity, a legal
+    severity, and a pattern that actually compiles -- a rule whose pattern
+    cannot compile is a crash waiting for its file, and a rule with an
+    off-vocabulary severity renders into reports that L3 elsewhere rejects."""
+    import re as _re
+
+    from scanner import iac_docker, iac_kubernetes, iac_terraform
+    from scanner import llm_security, sast, secret_intelligence
+    from scanner.cbom import CRYPTO_RULES
+
+    cwe_re = _re.compile(r"^CWE-\d+$")
+    risks = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
+    bad: list[str] = []
+
+    def _usable(pat) -> bool:
+        try:
+            if isinstance(pat, str):
+                _re.compile(pat)
+            else:
+                _re.search(pat, "")
+            return True
+        except _re.error:
+            return False
+
+    def _dict_table(rows, id_key, sev_key, pat_key, label, cwe_key="cwe"):
+        for r in rows:
+            rid = r.get(id_key) or "?"
+            if not r.get(id_key):
+                bad.append("%s: unnamed rule" % label)
+            if r.get(sev_key) not in SEVERITIES:
+                bad.append("%s/%s illegal severity %r" % (label, rid, r.get(sev_key)))
+            if cwe_key in r and not cwe_re.match(str(r.get(cwe_key) or "")):
+                bad.append("%s/%s malformed cwe %r" % (label, rid, r.get(cwe_key)))
+            if not _usable(r.get(pat_key) or ""):
+                bad.append("%s/%s pattern does not compile" % (label, rid))
+
+    # SAST -- the enterprise table keys pat/sev/id; the regex table is older.
+    _dict_table(sast.ENTERPRISE_RULES, "id", "sev", "pat", "sast.enterprise")
+    _dict_table(sast.REGEX_RULES, "id", "severity", "pattern", "sast.regex")
+
+    # Secrets -- 6-tuples: (rule_id, title, category, pattern, severity, cwe).
+    for label, table in (("secrets.known", secret_intelligence.KNOWN_SECRET_RULES),
+                         ("secrets.generic", secret_intelligence.SECRET_RULES)):
+        for row in table:
+            if len(row) != 6:
+                bad.append("%s: tuple arity %d != 6" % (label, len(row)))
+                continue
+            rid, _t, _c, pat, sev, cwe = row
+            if not rid:
+                bad.append("%s: unnamed rule" % label)
+            if sev not in SEVERITIES:
+                bad.append("%s/%s illegal severity %r" % (label, rid, sev))
+            if not cwe_re.match(str(cwe or "")):
+                bad.append("%s/%s malformed cwe %r" % (label, rid, cwe))
+            if not _usable(pat):
+                bad.append("%s/%s pattern does not compile" % (label, rid))
+
+    # IaC -- one shape across terraform/docker/kubernetes.
+    for label, mod in (("iac.terraform", iac_terraform),
+                       ("iac.docker", iac_docker),
+                       ("iac.kubernetes", iac_kubernetes)):
+        _dict_table(mod.RULES, "rule_id", "severity", "pattern", label)
+        missing = getattr(mod, "MISSING_RULES", None)
+        for r in (missing or []):
+            rid = r.get("rule_id") or "?"
+            if not _usable(r.get("required_pattern") or ""):
+                bad.append("%s.missing/%s required_pattern does not compile"
+                           % (label, rid))
+
+    # LLM -- patterns is a list per rule; the compiled forms live alongside.
+    for r in llm_security.LLM_RULES:
+        pats = r.get("patterns")
+        if not pats:
+            bad.append("llm/%s has no patterns" % r.get("rule_id"))
+        elif not all(_usable(p) for p in pats):
+            bad.append("llm/%s has an uncompilable pattern" % r.get("rule_id"))
+
+    # CBOM -- risk vocabulary, not severity (CBOM findings carry no CWE).
+    for r in CRYPTO_RULES:
+        if not _usable(r.get("pattern") or ""):
+            bad.append("cbom/%s pattern does not compile" % r.get("component"))
+        if str(r.get("risk") or "").upper() not in risks:
+            bad.append("cbom/%s illegal risk %r" % (r.get("component"), r.get("risk")))
+
+    total = (len(sast.ENTERPRISE_RULES) + len(sast.REGEX_RULES)
+             + len(secret_intelligence.KNOWN_SECRET_RULES)
+             + len(secret_intelligence.SECRET_RULES)
+             + len(iac_terraform.RULES) + len(iac_docker.RULES)
+             + len(iac_kubernetes.RULES) + len(iac_kubernetes.MISSING_RULES)
+             + len(llm_security.LLM_RULES) + len(CRYPTO_RULES))
+    assert not bad, "%d defects across %d rules: %s" % (
+        len(bad), total, "; ".join(bad[:4]))
+    return "%d rules across 10 tables well-formed (identity, severity, cwe, pattern)" % total
+
+
 def _chk_L3_findings_carry_legal_shape() -> str:
     """CLAIM: scanner findings name a rule, a legal severity and a non-empty
     snippet; the evidence boolean is set by the ANALYZER layer, so a finding
@@ -509,6 +656,79 @@ def _chk_L4_corpus_engines_crash_free() -> str:
     assert engine, "no probes ran"
     return "%d probe scans across %s engines, zero crashes (findings: %s)" % (
         len(engine), "/".join(sorted(set(engine))), outcome)
+
+
+def _chk_L4_iac_and_secrets_engines_crash_free() -> str:
+    """CLAIM: the IaC and Secret engines scan their corpus fixtures through
+    the SAME machinery the golden corpus measures with, without raising --
+    and the secrets fixture scan must find something, which doubles as
+    evidence the temp-copy dance around the nonproduction gate still works."""
+    from analysis.validation import run as vrun
+
+    corpus = ROOT / "tests" / "vuln-test-corpus"
+    probes = [
+        (corpus / "iac" / "terraform", "iam_wildcard.tf"),
+        (corpus / "iac" / "docker", "root_user.Dockerfile"),
+        (corpus / "iac" / "k8s", "privileged_pod.yaml"),
+        (corpus / "secrets", "aws_credentials.py"),
+    ]
+    rows = []
+    for case_dir, name in probes:
+        if not (case_dir / name).is_file():
+            continue
+        if name.endswith((".tf", ".Dockerfile", ".yaml")):
+            out = vrun._scan_iac(case_dir, name)
+        else:
+            out = vrun._scan_secrets(case_dir, name)
+        rows.append((name, len(out)))
+        assert isinstance(out, list), "%s: engine returned %r" % (name, type(out))
+    assert rows, "no iac/secrets probes ran"
+    secrets_rows = [n for n, _ in rows if "aws_credentials" in n]
+    assert secrets_rows, "secrets fixture missing from probes"
+    aws = [c for c in rows if c[0] == "aws_credentials.py"][0]
+    assert aws[1] > 0, (
+        "secrets scan returned 0 findings -- either the fixture moved or the "
+        "nonproduction gate started swallowing the temp copy")
+    return "iac+secrets probes scanned crash-free: %s" % (
+        ", ".join("%s=%d" % (n, c) for n, c in rows))
+
+
+def _chk_L4_bundle_gate_has_teeth() -> str:
+    """CLAIM: the bundle exclusion is load-bearing in BOTH engines -- removing
+    it flips the gate open and restoring it closes the gate again. A gate
+    that survives its own mutation is decoration, and the L1 sync check would
+    then be certifying a no-op."""
+    import tempfile
+
+    from scanner import sast, secret_intelligence as si
+
+    d = Path(tempfile.mkdtemp(prefix="rsx_brain_gate_teeth_"))
+    (d / "bundle").mkdir()
+    (d / "bundle" / "messages.properties").write_text(
+        "login.password=Masukkan password", encoding="utf-8")
+
+    original_sast = set(sast.EXCLUDED_DIRS)
+    original_sec = set(si.EXCLUDED)
+    try:
+        sast.EXCLUDED_DIRS.discard("bundle")
+        si.EXCLUDED.discard("bundle")
+        opened_sast = not sast._skip(d / "bundle" / "messages.properties")
+        opened_sec = not si._skip(d / "bundle" / "messages.properties")
+    finally:
+        sast.EXCLUDED_DIRS.clear()
+        sast.EXCLUDED_DIRS.update(original_sast)
+        si.EXCLUDED.clear()
+        si.EXCLUDED.update(original_sec)
+
+    assert sast.EXCLUDED_DIRS == original_sast, "sast exclusion set not restored"
+    assert si.EXCLUDED == original_sec, "secrets exclusion set not restored"
+    assert opened_sast and opened_sec, (
+        "removing 'bundle' did not open the gates -- the teeth probe is broken "
+        "(sast=%s secrets=%s)" % (opened_sast, opened_sec))
+    closed = (sast._skip(d / "bundle" / "messages.properties")
+              and si._skip(d / "bundle" / "messages.properties"))
+    assert closed, "restoring 'bundle' did not close the gates"
+    return "mutation opened both gates, restoration closed both, sets intact"
 
 
 def _chk_L4_word_boundary_control_has_teeth() -> str:
@@ -714,4 +934,8 @@ def _print_verdict(verdict: dict) -> None:
         verdict["verdict"], counts.get("pass", 0),
         counts.get("fail", 0), counts.get("blocked", 0)))
     print(out.getvalue())
+
+
+if __name__ == "__main__":
+    sys.exit(main())
 
