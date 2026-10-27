@@ -77,8 +77,13 @@ _SQL_PARAMETERIZED = [
         r"\bprepare\s*\(\s*['\"][^'\"]*(?:\?|%s|:\w+|:\w+)['\"]",
         decisive=True),
     _ce("orm_bound_query",
-        r"\.(?:filter|filter_by|get|one|first|all)\s*\(\s*(?:f?['\"])|\bsetParameter\s*\(|"
-        r"create_query\s*\(|objects\.(?:filter|get)\s*\(",
+        # Scoped to explicit ORM/bound-parameter APIs. A bare `.get('...')`
+        # also matches HashMap.get and produced a decisive false rejection on
+        # the aclean/sc CustomerSearchDAOImpl row (2026-10-27) -- the map
+        # accessor is not query parameterization.
+        r"\bsetParameter\s*\(|createQuery\s*\(|"
+        r"objects\.(?:filter|get)\s*\(|em\.(?:createQuery|find)\s*\(|"
+        r"\.createNamedQuery\s*\(",
         decisive=True),
     _ce("sqlalchemy_text_binds",
         r"text\s*\(\s*['\"][^'\"]*:\w+", decisive=True,

@@ -722,11 +722,11 @@ def _is_scanner_result_json(path: Path) -> bool:
     # The report envelope: a metadata block naming the tool, a total_findings
     # counter beside it, and a findings array. Requiring BOTH the counter and
     # the tool name keeps a config file that merely mentions "findings" clean.
-    if '"total_findings"' not in head:
+    if '"total_findings"' not in head and '"scan_date"' not in head:
         return False
     if '"tool"' not in head:
         return False
-    if '"findings"' not in head:
+    if '"findings"' not in head and '"secret-id"' not in head:
         return False
     # Corroborate the findings-array member shape: rule_id is the one key every
     # finding carries and no benign config file does.

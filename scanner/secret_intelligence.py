@@ -129,11 +129,11 @@ def _is_scanner_result_json(path: Path) -> bool:
             head = fh.read(4096)
     except OSError:
         return False
-    if '"total_findings"' not in head:
+    if '"total_findings"' not in head and '"scan_date"' not in head:
         return False
     if '"tool"' not in head:
         return False
-    if '"findings"' not in head:
+    if '"findings"' not in head and '"secret-id"' not in head:
         return False
     return '"rule_id"' in head
 

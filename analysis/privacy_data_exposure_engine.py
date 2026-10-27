@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import re
@@ -1961,9 +1961,45 @@ def _privacy_semantic_pii_fallback(text):
 
     results = []
 
+    # I22 (2026-10-27): ported from the production tree (VA/R-SecopsX) --
+    # the deployed privacy engine carries two evidence gates the repository
+    # lacked. A bare identifier is not proof of personal data (mission 3.3):
+    # PAYMENT_CARD needs field/value context or a 13-19 digit PAN run, and
+    # PHONE needs field context or a numeric value, with license/SBOM
+    # metadata excluded. The repo's broader patterns fired on every `card`
+    # / `phone` token -- exactly the identifier-only claim shape UFIB's
+    # contracts reject, fixed at the detector instead.
+    def _pii_gate(pii_type: str, text: str) -> bool:
+        if pii_type == "PAYMENT_CARD":
+            payment_field = re.search(
+                r"""(?:card_number|cardnumber|credit_card_number|"""
+                r"""debit_card_number|cardholder|cvv|cvc|"""
+                r"""exp_month|exp_year|expiry)["']?\s*"""
+                r"""(?:[:=]|\(|\[|->)""",
+                text, re.IGNORECASE)
+            numeric_card = bool(re.search(r"\b(?:\d[ -]?){13,19}\b", text))
+            return bool(payment_field or numeric_card)
+        if pii_type == "PHONE":
+            field_context = re.search(
+                r"""(?:phone|phone_number|mobile|mobile_number)["']?"""
+                r"\s*(?:[:=]|\(|\[|->)",
+                text, re.IGNORECASE)
+            numeric_value = re.search(r"(?<!\w)\+?\d[\d ().-]{8,}\d(?!\w)", text)
+            if not (field_context or numeric_value):
+                return False
+            # License metadata and generated SBOM records are not
+            # sufficient evidence of a phone number by themselves.
+            if re.search(
+                r'"MatchType"\s*:\s*"header"|'
+                r'"Name"\s*:\s*"MIT"',
+                    text, re.IGNORECASE) and not numeric_value:
+                return False
+        return True
+
     for pii_type, pattern, severity, description in patterns:
         try:
-            if re.search(pattern, text, re.IGNORECASE):
+            if re.search(pattern, text, re.IGNORECASE) and _pii_gate(
+                    pii_type, text):
                 results.append(
                     (
                         pii_type,

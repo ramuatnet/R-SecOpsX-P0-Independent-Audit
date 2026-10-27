@@ -2731,6 +2731,41 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
                                 concrete_candidate):
                         break
 
+                    # I21 (2026-10-27, aclean/sc production scan): the window
+                    # also associates a multipart ``filename`` from ELSEWHERE
+                    # in the method with a sink whose argument is a server
+                    # property value -- 162 rows shaped
+                    # ``File test = new File(propValue + ReportConstants.X);``
+                    # where propValue comes from a properties file, not the
+                    # upload. The sink ARGUMENT must reference the source
+                    # token for the co-occurrence to be a flow; an argument
+                    # built only from other identifiers is not attacker
+                    # input. (The existing constant-proof cannot resolve
+                    # cross-file ReportConstants, so this argument-scope
+                    # check is the honest gate.)
+                    if rule.get("id") == "TAINT_MULTIPART_TRAVERSAL":
+                        sink_line = lines[concrete_candidate]
+                        # Minified vendor-bundle lines (19k-88k chars in the
+                        # measured corpora) have no statement structure: a
+                        # `fileName` occurrence inside one is lexical
+                        # coincidence, the same G2b conclusion the LLM
+                        # engine documented for its own rules.
+                        if len(sink_line) > 2000:
+                            break
+                        # The window's src_match may sit lines away (e.g.
+                        # MultipartFile on the signature). A flow exists when
+                        # the SINK LINE ITSELF carries a source token --
+                        # word-bounded, because ReportConstants.AD_MASTER_
+                        # FILENAME contains the literal letters "filename"
+                        # and the unbounded form classified the aclean/sc
+                        # propValue+CONSTANT FPs as flows.
+                        if not re.search(
+                            r"\b(?:multipartfile|request\.files|req\.file|"
+                            r"iformfile|\$_files|getoriginalfilename|"
+                            r"filename)\b",
+                                sink_line, re.IGNORECASE):
+                            break
+
                 source_label = src_match.group(0)[:80]
                 findings.append(
                     _base_finding(
