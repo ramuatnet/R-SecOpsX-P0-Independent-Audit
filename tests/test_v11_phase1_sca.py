@@ -288,7 +288,8 @@ def test_nvd_client_fails_open_and_discloses(tmp_path, monkeypatch):
     def _boom(req, timeout=None):
         raise OSError("connection refused")
 
-    monkeypatch.setattr(nvd.urllib.request, "urlopen", _boom)
+    monkeypatch.setattr(nvd.urllib.request, "urlopen",
+                        lambda req, timeout=None, *a, **k: _boom(req))
     assert nvd.query_nvd_by_cpe("cpe:2.3:a:python:requests:*:*:*:*:*:*:*:*") == []
     assert nvd.NVD_SERVICE_STATUS["available"] is False
     assert nvd.NVD_SERVICE_STATUS["failures"][0]["error_type"] == "OSError"
@@ -300,8 +301,9 @@ def test_nvd_client_fails_open_and_discloses(tmp_path, monkeypatch):
 
 def test_nvd_client_zero_results_is_an_answer_not_an_error(tmp_path,
                                                            monkeypatch):
-    """The NVD omits 'vulnabilities' entirely on zero matches; that must
-    count as an answered query (and be cached), never as a shape error."""
+    """The NVD omits the vulnerabilities list entirely on zero matches; that
+    must count as an answered query (and be cached), never as a shape
+    error."""
     import scanner.nvd_client as nvd
     monkeypatch.setattr(nvd, "NVD_CACHE_FILE", tmp_path / "nvd_cache.json")
     nvd.NVD_SERVICE_STATUS.clear()
@@ -318,8 +320,9 @@ def test_nvd_client_zero_results_is_an_answer_not_an_error(tmp_path,
         def __exit__(self, *a):
             return False
 
-    monkeypatch.setattr(nvd.urllib.request, "urlopen",
-                        lambda req, timeout=None: _Resp())
+    monkeypatch.setattr(
+        nvd.urllib.request, "urlopen",
+        lambda req, timeout=None, *a, **k: _Resp())
     assert nvd.query_nvd_by_cpe("cpe:2.3:a:x:y:*:*:*:*:*:*:*:*") == []
     assert nvd.NVD_SERVICE_STATUS["available"] is True
     assert nvd.NVD_SERVICE_STATUS["queries_answered"] == 1
@@ -327,7 +330,7 @@ def test_nvd_client_zero_results_is_an_answer_not_an_error(tmp_path,
     # The empty answer is cached: a second call must not hit the network.
     monkeypatch.setattr(
         nvd.urllib.request, "urlopen",
-        lambda req, timeout=None: (_ for _ in ()).throw(
+        lambda req, timeout=None, *a, **k: (_ for _ in ()).throw(
             AssertionError("cached empty answer must not re-query")))
     assert nvd.query_nvd_by_cpe("cpe:2.3:a:x:y:*:*:*:*:*:*:*:*") == []
 
