@@ -3440,6 +3440,25 @@ def main():
     ]
     _apply_iac_metadata(payload)
     payload = normalize_payload(payload)
+
+    # ------------------------------------------------------------------
+    # UFIB finding intelligence: claim interpretation -> category contracts
+    # -> multi-gate validation -> release dispositions. Runs AFTER evidex
+    # validation and normalization (it consumes their verdicts and the
+    # canonical finding ids) and BEFORE every enrichment that reports read.
+    # Fail-soft by contract: a brain error marks the population NEEDS_REVIEW
+    # in the release manifest -- unvalidated findings are never released as
+    # CONFIRMED -- and the scan continues.
+    # ------------------------------------------------------------------
+    _step("UFIB finding intelligence")
+    from analysis.ufib_release import apply_ufib_to_payload
+    payload = apply_ufib_to_payload(payload, target)
+    _rm = payload.get("release_manifest") or {}
+    _safe_print(f"       => UFIB: {_rm.get('released_count', 0)} released / "
+                f"{_rm.get('held_count', 0)} held "
+                f"(policy {_rm.get('policy_version')}, "
+                f"status {_rm.get('scan_status')})")
+
     try:
         from core.v11_intelligence import enrich_payload as _enrich_v11_intelligence
         payload = _enrich_v11_intelligence(payload)
@@ -5515,6 +5534,14 @@ def main():
         }
 
     _step("Writing JSON report")
+    # The release manifest is the single release authority (mission 9): it is
+    # rebuilt HERE, immediately before the JSON write, so the manifest always
+    # describes the exact population the artifact contains even after the
+    # late cleanup/noise/safety passes mutated it. Findings that somehow
+    # arrive without a disposition are held as NEEDS_REVIEW, never released
+    # silently (zero-silent-loss invariant).
+    from analysis.ufib_release import refresh_release_manifest
+    refresh_release_manifest(payload)
     json_path = output_dir / "clean_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)
@@ -5848,6 +5875,11 @@ def main():
     # list the reader is given.  Computed once here and reused for the exit
     # code, so the file and the caller can never disagree.
     # ------------------------------------------------------------------
+    # The release manifest is refreshed once more at this same boundary so
+    # the authoritative artifact's manifest matches the final population the
+    # renderers described.
+    from analysis.ufib_release import refresh_release_manifest
+    refresh_release_manifest(payload)
     security_gate = _record_security_gate(payload, args.fail_on)
     try:
         with open(json_path, "w", encoding="utf-8") as f:

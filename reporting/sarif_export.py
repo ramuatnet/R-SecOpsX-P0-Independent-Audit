@@ -113,6 +113,19 @@ def _decision_properties(finding: dict) -> dict:
             else _NOT_RECORDED
         ),
     }
+    # UFIB release authorization (mission 9): every SARIF result carries the
+    # same disposition the JSON manifest authorized, so no format can tell a
+    # different release story. Absence-safe: a finding the brain never saw
+    # reads as NOT_RECORDED, never as confirmed.
+    if finding.get("disposition"):
+        out["ufib_disposition"] = str(finding["disposition"])
+        out["ufib_release_eligible"] = (
+            str(bool(finding.get("release_eligible"))).lower()
+            if isinstance(finding.get("release_eligible"), bool)
+            else _NOT_RECORDED
+        )
+    else:
+        out["ufib_disposition"] = _NOT_RECORDED
     for key in ("evidence_state", "evidence_reason", "quality_state", "is_synthetic"):
         val = finding.get(key)
         if val not in (None, "", [], {}):
