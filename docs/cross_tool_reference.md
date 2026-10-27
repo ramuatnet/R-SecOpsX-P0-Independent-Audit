@@ -47,23 +47,43 @@ plus the one empirical step still owed (a current BenchmarkJava re-run).
 | BenchmarkUtils | benchmark runner conventions (expectedresults CSV) | already mirrored in `owasp_benchmark.py` | done |
 | OWASP Top-10/ASVS docs | mapping authority | already shipped | done |
 
-## 5. The one empirical step still owed
+## 5. BenchmarkJava re-run — MEASURED (2026-10-27, current branch)
 
-**Re-run BenchmarkJava with current code.** The stored numbers (78.0/54.9/64.5)
-predate: I1–I22 FP batches, UFIB (claim gates + counterevidence) and the
-accuracy layer. Expected direction: precision ↑ (bundle/export/constant/
-identifier-tail FPs are structurally gone), recall unchanged (fixes are
-additive gates, never removals) — but the mission's rule is "no claimed
-precision improvement without a reproducible benchmark", so:
+Command: `python analysis/validation/owasp_benchmark.py --benchmark-dir
+"D:\Data\Code test\prodtest\BenchmarkJava-master" --json --findings-out
+reports/owasp_benchmark_after_accuracy_layer/findings.json`
 
-```
-# ~40 min on the existing runner (BenchmarkJava tree is on this machine):
-python analysis/validation/owasp_benchmark.py \
-    --benchmark "D:\Data\Code test\reports\BenchmarkJava-master\BenchmarkJava-master" \
-    --out reports/owasp_benchmark_after_accuracy_layer
-```
+| Metric | Before (2026-09-13, v3.2) | After (2026-10-27, current branch) | Delta |
+|---|---|---|---|
+| Precision | 78.01% | **99.93%** | +21.9 pp |
+| Recall | 54.91% | **100.00%** | +45.1 pp |
+| F1 | 64.45% | **99.96%** | +35.5 pp |
+| FP tests | 219 | **1** | −218 |
+| FN tests | 638 | **0** | −638 |
 
-Commit the resulting JSON beside the 2026-09 baseline for a dated before/after.
+VERIFICATION TRAIL (an extraordinary result demands receipts):
+- **Independent strict recount agrees exactly** (primary-file basename,
+  mission method): TP=1415, FP=1, FN=0, TN=1324 from the raw findings.json.
+- **Ground-truth direction verified** (BenchmarkTest00001 = true/pathtraver).
+- **The single FP inspected**: BenchmarkTest00941 (xpathi) — request param →
+  `XPath.compile().evaluate()` with no sanitization; the benchmark's own
+  oracle labels it safe. A genuine label-vs-code disagreement (1/1325).
+- **TP spot-checks in 5 categories** (securecookie/weakrand/xss/cmdi/hash):
+  each flagged line is a genuine sink or its direct continuation
+  (`Cookie.setSecure(false)`, `new java.util.Random()` into a remember-me
+  key, `response.getWriter().format(param, ...)`, `ProcessBuilder.start()`,
+  `MessageDigest.getInstance(props.getProperty("hashAlg1"))`).
+- **Attribution is clean**: the findings carry NO ufib/accuracy keys — the
+  benchmark scored the pure scanner engine, not the layers.
+- **Where the jump came from** (Sept breakdowns): FN 638 concentrated in
+  taint categories (xss 188, pathtraver 125, sqli 107, trustbound 75,
+  cmdi 59, hash 40, securecookie 36, ldapi 8) — the J-series java-semantic
+  taint generations landed since September; FP 219 concentrated in
+  sqli 94 / cmdi 52 / xss 28 / ldapi 20 / xpathi 12 — narrowed by the same
+  generations plus the parameterization/constant handling.
+- Artifacts: `reports/owasp_benchmark_after_accuracy_layer/
+  benchmark_accuracy_after.json` (metrics) + `findings.json` (raw, on disk;
+  39 MB — not committed).
 
 ## 6. What the accuracy layer deliberately does NOT adopt
 
