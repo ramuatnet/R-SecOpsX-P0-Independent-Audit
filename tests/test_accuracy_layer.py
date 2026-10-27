@@ -219,6 +219,24 @@ def test_true_positive_requires_traced_path():
 # ---------------------------------------------------------------------------
 # CS_ pack quality gates (Phase 3/4)
 # ---------------------------------------------------------------------------
+def test_upload_check_rbi2_shapes():
+    """The three REAL RBI2 upload shapes (mission follow-up: PII/upload/API).
+    Belt-and-braces with the engine's I21 gate at the layer level."""
+    f = {"rule_id": "TAINT_MULTIPART_TRAVERSAL", "vuln_type": "path_traversal"}
+    # property/constant arg -> LFP (the 146-shape)
+    r = V.upload_check(f, "if (f.getFileName().endsWith(\".csv\")) return;\n"
+                          "File test = new File(propValue + ReportConstants.X);")
+    assert r and r[0] == "LIKELY_FALSE_POSITIVE"
+    # filename reaches the sink -> no opinion
+    assert V.upload_check(f, "String fileName = file.getOriginalFilename();\n"
+                             "File dest = new File(uploadDir + fileName);") is None
+    # filename + extension whitelist -> NEEDS_REVIEW
+    r = V.upload_check(f, "String fileName = file.getOriginalFilename();\n"
+                          'if (!fileName.endsWith(".csv")) throw new Invalid();\n'
+                          "File dest = new File(uploadDir + fileName);")
+    assert r and r[0] == "NEEDS_REVIEW"
+
+
 def test_cs_pack_disabled_by_default_and_redos_safe():
     for r in CS_RULES:
         assert r["enabled"] is False, "%s must ship disabled" % r["id"]

@@ -266,6 +266,51 @@ def taint_confirm(finding: dict, file_text: str | None,
 
 
 # ---------------------------------------------------------------------------
+# Upload validation (mission follow-up: CWE-434 has no dedicated rule, and
+# the RBI2 corpus's real upload sinks split cleanly into two shapes:
+# filename-reaching sinks (real) vs property/constant-built sinks (FP).
+# Evidence-scoped, not a broad regex rule.
+# ---------------------------------------------------------------------------
+_UPLOAD_SINK = re.compile(
+    r"\.transferTo\s*\(|new\s+(?:java\.io\.)?File\s*\(([^)]*)\)|"
+    r"move_uploaded_file\s*\(|write\s*\(\s*[^)]*filename", re.I)
+_UPLOAD_PARAM = re.compile(
+    r"\b(?:fileName|originalFilename|getOriginalFilename|multipartFile)\b", re.I)
+_UPLOAD_VALIDATION = re.compile(
+    r"endsWith\s*\(\s*['\"]\.|allowedExtensions\s*|getContentType\s*\(\s*\)|"
+    r"contentType\s*\.equals|assertValidUpload|extension_whitelist|"
+    r"\.equals\s*\(\s*['\"]\.", re.I)
+
+
+def upload_check(finding: dict, window_text: str):
+    """For path/multipart findings: classify the upload sink by its ARGUMENT.
+    Property/constant-built argument -> LIKELY_FALSE_POSITIVE (decisive,
+    regardless of other validation in the window -- the real RBI2 methods
+    contain extension checks on the REQUEST file while the sink consumes a
+    property value). Filename reaches the argument -> extension/content-type
+    validation in the window downgrades to NEEDS_REVIEW; otherwise no
+    opinion (UFIB verdict stands)."""
+    rid = str(finding.get("rule_id") or "").upper()
+    vt = str(finding.get("vuln_type") or "").lower()
+    if not ("MULTIPART" in rid or "TRAVERSAL" in rid or "PATH" in rid
+            or "zipslip" in vt or "path_traversal" in vt):
+        return None
+    m = _UPLOAD_SINK.search(window_text)
+    if not m:
+        return None  # not an upload sink shape
+    arg = m.group(1) or ""
+    if arg and not _UPLOAD_PARAM.search(arg):
+        return ("LIKELY_FALSE_POSITIVE", -35,
+                "File() argument built from property/constant values "
+                "(%r), not the uploaded filename" % arg.strip()[:60])
+    if _UPLOAD_VALIDATION.search(window_text):
+        return ("NEEDS_REVIEW", -20,
+                "upload validation present in context "
+                "(extension/content-type check)")
+    return None  # filename reaches the sink: real claim, UFIB decides
+
+
+# ---------------------------------------------------------------------------
 # Absence-based findings (mission g)
 # ---------------------------------------------------------------------------
 _ABSENCE_RULES = re.compile(

@@ -135,6 +135,9 @@ def apply_accuracy_layer(payload: dict, target: str | None = None) -> dict:
                 v = V.mitigation_check(f, window)
                 if v:
                     hints.append(v)
+                v = V.upload_check(f, window)
+                if v:
+                    hints.append(v)
             else:
                 hints.append((None, 0,
                               "source file unreadable; context validators "

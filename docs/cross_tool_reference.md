@@ -91,3 +91,11 @@ VERIFICATION TRAIL (an extraordinary result demands receipts):
 - Broad keyword rules from any source (their precision is below the bar the
   production triage demonstrated).
 - Network enrichment at scan time (OSV stays behind the offline-first cache).
+
+## 7. PII, file-upload and API — category state (2026-10-27, VA scan)
+
+| Category | Our detection | Measured (VA) | Reference-tool position | Gap action |
+|---|---|---|---|---|
+| **PII** | privacy engine (10 patterns + 7 exposure), UFIB pii_privacy contract (manual-review) | **290 indicators / 260 deduplicated**, 0 third-party transfers, 0 runtime-confirmed; bundle-file rows drop next scan (skip-sync) | Bearer is the reference for privacy *dataflow* (PII sinks by destination) — recorded as a known limitation; our PII is keyword+context, keyword-only now gated (PAYMENT_CARD/PHONE gates ported) | accuracy layer: none needed beyond UFIB; destination-flow stays a recorded limitation |
+| **File upload** | TAINT_MULTIPART_TRAVERSAL + zipslip + J3/J4 path; engine I21 gate | 230 upload-path rows on VA; I21 suppresses ~146 property/constant shapes | Semgrep/Bearer/gosec carry CWE-434 rules; **we had ZERO CWE-434 rules** | accuracy upload_check added: argument-scoped (property-arg → LFP; filename-arg stands; extension/content-type whitelist → NEEDS_REVIEW) — verified on the three REAL RBI2 shapes |
+| **API** | api_abuse engine + rate-limit/bruteforce/validation/authz rules + GraphQL BOLA/introspection/depth + mass-assignment + apibom (336 entries) | 491 control_gap rows — UFIB/accuracy hold ALL as NEEDS_REVIEW (design-level); absence-based suppressed unless state-changing/auth endpoint | OWASP API Top-10 coverage: API1 BOLA (graphql/idor rules), API3 (upload_check now), API4 resource consumption (rate-limit), API6 mass assignment, API8 misconfig (actuator/CORS), API9 inventory (apibom) | excessive-data-exposure (API3 response shape) remains detector-less — needs response-flow evidence; recorded limitation |
