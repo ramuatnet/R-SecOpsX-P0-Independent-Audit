@@ -102,6 +102,102 @@ def _looks_like_payment_data(text: str) -> bool:
     return bool(re.search(r"(?:card[_ -]?(?:number|num)|credit[_ -]?card|debit[_ -]?card|cardholder|cvv|cvc|exp(?:iry|_month|_year))\s*[:=]", low))
 
 
+# ---------------------------------------------------------------------------
+# Payment-card validation (additive).
+#
+# _looks_like_payment_data() answers "is this card-shaped?"; it accepts any
+# 13-19 digit run, so a bad number and a valid one are indistinguishable.
+# A card number is the only PII shape with a published check digit, so where
+# a card-length run exists the check digit decides. Where no run exists the
+# field keyword decides -- except an expiry month/year on its own, which is a
+# countdown/cookie attribute as often as a card field (all 4 PAYMENT_CARD
+# rows in the STR report came from jquery.countdown.js on the bare token
+# "expiry", with no card number anywhere in the evidence).
+# ---------------------------------------------------------------------------
+_CARD_FIELD_VALUE_RE = re.compile(
+    r"(?:card[_ -]?(?:number|num)|cardnumber|"
+    r"credit[_ -]?card[_ -]?(?:number|num)|"
+    r"debit[_ -]?card[_ -]?(?:number|num))"
+    r"[\"']?\s*[:=]\s*[\"']?"
+    r"((?:\d[ -]?){12,18}\d)",
+    re.I,
+)
+
+_CARD_KEYWORD_RE = re.compile(
+    r"(?:card[_ -]?(?:number|num)|cardnumber|credit[_ -]?card|debit[_ -]?card|"
+    r"cardholder|cvv|cvc)[\"']?\s*(?:[:=]|\(|\[|->)",
+    re.I,
+)
+
+_CARD_RUN_RE = re.compile(r"(?<!\d)(\d[\d -]{11,23}\d)(?!\d)")
+
+
+def _luhn_valid(digits: str) -> bool:
+    """Luhn check digit, as specified for payment card numbers (ISO/IEC 7812)."""
+    if not digits or not digits.isdigit():
+        return False
+    total = 0
+    for index, char in enumerate(reversed(digits)):
+        value = ord(char) - 48
+        if index % 2:
+            value *= 2
+            if value > 9:
+                value -= 9
+        total += value
+    return total % 10 == 0
+
+
+def _card_runs(text: str):
+    """Every 13-19 digit run in the text, separators removed."""
+    runs = []
+    for raw in _CARD_RUN_RE.findall(text or ""):
+        digits = raw.replace(" ", "").replace("-", "")
+        if 13 <= len(digits) <= 19:
+            runs.append(digits)
+    return runs
+
+
+def _looks_like_card_number(digits: str) -> bool:
+    """A card-length run that could be an issued number.
+
+    ``0000000000000000`` satisfies the Luhn checksum (every digit is zero)
+    but is never an issued card, and placeholder/masked values use it.
+    """
+    if not 13 <= len(digits) <= 19:
+        return False
+    if not digits.strip("0"):
+        return False
+    return _luhn_valid(digits)
+
+
+def _payment_data_is_concrete(text: str) -> bool:
+    """Card evidence, not a card-shaped word.
+
+    Keyword-only evidence keeps the legacy decision, so ``cvv = "123"`` and
+    ``cardholder = name`` still report. A card-length number must pass the
+    check digit, so ``4111111111111112`` no longer reports as a card.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return False
+
+    if not (_looks_like_payment_data(text) or _CARD_KEYWORD_RE.search(text)):
+        return False
+
+    field_runs = [
+        raw.replace(" ", "").replace("-", "")
+        for raw in _CARD_FIELD_VALUE_RE.findall(text)
+    ]
+    field_runs = [digits for digits in field_runs if 13 <= len(digits) <= 19]
+    if field_runs:
+        return any(_looks_like_card_number(digits) for digits in field_runs)
+
+    runs = _card_runs(text)
+    if runs:
+        return any(_looks_like_card_number(digits) for digits in runs)
+
+    return bool(_CARD_KEYWORD_RE.search(text))
+
+
 
 # V20: cached semantic PII context regexes
 _V20_EMAIL_METADATA_RE = re.compile(
@@ -295,7 +391,9 @@ def _semantic_pii_hits(text: str, path: Path, target: str):
         elif pii_type == "PHONE":
             concrete = bool(_V20_PHONE_VALUE_RE.search(text)) or bool(re.search(r"(?:phone_number|mobile_number|msisdn|telephone)\s*(?:[:=]|\(|\[|\.|->)", text, re.I))
         elif pii_type == "PAYMENT_CARD":
-            concrete = _looks_like_payment_data(text)
+            # Validated: keyword-only evidence keeps the legacy decision, a
+            # card-length number must pass the Luhn check digit.
+            concrete = _payment_data_is_concrete(text)
         elif pii_type in {"AADHAAR", "PAN", "SSN", "DOB", "ADDRESS", "HEALTH", "BIOMETRIC"}:
             concrete = bool(_V20_GENERIC_SEMANTIC_RE.search(text))
             if pii_type in {"AADHAAR", "PAN", "SSN"} and _V20_NUMERIC_IDENTIFIER_RE.search(text):
@@ -2048,14 +2146,9 @@ def _privacy_semantic_pii_fallback(text):
     # contracts reject, fixed at the detector instead.
     def _pii_gate(pii_type: str, text: str) -> bool:
         if pii_type == "PAYMENT_CARD":
-            payment_field = re.search(
-                r"""(?:card_number|cardnumber|credit_card_number|"""
-                r"""debit_card_number|cardholder|cvv|cvc|"""
-                r"""exp_month|exp_year|expiry)["']?\s*"""
-                r"""(?:[:=]|\(|\[|->)""",
-                text, re.IGNORECASE)
-            numeric_card = bool(re.search(r"\b(?:\d[ -]?){13,19}\b", text))
-            return bool(payment_field or numeric_card)
+            # Same validated gate as the semantic path above: a card-length
+            # number must pass the check digit; expiry alone is not card data.
+            return _payment_data_is_concrete(text)
         if pii_type == "PHONE":
             field_context = re.search(
                 r"""(?:phone|phone_number|mobile|mobile_number)["']?"""
