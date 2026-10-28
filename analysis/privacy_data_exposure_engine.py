@@ -2432,6 +2432,23 @@ def _privacy_semantic_pii_fallback(text):
                 r"\s*(?:[:=]|\(|\[|->)",
                 text, re.IGNORECASE)
             numeric_value = re.search(r"(?<!\w)\+?\d[\d ().-]{8,}\d(?!\w)", text)
+            # A phone-shaped number that is only an example in a validation
+            # message (e.g. "Eg:+061-23456788 or (044) 27657689") or a
+            # placeholder sequence (0123456789) is not evidence of a phone
+            # number. Borrowing Presidio's context idea without its heavy
+            # NLP dependency, using cheap textual markers instead.
+            if numeric_value is not None:
+                start = max(0, numeric_value.start() - 80)
+                end = min(len(text), numeric_value.end() + 80)
+                window = text[start:end]
+                if re.search(r"\b(?:eg|e\.g\.?|example|invalid|format|placeholder)\b",
+                             window, re.I):
+                    numeric_value = None
+                elif re.fullmatch(r"0123456789|1234567890|9876543210",
+                                  numeric_value.group(0).replace(" ", "")
+                                  .replace("-", "").replace("(", "").replace(")", "")
+                                  .replace(".", "")):
+                    numeric_value = None
             # A named accessor ("getPhoneNumber()") is itself the field
             # context this gate asks for; a bare "phone" token is not.
             if not (getter or field_context or numeric_value):
@@ -2504,7 +2521,34 @@ def _privacy_pii_hits_fast(text, path, target):
             )
 
             if isinstance(existing, list) and existing:
-                return existing
+                # String-literal hygiene for PHONE: a phone-shaped number
+                # that lives only inside a string literal (an example in a
+                # validation message, a placeholder, a regex) is not evidence
+                # of a phone number. Borrowing Presidio's context idea
+                # without its heavy NLP dependency.
+                filtered = []
+                for entry in existing:
+                    if (isinstance(entry, tuple) and len(entry) >= 1
+                            and entry[0] == "PHONE"):
+                        m = re.search(r"(?<!\w)\+?\d[\d ().-]{8,}\d(?!\w)",
+                                      text)
+                        if m is not None:
+                            start = max(0, m.start() - 80)
+                            end = min(len(text), m.end() + 80)
+                            window = text[start:end]
+                            if (re.search(
+                                    r"\b(?:eg|e\.g\.?|example|invalid|"
+                                    r"format|placeholder)\b", window, re.I)
+                                    or re.fullmatch(
+                                        r"0123456789|1234567890|"
+                                        r"9876543210",
+                                        m.group(0).replace(" ", "")
+                                        .replace("-", "").replace("(", "")
+                                        .replace(")", "").replace(".", ""))):
+                                continue
+                    filtered.append(entry)
+                if filtered:
+                    return filtered
     except Exception:
         pass
 
@@ -2528,7 +2572,34 @@ def _privacy_pii_hits_bounded(text, path, target):
             )
 
             if isinstance(existing, list) and existing:
-                return existing
+                # String-literal hygiene for PHONE: a phone-shaped number
+                # that lives only inside a string literal (an example in a
+                # validation message, a placeholder, a regex) is not evidence
+                # of a phone number. Borrowing Presidio's context idea
+                # without its heavy NLP dependency.
+                filtered = []
+                for entry in existing:
+                    if (isinstance(entry, tuple) and len(entry) >= 1
+                            and entry[0] == "PHONE"):
+                        m = re.search(r"(?<!\w)\+?\d[\d ().-]{8,}\d(?!\w)",
+                                      text)
+                        if m is not None:
+                            start = max(0, m.start() - 80)
+                            end = min(len(text), m.end() + 80)
+                            window = text[start:end]
+                            if (re.search(
+                                    r"\b(?:eg|e\.g\.?|example|invalid|"
+                                    r"format|placeholder)\b", window, re.I)
+                                    or re.fullmatch(
+                                        r"0123456789|1234567890|"
+                                        r"9876543210",
+                                        m.group(0).replace(" ", "")
+                                        .replace("-", "").replace("(", "")
+                                        .replace(")", "").replace(".", ""))):
+                                continue
+                    filtered.append(entry)
+                if filtered:
+                    return filtered
     except Exception:
         pass
 
