@@ -2278,6 +2278,78 @@ def _privacy_extract_literal_url(text):
         return None, "DYNAMIC"
 
 
+# Named accessors: "user.getEmail()", "account.getAadhaarNumber()".
+# Severity and description match the existing identifiers of the same type.
+#
+# "Address" is deliberately absent: the pre-existing ADDRESS pattern requires
+# a qualified field name (postal_address, street_address, ...) because a bare
+# "address" is too generic, and a POJO's getAddress() is a data-model fact,
+# not evidence of address data leaving the process.
+_PRIVACY_PII_GETTER_FIELDS = (
+    ("EMAIL", ("EmailAddress", "Email", "MailAddress", "Mail"),
+     "MEDIUM", "Email address"),
+    ("PHONE", ("PhoneNumber", "PhoneNo", "Phone", "MobileNumber", "Mobile",
+               "Telephone", "Msisdn"), "MEDIUM", "Phone number"),
+    ("ADDRESS", ("HomeAddress", "PostalAddress", "ResidentialAddress",
+                 "StreetAddress", "BillingAddress", "ShippingAddress"),
+     "MEDIUM", "Location/address data"),
+    ("DOB", ("DateOfBirth", "BirthDate", "Dob"), "MEDIUM", "Date of birth"),
+    ("SSN", ("SocialSecurityNumber", "Ssn"), "HIGH", "Social Security number"),
+    ("PAN", ("PanNumber", "PanCard", "Pan"), "HIGH", "PAN identifier"),
+    ("AADHAAR", ("AadhaarNumber", "AadharNumber", "Aadhaar", "Aadhar"),
+     "HIGH", "Aadhaar identifier"),
+    ("PAYMENT_CARD", ("CreditCardNumber", "CreditCard", "DebitCardNumber",
+                      "DebitCard", "CardNumber", "Card"),
+     "CRITICAL", "Payment card data"),
+)
+
+_PRIVACY_PII_GETTER_OWNERS = ("user", "customer", "contact", "account",
+                              "person", "member")
+
+# Exact identifiers, not patterns: "getEmailVerified" must stay invisible
+# (it is a flag), and a lookup table says so unambiguously. The table is
+# generated once, so matching is a dictionary hit rather than eight regular
+# expressions per chunk -- a regex alternation over this many optional
+# prefixes ran at 3.8 MB/s and cost a third of the whole engine's runtime.
+_PRIVACY_PII_GETTER_NAMES: Dict[str, str] = {}
+for _pii_type, _fields, _severity, _description in _PRIVACY_PII_GETTER_FIELDS:
+    for _field in _fields:
+        _PRIVACY_PII_GETTER_NAMES["get" + _field.lower()] = _pii_type
+        for _owner in _PRIVACY_PII_GETTER_OWNERS:
+            _PRIVACY_PII_GETTER_NAMES["get" + _owner + _field.lower()] = _pii_type
+del _pii_type, _fields, _severity, _description, _field, _owner
+
+_PRIVACY_PII_GETTER_META = {
+    pii_type: (severity, description)
+    for pii_type, _fields, severity, description in _PRIVACY_PII_GETTER_FIELDS
+}
+
+_PRIVACY_WORD_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyz0123456789_")
+
+
+def _privacy_pii_getter_hits(text: str):
+    """PII types named by accessor calls in ``text``, in first-seen order."""
+    low = text.lower()
+    hits = []
+    start = 0
+    while True:
+        index = low.find("get", start)
+        if index < 0:
+            break
+        start = index + 3
+        if index and low[index - 1] in _PRIVACY_WORD_CHARS:
+            continue
+        end = start
+        length = len(low)
+        while end < length and low[end] in _PRIVACY_WORD_CHARS:
+            end += 1
+        pii_type = _PRIVACY_PII_GETTER_NAMES.get(low[index:end])
+        if pii_type is not None:
+            hits.append(pii_type)
+    return hits
+
+
 def _privacy_semantic_pii_fallback(text):
     """
     Conservative semantic identifier fallback.
@@ -2349,7 +2421,7 @@ def _privacy_semantic_pii_fallback(text):
     # metadata excluded. The repo's broader patterns fired on every `card`
     # / `phone` token -- exactly the identifier-only claim shape UFIB's
     # contracts reject, fixed at the detector instead.
-    def _pii_gate(pii_type: str, text: str) -> bool:
+    def _pii_gate(pii_type: str, text: str, getter: bool = False) -> bool:
         if pii_type == "PAYMENT_CARD":
             # Same validated gate as the semantic path above: a card-length
             # number must pass the check digit; expiry alone is not card data.
@@ -2360,7 +2432,9 @@ def _privacy_semantic_pii_fallback(text):
                 r"\s*(?:[:=]|\(|\[|->)",
                 text, re.IGNORECASE)
             numeric_value = re.search(r"(?<!\w)\+?\d[\d ().-]{8,}\d(?!\w)", text)
-            if not (field_context or numeric_value):
+            # A named accessor ("getPhoneNumber()") is itself the field
+            # context this gate asks for; a bare "phone" token is not.
+            if not (getter or field_context or numeric_value):
                 return False
             # License metadata and generated SBOM records are not
             # sufficient evidence of a phone number by themselves.
@@ -2384,6 +2458,31 @@ def _privacy_semantic_pii_fallback(text):
                 )
         except Exception:
             continue
+
+    # Named accessors. Every pattern above is a field/variable identifier --
+    # "user.email", "email_address", "phone" -- so a Java or TypeScript
+    # accessor is invisible: there is no word boundary inside "getEmail",
+    # because "t" and "E" are both word characters. A file whose only PII
+    # evidence is "user.getEmail()" therefore produced no PII type at all,
+    # and the exposure layer downgraded a real log sink to
+    # PII_PATTERN_OBSERVED (see java_log_var / java_system_out probes).
+    #
+    # Only "get" is accepted. "isEmail()" is a boolean flag, and a setter can
+    # be an assignment target rather than a disclosure; neither is evidence
+    # that the value itself is being read.
+    seen = {entry[0] for entry in results}
+    if len(seen) < len(_PRIVACY_PII_GETTER_META):
+        for pii_type in _privacy_pii_getter_hits(text):
+            if pii_type in seen:
+                continue
+            try:
+                if not _pii_gate(pii_type, text, getter=True):
+                    continue
+            except Exception:
+                continue
+            severity, description = _PRIVACY_PII_GETTER_META[pii_type]
+            results.append((pii_type, severity, description))
+            seen.add(pii_type)
 
     return results
 
