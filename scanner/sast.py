@@ -569,6 +569,7 @@ REGEX_RULES: list[dict] = [
     # honest recall gap rather than a guess.
     {"id":"PYTHON_TRANSFORMERS_REMOTE_CODE","name":"transformers trust_remote_code=True","pattern":re.compile(r"trust_remote_code\s*=\s*True", _F),"vuln_type":"code_injection","note":"trust_remote_code=True executes modeling code from the model repository instead of the installed library.","severity":"High","cwe":"CWE-94","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
     {"id":"PYTHON_RENDER_STRING","name":"Python Flask render_string Template Injection","pattern":re.compile(r"render_string\s*\(", _F),"vuln_type":"template_injection","note":"render_string with user-controlled template enables SSTI.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
+    {"id":"PYTHON_JINJA_FROM_STRING","name":"Python from_string Template Injection (Jinja2 SSTI)","pattern":re.compile(r"from_string\s*\(", _F),"vuln_type":"template_injection","note":"from_string compiles template syntax held in a string at runtime; attacker-controlled template text is server-side template injection (SSTI, CWE-94).","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
 ]
 
 

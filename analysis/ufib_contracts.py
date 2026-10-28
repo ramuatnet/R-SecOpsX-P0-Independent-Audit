@@ -784,7 +784,7 @@ _RULE_TOKEN_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
                        "QUERY_ANNOTATION")),
     ("code_injection", (
         "SPEL", "TEMPLATE_INJECTION", "THYMELEAF", "FREEMARKER", "VELOCITY",
-        "RENDER_STRING", "EVAL", "CODE_INJECTION", "VM_FUNCTION",
+        "RENDER_STRING", "FROM_STRING", "EVAL", "CODE_INJECTION", "VM_FUNCTION",
         "UNSAFE_EVAL", "EXEC_CALL", "XPATH", "INCLUDE_CONCAT")),
     ("command_injection", (
         "COMMAND", "CHILD_PROCESS", "PROCESS_START", "EXEC", "SHELL_TRUE",
