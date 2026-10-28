@@ -237,6 +237,23 @@ def enabled() -> bool:
     return os.environ.get(DISABLE_ENV, "1") != "0"
 
 
+# Sink categories for the pack's findings (T-0.6: moved out of sast's
+# _PHP_SINK_CATEGORY so the pack is self-contained -- rules and their sink
+# taxonomy travel together, and the env switch removes both). EVIDEX
+# deletes a regex finding with no recorded sink category at report intake,
+# so these must be registered with the rules.
+SINK_CATEGORIES = {
+    "PHP_ASSERT_REQUEST_CODE_EXEC": "code",
+    "PHP_DYNAMIC_CALLABLE_REQUEST": "code",
+    "PHP_CREATE_FUNCTION_REQUEST": "code",
+    "PHP_VARIABLE_FUNCTION_REQUEST": "code",
+    "PHP_PREG_REPLACE_EVAL_MODIFIER": "code",
+    "PHP_WEBSHELL_DROPPER_REQUEST": "file",
+    "PHP_UPLOAD_CLIENT_FILENAME": "file",
+    "PHP_UPLOAD_INDIRECT_CLIENT_FILENAME": "file",
+}
+
+
 def as_sast_rules() -> list[dict]:
     """Rule dicts in the legacy ENTERPRISE_RULES schema (only these keys)."""
     if not enabled():

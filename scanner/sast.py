@@ -42,6 +42,14 @@ from core import regex_budget
 # walk live in core.file_index; the historical names below are re-exported
 # so every existing `from scanner.sast import _skip` keeps working.
 from core import file_index
+# T-0.6: the rule tables are declarative (rules/*_v1.yaml,
+# schema-validated by core.rule_loader); the loader adapts them to the
+# legacy shapes below. The PHP webshell pack stays code-side and is
+# appended after load (its env switch removes it at registration).
+from core.rule_loader import (load_disabled_ids as _load_disabled_ids,
+                             load_enterprise_rules,
+                             load_regex_rules,
+                             load_sink_categories)
 
 try:
     from core.deduplicator import group_findings
@@ -113,422 +121,22 @@ BASE_REMEDIATION = {
 def _priority(sev: str) -> str:
     return {"Critical": "P1", "High": "P2", "Medium": "P3", "Low": "P4"}.get(sev, "P3")
 
-ENTERPRISE_RULES: list[dict] = [
-    {"id":"NODE_CHILD_PROCESS_EXEC","title":"Node.js child_process.exec Command Execution","vuln":"command_injection","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"\bchild_process\.(?:exec|execSync|execFile|execFileSync)\s*\("},
-    {"id":"NODE_IMPORTED_CHILD_PROCESS_EXEC","title":"Node.js imported child_process.exec Command Execution","vuln":"command_injection","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?<![.\w])(?:exec|execSync|execFile|execFileSync)\s*\("},
-    # Python
-    # L1 (2026-10-21, prodtest/llama_index vs FortiCNAPP INTEG-TLS-001): the
-    # tls_bypass family covered Go/PHP/.NET only, and crypto_misuse_engine's
-    # CERT_VALIDATION_DISABLED table is enrichment over already-existing
-    # findings (main.py:3962 summary payload) so it never creates one --
-    # Python requests/urllib3/httpx certificate-validation disables were
-    # invisible (llama vectara/base.py:107 missed while CNAP reported it).
-    # Anchored on the API surfaces requests/httpx/ssl actually use; the scan
-    # loop already drops comment and docstring/string matches.
-    {"id":"PY_TLS_CERT_VALIDATION_DISABLED","title":"Python TLS Certificate Validation Disabled","vuln":"tls_bypass","sev":"Critical","langs":["python"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"\bverify\s*=\s*False\b|\bcheck_hostname\s*=\s*False\b|ssl\._create_unverified_context\s*\(|verify_mode\s*=\s*ssl\.CERT_NONE"},
-
-    # Cookie security flags (2026-10-21, prodtest/pygoat vs CNAP): pygoat
-    # dockerized_labs/broken_auth_lab/app.py:49/51 calls set_cookie without
-    # secure/httponly/samesite -- CNAP DATA-COOKIE-001/002 + INTEG-COOKIE-001,
-    # 6 Medium findings, source-verified. One rule per missing flag (the same
-    # per-flag decomposition the Java CWE-614 servlet rule uses); the guard
-    # extracts the call's argument region and reports only that flag.
-    # Each flag carries its OWN vuln_type: core.deduplicator.root_key() is
-    # (vuln_type, file, line), so a shared family name would collapse the
-    # three claims into one per call and the last rule would never survive
-    # (measured on the pygoat after-scan: SAMESITE 0 of 14 source calls).
-    # The CWEs (614/1004/1275) are distinct, so the taxonomy is not stretched.
-    {"id":"PY_COOKIE_MISSING_SECURE","title":"Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
-    {"id":"PY_COOKIE_MISSING_HTTPONLY","title":"Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["python"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\.set_cookie\s*\("},
-    {"id":"PY_COOKIE_MISSING_SAMESITE","title":"Cookie Missing SameSite Restriction","vuln":"insecure_cookie_samesite_flag","sev":"Medium","langs":["python"],"cwe":"CWE-1275","owasp":"A05:2021 - Security Misconfiguration","pat":r"\.set_cookie\s*\("},
-    # Django views explicitly exempted from CSRF (2026-10-21, prodtest): CNAP
-    # INTEG-ORIGIN-002 anchors @csrf_exempt on pygoat introduction/apis.py,
-    # mitre.py, playground (10) and crAPI mechanic/views.py:54 -- every one a
-    # real decorator. Java (csrf().disable) and Express (csurf-missing) already
-    # had coverage; the decorator arm is presence-based and cannot fire on the
-    # import line (no @) or in comments (loop-level suppression).
-    {"id":"DJANGO_CSRF_EXEMPT","title":"Django View Exempted from CSRF Protection","vuln":"auth_misconfiguration","sev":"Medium","langs":["python"],"cwe":"CWE-352","owasp":"A01:2021 - Broken Access Control","pat":r"@(?:method_decorator\s*\(\s*)?csrf_exempt\b"},
-
-    # Java / Spring Boot
-    {"id":"JAVA_OBJECTINPUTSTREAM_DESERIALIZATION","title":"Java ObjectInputStream Insecure Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"new\s+ObjectInputStream\s*\(|\.readObject\s*\("},
-    {"id":"JAVA_JACKSON_DEFAULT_TYPING","title":"Jackson Unsafe Default Typing","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"enableDefaultTyping\s*\(|activateDefaultTyping\s*\(|DefaultTyping\.|@JsonTypeInfo"},
-    {"id":"JAVA_SNAKEYAML_UNSAFE_LOAD","title":"SnakeYAML Unsafe Load","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"new\s+Yaml\s*\([^)]*\)\s*\.load\s*\(|Yaml\s+\w+\s*=\s*new\s+Yaml\s*\([^)]*\)"},
-    {"id":"JAVA_XSTREAM_DESERIALIZATION","title":"XStream Insecure Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["java"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"new\s+XStream\s*\(|\.fromXML\s*\("},
-    {"id":"JAVA_JNDI_LOG4SHELL_LOOKUP","title":"JNDI / Log4Shell-style Lookup Pattern","vuln":"jndi_injection","sev":"Critical","langs":["java","properties","xml","yaml"],"cwe":"CWE-917","owasp":"A03:2021 - Injection","pat":r"\$\{\s*jndi\s*:\s*(?:ldap|rmi|dns|iiop)://|InitialContext\s*\(|\.lookup\s*\("},
-    {"id":"JAVA_JDBC_SQL_CONCAT","title":"JDBC SQL Concatenation","vuln":"sql_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?:createStatement\s*\(\s*\)|prepareStatement\s*\(\s*\"[^\"]*\"\s*\+|executeQuery\s*\(\s*\"[^\"]*\"\s*\+)"},
-    {"id":"JAVA_HQL_JPQL_INJECTION","title":"Hibernate HQL / JPQL Injection","vuln":"orm_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"createQuery\s*\(\s*\"[^\"]*(?:from|select|where)[^\"]*\"\s*\+|@Query\s*\(\s*\"[^\"]*\"\s*\+"},
-    {"id":"JAVA_JOOQ_RAW_SQL","title":"jOOQ Raw SQL Injection Indicator","vuln":"orm_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"DSL\.query\s*\(\s*\"[^\"]*\"\s*\+|fetch\s*\(\s*\"[^\"]*\"\s*\+"},
-    # XPath query built by concatenating a variable into an XPath expression.
-    # The literal must contain an XPath construct ([@attr=, //, text(), etc.)
-    # and the file must use the XPath API (guard), so URL/HTML path building is
-    # not a false positive. BenchmarkJava xpathi tests are 0/15 without this.
-    {"id":"JAVA_XPATH_INJECTION","title":"Java XPath Query Built by Concatenation","vuln":"xpath_injection","sev":"High","langs":["java"],"cwe":"CWE-643","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:\[@|//|text\(\)|contains\(|starts-with\()[^\"]*\"\s*\+\s*\w+"},
-    {"id":"JAVA_XXE_PARSER","title":"Java XML Parser XXE Risk","vuln":"xxe","sev":"High","langs":["java"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"DocumentBuilderFactory\.newInstance\s*\(|SAXParserFactory\.newInstance\s*\(|XMLInputFactory\.newInstance\s*\(|SAXReader\s*\("},
-    {"id":"JAVA_REFLECTION_SETACCESSIBLE","title":"Dangerous Reflection setAccessible(true)","vuln":"dangerous_reflection","sev":"High","langs":["java"],"cwe":"CWE-470","owasp":"A01:2021 - Broken Access Control","pat":r"\.setAccessible\s*\(\s*true\s*\)"},
-    {"id":"JAVA_PATH_TRAVERSAL_FILE","title":"Java Path Traversal File Access","vuln":"path_traversal","sev":"High","langs":["java"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"new\s+File\s*\([^)]*(?:request|getParameter|path|filename)|Paths\.get\s*\([^)]*(?:request|getParameter|path|filename)"},
-    {"id":"JAVA_TLS_TRUST_BYPASS","title":"Java TLS TrustManager / HostnameVerifier Bypass","vuln":"tls_bypass","sev":"Critical","langs":["java"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"X509TrustManager|HostnameVerifier|verify\s*\([^)]*\)\s*\{\s*return\s+true|checkServerTrusted\s*\([^)]*\)\s*\{\s*\}"},
-    {"id":"SPRING_SPEL_INJECTION","title":"Spring SpEL Injection Indicator","vuln":"spel_injection","sev":"Critical","langs":["java"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"SpelExpressionParser|parseExpression\s*\([^)]*(?:request|getParameter|input|param)"},
-    {"id":"SPRING_MASS_ASSIGNMENT_ENTITY_BINDING","title":"Spring MVC Mass Assignment Entity Binding","vuln":"mass_assignment","sev":"High","langs":["java"],"cwe":"CWE-915","owasp":"A01:2021 - Broken Access Control","pat":r"@(RequestBody|ModelAttribute)\s+(?:User|Account|Admin|Role|Customer|Order|.*Entity)\b"},
-    {"id":"SPRING_SECURITY_CSRF_DISABLED","title":"Spring Security CSRF Disabled","vuln":"auth_misconfiguration","sev":"Critical","langs":["java"],"cwe":"CWE-352","owasp":"A01:2021 - Broken Access Control","pat":r"csrf\s*\(\s*\)\s*\.disable\s*\(|csrf\s*\(\s*csrf\s*->\s*csrf\.disable\s*\("},
-    {"id":"SPRING_PERMITALL_BROAD_MATCHER","title":"Spring Security Broad permitAll Exposure","vuln":"auth_misconfiguration","sev":"Critical","langs":["java"],"cwe":"CWE-284","owasp":"A01:2021 - Broken Access Control","pat":r"(?:antMatchers|requestMatchers)\s*\([^)]*(?:/\*\*|\*)[^)]*\)\s*\.permitAll\s*\("},
-    {"id":"SPRING_ACTUATOR_EXPOSE_ALL","title":"Spring Actuator All Endpoints Exposed","vuln":"actuator_exposure","sev":"Critical","langs":["properties","yaml","java"],"cwe":"CWE-200","owasp":"A05:2021 - Security Misconfiguration","pat":r"management\.endpoints\.web\.exposure\.include\s*=\s*\*|exposure:\s*\n\s*include:\s*[\"']?\*[\"']?"},
-    {"id":"SPRING_MULTIPART_TRAVERSAL","title":"Spring MultipartFile Unsafe Upload Path","vuln":"path_traversal","sev":"High","langs":["java"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"MultipartFile|getOriginalFilename\s*\(\s*\)|transferTo\s*\(\s*new\s+File"},
-    {"id":"SPRING_ASYNC_CONTEXT_LOSS","title":"Spring @Async Security Context Loss Indicator","vuln":"async_security_context_loss","sev":"High","langs":["java"],"cwe":"CWE-362","owasp":"A04:2021 - Insecure Design","pat":r"@Async(?![\s\S]{0,250}(DelegatingSecurityContext|SecurityContextHolder))"},
-    {"id":"SPRING_CACHEABLE_USER_KEY","title":"Spring @Cacheable User-Controlled Key","vuln":"cache_key_injection","sev":"Medium","langs":["java"],"cwe":"CWE-20","owasp":"A04:2021 - Insecure Design","pat":r"@Cacheable\s*\([^)]*key\s*=\s*[\"'][^\"']*#(?:user|request|param|id)"},
-    {"id":"JAVA_TEMPLATE_INJECTION","title":"Java Template Injection Indicator","vuln":"template_injection","sev":"High","langs":["java"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"TemplateEngine\.process\s*\([^)]*(?:request|getParameter)|Freemarker|VelocityEngine|StringTemplateResolver"},
-    {"id":"SPRING_WEBFLUX_AUTH_GAP","title":"Spring WebFlux Authorization Propagation Gap","vuln":"auth_misconfiguration","sev":"High","langs":["java"],"cwe":"CWE-284","owasp":"A01:2021 - Broken Access Control","pat":r"RouterFunctions\.route\s*\(|SecurityWebFilterChain|authorizeExchange\s*\(\s*\)\s*\.anyExchange\s*\(\s*\)\s*\.permitAll"},
-    {"id":"SPRING_MISSING_VALIDATION","title":"Spring Missing @Valid / @Validated Indicator","vuln":"missing_validation","sev":"Medium","langs":["java"],"cwe":"CWE-20","owasp":"A04:2021 - Insecure Design","pat":r"@(PostMapping|PutMapping|PatchMapping)(?:(?!@(?:Valid|Validated))[\s\S]){0,250}@(RequestBody|ModelAttribute)(?![\s\S]{0,80}@(?:Valid|Validated))"},
-
-    # C# / .NET
-    {"id":"DOTNET_BINARYFORMATTER","title":".NET BinaryFormatter Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["csharp"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"BinaryFormatter\s*\(|\.Deserialize\s*\("},
-    {"id":"DOTNET_TYPENAMEHANDLING","title":"Json.NET TypeNameHandling Unsafe","vuln":"insecure_deserialization","sev":"Critical","langs":["csharp"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"TypeNameHandling\s*=\s*TypeNameHandling\.(?:All|Auto|Objects|Arrays)"},
-    {"id":"DOTNET_DATACONTRACT_DESERIALIZER","title":"DataContractSerializer Unsafe Deserialization","vuln":"insecure_deserialization","sev":"High","langs":["csharp"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"DataContractSerializer\s*\(|NetDataContractSerializer\s*\("},
-    {"id":"DOTNET_ADO_SQL_CONCAT","title":"ADO.NET SQL Concatenation","vuln":"sql_injection","sev":"High","langs":["csharp"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"SqlCommand\s*\(\s*\"[^\"]*\"\s*\+|CommandText\s*=\s*\"[^\"]*\"\s*\+"},
-    {"id":"DOTNET_EF_FROMSQLRAW_INTERPOLATION","title":"Entity Framework FromSqlRaw Interpolation","vuln":"orm_injection","sev":"High","langs":["csharp"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"FromSqlRaw\s*\(\s*\$\"|FromSqlRaw\s*\([^)]*\+"},
-    {"id":"DOTNET_XXE_DTD_PROCESSING","title":".NET XML DTD Processing / XXE","vuln":"xxe","sev":"High","langs":["csharp"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"DtdProcessing\s*=\s*DtdProcessing\.Parse|XmlResolver\s*=\s*new\s+XmlUrlResolver|XmlDocument\s*\("},
-    {"id":"DOTNET_PATH_COMBINE_TRAVERSAL","title":".NET Path.Combine Traversal Indicator","vuln":"path_traversal","sev":"High","langs":["csharp"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"Path\.Combine\s*\([^)]*(?:Request|Query|Form|Route|file|path|name)"},
-    {"id":"DOTNET_ZIPSLIP_EXTRACT","title":".NET ZipSlip Extraction Risk","vuln":"zipslip","sev":"High","langs":["csharp"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"ZipFile\.ExtractToDirectory\s*\("},
-    {"id":"DOTNET_OVERPOSTING","title":"ASP.NET Mass Assignment / Overposting","vuln":"mass_assignment","sev":"High","langs":["csharp"],"cwe":"CWE-915","owasp":"A01:2021 - Broken Access Control","pat":r"public\s+(?:IActionResult|Task<[^>]+>)\s+\w+\s*\([^)]*(?:User|Account|Role|Admin|.*Entity)\s+\w+"},
-    {"id":"DOTNET_OPEN_REDIRECT","title":"ASP.NET Open Redirect","vuln":"open_redirect","sev":"High","langs":["csharp"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"Redirect\s*\(\s*(?:returnUrl|url|Request\.)"},
-    {"id":"DOTNET_CERT_VALIDATION_BYPASS","title":"HttpClient Certificate Validation Bypass","vuln":"tls_bypass","sev":"Critical","langs":["csharp"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"ServerCertificateCustomValidationCallback\s*=\s*.*=>\s*true|DangerousAcceptAnyServerCertificateValidator"},
-    {"id":"DOTNET_LOG_INJECTION","title":"ILogger Raw User Input Log Injection","vuln":"log_injection","sev":"Medium","langs":["csharp"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"ILogger|_logger\.(?:Information|Error|Warning|Debug)\s*\([^)]*(?:Request|Query|Form|Headers|userInput)"},
-    {"id":"DOTNET_HARDCODED_CREDENTIAL","title":".NET Hardcoded Credential in String Declaration","vuln":"hardcoded_secret","sev":"High","langs":["csharp"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:string|var|const\s+string)\s+(?P<ident>\w+)\s*=\s*\"[^\"]{8,}\""},
-    {"id":"DOTNET_PROCESS_START_INFO","title":".NET ProcessStartInfo with User-Controlled Arguments","vuln":"command_injection","sev":"Critical","langs":["csharp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"ProcessStartInfo\s*\([^)]*\w+|\.Start\s*\(\s*\)"},
-    {"id":"DOTNET_COMMAND_CONCAT","title":".NET Command Arguments String Concatenation","vuln":"command_injection","sev":"Critical","langs":["csharp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"Arguments\s*=\s*\"[^\"]*(?:/c |/k |cmd\.exe|powershell|bash)[^\"]*\"\s*\+\s*\w+"},
-    {"id":"DOTNET_SQL_INTERPOLATED","title":".NET SqlCommand with Interpolated SQL String","vuln":"sql_injection","sev":"High","langs":["csharp"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"SqlCommand\s*\(\s*\$\"|\.ExecuteReader\s*\(\s*\)|\.ExecuteScalar\s*\(\s*\)"},
-
-    # Node / TypeScript
-    {"id":"NODE_PROTOTYPE_POLLUTION_MERGE","title":"Node Prototype Pollution Merge","vuln":"prototype_pollution","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-1321","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"Object\.assign\s*\([^)]*(?:req\.|body|query)|(?:lodash|_|deepmerge|merge)\.merge\s*\([^)]*(?:req\.|body|query)|qs\.parse\s*\("},
-    {"id":"NODE_CHILD_PROCESS_EXEC","title":"Node child_process.exec Command Injection","vuln":"command_injection","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"child_process\.(?:exec|execSync|execFile|execFileSync)\s*\(|(?:\bexec|execSync)\s*\([^)]*(?:req\.|query|body)"},
-    {"id":"NODE_UNSAFE_EVAL_VM_FUNCTION","title":"Node Unsafe eval/vm/new Function","vuln":"code_injection","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"\beval\s*\(|new\s+Function\s*\(|vm\.runIn(?:This|New)Context\s*\("},
-    {"id":"NODE_FS_TRAVERSAL","title":"Node fs Path Traversal Indicator","vuln":"path_traversal","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"fs\.(?:readFile|writeFile|createReadStream|unlink)\s*\([^)]*(?:req\.|query|body|params)"},
-    {"id":"NODE_SERIALIZE_UNSERIALIZE","title":"node-serialize Unsafe Unserialize","vuln":"insecure_deserialization","sev":"Critical","langs":["javascript","typescript"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"node-serialize|\.unserialize\s*\("},
-    {"id":"NODE_JSYAML_UNSAFE_LOAD","title":"js-yaml Unsafe load","vuln":"insecure_deserialization","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"jsyaml\.load\s*\(|yaml\.load\s*\("},
-    {"id":"NODE_SSRF_DYNAMIC_URL","title":"Node SSRF Dynamic URL","vuln":"ssrf","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-918","owasp":"A10:2021 - Server-Side Request Forgery","pat":r"(?:fetch|axios\.(?:get|post|request)|http\.request|https\.request)\s*\([^)]*(?:req\.|query|body|params|url)"},
-    {"id":"NODE_REDOS_REGEX","title":"Node ReDoS Catastrophic Regex","vuln":"redos","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-1333","owasp":"A05:2021 - Security Misconfiguration","pat":r"new\s+RegExp\s*\([^)]*(?:req\.|query|body)|/\([^/]*\+\)[+*]|/\([^/]*\*\)[+*]"},
-    {"id":"NPM_SUPPLY_CHAIN_SCRIPT","title":"NPM Supply Chain Lifecycle Script / Unpinned Dependency","vuln":"supply_chain_script","sev":"Medium","langs":["json"],"cwe":"CWE-829","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"\"(?:preinstall|postinstall|prepare)\"\s*:|\"(?:dependencies|devDependencies)\"\s*:\s*\{[\s\S]*\"[^\"]+\"\s*:\s*\"(?:\*|latest|http|git\+)"},
-    # JS/TS SQL injection via template-literal interpolation. Parameterized
-    # queries use ? / :name placeholders; interpolating ${...} directly into a
-    # SQL string passed to query()/raw() is injection. Confirmed on juice-shop
-    # routes/login.ts:34 (sequelize.query(`SELECT ... '${req.body.email}'`)).
-    {"id":"NODE_SQL_TEMPLATE_INTERPOLATION","title":"JavaScript/TypeScript SQL Built via Template-Literal Interpolation","vuln":"sql_injection","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?is)\.\s*(?:query|raw|rawQuery|execute)\s*\(\s*`[^`]*\b(?:SELECT|INSERT|UPDATE|DELETE|REPLACE|WITH)\b[^`]*\$\{"},
-    # Express app created with no CSRF protection for its state-changing routes.
-    # A "missing control" posture indicator (not a confirmed exploit): fires only
-    # when the same file registers post/put/patch/delete routes and references no
-    # CSRF middleware. Confirmed on juice-shop server.ts:130.
-    {"id":"EXPRESS_CSRF_MISSING","title":"Express App Missing CSRF Protection","vuln":"auth_misconfiguration","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-352","owasp":"A01:2021 - Broken Access Control","pat":r"\bexpress\s*\(\s*\)"},
-    # Open redirect from request input (2026-10-21, prodtest/NodeGoat vs CNAP
-    # INPUT-REDIRECT-001): index.js:72 ``res.redirect(req.query.url)`` is a
-    # source-verified High TP. Only request-derived inputs qualify --
-    # req.path/req.baseUrl stay same-site and literals are not redirects of
-    # user input.
-    {"id":"EXPRESS_OPEN_REDIRECT","title":"Express Open Redirect from Request Input","vuln":"open_redirect","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"res\.redirect\s*\(\s*[^)\n]*(?:req(?:uest)?\.(?:query|body|params|headers))"},
-    # Session cookie with no lifetime (2026-10-21, prodtest/NodeGoat vs CNAP
-    # AUTH-SE...): server.js:78 session({...}) block carries only
-    # ``// TODO: Add "maxAge"`` -- session-scoped cookie, no expiration.
-    # Guard extracts the config region, so the TODO comment (maxAge without a
-    # colon) does not mask the finding; express-session must be imported.
-    {"id":"EXPRESS_SESSION_COOKIE_NO_EXPIRY","title":"Session Cookie Without Expiration","vuln":"auth_misconfiguration","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-613","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\bsession\s*\(\s*\{"},
-    # A JWT payload read via jwt.decode()/decode() in a file that imports
-    # jsonwebtoken but never calls verify(). decode() does NOT check the
-    # signature, so trusting its output is an authentication bypass. Files that
-    # verify (the secure decode-then-verify pattern) are excluded by the guard.
-    # Confirmed on juice-shop routes/authenticatedUsers.ts:20.
-    {"id":"NODE_JWT_DECODE_NO_VERIFY","title":"JWT Decoded Without Signature Verification","vuln":"auth_misconfiguration","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-347","owasp":"A02:2021 - Cryptographic Failures","pat":r"\b(?:jwt\s*\.\s*)?decode\s*\("},
-
-    # Go
-    {"id":"GO_EXEC_SH_C","title":"Go exec.Command sh -c / User-Controlled Args","vuln":"command_injection","sev":"Critical","langs":["go"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"exec\.Command\s*\(\s*\"(?:sh|bash|cmd)\"\s*,\s*\"-c\"|exec\.Command\s*\([^)]*(?:r\.URL|r\.Form|Query\()"},
-    {"id":"GO_FILEPATH_JOIN_TRAVERSAL","title":"Go filepath.Join Traversal","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"filepath\.Join\s*\([^)]*(?:r\.URL|FormValue|Query\(|filename|path)"},
-    {"id":"GO_SQL_FMT_SPRINTF","title":"Go fmt.Sprintf SQL Injection","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"fmt\.Sprintf\s*\(\s*\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"|db\.Query\s*\([^)]*\+"},
-    {"id":"GO_GOB_DECODE","title":"Go gob Decode Untrusted Data","vuln":"insecure_deserialization","sev":"High","langs":["go"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"gob\.NewDecoder\s*\(|\.Decode\s*\(&"},
-    {"id":"GO_JSON_UNMARSHAL_INTERFACE","title":"Go json.Unmarshal into interface{} / any","vuln":"insecure_deserialization","sev":"Medium","langs":["go"],"cwe":"CWE-20","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"var\s+\w+\s+(?:interface\{\}|any)|json\.Unmarshal\s*\([^)]*,\s*&\w+\s*\)"},
-    {"id":"GO_SSRF_HTTP_GET","title":"Go SSRF Dynamic HTTP Request","vuln":"ssrf","sev":"High","langs":["go"],"cwe":"CWE-918","owasp":"A10:2021 - Server-Side Request Forgery","pat":r"http\.(?:Get|Post)\s*\([^)]*(?:r\.URL|FormValue|Query\(|url)|http\.NewRequest\s*\([^)]*(?:r\.URL|Query\()"},
-    {"id":"GO_OPEN_REDIRECT","title":"Go Open Redirect","vuln":"open_redirect","sev":"High","langs":["go"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"http\.Redirect\s*\([^)]*(?:r\.URL|FormValue|Query\()"},
-    {"id":"GO_SHARED_MAP_RACE","title":"Go Shared Map/Slice Race Indicator","vuln":"race_condition","sev":"High","langs":["go"],"cwe":"CWE-362","owasp":"A04:2021 - Insecure Design","pat":r"var\s+\w+\s+map\[|go\s+func\s*\(|\w+\s*\[.*\]\s*=\s*"},
-    {"id":"GO_UNBOUNDED_READALL","title":"Go Unbounded io.ReadAll / ioutil.ReadAll","vuln":"resource_exhaustion","sev":"High","langs":["go"],"cwe":"CWE-400","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?:io|ioutil)\.ReadAll\s*\(\s*r\.Body\s*\)(?![\s\S]{0,200}MaxBytesReader)"},
-    {"id":"GO_TLS_INSECURE_SKIP_VERIFY","title":"Go TLS InsecureSkipVerify true","vuln":"tls_bypass","sev":"Critical","langs":["go"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"InsecureSkipVerify\s*:\s*true"},
-    # Weak hash usage (2026-10-21, prodtest/crAPI vs CNAP CRYPTO-WEAK-002/003):
-    # the md5/sha1 rules covered Java/.NET/JS/Python only. Anchored on the
-    # crypto/md5|sha1 import string and the md5.New|Sum / sha1.New|Sum calls.
-    # (crAPI's own CNAP hits live under vendor/ which stays excluded by
-    # EXCLUDED_DIRS policy -- this rule covers first-party Go source.)
-    {"id":"GO_MD5_USAGE","title":"Go MD5 Usage","vuln":"weak_crypto","sev":"High","langs":["go"],"cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures","pat":r"[\"']crypto/md5[\"']|\bmd5\.(?:New|Sum)\s*\("},
-    {"id":"GO_SHA1_USAGE","title":"Go SHA-1 Usage","vuln":"weak_crypto","sev":"High","langs":["go"],"cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures","pat":r"[\"']crypto/sha1[\"']|\bsha1\.(?:New|Sum)\s*\("},
-    # --- batch 9 (2026-10-21, DVWA/wrongsecrets joins) ---
-    # DVWA vulnerabilities/api/gen_openapi.php:6 -- CNAP INTEG-ORIGIN-001:
-    # header("Access-Control-Allow-Origin: *"). Cross-language posture rule.
-    # The pattern is deliberately CALL-ANCHORED (header(/setHeader(/addHeader(
-    # /headers[...]=): the header NAME necessarily lives in a string literal,
-    # and the JS string-content suppression at the enterprise dispatch drops
-    # any match that starts inside 'Access-Control-Allow-Origin'. Anchoring
-    # on the sink call keeps the match on code, and reflected-origin echoes
-    # (a different defect family) stay quiet by construction -- see the test
-    # controls in tests/test_lacework_prodtest_batch9_gaps_20261021.py.
-    {"id":"GENERIC_CORS_WILDCARD_ORIGIN","title":"CORS Wildcard Origin","vuln":"insecure_cors_configuration","sev":"Medium","langs":["python","javascript","typescript","php","java"],"cwe":"CWE-942","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?:header|setHeader|add[_]?Header)\s*\(\s*[\"'][^\"']*Access-Control-Allow-Origin\s*:\s*\*[\"']|(?:setHeader|add[_]?Header)\s*\(\s*[\"']Access-Control-Allow-Origin[\"']\s*,\s*[\"']\*[\"']|headers\s*\[\s*[\"']Access-Control-Allow-Origin[\"']\s*\]\s*=\s*[\"']\*[\"']"},
-    # wrongsecrets Challenge54.java:42 + Challenge63.java:41 -- CNAP
-    # CRYPTO-WEAK-002: Cipher.getInstance("AES/CBC/...") fed a static IV
-    # (Challenge63 self-documents the padding oracle). The gate requires an
-    # IvParameterSpec in the window AND a literal assigned to an iv-named
-    # identifier, so AES/GCM with SecureRandom IVs stays quiet.
-    {"id":"JAVA_CIPHER_CBC_STATIC_IV","title":"Java AES/CBC Cipher with Static IV","vuln":"weak_crypto","sev":"High","langs":["java"],"cwe":"CWE-329","owasp":"A02:2021 - Cryptographic Failures","pat":r"Cipher\.getInstance\s*\(\s*[\"'][^\"']*(?:AES|DES)/CBC"},
-    # DVWA setcookie() -- CNAP DATA-COOKIE-001/002 (secure x7, httponly x6).
-    # PHP's setcookie is positional (secure=arg6, httponly=arg7) with a PHP
-    # 7.3+ options-array alternative; the guard handles both forms. Each flag
-    # keeps its own vuln_type so core.deduplicator's (vuln_type, file, line)
-    # key cannot collapse them (batch-8 lesson).
-    {"id":"PHP_COOKIE_MISSING_SECURE","title":"PHP Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["php"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"setcookie\s*\("},
-    {"id":"PHP_COOKIE_MISSING_HTTPONLY","title":"PHP Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["php"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"setcookie\s*\("},
-    # --- batch 10 (2026-10-21, DVWA/WebGoat/railsgoat joins) ---
-    # G9: the batch-8-era *_SQL_CONCAT rules only see SUPERGLOBAL-IN-SINK
-    # shapes. Every remaining CNAP INJ-SQL-001 true positive on WebGoat (9/9)
-    # and the DVWA sqli lesson builds the query in a VARIABLE a few lines
-    # above the sink (`String query = "..." + param; executeQuery(query)` /
-    # `$query = "SELECT ... '$id'"; mysql_query($query)`). These two rules
-    # close that recall gap with window-based validators; request-input
-    # evidence is still required, so config-interpolated queries (DVWA
-    # includes/DBMS/MySQL.php, adjudicated as no-attacker-control) stay dark.
-    {"id":"JAVA_JDBC_SQL_INTERMEDIATE_QUERY","title":"JDBC SQL via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\b(?:executeQuery|executeUpdate|execute)\s*\(\s*(?P<jvar>[A-Za-z_]\w*)\s*\)|prepareStatement\s*\(\s*(?P<pvar>[A-Za-z_]\w*)\s*[,)]"},
-    {"id":"JAVA_JDBC_SQL_PREPARED_CONCAT","title":"PreparedStatement Built by Concatenation","vuln":"sql_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?i)prepareStatement\s*\(\s*[\"'][^\"']*(?:select|insert|update|delete|where)"},
-    {"id":"PHP_SQL_INTERMEDIATE_QUERY","title":"PHP SQL via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["php"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?:mysql_query|mysqli_query|->query|PDO::query)\s*\("},
-    # G16: DVWA csp/source/jsonp.php -- `echo $callback . "(" . json_encode(...)` with
-    # $callback = $_GET['callback'] (JSONP callback injection). PHP_RAW_ECHO_XSS
-    # only sees `echo $_GET` adjacency.
-    {"id":"PHP_XSS_TAINTED_ECHO","title":"PHP echo/print of Request-Derived Value","vuln":"xss","sev":"High","langs":["php"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"(?<![\w$])(?:echo|print)\s+"},
-    # G17: DVWA view_source.php / view_source_all.php -- $id/$security from
-    # GET interpolated into a file_get_contents path one hop below.
-    {"id":"PHP_PATH_USER_INPUT_VAR","title":"PHP File Read via Request-Derived Variable","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?<![\w$])(?:file_get_contents|fopen|readfile|include|require|include_once|require_once)\s*\(?\s*"},
-    # G18: DVWA weak_id low/medium/high -- session cookie set from time(), an
-    # $_SESSION counter, or md5(counter). Client-chosen NON-session cookies
-    # (cookie-input.php 'id') are a different family and stay dark.
-    {"id":"PHP_SESSION_ID_PREDICTABLE","title":"PHP Predictable Session Identifier","vuln":"weak_session_identifier","sev":"Medium","langs":["php"],"cwe":"CWE-330","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?<![\w$])setcookie\s*\("},
-    # G19: DVWA open_redirect low/medium/high -- header("location: " . $_GET).
-    {"id":"PHP_OPEN_REDIRECT_HEADER","title":"PHP Open Redirect via Location Header","vuln":"open_redirect","sev":"Medium","langs":["php"],"cwe":"CWE-601","owasp":"A01:2021 - Broken Access Control","pat":r"(?i)(?<![\w$])header\s*\(\s*[\"'][^\"']*location\s*:"},
-    # G20: DVWA exec medium/high + api/HealthController -- shell_exec/exec fed
-    # a variable built from request input (str_replace blacklist is bypassable;
-    # php://input json body is one hop away). The impossible.php hardened
-    # variant (ctype_digit-validated octets) and escapeshellarg/escapeshellcmd
-    # wrapping stay dark -- see the validator guards.
-    {"id":"PHP_CMD_INJECTION_INTERMEDIATE","title":"PHP Command Injection via Intermediate Variable","vuln":"command_injection","sev":"Critical","langs":["php"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?<![\w$])(?:shell_exec|exec|system|passthru|popen|proc_open)\s*\("},
-    # G15: railsgoat config/initializers/secret_token.rb:8 -- committed Rails
-    # session-signing key (128-hex). ENV references and short dev strings are
-    # not key material; the language gate keeps docs/markdown examples out.
-    {"id":"RUBY_RAILS_SECRET_TOKEN","title":"Rails Hardcoded Secret Key Base","vuln":"hardcoded_secret","sev":"High","langs":["ruby"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:secret_key_base|secret_token)\s*=\s*[\"'][0-9A-Fa-f]{32,}[\"']"},
-    # G7 Ruby arms (2026-10-23): direct request-derived source into a named
-    # sink, the same honesty bar PHP_RAW_ECHO_XSS sets. Whitelisted or
-    # local-variable equivalents stay dark because the source token is what
-    # each pattern requires, not the sink alone.
-    {"id":"RUBY_CMD_INJECTION","title":"Ruby Command Execution with Request-Derived Input","vuln":"command_injection","sev":"Critical","langs":["ruby"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"\b(?:system|exec|spawn|popen)\s*\(\s*(?:params\b|request\b)|\b(?:system|exec|spawn|popen)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)|`[^`\n]*#\{[^}]*\b(?:params|request)|%x[!\(\{][^)\}\n]*#\{[^}]*\b(?:params|request)|open\s*\(\s*\"\|[^\"\n]*?#\{[^}]*\b(?:params|request)"},
-    {"id":"RUBY_CODE_INJECTION","title":"Ruby eval of Request-Derived Input","vuln":"code_injection","sev":"Critical","langs":["ruby"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"\b(?:eval|instance_eval|class_eval|module_eval)\s*\(\s*(?:params\b|request\b)|\b(?:eval|instance_eval|class_eval|module_eval)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)"},
-    {"id":"RUBY_SQL_INJECTION","title":"Ruby SQL Built by String Interpolation of Request Data","vuln":"sql_injection","sev":"High","langs":["ruby"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\.(?:where|find_by_sql|order|select_all)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request|session\b)|\.connection\s*\.\s*execute\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)|\bfind_by_sql\s*\(\s*(?:params\b|request\b)"},
-    {"id":"RUBY_PATH_TRAVERSAL","title":"Ruby File API Fed Request Data Verbatim","vuln":"path_traversal","sev":"High","langs":["ruby"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\bsend_file\s*\(\s*(?:params\b|request\b)|\bFile\.(?:read|open|foreach|readlines)\s*\(\s*(?:params\b|request\b)|\brender\s+file:\s*(?:params\b|request\b)"},
-    {"id":"RUBY_XSS_ERB","title":"ERB Output Escaping Disabled on Request-Derived Value","vuln":"xss","sev":"High","langs":["ruby"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"<%=[^\n]*\b(?:params|request)\b[^\n]*(?:\.html_safe\b|\braw\b)|<%=[^\n]*\braw\s*\(?\s*[^\n]*\b(?:params|request)\b"},
-    {"id":"RUBY_INSECURE_DESER","title":"Ruby Marshal/YAML Deserialization of Request or Cookie Data","vuln":"insecure_deserialization","sev":"Critical","langs":["ruby"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"\bMarshal\.load\s*\(\s*(?:params\b|request\b|cookies\b)|\bYAML\.(?:unsafe_load|load)\s*\(\s*(?:params\b|request\b|cookies\b)"},
-    # G7 Solidity arms (2026-10-23): the three provable shapes. tx.origin in
-    # an authorization comparison, a randomness-flavoured variable fed from
-    # block attributes, and a low-level call whose success boolean is
-    # discarded (bare statement). payable(x).call(...) receivers with
-    # parentheses are outside the shipped sub-shape for SOL_UNCHECKED_CALL,
-    # deliberately: the pattern anchors on a bare identifier receiver.
-    {"id":"SOL_TX_ORIGIN_AUTH","title":"Solidity tx.origin Used for Authorization","vuln":"origin_confusion","sev":"High","langs":["solidity"],"cwe":"CWE-346","owasp":"A01:2021 - Broken Access Control","pat":r"\brequire\s*\([^;\n]*\btx\.origin\b|\bif\s*\(\s*[^;\n]*\btx\.origin\b|\btx\.origin\s*=="},
-    {"id":"SOL_WEAK_RANDOMNESS","title":"Solidity Randomness Derived from Block Attributes","vuln":"weak_randomness","sev":"High","langs":["solidity"],"cwe":"CWE-330","owasp":"A02:2021 - Cryptographic Failures","pat":r"(?i)(?:rand\w*|nonce\w*|lottery\w*|winner\w*|shuffle\w*|jackpot\w*|raffle\w*)[^\n]{0,160}\b(?:block\.(?:timestamp|number|difficulty|prevrandao)|blockhash\s*\()|(?:block\.(?:timestamp|number|difficulty|prevrandao)|blockhash\s*\()[^\n]{0,160}(?:rand\w*|nonce\w*|lottery\w*|winner\w*|shuffle\w*|jackpot\w*|raffle\w*)"},
-    {"id":"SOL_UNCHECKED_CALL","title":"Solidity Low-Level Call Result Ignored","vuln":"unchecked_call_result","sev":"Medium","langs":["solidity"],"cwe":"CWE-252","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?m)^\s*[A-Za-z_$][\w$]*\s*\.\s*(?:call|staticcall|delegatecall)\s*(?:\{[^}\n]*\})?\s*\([^;\n]*\)\s*;"},
-    # G-062 resurrection (2026-10-24): the only two provable shapes in
-    # quarantine/scanner/business_logic_patterns.py. Everything else there
-    # matches IDENTIFIER NAMES and cannot distinguish a control mention from
-    # a control absence, so it stays quarantined on principle.
-    {"id":"CLIENT_ASSIGNED_AMOUNT","title":"Client-Controlled Price or Amount Assignment","vuln":"client_controlled_amount","sev":"High","langs":["python","javascript","typescript","php"],"cwe":"CWE-471","owasp":"A04:2021 - Insecure Design","pat":r"\b(?:amount|price|discount|order_total|unit_price)\s*=\s*(?:request\.(?:json|form|data)|request\.get_json\(\)|request\.body|req\.body|\$_POST)"},
-    {"id":"CLIENT_ASSIGNED_PRIVILEGE","title":"Client-Controlled Privilege Field Assignment","vuln":"mass_assignment","sev":"High","langs":["python","javascript","typescript","php"],"cwe":"CWE-915","owasp":"A01:2021 - Broken Access Control","pat":r"\b(?:role|is_admin|permissions|account_status)\s*=\s*(?:request\.(?:json|form|data)|request\.get_json\(\)|request\.body|req\.body|\$_POST)"},
-    {"id":"GO_HARDCODED_CREDENTIAL","title":"Go Hardcoded Credential in Connection String","vuln":"hardcoded_secret","sev":"High","langs":["go"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/"},
-    {"id":"GO_SQL_CONCAT_INTERMEDIATE","title":"Go SQL Concatenation via Intermediate Variable","vuln":"sql_injection","sev":"High","langs":["go"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
-    {"id":"GO_PATH_CONCAT","title":"Go Path String Concatenation with Absolute Prefix","vuln":"path_traversal","sev":"High","langs":["go"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
-
-    # PHP
-    {"id":"PHP_LFI_RFI_INCLUDE","title":"PHP LFI/RFI include/require","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-98","owasp":"A03:2021 - Injection","pat":r"(?:include|require)(?:_once)?\s*\(?\s*\$_(?:GET|POST|REQUEST|COOKIE)"},
-    {"id":"PHP_COMMAND_INJECTION","title":"PHP Command Injection Sink","vuln":"command_injection","sev":"Critical","langs":["php"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?:shell_exec|system|exec|passthru|popen|proc_open)\s*\([^)]*\$_(?:GET|POST|REQUEST)|`[^`]*\$_(?:GET|POST|REQUEST)"},
-    {"id":"PHP_SQL_CONCAT","title":"PHP SQL Concatenation","vuln":"sql_injection","sev":"High","langs":["php"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"(?:mysqli_query|->query|PDO::query)\s*\([^)]*\$_(?:GET|POST|REQUEST)|\"\s*\.\s*\$_(?:GET|POST|REQUEST)"},
-    {"id":"PHP_UNSERIALIZE","title":"PHP unserialize Object Injection","vuln":"insecure_deserialization","sev":"Critical","langs":["php"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"unserialize\s*\([^)]*\$_(?:GET|POST|REQUEST|COOKIE)"},
-    {"id":"PHP_SSRF_CURL_FILEGET","title":"PHP SSRF Dynamic URL","vuln":"ssrf","sev":"High","langs":["php"],"cwe":"CWE-918","owasp":"A10:2021 - Server-Side Request Forgery","pat":r"(?:curl_exec|file_get_contents|fopen)\s*\([^)]*\$_(?:GET|POST|REQUEST)|CURLOPT_URL\s*,\s*\$_"},
-    {"id":"PHP_FILE_TRAVERSAL","title":"PHP File Path Traversal","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?:fopen|unlink|file_get_contents|readfile)\s*\([^)]*\$_(?:GET|POST|REQUEST)"},
-    {"id":"PHP_PHAR_DESERIALIZATION","title":"PHP PHAR Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["php"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"phar://|Phar\s*\("},
-    {"id":"PHP_RAW_ECHO_XSS","title":"PHP Raw echo/print XSS","vuln":"xss","sev":"High","langs":["php"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"(?:echo|print)\s+\$_(?:GET|POST|REQUEST)(?![\s\S]{0,80}htmlspecialchars)"},
-    {"id":"PHP_CURL_SSL_VERIFY_DISABLED","title":"PHP curl TLS Verification Disabled","vuln":"tls_bypass","sev":"Critical","langs":["php"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"CURLOPT_SSL_VERIFYPEER\s*,\s*(?:false|0)|CURLOPT_SSL_VERIFYHOST\s*,\s*0"},
-    {"id":"PHP_HARDCODED_CREDENTIAL","title":"PHP Hardcoded Credential Assignment","vuln":"hardcoded_secret","sev":"High","langs":["php"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"\$\w+\s*=\s*\"[^\"]{8,}\"|\$\w+\s*=\s*'[^']{8,}'"},
-    {"id":"PHP_INCLUDE_CONCAT_PATH","title":"PHP Include/Require with Concatenated Path","vuln":"path_traversal","sev":"High","langs":["php"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?:include|require)(?:_once)?\s*\(?\s*\"(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\.\s*[\w$]+"},
-
-    # C/C++
-    {"id":"CPP_HARDCODED_CREDENTIAL","title":"C/C++ Hardcoded Credential in String Declaration","vuln":"hardcoded_secret","sev":"High","langs":["cpp","c"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"const\s+char\s*\*?\s*\w+\s*=\s*\"[^\"]{8,}\"|char\s+\w+\[\]\s*=\s*\"[^\"]{8,}\""},
-    {"id":"CPP_SQLITE3_EXEC_VARIABLE","title":"C/C++ sqlite3_exec with Variable SQL","vuln":"sql_injection","sev":"High","langs":["cpp","c"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"sqlite3_exec\s*\([^,]+,\s*\w+\s*,"},
-    {"id":"CPP_SYSTEM_VARIABLE","title":"C/C++ std::system with Variable","vuln":"command_injection","sev":"Critical","langs":["cpp"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"std::system\s*\(\s*\w+\s*\)|std::system\s*\(\s*\w+\s*\+|\b_system\s*\(\s*\w+\s*\)"},
-    {"id":"CPP_PATH_SNPRINTF_INTERP","title":"C/C++ Path Interpolation via snprintf/sprintf","vuln":"path_traversal","sev":"High","langs":["cpp","c"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?:snprintf|sprintf)\s*\([^,]+,\s*[^,]+,\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*%s[^\"]*\"\s*,\s*\w+\s*\)"},
-
-    # Rust
-    {"id":"RUST_HARDCODED_CREDENTIAL","title":"Rust Hardcoded Credential in String Binding","vuln":"hardcoded_secret","sev":"High","langs":["rust"],"cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?:let|const|static)\s+\w+\s*:\s*&str\s*=\s*\"[^\"]{8,}\"|let\s+mut\s+\w+\s*=\s*\"[^\"]{8,}\""},
-    {"id":"RUST_SQL_CONCAT","title":"Rust SQL String Concatenation","vuln":"sql_injection","sev":"High","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+"},
-    {"id":"RUST_COMMAND_EXEC","title":"Rust Command Execution with Variable","vuln":"command_injection","sev":"Critical","langs":["rust"],"cwe":"CWE-78","owasp":"A03:2021 - Injection","pat":r"(?:std::process::Command|Command::new)\s*\([^)]*\w+"},
-    {"id":"RUST_PATH_CONCAT","title":"Rust Path String Concatenation","vuln":"path_traversal","sev":"High","langs":["rust"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+"},
-    {"id":"RUST_SQL_FORMAT","title":"Rust SQL via format! Macro","vuln":"sql_injection","sev":"High","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"format!\s*\(\s*\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\""},
-    {"id":"RUST_PATH_FORMAT","title":"Rust Path via format! Macro","vuln":"path_traversal","sev":"High","langs":["rust"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"format!\s*\(\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\""},
-    # F7: the execution-sink half of the SQL-injection class.  The two
-    # rules above anchor at the BUILD site (`format!("SELECT ...")`,
-    # `"..." + var`), but a query string is only executed at a rusqlite
-    # call -- and the golden corpus anchors its SAST-SQLI label there
-    # (`conn.prepare(&sql)`, vulnerable.rs L14), where nothing fired:
-    # 114/115 with line-exact identity, the lone recorded miss.  This
-    # rule matches `prepare|execute|query` called with a BORROWED
-    # variable; the scan loop gates it on a file-local, one-hop proof
-    # that this file BUILDS that variable with format! and a SQL
-    # template, so a literal argument (the parameterised
-    # `conn.prepare("... ?1")` form), a handle that is never built from
-    # a SQL string, and non-SQL format! templates all stay dark.
-    {"id":"RUST_SQL_SINK","title":"Rust SQL Execution of a Built Query String","vuln":"sql_injection","sev":"Critical","langs":["rust"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"\.\s*(?:prepare|execute|query)\s*\(\s*&(?P<rsx_sql_var>[A-Za-z_]\w*)"},
-
-    # Generic / GraphQL / messaging / abuse
-    {"id":"GENERIC_NOSQL_INJECTION","title":"NoSQL Injection Indicator","vuln":"nosql_injection","sev":"High","langs":["javascript","typescript","python","java","php"],"cwe":"CWE-943","owasp":"A03:2021 - Injection","pat":r"(?:\b(?:db|database|collection|collections|mongo|mongodb|mongoose)\b[^\n;]{0,120}\.(?:find|findOne|findOneAnd(?:Update|Delete)|updateOne|updateMany|deleteOne|deleteMany)\s*\(|\$(?:where|regex)\b)"},
-    {"id":"GRAPHQL_INTROSPECTION_ENABLED","title":"GraphQL Introspection Exposure","vuln":"graphql_exposure","sev":"High","langs":["graphql","javascript","typescript","java","python","csharp"],"cwe":"CWE-200","owasp":"A05:2021 - Security Misconfiguration","pat":r"introspection\s*:\s*true|GraphQLPlayground|graphiql\s*:\s*true|__schema|__type"},
-    {"id":"GRAPHQL_QUERY_DEPTH_MISSING","title":"GraphQL Query Depth / Complexity Limit Missing","vuln":"resource_exhaustion","sev":"High","langs":["javascript","typescript","java","python","csharp"],"cwe":"CWE-400","owasp":"A05:2021 - Security Misconfiguration","pat":r"new\s+ApolloServer\s*\(|GraphQLServer\s*\((?![\s\S]{0,300}(depthLimit|complexity|validationRules))"},
-    {"id":"GRAPHQL_RESOLVER_BOLA","title":"GraphQL Resolver BOLA / IDOR Indicator","vuln":"idor","sev":"High","langs":["javascript","typescript","java","python","csharp"],"cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","pat":r"resolver|Query:\s*\{|Mutation:\s*\{|findById\s*\([^)]*(?:args\.id|id)"},
-    {"id":"KAFKA_RABBITMQ_UNSAFE_DESERIALIZATION","title":"Kafka/RabbitMQ Unsafe Message Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["java","python","javascript","typescript","csharp"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"KafkaConsumer|@KafkaListener|RabbitListener|BasicConsume|JSON\.parse\s*\([^)]*message|ObjectMapper\s*\.readValue\s*\([^)]*(?:record|message|payload)"},
-    {"id":"TENANT_ISOLATION_MISSING","title":"Tenant Isolation Failure Indicator","vuln":"tenant_isolation_failure","sev":"High","langs":["python","javascript","typescript","java","csharp","go","php"],"cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","pat":r"\b(?:tenantId|tenant_id|organizationId|org_id)\b"},
-    {"id":"PRIVILEGE_ESCALATION_FIELD_BINDING","title":"Privilege Escalation Field Binding","vuln":"privilege_escalation","sev":"Critical","langs":["python","javascript","typescript","java","csharp","go","php"],"cwe":"CWE-269","owasp":"A01:2021 - Broken Access Control","pat":r"(?:isAdmin|role|roles|permission|permissions|privilege|is_superuser)\s*[:=]\s*(?:req\.|request\.|body|params|\$_)"},
-    {"id":"WORKFLOW_APPROVAL_BYPASS","title":"Workflow / Approval Bypass Indicator","vuln":"workflow_bypass","sev":"High","langs":["python","javascript","typescript","java","csharp","go","php"],"cwe":"CWE-840","owasp":"A04:2021 - Insecure Design","pat":r"approval_required\s*[:=]\s*false|skip_approval|auto_approve|approved\s*[:=]\s*true"},
-    {"id":"DUPLICATE_ACTION_RACE","title":"Duplicate Action Race Indicator","vuln":"race_condition","sev":"High","langs":["python","javascript","typescript","java","csharp","go","php"],"cwe":"CWE-362","owasp":"A04:2021 - Insecure Design","pat":r"(?:payment|transfer|coupon|redeem|invite|otp|reset)[\s\S]{0,120}(?:save|insert|update|create)(?![\s\S]{0,160}(transaction|lock|idempotency|unique))"},
-
-    {
-        "id": "MISSING_RATE_LIMIT_ENDPOINT",
-        "title": "Abuse-Prone Endpoint Missing Rate-Limit Control",
-        "vuln": "api_rate_limit",
-        "sev": "High",
-        "langs": ["python", "javascript", "typescript", "java", "csharp", "go", "php"],
-        "cwe": "CWE-770",
-        "owasp": "A04:2021 - Insecure Design",
-        # I1 (2026-10-19, prodtest/express): "transfer" matched HTTP framing
-        # headers -- lib/response.js:202/209 this.removeHeader('Transfer-
-        # Encoding') and test/res.send.js:597/604 var transferEncodings = []
-        # (4 rows). Transfer-Encoding is response framing, not a payment
-        # endpoint; anything followed by "encod" is excluded. Real transfer
-        # routes ("/wallet/transfer") keep matching.
-        "pat": r"""(?i)(?:login|sign[-_]?in|otp|password[-_]?reset|reset|invite|coupon|refresh|payment|checkout|transfer(?![-_]?encod)|redeem)""",
-        "remediation": BASE_REMEDIATION["api_rate_limit"],
-    },
-
-    # --- G23 coverage-audit gap fixes (2026-10-22, red-first) -------------
-    # Every arm below is NON-JAVA so the OWASP Benchmark identity diff stays
-    # empty by construction (benchmark fixtures are Java). Each rule carries a
-    # window/context guard wired in scan_file's dispatch so literals, escaped
-    # values and ownership-checked/validated flows stay dark.
-    # F1 JS/TS XSS (audit: no JS/TS XSS rule existed).
-    {"id":"NODE_DOM_XSS","title":"JavaScript DOM XSS via innerHTML/outerHTML/insertAdjacentHTML/document.write","vuln":"xss","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"\.\s*(?:innerHTML|outerHTML)\s*=|insertAdjacentHTML\s*\(|document\.write(?:ln)?\s*\("},
-    {"id":"EXPRESS_REFLECTED_XSS","title":"Express Reflected XSS via res.send/end/write","vuln":"xss","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-79","owasp":"A03:2021 - Injection","pat":r"\bres\.(?:send|end|write)\s*\("},
-    # F2 C/C++ memory safety (audit: no C/C++ arm existed).
-    {"id":"CPP_UNSAFE_STRING_FUNCTION","title":"C/C++ Unbounded String Function","vuln":"buffer_overflow","sev":"High","langs":["cpp","c"],"cwe":"CWE-120","owasp":"A04:2021 - Insecure Design","pat":r"\b(?:strcpy|strcat|gets|sprintf|vsprintf)\s*\("},
-    {"id":"CPP_FORMAT_STRING","title":"C/C++ Format String Built from a Variable","vuln":"format_string","sev":"High","langs":["cpp","c"],"cwe":"CWE-134","owasp":"A03:2021 - Injection","pat":r"(?P<cfunc>\b(?:printf|fprintf|sprintf|snprintf|vprintf|vfprintf|vsprintf|vsnprintf))\s*\("},
-    {"id":"CPP_USE_AFTER_FREE","title":"C/C++ Use After Free","vuln":"use_after_free","sev":"High","langs":["cpp","c"],"cwe":"CWE-416","owasp":"A04:2021 - Insecure Design","pat":r"\bfree\s*\(\s*(?P<uaf_ptr>\w+)\s*\)"},
-    # F3 Generic REST IDOR as a FINDING (audit: only summary-level/GraphQL
-    # before). Ownership-gated so a handler that checks the object's owner in
-    # the same function stays dark.
-    {"id":"NODE_IDOR_OBJECT_FETCH","title":"Node.js Object Fetch by Request-Supplied ID Without Ownership Check","vuln":"idor","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","pat":r"\.\s*(?:findByPk|findById|getById|getByPk|findByPkOr404)\s*\("},
-    {"id":"PY_IDOR_OBJECT_FETCH","title":"Python ORM Object Fetch by Request-Supplied ID Without Ownership Check","vuln":"idor","sev":"High","langs":["python"],"cwe":"CWE-639","owasp":"A01:2021 - Broken Access Control","pat":r"\.\s*objects\s*\.\s*(?:get|filter)\s*\(|(?<![A-Za-z0-9_])get_object_or_404\s*\("},
-    # F4 session fixation + cookie flags (audit: finding-level thin).
-    {"id":"FLASK_SESSION_FIXATION","title":"Flask-Login login_user Without Session Key Rotation","vuln":"session_fixation","sev":"Medium","langs":["python"],"cwe":"CWE-384","owasp":"A07:2021 - Identification and Authentication Failures","pat":r"(?<![A-Za-z0-9_])login_user\s*\("},
-    {"id":"DJANGO_SESSION_COOKIE_INSECURE","title":"Django Session Cookie Security Flag Disabled","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["python"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bSESSION_COOKIE_(?:SECURE|HTTPONLY)\s*=\s*False\b"},
-    {"id":"EXPRESS_COOKIE_MISSING_SECURE","title":"Express Cookie Missing secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["javascript","typescript"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bres\.cookie\s*\("},
-    # P4 cookie arms (2026-10-23): Go and .NET set cookies through named
-    # struct/options fields, so the missing-option shape is the same one the
-    # Express gate already proves: a known cookie-setting call whose option
-    # block lacks the flag, not a blanket report of every SetCookie.
-    {"id":"GO_COOKIE_MISSING_SECURE","title":"Go Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["go"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bhttp\.SetCookie\s*\("},
-    {"id":"GO_COOKIE_MISSING_HTTPONLY","title":"Go Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["go"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\bhttp\.SetCookie\s*\("},
-    {"id":"DOTNET_COOKIE_MISSING_SECURE","title":".NET Cookie Missing Secure Flag","vuln":"insecure_cookie_secure_flag","sev":"Medium","langs":["csharp"],"cwe":"CWE-614","owasp":"A05:2021 - Security Misconfiguration","pat":r"\bResponse\s*\.\s*Cookies\s*\.\s*(?:Append|Add)\s*\("},
-    {"id":"DOTNET_COOKIE_MISSING_HTTPONLY","title":".NET Cookie Missing HttpOnly Flag","vuln":"insecure_cookie_httponly_flag","sev":"Medium","langs":["csharp"],"cwe":"CWE-1004","owasp":"A04:2021 - Insecure Design","pat":r"\bResponse\s*\.\s*Cookies\s*\.\s*(?:Append|Add)\s*\("},
-    # F5 single-arm fill-ins (only provable shapes).
-    {"id":"PY_XML_ENTITIES","title":"Python lxml XML External Entity Risk","vuln":"xxe","sev":"High","langs":["python"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"\betree\.(?:parse|fromstring|XML)\s*\(|\bXMLParser\s*\("},
-    {"id":"PHP_XXE_LIBXML","title":"PHP libxml XML External Entity Risk","vuln":"xxe","sev":"High","langs":["php"],"cwe":"CWE-611","owasp":"A05:2021 - Security Misconfiguration","pat":r"(?<![A-Za-z0-9_])(?:simplexml_load_(?:string|file)|loadXML|libxml_disable_entity_loader)\s*\("},
-    {"id":"PY_REDOS_NESTED_QUANTIFIER","title":"Python ReDoS Nested Quantifier Regex","vuln":"redos","sev":"Medium","langs":["python"],"cwe":"CWE-1333","owasp":"A03:2021 - Injection","pat":r"\bre\.(?:compile|match|search|fullmatch|findall|finditer|sub|subn)\s*\("},
-    {"id":"PHP_REDOS_NESTED_QUANTIFIER","title":"PHP preg ReDoS Nested Quantifier Regex","vuln":"redos","sev":"Medium","langs":["php"],"cwe":"CWE-1333","owasp":"A03:2021 - Injection","pat":r"(?<![A-Za-z0-9_])preg_(?:match|match_all|replace|split|grep)\s*\("},
-    {"id":"PY_LOG_INJECTION","title":"Python Logging of Untrusted Request Data","vuln":"log_injection","sev":"Medium","langs":["python"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"(?i)(?:\blog(?:ging)?|\blogger|app\.logger|_logger)\s*\.\s*(?:info|warning|error|debug|exception|critical|log)\s*\([^)]*(?<![A-Za-z0-9_])(?:request|req)\."},
-    {"id":"PHP_LOG_INJECTION","title":"PHP Logging of Untrusted Request Data","vuln":"log_injection","sev":"Medium","langs":["php"],"cwe":"CWE-117","owasp":"A09:2021 - Security Logging and Monitoring Failures","pat":r"(?<![A-Za-z0-9_])(?:error_log|syslog|trigger_error)\s*\([^)]*\$_(?:GET|POST|REQUEST|COOKIE)"},
-    {"id":"HOST_HEADER_INJECTION","title":"Host Header Used to Construct URL or Email","vuln":"host_header_injection","sev":"Medium","langs":["php","python"],"cwe":"CWE-644","owasp":"A03:2021 - Injection","pat":r"\$_SERVER\s*\[\s*[\"']HTTP_HOST[\"']\s*\]|request\.headers\s*\[\s*[\"']Host[\"']\s*\]|request\.headers\.get\s*\(\s*[\"']Host[\"']"},
-    {"id":"NODE_WEBSOCKET_SINK","title":"Node.js WebSocket Message Flowing to Dangerous Sink","vuln":"code_injection","sev":"High","langs":["javascript","typescript"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"\.\s*on\s*\(\s*[\"'](?:message|data)[\"']"},
-    {"id":"PY_TAR_EXTRACTALL","title":"Python tarfile Extract Without Member Validation","vuln":"zipslip","sev":"High","langs":["python"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"\.extractall\s*\("},
-
-    # Rate-limit detection is validated by _is_rate_limit_endpoint_match().
-    # The regex only locates abuse-prone endpoint strings; the validator requires
-    # server-side route evidence so frontend navigation/API references do not fire.
-]
+# 160 declarative rules from rules/enterprise_v1.yaml (the BIG4
+# patch/extras layer folded into the YAML at migration; see
+# tools/emit_rule_yaml.py).
+ENTERPRISE_RULES: list[dict] = load_enterprise_rules()
+_existing_rule_ids = {r.get("id") for r in ENTERPRISE_RULES}
 
 # Backward-compatible existing rules retained. These are intentionally simple.
-REGEX_RULES: list[dict] = [
-    # I3 (2026-10-19, prodtest/ethernaut): compiled case-SENSITIVE. With
-    # IGNORECASE the base58 CID QmTzWboptc2WjGQH4ShcN4XAkiaskScQ7fFtfgvMsW
-    # inside forge ABIs matched "AkiaskScQ7fFtfgvMsW" as an AWS key (2 rows).
-    # Real AWS access key IDs are uppercase AKIA/ASIA + 16 uppercase
-    # alphanumerics; base58/base64/CID content must not match.
-    {"id":"AWS_ACCESS_KEY","name":"AWS Access Key","pattern":re.compile(r"AKIA[0-9A-Z]{16}"),"vuln_type":"hardcoded_secret","note":"AWS access key ID detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    {"id":"GITHUB_TOKEN","name":"GitHub Token","pattern":re.compile(r"ghp_[A-Za-z0-9]{36}", _F),"vuln_type":"hardcoded_secret","note":"GitHub personal access token detected in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    {"id":"GENERIC_API_KEY_PASSWORD","name":"Generic API Key/Password","pattern":re.compile(r'(?:api[_-]?key|api[_-]?token|secret[_-]?key|auth[_-]?token|access[_-]?token|password|passwd|pwd)\s*[:=]\s*(?P<q>["\'])(?P<credval>[A-Za-z0-9@#$%^&+=!_.\-/]{8,})(?P=q)', _F),"vuln_type":"hardcoded_secret","note":"Possible hardcoded credential or API key.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    # G-036b: the sites that actually *enforce* a secret were never reported.
-    # The assignment rules above catch `KEY = "..."`, but the seven checks that
-    # return 401 - `if token != "sk-mock-key"`, `if api_key != "foobar"`,
-    # `if api_key != "bar"` - are comparisons, not assignments, so the whole
-    # authorization gate of every mock endpoint was invisible. Comparing a
-    # credential-named operand to a committed literal is CWE-798 whether the
-    # literal looks like a placeholder or not: the structure is the defect.
-    # B7b (2026-10-16, Open-Assistant): two boundary defects in one
-    # pattern.  (1) The noun sat behind a ``\b`` that cannot fire between
-    # ``_`` and a letter, so the canonical shapes
-    # ``access_token == "literal"`` and ``user_password == "literal"``
-    # could NEVER match -- a detection failure, pinned by the two FN-fix
-    # controls.  The prefix boundary is now a negative lookbehind that
-    # admits ``_``/``-``/digit before the noun.  (2) The noun carried an
-    # unrestricted ``[\w]*`` suffix, so OA's
-    # ``args.tokenizer_type == "FalconTokenizer"`` (x5) matched -- a
-    # tokenizer TYPE label is not a credential.  The suffix must now
-    # start with ``_``/``-``/digit, keeping ``password_hash``/``api_key2```
-    # firing while plural containers (``tokens == "x"``,
-    # ``secrets == "x"``) stop matching -- consistent with the
-    # leaf-scoped rationale that already excludes containers.
-    {"id":"HARDCODED_CREDENTIAL_COMPARISON","name":"Hardcoded credential authorization comparison","pattern":re.compile(r"\b(?:if|elif|while)\s+(?:not\s+)?[\w.\[\]]*(?<![A-Za-z0-9])(?:api[_-]?key|apikey|access[_-]?key|password|passwd|pwd|passphrase|secret|token|credential)(?:[_\-0-9][\w]*)?\s*(?:==|!=|not\s+in)\s*[\"'](?P<credval>[^\"'\s]{1,128})[\"']", _F),"vuln_type":"hardcoded_secret","note":"A credential-named value is compared against a literal, so the secret is committed to source and doubles as the authorization check.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    {"id":"PRIVATE_KEY_HEADER","name":"Private Key Header","pattern":re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", _F),"vuln_type":"hardcoded_secret","note":"Private key material in source code.","severity":"Critical","cwe":"CWE-798","owasp":"A07:2021 - Identification and Authentication Failures"},
-    # 2026-10-21 prodtest/pygoat: the qualified `hashlib.md5(` arm missed
-    # ``from hashlib import md5; md5(password.encode())`` (mitre.py:161, CNAP
-    # CRYPTO-WEAK-003 TP). The trailing bare-call arm matches it; the
-    # _aliased_hashlib_match gate below keeps bare md5()/sha1() calls quiet
-    # unless the file imports that name from hashlib.
-    {"id":"MD5_USAGE","name":"MD5 Usage","pattern":re.compile(r"hashlib\.md5\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']MD5|MD5CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']md5|(?<![\w.])md5\s*\(", _F),"vuln_type":"weak_crypto","note":"MD5 is cryptographically broken.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
-    {"id":"SHA1_USAGE","name":"SHA-1 Usage","pattern":re.compile(r"hashlib\.sha1\s*\(|MessageDigest\.getInstance\s*\(\s*[\"']SHA-?1|SHA1CryptoServiceProvider|crypto\.createHash\s*\(\s*[\"']sha1|(?<![\w.])sha1\s*\(", _F),"vuln_type":"weak_crypto","note":"SHA-1 is deprecated for cryptographic use.","severity":"High","cwe":"CWE-327","owasp":"A02:2021 - Cryptographic Failures"},
-    {"id":"FLASK_DEBUG","name":"Flask Debug Mode","pattern":re.compile(r"app\.run\s*\([^)]*debug\s*=\s*True", _F),"vuln_type":"debug_exposure","note":"Flask debug=True exposes interactive debugger in production.","severity":"High","cwe":"CWE-215","owasp":"A05:2021 - Security Misconfiguration"},
-    {"id":"SUBPROCESS_SHELL_TRUE","name":"subprocess shell=True","pattern":re.compile(r"subprocess\.\w+\s*\([^)]*shell\s*=\s*True", _F),"vuln_type":"command_injection","note":"subprocess with shell=True enables shell injection.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
-    {"id":"OS_SYSTEM","name":"os.system Call","pattern":re.compile(r"os\.system\s*\(", _F),"vuln_type":"command_injection","note":"os.system executes shell commands.","severity":"Critical","cwe":"CWE-78","owasp":"A03:2021 - Injection"},
-    # A1 (transformers validation): 2822/2822 matches in transformers were
-    # receiver-form nn.Module/evaluator calls (``model.eval()``, a boolean-mode
-    # toggle that does not execute input). Only a *bare* eval call -- or eval
-    # hosted on an explicit dynamic-evaluation namespace -- executes code.
-    # Precedent: PYTHON_EXEC_CALL's ``(?<![.\w])exec\s*\(`` keeps the same
-    # receiver-form exclusion. e2e keeps server.js's bare ``eval(``; the corpus
-    # keeps PHP ``eval($code)``.
-    {"id":"EVAL_CALL","name":"eval() Call","pattern":re.compile(r"(?<![\w.])eval\s*\(|(?<=window\.)eval\s*\(|(?<=globalThis\.)eval\s*\(|(?<=builtins\.)eval\s*\(", _F),"vuln_type":"code_injection","note":"eval() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection"},
-    {"id":"PYTHON_EXEC_CALL","name":"Python exec() Call","pattern":re.compile(r"(?<![.\w])exec\s*\(", _F),"vuln_type":"code_injection","note":"Python exec() executes arbitrary code.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
-    {"id":"PYTHON_PICKLE_LOADS","name":"Python pickle.loads Insecure Deserialization","pattern":re.compile(r"pickle\.loads\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.loads deserializes untrusted data.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
-    {"id":"PYTHON_PICKLE_LOAD","name":"Python pickle.load Insecure Deserialization","pattern":re.compile(r"pickle\.load\s*\(", _F),"vuln_type":"insecure_deserialization","note":"pickle.load deserializes untrusted data from a file.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
-    # Phase 6 HF loading-pattern technique: torch.load unpickles the checkpoint,
-    # so without weights_only=True a tampered weights file is arbitrary code
-    # execution. The kill is a tempered negative lookahead: within 300 chars
-    # that NEVER cross another torch.load( (the next call's guard cannot leak
-    # backwards), weights_only=True keeps the finding. Finding-only.
-    {"id":"PYTHON_TORCH_LOAD_UNSAFE","name":"Python torch.load Without weights_only Guard","pattern":re.compile(r"torch\.load\s*\((?!(?:(?!torch\.load\s*\()[\s\S]){0,300}weights_only\s*=\s*True)", _F),"vuln_type":"insecure_deserialization","note":"torch.load unpickles the checkpoint; without weights_only=True a tampered file executes arbitrary code on load.","severity":"Critical","cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
-    # Phase 6: trust_remote_code=True executes modeling code shipped by the model
-    # repository instead of the installed library -- code from an external
-    # control sphere. trust_remote_code=False never matches; indirection is an
-    # honest recall gap rather than a guess.
-    {"id":"PYTHON_TRANSFORMERS_REMOTE_CODE","name":"transformers trust_remote_code=True","pattern":re.compile(r"trust_remote_code\s*=\s*True", _F),"vuln_type":"code_injection","note":"trust_remote_code=True executes modeling code from the model repository instead of the installed library.","severity":"High","cwe":"CWE-94","owasp":"A08:2021 - Software and Data Integrity Failures","languages":{"python"}},
-    {"id":"PYTHON_RENDER_STRING","name":"Python Flask render_string Template Injection","pattern":re.compile(r"render_string\s*\(", _F),"vuln_type":"template_injection","note":"render_string with user-controlled template enables SSTI.","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
-    {"id":"PYTHON_JINJA_FROM_STRING","name":"Python from_string Template Injection (Jinja2 SSTI)","pattern":re.compile(r"from_string\s*\(", _F),"vuln_type":"template_injection","note":"from_string compiles template syntax held in a string at runtime; attacker-controlled template text is server-side template injection (SSTI, CWE-94).","severity":"Critical","cwe":"CWE-94","owasp":"A03:2021 - Injection","languages":{"python"}},
-]
+# 18 rules from rules/regex_v1.yaml; patterns compiled at load
+# (core.regex_budget.timed_finditer takes a re.Pattern).
+REGEX_RULES: list[dict] = load_regex_rules()
 
 
 # Context-only heuristic rules are intentionally disabled from canonical SAST promotion.
 # They are handled by framework/taint engines when sufficient context exists.
-DISABLED_CONTEXT_ONLY_RULES = {"GRAPHQL_RESOLVER_BOLA", "DUPLICATE_ACTION_RACE"}
+# Declarative: ids with disabled: true in the YAML.
+DISABLED_CONTEXT_ONLY_RULES = _load_disabled_ids()
 
 # ---- Big4 enterprise gap patch: rule hardening, evidence targeting, controls ----
 BIG4_CONTROL_FALLBACKS = {
@@ -546,60 +154,13 @@ BIG4_CONTROL_FALLBACKS = {
     "zipslip": {"pci_dss":"Req 6.2.4 - File handling security", "nist":"SI-10 / AC-3", "iso27001":"A.8.28", "soc2":"CC6.6"},
 }
 
-BIG4_REMEDIATION_BY_RULE = {
-    "SPRING_ACTUATOR_EXPOSE_ALL": ["Do not expose all actuator endpoints in production.", "Set management.endpoints.web.exposure.include to a minimal allow-list such as health/info only.", "Protect actuator endpoints with Spring Security and network ACLs.", "Disable sensitive endpoints such as env, beans, heapdump, threaddump, mappings and configprops."],
-    "SPRING_SECURITY_CSRF_DISABLED": ["Do not globally disable CSRF protection for browser-based sessions.", "Enable CSRF for state-changing endpoints or use stateless token-based APIs with explicit compensating controls.", "Avoid broad anyRequest().permitAll() and require authenticated authorization rules by default.", "Add security tests for unauthenticated state-changing requests."],
-    "SPRING_SPEL_INJECTION": ["Never evaluate user-controlled input with SpEL parseExpression().", "Replace dynamic expressions with allow-listed operations or server-side enum choices.", "Use SimpleEvaluationContext where expression evaluation is unavoidable.", "Reject expressions containing type references, method calls, constructors or bean references."],
-    "SPRING_MASS_ASSIGNMENT_ENTITY_BINDING": ["Bind requests to explicit DTOs rather than JPA/domain entities.", "Use allow-listed fields and ignore role, tenantId, isAdmin, status, balance and permission fields.", "Validate with @Valid/@Validated and enforce server-side authorization after binding."],
-    "JAVA_TEMPLATE_INJECTION": ["Do not treat user input as template source or template name.", "Use fixed server-side template names and pass user input only as escaped model data.", "Disable unrestricted template resolvers and expression utilities."],
-    "JAVA_TLS_TRUST_BYPASS": ["Remove permissive TrustManager and HostnameVerifier implementations.", "Use the default JVM trust store or managed certificate pinning.", "Fail closed on certificate and hostname validation errors."],
-    "DOTNET_CERT_VALIDATION_BYPASS": ["Remove DangerousAcceptAnyServerCertificateValidator and callbacks returning true.", "Use default HttpClient certificate validation and trusted roots.", "Pin certificates only with explicit rotation procedures."],
-    "DOTNET_LOG_INJECTION": ["Use structured logging placeholders instead of concatenating raw user input.", "Normalize CR/LF and control characters before logging.", "Do not log secrets, tokens, cookies or raw request bodies."],
-    "NODE_UNSAFE_EVAL_VM_FUNCTION": ["Remove eval(), vm execution and new Function() for untrusted input.", "Use schema-validated data, safe interpreters or fixed allow-listed commands.", "Apply CSP and runtime sandboxing where dynamic execution cannot be avoided."],
-    "NODE_SERIALIZE_UNSERIALIZE": ["Do not unserialize untrusted node-serialize payloads.", "Use JSON.parse for data-only payloads and reject functions/prototypes.", "Apply integrity checks and strict type allow-lists."],
-    "NODE_JSYAML_UNSAFE_LOAD": ["Use safe schema loading for YAML and reject custom tags/types.", "Do not parse untrusted YAML with unsafe constructors.", "Prefer JSON for external data interchange."],
-    "GO_SHARED_MAP_RACE": ["Protect shared maps/slices using sync.Mutex, sync.RWMutex, channels or sync.Map.", "Run go test -race in CI.", "Make check-and-act workflows atomic with transactions or locks."],
-    "GO_GOB_DECODE": ["Do not gob-decode untrusted network or message-bus payloads.", "Use JSON/protobuf with explicit schemas and validation.", "Authenticate and integrity-protect serialized messages."],
-    "GENERIC_ZIPSLIP": ["Canonicalize archive entry paths before extraction.", "Reject absolute paths and entries containing .. segments.", "Verify the resolved destination remains under the intended extraction directory."],
-    "GENERIC_TOCTOU_RACE": ["Avoid check-then-use filesystem and workflow patterns.", "Use atomic file operations, transactions or locks.", "Re-check authorization and object state inside the final transaction."],
-}
 
-BIG4_RULE_PATCHES = {
-    "SPRING_SPEL_INJECTION": {"pat": r"parseExpression\s*\([^)]*(?:request|getParameter|@RequestParam|@PathVariable|param|input)|SpelExpressionParser[\s\S]{0,240}parseExpression\s*\(", "evidence_pat": r"parseExpression\s*\("},
-    "SPRING_ACTUATOR_EXPOSE_ALL": {"pat": r"management\.endpoints\.web\.exposure\.include\s*[:=]\s*[\"']?\*[\"']?|exposure:\s*\n\s*include:\s*[\"']?\*[\"']?", "evidence_pat": r"include\s*[:=]\s*[\"']?\*[\"']?"},
-    "JAVA_SNAKEYAML_UNSAFE_LOAD": {"pat": r"(?:new\s+Yaml\s*\([^)]*\)|Yaml\s+\w+\s*=\s*new\s+Yaml\s*\([^)]*\))[\s\S]{0,240}\.load\s*\(|\.load\s*\([^)]*(?:request|getParameter|input|payload|body)"},
-    "JAVA_XSTREAM_DESERIALIZATION": {"pat": r"new\s+XStream\s*\(|\.fromXML\s*\([^)]*(?:request|getParameter|input|payload|body)?"},
-    "JAVA_JACKSON_DEFAULT_TYPING": {"pat": r"enableDefaultTyping\s*\(|activateDefaultTyping\s*\(|DefaultTyping\.|@JsonTypeInfo|ObjectMapper[\s\S]{0,200}enableDefaultTyping"},
-    "DOTNET_DATACONTRACT_DESERIALIZER": {"pat": r"(?:DataContractSerializer|NetDataContractSerializer)\s*\(|\.ReadObject\s*\([^)]*(?:Request|Body|Stream|input|payload)?"},
-    "DOTNET_ZIPSLIP_EXTRACT": {"pat": r"ZipFile\.ExtractToDirectory\s*\(|ZipArchive[\s\S]{0,300}(?:ExtractToFile|FullName)"},
-    "DOTNET_LOG_INJECTION": {"sev":"High", "pat": r"(?:ILogger|_logger)\.(?:Information|Error|Warning|Debug|LogInformation|LogError|LogWarning)\s*\([^)]*(?:Request|Query|Form|Headers|userInput|returnUrl|User\.Identity)"},
-    "NODE_UNSAFE_EVAL_VM_FUNCTION": {"pat": r"\beval\s*\([^)]*(?:req\.|request|body|query|params)?|new\s+Function\s*\([^)]*(?:req\.|request|body|query|params)?|vm\.runIn(?:This|New)Context\s*\("},
-    "NODE_JSYAML_UNSAFE_LOAD": {"pat": r"(?:jsyaml|js_yaml|yaml)\.load\s*\([^)]*(?:req\.|request|body|query|payload)?"},
-    "GO_GOB_DECODE": {"pat": r"gob\.NewDecoder\s*\([^)]*(?:r\.Body|conn|msg|payload|reader)?[\s\S]{0,200}\.Decode\s*\("},
-    "GO_SHARED_MAP_RACE": {"pat": r"var\s+\w+\s*=\s*map\[|var\s+\w+\s+map\[|go\s+func\s*\([\s\S]{0,300}\w+\s*\[[^\]]+\]\s*="},
-    "GRAPHQL_QUERY_DEPTH_MISSING": {"pat": r"new\s+ApolloServer\s*\((?![\s\S]{0,400}(depthLimit|queryComplexity|complexity|validationRules))|GraphQLServer\s*\((?![\s\S]{0,400}(depthLimit|queryComplexity|complexity|validationRules))"},
-}
-for _rule in ENTERPRISE_RULES:
-    _patch = BIG4_RULE_PATCHES.get(_rule.get("id"))
-    if _patch:
-        _rule.update(_patch)
-    if _rule.get("id") in BIG4_REMEDIATION_BY_RULE:
-        _rule["remediation"] = BIG4_REMEDIATION_BY_RULE[_rule["id"]]
-
-_existing_rule_ids = {r.get("id") for r in ENTERPRISE_RULES}
-_EXTRA_BIG4_RULES = [
-    {"id":"JAVA_TRUSTMANAGER_EMPTY_METHOD","title":"Java TrustManager Empty Certificate Validation","vuln":"tls_bypass","sev":"Critical","langs":["java"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"checkServerTrusted\s*\([^)]*\)\s*\{\s*\}|verify\s*\([^)]*\)\s*\{\s*return\s+true\s*;?\s*\}","remediation":BIG4_REMEDIATION_BY_RULE.get("JAVA_TLS_TRUST_BYPASS")},
-    {"id":"JAVA_SPRING_QUERY_ANNOTATION_CONCAT","title":"Spring Data @Query Concatenation Injection","vuln":"orm_injection","sev":"High","langs":["java"],"cwe":"CWE-89","owasp":"A03:2021 - Injection","pat":r"@Query\s*\(\s*(?:value\s*=\s*)?[\"'][^\"']*[\"']\s*\+|@Query[\s\S]{0,160}(?:nativeQuery\s*=\s*true)[\s\S]{0,160}\+"},
-    {"id":"JAVA_THYMELEAF_FREEMARKER_VELOCITY_INJECTION","title":"Spring Template Injection: Thymeleaf/Freemarker/Velocity","vuln":"template_injection","sev":"High","langs":["java"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"(?:TemplateEngine|SpringTemplateEngine|FreeMarkerTemplateUtils|VelocityEngine|StringTemplateResolver)[\s\S]{0,240}(?:process|evaluate|mergeTemplate|setTemplateMode|setTemplateResolver)\s*\([^)]*(?:request|getParameter|param|input|body)?","remediation":BIG4_REMEDIATION_BY_RULE.get("JAVA_TEMPLATE_INJECTION")},
-    {"id":"DOTNET_HTTPCLIENT_CERT_CALLBACK_TRUE","title":".NET HttpClient Certificate Validation Bypass","vuln":"tls_bypass","sev":"Critical","langs":["csharp"],"cwe":"CWE-295","owasp":"A02:2021 - Cryptographic Failures","pat":r"ServerCertificateCustomValidationCallback\s*=\s*(?:HttpClientHandler\.)?DangerousAcceptAnyServerCertificateValidator|ServerCertificateCustomValidationCallback\s*=\s*[^;]*=>\s*true","remediation":BIG4_REMEDIATION_BY_RULE.get("DOTNET_CERT_VALIDATION_BYPASS")},
-    {"id":"GO_JSON_UNMARSHAL_INTERFACE","title":"Go json.Unmarshal into interface{} / any","vuln":"insecure_deserialization","sev":"High","langs":["go"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"var\s+\w+\s+(?:interface\s*\{\s*\}|any)\s*\n[\s\S]{0,160}json\.Unmarshal\s*\(|json\.Unmarshal\s*\([^,]+,\s*&\w+\s*\)[\s\S]{0,120}(?:map\[string\]interface|interface\s*\{\s*\}|any)"},
-    {"id":"GENERIC_ZIPSLIP","title":"Generic ZipSlip Archive Extraction","vuln":"zipslip","sev":"High","langs":["java","csharp","javascript","typescript","python","go","php"],"cwe":"CWE-22","owasp":"A01:2021 - Broken Access Control","pat":r"(?:ZipEntry|getNextEntry|ZipArchive|adm-zip|unzipper|zipfile|archive/zip)[\s\S]{0,180}(?:extractToDirectory|extractToFile|extractAll|extract\s*\(|writeFile(?:Sync)?\s*\(|createWriteStream\s*\(|FileOutputStream\s*\(|OpenFile\s*\()","remediation":BIG4_REMEDIATION_BY_RULE.get("GENERIC_ZIPSLIP")},
-]
-for _r in _EXTRA_BIG4_RULES:
-    if _r["id"] not in _existing_rule_ids:
-        ENTERPRISE_RULES.append(_r)
-        _existing_rule_ids.add(_r["id"])
-# ---- end Big4 enterprise gap patch ----
+# ---- Big4 enterprise gap patch ----
+# T-0.6: BIG4_RULE_PATCHES / BIG4_REMEDIATION_BY_RULE /
+# _EXTRA_BIG4_RULES moved into rules/enterprise_v1.yaml at
+# migration (the emitter read the post-patch tables, so the YAML
+# holds the final patterns/remediation verbatim). What remains is
+# BIG4_CONTROL_FALLBACKS, the runtime compliance-text lookup.
 
 # ---- PHP webshell / code-execution pack (G-PHP-WS) ----
 # Additive: new ids only, no existing rule touched. Every pattern requires a
@@ -1619,29 +1180,12 @@ def _php_tainted_in(text: str, tainted: set) -> bool:
 # validator's own window analysis (which variable, fed from which request
 # source, reaches which sink), so downstream taint-evidence gates treat the
 # finding as the source-to-sink evidence it actually is.
-_PHP_SINK_CATEGORY = {
-    "PHP_SQL_INTERMEDIATE_QUERY": "sql",
-    "JAVA_JDBC_SQL_INTERMEDIATE_QUERY": "sql",
-    "JAVA_JDBC_SQL_PREPARED_CONCAT": "sql",
-    "PHP_XSS_TAINTED_ECHO": "xss",
-    "PHP_PATH_USER_INPUT_VAR": "file",
-    "PHP_OPEN_REDIRECT_HEADER": "redirect",
-    "PHP_CMD_INJECTION_INTERMEDIATE": "command",
-    # G-PHP-WS: the webshell pack emits regex findings with no taint-engine
-    # path, so without a recorded sink category EVIDEX cannot see the sink it
-    # is looking at and enrich_finding() deletes the finding at report intake
-    # (measured: 3 of 9 pack rules vanished from clean_report.json while the
-    # raw scan had produced them). Categories match the code-execution/file
-    # taxonomy EVIDEX already expects for these vulnerability types.
-    "PHP_ASSERT_REQUEST_CODE_EXEC": "code",
-    "PHP_DYNAMIC_CALLABLE_REQUEST": "code",
-    "PHP_CREATE_FUNCTION_REQUEST": "code",
-    "PHP_VARIABLE_FUNCTION_REQUEST": "code",
-    "PHP_PREG_REPLACE_EVAL_MODIFIER": "code",
-    "PHP_WEBSHELL_DROPPER_REQUEST": "file",
-    "PHP_UPLOAD_CLIENT_FILENAME": "file",
-    "PHP_UPLOAD_INDIRECT_CLIENT_FILENAME": "file",
-}
+# T-0.6: 7 categories declarative (rules/enterprise_v1.yaml
+# sink_category) + 8 from the webshell pack's own map; EVIDEX
+# deletes a regex finding with no sink category at intake, so the
+# pack's entries travel with the pack.
+from scanner.php_webshell_rules import SINK_CATEGORIES as _PHP_WS_SINK
+_PHP_SINK_CATEGORY = {**load_sink_categories(), **_PHP_WS_SINK}
 
 
 # Batch-10 php rules subject to the string-position guard (see dispatch).
