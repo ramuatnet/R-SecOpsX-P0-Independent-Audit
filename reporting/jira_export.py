@@ -79,7 +79,11 @@ def _finding_summary(finding: dict[str, Any]) -> str:
         finding.get("rule_id") or finding.get("vuln_type") or "finding"
     ).strip()
     file_name = str(finding.get("file") or finding.get("path") or "")
-    file_name = file_name.replace("\\", "/").rsplit("/", 1)[-1] or "unknown"
+    file_name = file_name.replace("\\", "/").strip()
+    while file_name.startswith("./"):
+        file_name = file_name[2:]
+    if not file_name:
+        file_name = "unknown"
     line = finding.get("line")
     location = f"{file_name}:{line}" if line not in (None, "") else file_name
     summary = f"{rule} in {location}"
