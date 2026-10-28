@@ -49,12 +49,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 SKIP_DIRS = {"backup", "dump", "Working folder", "__pycache__",
-             "R-SecOpsX_V11_Evidence_Error_Cleanup_v1", ".git", ".venv",
+             ".git", ".venv",
              "node_modules", "reports", "quarantine"}
 
-# Never a quarantine candidate regardless of reachability.
+# Never a quarantine candidate regardless of reachability.  tools/ holds
+# the operator-run diagnostics (T-0.7 moved them out of tests/); like
+# tests/, they import the product but nothing imports them.
 PROTECTED_PREFIX = ("backup", "dump", "Working folder", "integration_fixture_llm01",
-                    "R-SecOpsX_V11_Evidence_Error_Cleanup_v1", "tests")
+                    "tests", "tools")
 
 ROOT_NAME_RE = re.compile(
     r"^(benchmark_|render_|audit_|inspect_|compare_|profile_|instrument_)")
@@ -102,11 +104,10 @@ def audit(root: Path | None = None) -> dict:
     roots: set[str] = set()
     for rel in files:
         base = os.path.basename(rel)
-        if rel == "main.py" or rel.startswith("tests/"):
+        if rel == "main.py" or rel.startswith(("tests/", "tools/")):
             roots.add(rel)
         elif rel.split("/")[0] in (
-            "backup", "dump", "Working folder", "integration_fixture_llm01",
-            "R-SecOpsX_V11_Evidence_Error_Cleanup_v1"):
+            "backup", "dump", "Working folder", "integration_fixture_llm01"):
             roots.add(rel)
         elif ROOT_NAME_RE.match(base):
             roots.add(rel)

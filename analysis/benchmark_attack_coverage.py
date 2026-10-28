@@ -82,13 +82,14 @@ GROUND_TRUTH = {
 }
 
 SKIP_DIRS = {"backup", "dump", "Working folder", "__pycache__",
-             "R-SecOpsX_V11_Evidence_Error_Cleanup_v1", ".git", ".venv",
-             "node_modules", "reports", "tests"}
+             ".git", ".venv",
+             "node_modules", "reports", "tests", "tools"}
 
 # A benchmark must not count its own assertions as product capability: an
 # earlier run of this file reported `log_source` present purely because this
 # file contains the string `log_source`, and `v3_detection_mapping` PASSED on
-# that alone.  Same for test fixtures that assert a technique ID.
+# that alone.  Same for test fixtures that assert a technique ID -- and for
+# tools/, the operator diagnostics that quote rule text to probe it.
 SKIP_FILE_PREFIXES = ("benchmark_", "patch_", "test_")
 
 

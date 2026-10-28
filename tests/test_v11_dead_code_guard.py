@@ -81,7 +81,6 @@ def test_quarantine_is_never_imported_by_live_code():
     for p in REPO.rglob("*.py"):
         if any(seg in p.parts for seg in
                ("backup", "dump", "Working folder",
-                "R-SecOpsX_V11_Evidence_Error_Cleanup_v1",
                 "quarantine", "__pycache__")):
             continue
         if p.name == "test_v11_dead_code_guard.py":
