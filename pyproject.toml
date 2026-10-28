@@ -1,0 +1,43 @@
+# T-0.7 (task.md): packaging. Version is single-sourced from
+# core/config.py (TOOL_VERSION) -- this file only reads it.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rsecopsx"
+dynamic = ["version"]
+description = "R-SecOpsX: offline, verification-driven multi-surface security scanner (SAST/SCA/BOM/IaC/secrets)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "R-SecOpsX" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+]
+
+# Scan mode is offline/airgap by invariant (task.md): no runtime
+# dependencies are REQUIRED for a scan; optional enrichers (PyYAML,
+# reportlab, openpyxl) degrade gracefully and are extras.
+[project.optional-dependencies]
+yaml = ["PyYAML>=6"]
+pdf = ["reportlab>=4"]
+excel = ["openpyxl>=3.1"]
+all = ["PyYAML>=6", "reportlab>=4", "openpyxl>=3.1"]
+
+[project.scripts]
+rsecopsx = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["core*", "scanner*", "analysis*", "accuracy*", "reporting*"]
+namespaces = true
+
+[tool.setuptools.dynamic]
+version = { attr = "core.config.TOOL_VERSION" }
