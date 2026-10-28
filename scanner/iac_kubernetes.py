@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
 from scanner.iac_models import (
     WORKLOAD_KINDS,
     evaluate_k8s_rules,
@@ -238,9 +240,10 @@ def _iter_files(target: Path):
             yield target
         return
 
-    for path in target.rglob("*"):
-        if path.is_file() and path.suffix.lower() in K8S_EXTENSIONS:
-            yield path
+    # T-0.2: index query replaces target.rglob. This engine used to apply
+    # NO directory skip at all; the shared union policy now covers it.
+    yield from file_index.index_for(target).files(
+        exts={e.lower() for e in K8S_EXTENSIONS})
 
 
 def _line_number(index: int) -> int:

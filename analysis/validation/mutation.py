@@ -263,9 +263,18 @@ def _scan(target: Path) -> list[dict]:
     supported languages (a TAINT_* finding appears in its output), so the
     layers here are the regex+taint pass plus the secrets pass, whose
     known-signature rules live in a separate entry point.
+
+    T-0.2 (task.md): each call is its OWN scan session.  The harness
+    rewrites the fixture between the baseline and mutant scans of the same
+    root; without begin_scan() the second scan reuses the first scan's
+    index and its content cache, serving the pre-mutation bytes, and every
+    mutant survives unread.
     """
+    from core import file_index
     from scanner.sast import scan_directory
     from scanner.secret_intelligence import scan_secret_intelligence
+
+    file_index.begin_scan()
 
     findings: list[dict] = list(scan_directory(str(target)))
     findings.extend(

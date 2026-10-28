@@ -262,8 +262,11 @@ def test_the_new_artifact_is_excluded_from_self_scan():
     exclusion can be added and still be reported missing, or present and be
     reported absent.
     """
-    sast = (ROOT / "scanner" / "sast.py").read_text(encoding="utf-8")
-    block = sast.split("EXCLUDED_FILES = {", 1)[1].split("}", 1)[0]
+    # T-0.2 (task.md): EXCLUDED_FILES moved verbatim to core/file_index.py
+    # (the walk applies it once for every engine); scanner/sast.py re-exports
+    # the same object, so this content pin follows the literal's new home.
+    src = (ROOT / "core" / "file_index.py").read_text(encoding="utf-8")
+    block = src.split("EXCLUDED_FILES = {", 1)[1].split("}", 1)[0]
     assert '"qbom.json"' in block, block
     assert '"security_qbom.pq.json"' in block, block
 

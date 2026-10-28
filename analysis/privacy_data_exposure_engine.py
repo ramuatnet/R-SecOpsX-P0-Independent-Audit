@@ -449,21 +449,25 @@ def _iter_files(target: str):
             yield root
         return
 
-    for current, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d.lower() not in SKIP_DIRS]
-        for name in files:
-            path = Path(current) / name
-            if path.suffix.lower() in SCAN_EXTENSIONS:
-                yield path
+    # T-0.2 (task.md): the one walk's index; SKIP_DIRS is walk policy now.
+    from core import file_index
+    yield from file_index.index_for(root).files(
+        exts={e.lower() for e in SCAN_EXTENSIONS})
 
 def _safe_read(path: Path):
-    # V17.9.25: stream source lines rather than materializing the entire file.
-    try:
-        with path.open("r", encoding="utf-8", errors="ignore") as fh:
-            for line in fh:
-                yield line.rstrip("\\r\\n")
-    except Exception:
+    # T-0.2 (task.md): serve lines from the shared per-scan index cache
+    # instead of a fresh open per engine.  Split on "\n" only, exactly like
+    # iterating a text handle (both sides see universal-newline output).
+    # KNOWN PRE-EXISTING, NOT FIXED here: the rstrip argument is the
+    # over-escaped "\r\n" (set {backslash, r, n}), not CR/LF -- changing it
+    # would move privacy line content inside a perf batch; it gets its own
+    # measured fix.
+    from core import file_index
+    text = file_index.read_source(path, encoding="utf-8", errors="ignore")
+    if text is None:
         return
+    for line in text.split("\n"):
+        yield line.rstrip("\\r\\n")
 
 
 def _rel(path: Path, target: str) -> str:

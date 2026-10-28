@@ -76,10 +76,9 @@ def _looks_like_relative_import(value: str) -> bool:
 
 
 def _read_text(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
+    from core import file_index
+    text = file_index.read_source(path)
+    return text if text is not None else ""
 
 
 def _is_local_python_import(root: Path, source: Path, top: str) -> bool:
@@ -258,9 +257,10 @@ def _maven_group_names(text: str) -> set[str]:
 def collect_declared_dependencies(root: Path) -> dict[str, set[str]]:
     declared = {"pypi": set(), "npm": set(), "composer": set(), "maven": set(), "go": set()}
 
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.name.lower() not in MANIFEST_NAMES:
-            continue
+    # T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+    from core import file_index
+    for path in sorted(file_index.index_for(root).files(
+            pred=lambda p: p.name.lower() in MANIFEST_NAMES)):
         name = path.name.lower()
         text = _read_text(path)
 
@@ -325,11 +325,10 @@ def analyze_undeclared_dependencies(root_path: str | Path, sbom: list[dict] | No
     declared = collect_declared_dependencies(root)
 
     imports = []
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in SUPPORTED_SOURCE_SUFFIXES:
-            continue
-        if any(part.lower() in {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"} for part in path.parts):
-            continue
+    # T-0.2: index query; the inline dir-skip set is walk policy now.
+    from core import file_index
+    for path in sorted(file_index.index_for(root).files(
+            pred=lambda p: p.suffix.lower() in SUPPORTED_SOURCE_SUFFIXES)):
         if path.suffix.lower() == ".py":
             imports.extend(_python_imports(root, path))
         else:

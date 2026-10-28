@@ -80,28 +80,17 @@ def _discover_test_paths(root: Path) -> list[str]:
     if not root.exists() or not root.is_dir():
         return []
 
+    # T-0.2 (task.md): the one walk's index; _IGNORED_DIRS is walk policy
+    # now. The rel-path filters below are engine semantics and stay.
+    from core import file_index
     discovered: list[str] = []
 
-    for base, dirs, files in os.walk(root):
-        dirs[:] = sorted(
-            d for d in dirs
-            if d.lower() not in _IGNORED_DIRS
-        )
-
-        base_path = Path(base)
-
-        for filename in sorted(files):
-            candidate = base_path / filename
-            try:
-                rel = candidate.relative_to(root).as_posix()
-            except ValueError:
-                continue
-
-            if _ignored_relative_path(rel):
-                continue
-
-            if _is_test(rel):
-                discovered.append(rel)
+    for candidate in file_index.index_for(root).files():
+        rel = Path(os.path.relpath(candidate, root)).as_posix()
+        if _ignored_relative_path(rel):
+            continue
+        if _is_test(rel):
+            discovered.append(rel)
 
     return sorted(set(discovered))
 

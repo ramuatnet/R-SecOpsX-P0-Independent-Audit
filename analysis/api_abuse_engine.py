@@ -209,17 +209,10 @@ def _iter_files(target: Path) -> list[Path]:
     if target.is_file():
         return [target]
 
-    files: list[Path] = []
-    for path in target.rglob("*"):
-        if not path.is_file():
-            continue
-        parts = {part.lower() for part in path.parts}
-        if parts.intersection(SKIP_DIRS):
-            continue
-        if path.suffix.lower() not in SCANNABLE_EXTENSIONS:
-            continue
-        files.append(path)
-    return files
+    # T-0.2 (task.md): the one walk's index; SKIP_DIRS is walk policy now.
+    from core import file_index
+    return file_index.index_for(target).files(
+        exts={e.lower() for e in SCANNABLE_EXTENSIONS})
 
 
 def _extract_route(match: re.Match) -> str:
@@ -317,9 +310,12 @@ def scan_file(filepath: str) -> list[dict]:
     if _is_frontend_client_file(path):
         return []
 
+    from core import file_index
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = file_index.read_source(path)
     except OSError:
+        return []
+    if text is None:
         return []
 
     lines = text.splitlines()

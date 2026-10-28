@@ -17,6 +17,8 @@ from typing import Any
 import yaml
 
 from scanner.iac_docker import _priority, _report_path
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
 
 # Compose file name patterns: docker-compose.yml, docker-compose.override.yml,
 # docker-compose.prod.yml, compose.yml, compose.yaml, compose.override.yaml, ...
@@ -89,9 +91,9 @@ def _iter_compose_files(target: Path):
         if _is_compose_file(target):
             yield target
         return
-    for path in target.rglob("*"):
-        if path.is_file() and _is_compose_file(path):
-            yield path
+    # T-0.2: index query replaces target.rglob. This engine used to apply
+    # NO directory skip at all; the shared union policy now covers it.
+    yield from file_index.index_for(target).files(pred=_is_compose_file)
 
 
 def _find_line(lines: list[str], start: int, end: int, pattern: re.Pattern) -> int | None:

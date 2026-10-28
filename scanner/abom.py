@@ -7,6 +7,9 @@ import os
 import re
 from pathlib import Path
 
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
+
 SCANNABLE_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rb"}
 
 ABOM_RULES = [
@@ -421,8 +424,10 @@ def scan_file(filepath):
     if not _should_scan(path):
         return []
     try:
-        source = path.read_text(encoding="utf-8", errors="replace")
+        source = file_index.read_source(path)
     except (OSError, UnicodeError):
+        return []
+    if source is None:
         return []
     if not source.strip():
         return []
@@ -569,16 +574,10 @@ def _iter_scannable_files(target: Path):
         return
     if not target.exists():
         return
-    for root, dirs, files in os.walk(target):
-        dirs[:] = [d for d in dirs if d.lower() not in EXCLUDED_DIRS]
-        root_path = Path(root)
-        for filename in files:
-            path = root_path / filename
-            if path.suffix.lower() not in SCANNABLE_EXT:
-                continue
-            if _is_excluded(path):
-                continue
-            yield path
+    # T-0.2: index query replaces os.walk; abom's EXCLUDED_DIRS are part of
+    # the shared union policy applied at the one walk, so _is_excluded is
+    # subsumed (kept in _should_scan for standalone callers).
+    yield from file_index.index_for(target).files(pred=_should_scan)
 
 def generate_abom(target_path):
     target = Path(target_path)

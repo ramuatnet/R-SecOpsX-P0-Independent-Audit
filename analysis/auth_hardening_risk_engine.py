@@ -225,30 +225,18 @@ def _iter_auth_scan_files(root: Path):
     os.scandir-style recursion is materially cheaper than Path.rglob on
     large Windows trees and allows directory pruning before descending.
     """
-    try:
-        entries = list(root.iterdir())
-    except (OSError, PermissionError):
+    # T-0.2 (task.md): the one walk's index; AUTH_SCAN_SKIP_DIRS is walk
+    # policy now (part of the shared union). The old iterdir recursion
+    # returned empty for a file target (PermissionError/OSError path) --
+    # preserve that: this engine only scans directories.
+    if not root.is_dir():
         return
-
-    for entry in entries:
-        try:
-            if entry.is_dir():
-                if entry.name.lower() in AUTH_SCAN_SKIP_DIRS:
-                    continue
-                yield from _iter_auth_scan_files(entry)
-                continue
-
-            if not entry.is_file():
-                continue
-
-            suffix = entry.suffix.lower()
-            name = entry.name.lower()
-
-            if suffix in SCAN_EXTENSIONS or name in SPECIAL_FILENAMES:
-                yield entry
-
-        except (OSError, PermissionError):
-            continue
+    from core import file_index
+    for entry in file_index.index_for(root).files():
+        suffix = entry.suffix.lower()
+        name = entry.name.lower()
+        if suffix in SCAN_EXTENSIONS or name in SPECIAL_FILENAMES:
+            yield entry
 
 
 def _target_findings(target: str | None) -> list[dict]:

@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 
 from scanner.sast import _skip
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
 
 
 SCANNABLE_EXT = {
@@ -322,8 +324,10 @@ def scan_file(filepath: str) -> list[dict]:
         return []
 
     try:
-        source = path.read_text(encoding="utf-8", errors="replace")
+        source = file_index.read_source(path)
     except OSError:
+        return []
+    if source is None:
         return []
 
     findings = []
@@ -380,9 +384,9 @@ def generate_cbom(target_path: str) -> list[dict]:
     if not target.exists():
         return []
 
-    for path in target.rglob("*"):
-        if _should_scan(path):
-            results.extend(scan_file(str(path)))
+    # T-0.2: index query replaces target.rglob; the skip policy is walk-time.
+    for path in file_index.index_for(target).files(pred=_should_scan):
+        results.extend(scan_file(str(path)))
 
     return results
 

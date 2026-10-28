@@ -11,6 +11,8 @@ CHANGES (v4 †’ v5):
            each group alphabetically sorted for consistent report output.
 """
 from __future__ import annotations
+# T-0.2 (task.md): the one walk's index replaces ~22 rglob passes here.
+from core import file_index
 from scanner.vulnerability_overrides import VULNERABILITY_OVERRIDES
 from scanner.vulnerability_intel import (
     ADVISORY_SERVICE_STATUS,
@@ -1302,50 +1304,34 @@ def generate_sbom(target_path: str) -> list[dict]:
     target   = Path(target_path)
     packages: list[dict] = []
 
-    for f in target.rglob("requirements*.txt"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(_parse_requirements(str(f)))
-
-    for f in target.rglob("package.json"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(_parse_package_json(str(f)))
-            
-    for f in target.rglob("package-lock.json"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(_parse_package_lock(str(f)))
-
-    for f in target.rglob("pom.xml"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(_parse_pom_xml(str(f)))
+    # T-0.2 (task.md): ONE index pass replaces the ~22 per-pattern rglob
+    # passes this function used to run. Each parser keeps its exact name /
+    # glob scope and the historical processing order (first-seen wins in
+    # the dedupe below). The shared skip policy is walk-time now; the old
+    # per-loop EXCLUDED_DIRS checks are subsumed -- they were case-SENSITIVE
+    # parts matches, the walk policy is case-insensitive, so Node_Modules-
+    # style casing variants are newly consistent across engines.
+    idx = file_index.index_for(target)
 
     # Phase 2: manifests beyond the python/js/java trio. semantic-kernel
     # (155 csproj) and autogen (12 pyproject) declared their whole dependency
     # tree in files this function never read, so their SBOMs carried only the
     # single requirements.txt each and understated inventory by hundreds of
-    # components.
-    for f in target.rglob("pyproject.toml"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(parse_pyproject_toml(str(f)))
-    # A8: setup.py carried no read at all. transformers declares its whole
-    # runtime install_requires only in setup.py (its pyproject.toml has no
-    # [project] table), so 9 runtime packages were absent from the SBOM.
-    # Static AST parse only -- never imported/executed.
-    for f in target.rglob("setup.py"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(parse_setup_py(str(f)))
+    # components. A8: setup.py carried no read at all (static AST parse only
+    # -- never imported/executed).
+    _NAMED_PARSERS = (
+        ("package.json", _parse_package_json),
+        ("package-lock.json", _parse_package_lock),
+        ("pom.xml", _parse_pom_xml),
+        ("pyproject.toml", parse_pyproject_toml),
+        ("setup.py", parse_setup_py),
+        ("Directory.Packages.props", parse_nuget_packages_props),
+    )
     _NUGET_MANIFEST_PATTERNS = ("*.csproj", "*.fsproj")
-    for pattern in _NUGET_MANIFEST_PATTERNS:
-        for f in target.rglob(pattern):
-            if not any(p in EXCLUDED_DIRS for p in f.parts):
-                packages.extend(parse_nuget_csproj(str(f)))
-    for f in target.rglob("Directory.Packages.props"):
-        if not any(p in EXCLUDED_DIRS for p in f.parts):
-            packages.extend(parse_nuget_packages_props(str(f)))
-
     # Phase 1: additional lockfile formats (poetry, pnpm, yarn, bun, deno,
     # go, cargo, composer, gemfile). Each parser returns the same dict shape
     # so the dedupe and transitive logic below applies uniformly.
-    _LOCKFILE_PATTERNS = (
+    _LOCKFILE_PARSERS = (
         ("poetry.lock", parse_poetry_lock),
         ("Pipfile.lock", parse_pipfile_lock),
         ("uv.lock", parse_uv_lock),
@@ -1360,10 +1346,17 @@ def generate_sbom(target_path: str) -> list[dict]:
         ("Gemfile.lock", parse_gemfile_lock),
         ("packages.lock.json", parse_nuget_lock),
     )
-    for pattern, parser in _LOCKFILE_PATTERNS:
-        for f in target.rglob(pattern):
-            if not any(p in EXCLUDED_DIRS for p in f.parts):
-                packages.extend(parser(str(f)))
+    for f in idx.files(patterns={"requirements*.txt"}):
+        packages.extend(_parse_requirements(str(f)))
+    for name, parser in _NAMED_PARSERS:
+        for f in idx.files(names={name}):
+            packages.extend(parser(str(f)))
+    for pattern in _NUGET_MANIFEST_PATTERNS:
+        for f in idx.files(patterns={pattern}):
+            packages.extend(parse_nuget_csproj(str(f)))
+    for name, parser in _LOCKFILE_PARSERS:
+        for f in idx.files(names={name}):
+            packages.extend(parser(str(f)))
 
     # Deduplicate
     seen: set = set()

@@ -10,6 +10,8 @@ except ImportError:  # pragma: no cover - defensive
     yaml = None
 
 from scanner.sast import _skip
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
 
 
 SCANNABLE_EXT = {
@@ -322,8 +324,10 @@ def scan_file(filepath: str) -> list[dict]:
         return []
 
     try:
-        source = path.read_text(encoding="utf-8", errors="replace")
+        source = file_index.read_source(path)
     except OSError:
+        return []
+    if source is None:
         return []
 
     findings = []
@@ -488,9 +492,12 @@ def _card_block(meta: dict, *, source_file: str, fmt: str,
 def _parse_model_card(path: Path) -> dict | None:
     """Parse one candidate card document. Fail-open on malformed input."""
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")[:_CARD_READ_CAP]
+        raw = file_index.read_source(path)
     except OSError:
         return None
+    if raw is None:
+        return None
+    text = raw[:_CARD_READ_CAP]
 
     # Windows repos are full of UTF-8-BOM files; a card must parse
     # regardless of which editor wrote it.
@@ -562,9 +569,8 @@ def _parse_model_card(path: Path) -> dict | None:
 def _extract_model_cards(target: Path) -> list[dict]:
     """All parseable model cards under the scan target."""
     cards: list[dict] = []
-    for path in target.rglob("*"):
-        if not path.is_file() or _skip(path):
-            continue
+    # T-0.2: index query replaces target.rglob; the skip policy is walk-time.
+    for path in file_index.index_for(target).files():
         lower = path.name.lower()
         if lower in MODEL_CARD_FILENAMES or lower == "readme.md":
             card = _parse_model_card(path)
@@ -648,12 +654,9 @@ def generate_mlbom(target_path: str) -> list[dict]:
     # associated as the final step (association needs the whole set).
     cards = _extract_model_cards(target)
 
-    for path in target.rglob("*"):
-        if _skip(path):
-            continue
-
-        if _should_scan(path):
-            results.extend(scan_file(str(path)))
+    # T-0.2: index query replaces target.rglob; the skip policy is walk-time.
+    for path in file_index.index_for(target).files(pred=_should_scan):
+        results.extend(scan_file(str(path)))
 
     return _associate_model_cards(deduplicate(results), cards)
 

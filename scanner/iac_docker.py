@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
 from scanner.iac_models import evaluate_docker_rules, parse_dockerfile
 
 
@@ -252,15 +254,13 @@ def _iter_files(target: Path):
         yield target
         return
 
-    for path in target.rglob("*"):
-        if not path.is_file():
-            continue
+    # T-0.2: index query replaces target.rglob. This engine used to apply
+    # NO directory skip at all; the shared union policy now covers it.
+    def _docker_candidate(path: Path) -> bool:
+        return (path.suffix.lower() in DOCKER_EXTENSIONS
+                or _is_dockerfile_name(path.name.lower()))
 
-        name = path.name.lower()
-        suffix = path.suffix.lower()
-
-        if suffix in DOCKER_EXTENSIONS or _is_dockerfile_name(name):
-            yield path
+    yield from file_index.index_for(target).files(pred=_docker_candidate)
 
 
 def _is_dockerfile(text: str, path: Path) -> bool:

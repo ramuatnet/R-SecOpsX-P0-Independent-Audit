@@ -32,13 +32,13 @@ def _safe_read(path):
         return []
 
 def _iter_project_files(project_root):
-    for root, dirs, files in os.walk(project_root):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
-        for filename in files:
-            path = os.path.join(root, filename)
-            ext = os.path.splitext(filename)[1].lower()
-            if ext in SOURCE_EXTENSIONS or filename in {"package.json", "pom.xml", "build.gradle"}:
-                yield path
+    # T-0.2 (task.md): the one walk's index; SKIP_DIRS is walk policy now.
+    # Contract kept: yields STRINGS (callers do os.path.relpath/basename).
+    from core import file_index
+    for path in file_index.index_for(project_root).files(
+            exts={e.lower() for e in SOURCE_EXTENSIONS},
+            names={"package.json", "pom.xml", "build.gradle"}):
+        yield str(path)
 
 def extract_source_references(project_root):
     references = []

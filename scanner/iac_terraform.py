@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+# T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+from core import file_index
 from scanner.iac_models import evaluate_terraform_rules, parse_hcl2
 
 
@@ -871,33 +873,12 @@ def _iter_files(target: Path):
             yield root
         return
 
-    # Do not use Path.rglob here: on Windows, directory junctions/reparse
-    # points can be traversed without presenting as ordinary symlinks. Walk
-    # top-down so escaped directories are pruned before descent.
-    import os
-    for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
-        current = Path(dirpath)
-        safe_dirs = []
-        for dirname in dirnames:
-            child = current / dirname
-            try:
-                resolved_dir = child.resolve()
-                if resolved_dir == root or root in resolved_dir.parents:
-                    safe_dirs.append(dirname)
-            except (OSError, RuntimeError):
-                continue
-        dirnames[:] = safe_dirs
-        for filename in filenames:
-            path = current / filename
-            if path.suffix.lower() not in TF_EXTENSIONS:
-                continue
-            try:
-                resolved = path.resolve()
-                if resolved != root and root not in resolved.parents:
-                    continue
-                yield resolved
-            except (OSError, RuntimeError):
-                continue
+    # T-0.2: the one walk replaces this per-engine os.walk. Its Windows
+    # junction containment pruning (reparse points do not present as
+    # symlinks) is now walk-time policy for EVERY engine -- see
+    # core/file_index.py (dirs_outside_root / files_outside_root counters).
+    yield from file_index.index_for(target).files(
+        exts={e.lower() for e in TF_EXTENSIONS})
 
 
 def _is_terraform_file(text: str, path: Path) -> bool:

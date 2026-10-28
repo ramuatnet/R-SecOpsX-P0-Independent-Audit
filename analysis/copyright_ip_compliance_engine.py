@@ -69,10 +69,9 @@ def _priority_for(severity: str) -> str:
 
 
 def _safe_read(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return ""
+    from core import file_index
+    text = file_index.read_source(path, encoding="utf-8", errors="ignore")
+    return text if text is not None else ""
 
 
 def _should_scan_file(path: Path) -> bool:
@@ -150,13 +149,10 @@ def analyze_copyright_ip_compliance(project_path: str) -> Dict[str, Any]:
 
     files_scanned = 0
 
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-
-        if not _should_scan_file(path):
-            continue
-
+    # T-0.2 (task.md): the one walk's index; this engine's EXCLUDED_DIRS
+    # are part of the shared union policy applied at the one walk.
+    from core import file_index
+    for path in file_index.index_for(root).files(pred=_should_scan_file):
         files_scanned += 1
         text = _safe_read(path)
 

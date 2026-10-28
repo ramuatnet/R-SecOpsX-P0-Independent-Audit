@@ -524,7 +524,9 @@ def scan_model_artifacts(target) -> list[dict]:
     """
     if not _enabled():
         return []
-    from scanner.sast import _make_finding, _skip  # call-time: no import cycle
+    from scanner.sast import _make_finding  # call-time: no import cycle
+    # T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+    from core import file_index
 
     root = Path(target)
     if not root.exists():
@@ -533,9 +535,9 @@ def scan_model_artifacts(target) -> list[dict]:
     findings: list[dict] = []
     pickle_paths: list[Path] = []
 
-    for fp in root.rglob("*"):
-        if not fp.is_file() or _skip(fp):
-            continue
+    # Walk policy (skip dirs/files, scanner-result exports, .sastignore
+    # paths) already applied by the one walk; _skip is subsumed.
+    for fp in file_index.index_for(root).files():
         ext = fp.suffix.lower()
         try:
             if ext == _SAFETENSORS_EXT:
@@ -578,7 +580,7 @@ def scan_model_artifacts(target) -> list[dict]:
     # One advisory per model directory that has pickle weights and no
     # safetensors sibling. Anchored on the first pickle-weight file.
     try:
-        configs = [p for p in root.rglob("config.json") if p.is_file() and not _skip(p)]
+        configs = file_index.index_for(root).files(names={"config.json"})
     except OSError:
         configs = []
     for config in configs:

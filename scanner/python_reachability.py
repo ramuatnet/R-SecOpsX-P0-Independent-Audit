@@ -263,17 +263,22 @@ def build_call_graph(project_root: str | Path) -> dict[str, Any]:
     syntax_errors: list[dict] = []
     parsed = 0
 
-    for path in sorted(root.rglob("*.py")):
-        if any(part in _SKIP_DIRS for part in path.parts):
-            continue
+    # T-0.2 (task.md): the one walk's index; _SKIP_DIRS is walk policy now
+    # (the union is case-INSENSITIVE where this list was case-sensitive).
+    from core import file_index
+    root = root.resolve()
+    for path in sorted(file_index.index_for(root).files(exts={".py"})):
         relpath = path.relative_to(root).as_posix()
         try:
             # utf-8-sig, not utf-8: Windows-authored files often carry a
             # BOM, and ast.parse rejects the U+FEFF codepoint outright —
             # with plain utf-8 every finding in a BOM'd file would go
             # silently UNKNOWN instead of being analyzed.
-            source = path.read_text(encoding="utf-8-sig", errors="ignore")
+            source = file_index.read_source(
+                path, encoding="utf-8-sig", errors="ignore")
         except OSError:
+            continue
+        if source is None:
             continue
         try:
             index = _index_with_qualnames(source, relpath)

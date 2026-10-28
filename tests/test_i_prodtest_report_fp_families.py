@@ -147,12 +147,20 @@ def test_rate_limit_transfer_payment_route_still_reported(tmp_path):
 
 # ---------------------------------------------------------------------------
 # I2 -- shared EXCLUDED_DIRS policy gains "out" (forge build artifacts)
+# T-0.2 (task.md): sast._skip now wraps the ONE walk-level policy, so the
+# union's "target" (Maven/Cargo/Gradle build output) applies as well.
 # ---------------------------------------------------------------------------
 def test_sast_skip_policy_excludes_out_dir():
     from scanner.sast import _skip
 
     assert _skip(pathlib.Path("target/contracts/out/Factory.sol/X.json")) is True
-    assert _skip(pathlib.Path("target/contracts/src/X.json")) is False
+    # T-0.2 behaviour change (measured, disclosed): this was False under
+    # the per-engine list -- "target" is union policy now (build output;
+    # I2's forge-out FP precedent generalised; seven engines already
+    # excluded it before T-0.2). The control below pins that the skip
+    # stays precise: non-build source paths are still scanned.
+    assert _skip(pathlib.Path("target/contracts/src/X.json")) is True
+    assert _skip(pathlib.Path("contracts/src/X.json")) is False
 
 
 def test_secret_skip_policy_excludes_out_dir():

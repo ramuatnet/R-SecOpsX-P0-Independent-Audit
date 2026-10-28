@@ -20,6 +20,11 @@ except Exception:
     def get_mapping(vuln_type: str) -> dict:
         return {}
 
+# T-0.2 (task.md): shared content read. The taint pipeline used to open
+# the same file once in _analyze_base and once more in EVERY java-semantics
+# pass; the scan's index serves one disk read for all of them.
+from core import file_index
+
 TAINT_SOURCES = {
     # Flask / FastAPI / Werkzeug request surfaces
     "request.args", "request.form", "request.json", "request.data", "request.headers", "request.cookies",
@@ -3670,9 +3675,8 @@ def _analyze_base(filepath: str) -> list[dict]:
     path = Path(filepath)
     if _is_generated_artifact(filepath):
         return []
-    try:
-        source = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    source = file_index.read_source(path)
+    if source is None:
         return []
     lang = _language(path)
     findings: list[dict] = []
@@ -3773,13 +3777,25 @@ def _java_find_properties_file(filepath: str, name: str) -> str | None:
     if result is None:
         # Bounded fallback: search only inside a nearby src/ tree, and stop
         # at the first match.  Candidate paths above normally win.
+        # T-0.2: query the scan's one index (never a second walk). The
+        # rglob remains only for standalone calls with no active index.
+        from core import file_index
+        active_idx = file_index.current()
         for parent in parents:
             srcdir = parent / "src"
             try:
                 if srcdir.is_dir():
-                    for found in srcdir.rglob(name):
-                        result = str(found)
-                        break
+                    if active_idx is not None:
+                        for found in active_idx.files(names={name}):
+                            # any depth below srcdir (maven layout is
+                            # src/main/resources/...)
+                            if srcdir in found.parents:
+                                result = str(found)
+                                break
+                    else:
+                        for found in srcdir.rglob(name):
+                            result = str(found)
+                            break
             except OSError:
                 continue
             if result:
@@ -3853,12 +3869,11 @@ def _java_properties_resolved_values(masked: list[str],
             if path:
                 table = _PROPS_TABLE_CACHE.get(path)
                 if table is None:
-                    try:
-                        table = _java_parse_properties_text(
-                            Path(path).read_text(encoding="utf-8",
-                                                 errors="replace"))
-                    except OSError:
+                    _props_text = file_index.read_source(Path(path))
+                    if _props_text is None:
                         table = {}
+                    else:
+                        table = _java_parse_properties_text(_props_text)
                     _PROPS_TABLE_CACHE[path] = table
             bound[bm.group(1)] = table or {}
     if not bound:
@@ -3980,8 +3995,10 @@ def _apply_j2_java_semantics(filepath: str, findings: list[dict]) -> list[dict]:
     try:
         path = Path(filepath)
         if path.suffix.lower() == '.java' and not _is_generated_artifact(filepath):
-            source = path.read_text(encoding='utf-8', errors='replace')
-            findings.extend(_scan_java_security_api_semantics(filepath, source))
+            source = file_index.read_source(path)
+            if source is not None:
+                findings.extend(
+                    _scan_java_security_api_semantics(filepath, source))
     except OSError:
         pass
     seen = set()
@@ -4579,7 +4596,9 @@ def _apply_j3_java_semantics(filepath: str, findings: list[dict]) -> list[dict]:
     try:
         path=Path(filepath)
         if path.suffix.lower()=='.java' and not _is_generated_artifact(filepath):
-            source=path.read_text(encoding='utf-8',errors='replace')
+            source=file_index.read_source(path)
+            if source is None:
+                return findings
             existing_keys = {
                 (str(f.get('vuln_type','')), str(f.get('file','')), int(f.get('line') or 0))
                 for f in findings
@@ -4798,7 +4817,9 @@ def _apply_j32c_java_semantics(filepath: str, findings: list[dict]) -> list[dict
     try:
         path = Path(filepath)
         if path.suffix.lower() == '.java' and not _is_generated_artifact(filepath):
-            source = path.read_text(encoding='utf-8', errors='replace')
+            source = file_index.read_source(path)
+            if source is None:
+                return findings
             existing_semantic_keys = {
                 (str(f.get('vuln_type', '')), str(f.get('file', '')), int(f.get('line') or 0))
                 for f in findings
@@ -4843,7 +4864,9 @@ def _apply_j4_java_semantics(filepath: str, findings: list[dict]) -> list[dict]:
         path = Path(filepath)
 
         if path.suffix.lower() == '.java' and not _is_generated_artifact(filepath):
-            source = path.read_text(encoding='utf-8', errors='replace')
+            source = file_index.read_source(path)
+            if source is None:
+                return findings
 
             existing_keys = {
                 (
@@ -4983,7 +5006,10 @@ def _apply_r13_v2r12(filepath: str, findings: list[dict]) -> list[dict]:
     try:
         _path = Path(filepath)
         if _path.suffix.lower() == ".java" and not _is_generated_artifact(filepath):
-            _extra = _r13_v2r12_candidate_findings(filepath, _path.read_text(encoding="utf-8", errors="replace"))
+            _src13 = file_index.read_source(_path)
+            if _src13 is None:
+                return findings
+            _extra = _r13_v2r12_candidate_findings(filepath, _src13)
             _existing = {(str(f.get("vuln_type","")), str(f.get("file","")), int(f.get("line") or 0)) for f in findings if isinstance(f, dict)}
             for _f in _extra:
                 _key = (str(_f.get("vuln_type","")), str(_f.get("file","")), int(_f.get("line") or 0))

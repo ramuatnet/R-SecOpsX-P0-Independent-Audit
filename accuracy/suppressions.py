@@ -18,6 +18,11 @@ import json
 import re
 from pathlib import Path
 
+# T-0.2 (task.md): one .sastignore evaluation per scan. The loader lives in
+# core.file_index (cached across the whole scan); this module consumes it so
+# the file is read once, not once per finding.
+from core import file_index
+
 _INLINE = re.compile(
     r"(?://|#|--)\s*sast-ignore\s+([A-Za-z0-9_\-,*\s]+?)(?:\s+(.+))?$",
     re.IGNORECASE)
@@ -41,18 +46,9 @@ def _inline_ignores(file_text: str | None, line_no: int | None
 
 
 def _load_sastignore(target: str | None) -> list[str]:
-    if not target:
-        return []
-    p = Path(target) / ".sastignore"
-    if not p.is_file():
-        return []
-    rules = []
-    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        rules.append(line)
-    return rules
+    # T-0.2: shared, per-scan-cached loader (core.file_index). Identical
+    # file format and ordering; the cache is cleared by file_index.begin_scan().
+    return file_index._load_sastignore_rules(target)
 
 
 def _matches_ignore(rule_id: str, file_path: str, patterns: list[str]

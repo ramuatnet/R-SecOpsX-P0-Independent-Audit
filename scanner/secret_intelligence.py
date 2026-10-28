@@ -1157,8 +1157,10 @@ def scan_file(filepath: str) -> list[dict]:
     if _is_scanner_result_xml(path): return []
     suffix=path.suffix.lower()
     if suffix not in SECRET_EXT and path.name not in {".env","application.properties","application.yml","application.yaml","Dockerfile"}: return []
-    try: text=path.read_text(encoding="utf-8",errors="replace")
+    from core import file_index
+    try: text=file_index.read_source(path)
     except OSError: return []
+    if text is None: return []
     findings=[]; lang=_language(path)
     known_findings=[]
     if not _is_nonproduction_context(path):
@@ -1335,8 +1337,15 @@ def _defer_fallback_claims(findings: list[dict]) -> list[dict]:
     return out
 
 def scan_secret_intelligence(target_path: str) -> dict:
+    # T-0.2 (task.md): the one walk's index; no engine re-walks the tree.
+    # This engine intentionally walks EVERY file (secret ext-gating happens
+    # in scan_file); the index holds every non-excluded file, same shape.
+    from core import file_index
     target = Path(target_path)
-    files = [target] if target.is_file() else [p for p in target.rglob("*") if p.is_file()]
+    if target.is_file():
+        files = [target]
+    else:
+        files = file_index.index_for(target).files()
     findings = []
     for path in files:
         findings.extend(scan_file(str(path)))

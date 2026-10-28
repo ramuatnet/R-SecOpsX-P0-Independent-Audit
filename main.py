@@ -30,6 +30,10 @@ from core import depth_guard
 # T-0.5 (task.md ground rule 12): per-regex wall-clock budget on every
 # rule-table finditer; breaches surface as REGEX_TIMEOUT telemetry.
 from core import regex_budget
+# T-0.2 (task.md): the one filesystem walk + shared file index. Every
+# engine consumes file_index.index_for(root); walk count lands in
+# metadata.file_index and the gate asserts exactly 1 per scan.
+from core import file_index
 
 # Artifacts whose generation FAILED, as (artifact, reason).
 #
@@ -50,6 +54,10 @@ from scanner.iac_kubernetes import scan_kubernetes
 from scanner.iac_terraform import scan_terraform
 from scanner.mlbom import generate_mlbom
 from scanner.iac_docker import scan_docker
+# Compose/IaC: the docker-compose scan was previously referenced without an
+# import, so scan_compose() was a NameError swallowed by the broad
+# except Exception around it -- "docker-compose scan failed" on every run.
+from scanner.iac_compose import scan_compose
 from scanner.compliance_mapper import enrich_compliance, compliance_summary, compliance_summary_detail
 from scanner.package_intelligence import enrich_report_payload, license_risk_count
 from scanner.dependency_intelligence import enrich_dependency_intelligence, dependency_summary
@@ -83,7 +91,9 @@ from analysis.framework_enrichment_engine import (
 from scanner.llm_security import scan_llm_file
 from scanner.llm_context_precision import classify_findings
 from scanner.advanced_ai_security import scan_advanced_ai_file
-from scanner.sast import _skip
+# T-0.2: main.py no longer walks or re-implements skip policy; engines
+# consume core.file_index.index_for(). scanner.sast still exports _skip
+# for external callers.
 from scanner.analysis_context import (
     enrich_findings_context,
     load_analysis_context_config,
@@ -1140,18 +1150,9 @@ def _scan_llm_security(target: str) -> list[dict]:
         "test",
     }
 
-    for path in Path(target).rglob("*"):
-        if not path.is_file():
-            continue
-
-        # Reuse the centralized SAST exclusion policy so LLM analysis
-        # does not scan dependency/build/generated trees such as node_modules.
-        if _skip(path):
-            continue
-
-        if path.suffix.lower() not in scan_ext:
-            continue
-
+    # T-0.2 (task.md): the one walk's index; the skip policy is walk-time.
+    for path in file_index.index_for(target).files(
+            exts={e.lower() for e in scan_ext}):
         name = path.name.lower()
         parts = {p.lower() for p in path.parts}
 
@@ -1165,7 +1166,10 @@ def _scan_llm_security(target: str) -> list[dict]:
             continue
 
         try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
+            content = file_index.read_source(
+                path, encoding="utf-8", errors="ignore")
+            if content is None:
+                continue
             findings.extend(scan_llm_file(str(path), content))
         except Exception:
             continue
@@ -1179,13 +1183,17 @@ def _apply_llm_context_precision(target: str, findings: list[dict]) -> tuple[lis
         return [], {"raw": 0, "actionable": 0, "contextual": 0}
 
     file_cache = {}
-    for path in Path(target).rglob("*"):
-        if not path.is_file() or _skip(path):
-            continue
+    # T-0.2 (task.md): the one walk's index; this caches every
+    # non-excluded file's content for the precision classification.
+    for path in file_index.index_for(target).files():
         try:
-            file_cache[str(path)] = path.read_text(encoding="utf-8", errors="ignore")
+            content = file_index.read_source(
+                path, encoding="utf-8", errors="ignore")
         except Exception:
             continue
+        if content is None:
+            continue
+        file_cache[str(path)] = content
 
     classified = classify_findings(findings, file_cache)
     actionable = [f for f in classified if f.get("actionable") is True]
@@ -1205,17 +1213,9 @@ def _scan_advanced_ai_security(target: str) -> list[dict]:
         ".sh", ".ps1", ".bat"
     }
 
-    for path in Path(target).rglob("*"):
-        if not path.is_file():
-            continue
-
-        # Reuse the centralized SAST exclusion policy here as well.
-        if _skip(path):
-            continue
-
-        if path.suffix.lower() not in scan_ext:
-            continue
-
+    # T-0.2 (task.md): the one walk's index; the skip policy is walk-time.
+    for path in file_index.index_for(target).files(
+            exts={e.lower() for e in scan_ext}):
         name = path.name.lower()
         parts = {p.lower() for p in path.parts}
 
@@ -1227,7 +1227,10 @@ def _scan_advanced_ai_security(target: str) -> list[dict]:
             continue
 
         try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
+            content = file_index.read_source(
+                path, encoding="utf-8", errors="ignore")
+            if content is None:
+                continue
             findings.extend(scan_advanced_ai_file(str(path), content))
         except Exception:
             continue
@@ -3232,6 +3235,9 @@ def main():
     # T-0.5: one regex-budget collector per scan; REGEX_TIMEOUT rows are
     # attached to report metadata only when a breach actually happened.
     regex_budget.begin_scan()
+    # T-0.2: one walk counter + one current index per scan; .sastignore
+    # cache cleared with it.
+    file_index.begin_scan()
     _banner()
 
     # --sbom ingest mode replaces the directory target with the document:
@@ -3298,6 +3304,11 @@ def main():
     t0 = time.time()
     _timing_start_scan()
 
+    # T-0.2: THE one walk. Every engine below consumes this index through
+    # file_index.index_for(root) -- no engine re-walks the tree. The count
+    # is instrumented (metadata.file_index.walks) and the gate asserts 1.
+    file_index.walk(target)
+
     if sbom_ingest_doc is not None:
         raw = []
         _safe_print("  [i] SBOM ingest mode: source scan skipped "
@@ -3352,14 +3363,10 @@ def main():
     try:
         from analysis.npm_lock_graph_v2 import extract_verified_edges
 
-        lockfiles = []
-
-        for lockfile in Path(target).rglob("package-lock.json"):
-            if not any(
-                part in {"node_modules", ".git"}
-                for part in lockfile.parts
-            ):
-                lockfiles.append(lockfile)
+        # T-0.2 (task.md): the one walk's index; node_modules/.git are
+        # shared union walk policy now.
+        lockfiles = file_index.index_for(target).files(
+            names={"package-lock.json"})
 
         graph_results = []
 
@@ -5849,6 +5856,12 @@ def main():
     _rb_meta = regex_budget.current().as_metadata()
     if _rb_meta.get("timeouts"):
         payload.setdefault("metadata", {})["regex_budget"] = _rb_meta
+    # T-0.2: walk instrumentation rides inside every report (unlike the
+    # breach-only regex_budget block -- the walk count IS the acceptance
+    # signal). Every field is structural: two scans of the same tree emit
+    # byte-identical blocks (ground rule 10).
+    payload.setdefault("metadata", {})["file_index"] = (
+        file_index.report_metadata(file_index.current()))
     json_path = output_dir / "clean_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)

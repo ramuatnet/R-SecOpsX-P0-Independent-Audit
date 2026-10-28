@@ -57,6 +57,8 @@ from __future__ import annotations
 import os
 import re
 
+from core import file_index
+
 #: Value lattice. SAFE is the only value that can justify a kill.
 _SAFE = "safe"
 _UNSAFE = "unsafe"      # proven attacker-influenced
@@ -693,8 +695,8 @@ class _Analyzer:
             return self._crossfile[key]
         meta: tuple = ("", [])
         try:
-            head = path.read_text(
-                encoding="utf-8-sig", errors="replace")[:8192]
+            head = (file_index.read_source(
+                path, encoding="utf-8-sig", errors="replace") or "")[:8192]
             pm = re.search(r"^\s*package\s+([\w.]+)\s*;", head, re.M)
             imports = re.findall(
                 r"^\s*import\s+(?:static\s+)?([\w.]+)\s*;", head, re.M)
@@ -750,8 +752,13 @@ class _Analyzer:
                         continue
                     if cand.stat().st_size > 262144:
                         continue
-                    text = cand.read_text(
-                        encoding="utf-8-sig", errors="replace")
+                    text = file_index.read_source(
+                        cand, encoding="utf-8-sig", errors="replace")
+                    if text is None:
+                        # Old path raised OSError here and the outer handler
+                        # kept the cache slot as an unresolved None -- an
+                        # unreadable candidate never half-resolves.
+                        raise OSError(f"unreadable: {cand}")
                     if not re.search(rf"\bclass\s+{re.escape(cls.rsplit('.', 1)[-1])}\b",
                                      text):
                         continue

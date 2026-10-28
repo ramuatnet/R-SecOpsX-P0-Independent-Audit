@@ -38,6 +38,10 @@ from core import filter_trace
 # T-0.5 (task.md ground rule 12): every rule-table finditer runs through
 # the per-regex wall-clock budget; breaches emit REGEX_TIMEOUT telemetry.
 from core import regex_budget
+# T-0.2 (task.md): the canonical skip policy, language map and the one
+# walk live in core.file_index; the historical names below are re-exported
+# so every existing `from scanner.sast import _skip` keeps working.
+from core import file_index
 
 try:
     from core.deduplicator import group_findings
@@ -70,77 +74,15 @@ SCANNABLE_EXT = {
     ".env", ".yml", ".yaml", ".properties", ".xml", ".json", ".graphql", ".gql",
     ".gradle", ".csproj", ".config", ".tf", ".Dockerfile", "Dockerfile",
 }
-EXCLUDED_FILES = {
-    "bom.json", "clean_report.json", "scan_manifest.json", "sbom.json", "cbom.json",
-    "aibom.json", "mlbom.json", "apibom.json", "abom.json", "sarif.json", "qbom.json",
-    # Prefixed artifacts. Matching is by exact filename, lowercased, so a bare
-    # "qbom.json" entry does not cover "Security_QBOM.qbom.json" and the scanner
-    # reads its own output back as scanned input. Every name main.py writes through
-    # output_dir is listed, verified against the write sites rather than assumed.
-    "security_qbom.pq.json", "security_qbom.qbom.json",
-    "security_cyclonedx.json", "security_report.vex.json",
-    "security_spdx.spdx.json", "scan_performance.json",
-    # Phase 4: the CycloneDX 1.6 CBOM/AI-BOM artifacts. Same hazard as every
-    # entry above -- written into output_dir, then read back as scan input on
-    # a re-scan of the same directory.
-    "security_cbom.cdx.json", "security_aibom.cdx.json",
-    # Phase 5.2/5.4 integration artifacts. The CSV is not a scannable
-    # extension but is listed per the "every name main.py writes" convention;
-    # the two JSONs ARE a self-scan hazard. They were missed when shipped
-    # because their write sites live inside reporting/webhook_export.py
-    # (helper-module writes), which the self-scan guard's discovery regex
-    # could not see -- the guard now scans reporting/ too.
-    "security_jira_import.csv", "security_findings_webhook.json",
-    "security_defectdojo_import.json",
-    # Phase 5.3: the continuous re-evaluation artifact writes BESIDE a
-    # caller-supplied clean_report.json by default, so it can land in a
-    # directory that is later re-scanned.
-    "security_continuous.json",
-    # T-0.1: --explain-drops writes drops.json beside clean_report.json;
-    # same self-scan hazard as every entry above.
-    "drops.json",
-}
+EXCLUDED_FILES = file_index.EXCLUDED_FILES
 
 # qbom.json added with the Quantum BOM artifact (CERT-In v2.0 Table 8). The handoff
 # lists this exact hazard: a new artifact filename must be excluded or the scanner
-# reads its own output back as scanned input.
-EXCLUDED_DIRS = {
-    ".git", ".svn", "node_modules", "__pycache__", ".tox", "venv", ".venv",
-    "env", ".env", "dist", "build", ".cache", "vendor", "third_party", "migrations",
-    "reports", "artifacts", "output", "outputs", "coverage", ".pytest_cache",
-    # I2 (2026-10-19, prodtest/ethernaut): forge build artifacts live in
-    # contracts/out/ and are committed but generated (397 files; 14 FP rows:
-    # an IPFS CID as an AWS key, methodIdentifiers as credentials, an ABI
-    # "log" function in PROMPT_RESPONSE). Sibling output dirs ("output",
-    # "outputs", "artifacts") were already excluded; "out" was not.
-    "out",
-    # I18 (2026-10-26, aclean report): i18n property bundles under
-    # src/main/resources/bundle/ are translation files, not source. Their
-    # values contain credential-shaped words ("password", "token", "secret")
-    # in 12 languages, producing 64 CONFIG_CONTEXTUAL_CREDENTIAL findings
-    # per file. "bundle" is the standard Maven/Gradle location for i18n
-    # resource bundles.
-    "bundle",
-}
+# reads its own output back as scanned input. T-0.2: this is now the UNION of
+# every scan-path engine's list -- see core/file_index.py for per-entry provenance.
+EXCLUDED_DIRS = file_index.EXCLUDED_DIRS
 
-LANG_BY_EXT = {
-    ".py": "python", ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
-    ".cjs": "javascript", ".ts": "typescript", ".tsx": "typescript",
-    ".java": "java", ".kt": "kotlin", ".scala": "scala", ".go": "go", ".php": "php",
-    ".cs": "csharp", ".vb": "vbnet", ".xml": "xml", ".properties": "properties",
-    ".rs": "rust",
-    # 2026-10-21 batch-10: railsgoat G15 -- .rb fell through to the bare
-    # "rb" fallback, so every ruby-language-gated rule (RUBY_RAILS_SECRET_TOKEN)
-    # was dead. Mapping the extension is what activates the langs gate; no
-    # other rule lists "ruby" today, so nothing else changes behavior.
-    ".rb": "ruby",
-    # 2026-10-23 G7: .sol had no mapping (and was not in SCANNABLE_EXT), so
-    # Solidity sources never reached the rule loop at all. .erb likewise:
-    # Rails templates are where the ERB XSS shape actually lives.
-    ".sol": "solidity",
-    ".erb": "ruby",
-    ".yml": "yaml", ".yaml": "yaml", ".json": "json", ".graphql": "graphql", ".gql": "graphql",
-}
+LANG_BY_EXT = file_index.LANG_BY_EXT
 
 BASE_REMEDIATION = {
     "xxe": ["Disable DTD and external entity resolution in XML parsers.", "Use safe parser factories with secure processing enabled.", "Reject untrusted XML or convert to JSON where possible."],
@@ -682,20 +624,9 @@ COMPILED_ENTERPRISE_RULES = [
 
 
 def _skip(path: Path) -> bool:
-    # Normalize every path component so excluded directories such as
-    # Node_Modules / BUILD / Venv cannot bypass the exclusion policy.
-    excluded_files = {str(name).lower() for name in EXCLUDED_FILES}
-    excluded_dirs = {str(name).lower() for name in EXCLUDED_DIRS}
-    if (
-        path.name.lower() in excluded_files
-        or any(str(part).lower() in excluded_dirs for part in path.parts)
-        # I19 (2026-10-26, aclean): a scanner-result JSON export inside the
-        # tree is tool output, not source. 98 rows on the aclean corpus came
-        # from reading one export's own evidence back as code.
-        or _is_scanner_result_json(path)
-    ):
-        return True
-    return False
+    # T-0.2: the policy lives in core.file_index (the one walk applies it
+    # once for every engine); this wrapper keeps the historical name.
+    return file_index.skip_path(path)
 
 
 def _should_scan(path: Path) -> bool:
@@ -725,40 +656,9 @@ _SCANNER_RESULT_XML_ROOTS = frozenset({
 })
 
 
-def _is_scanner_result_json(path: Path) -> bool:
-    """True when the file is a SECURITY-SCANNER RESULT export (JSON).
-
-    Third-party scanner exports embed evidence from ELSEWHERE in the repo, so
-    findings read off them double-count real findings and invent new ones. The
-    aclean corpus carried ``RBI7SASTSBOMSCA-result.json``: 98 rows whose
-    snippets are that export's own text, matched again as if it were source.
-
-    Detection is by CONTENT -- the report schema's own markers
-    (``metadata.tool`` + ``total_findings`` + a ``findings`` list whose members
-    carry ``rule_id``) -- and never by filename, so an application JSON that
-    happens to hold a ``findings`` array without the report envelope is still
-    scanned. The header read is bounded like the XML variant below.
-    """
-    if path.suffix.lower() != ".json":
-        return False
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
-            head = fh.read(4096)
-    except OSError:
-        return False
-    # The report envelope: a metadata block naming the tool, a total_findings
-    # counter beside it, and a findings array. Requiring BOTH the counter and
-    # the tool name keeps a config file that merely mentions "findings" clean.
-    if '"total_findings"' not in head and '"scan_date"' not in head:
-        return False
-    if '"tool"' not in head:
-        return False
-    if '"findings"' not in head and '"secret-id"' not in head:
-        return False
-    # Corroborate the findings-array member shape: rule_id is the one key every
-    # finding carries and no benign config file does. Secrets exports carry
-    # secret-id instead (the VA combined export's row shape).
-    return '"rule_id"' in head or '"secret-id"' in head
+# T-0.2: moved to core.file_index so the one walk applies it once for every
+# engine; the historical name is kept (analysis/validation/brain.py imports it).
+_is_scanner_result_json = file_index._is_scanner_result_json
 
 
 def _is_scanner_result_xml(path: Path) -> bool:
@@ -1608,15 +1508,16 @@ def _collect_corpus_session_keys(target) -> set:
     """
     keys: set = set()
     try:
-        php_files = list(Path(target).rglob("*.php"))
+        # T-0.2: the one walk already applied the skip policy; no re-walk.
+        php_files = file_index.index_for(target).files(exts={".php"})
     except OSError:
         php_files = []
     for fp in php_files:
-        if _skip(fp):
-            continue
         try:
-            text = fp.read_text(encoding="utf-8", errors="replace")
+            text = file_index.read_source(fp)
         except OSError:
+            continue
+        if text is None:
             continue
         assignments = re.findall(r"\$([A-Za-z_]\w*)\s*=\s*([^;\n]+)", text)
         tainted: set = set()
@@ -2864,9 +2765,11 @@ def scan_file(filepath: str) -> list[dict]:
     # loaded into memory.
     if _is_scanner_result_xml(path):
         return []
-    try:
-        source = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    # T-0.2: shared content read through the scan's index -- one disk read
+    # per file per scan even though sast, taint and every BOM engine all
+    # need the text. Falls back to a direct read when no scan is active.
+    source = file_index.read_source(path)
+    if source is None:
         return []
     lines = source.splitlines()
     language = _language(path)
@@ -3273,7 +3176,8 @@ def summarize_enterprise_controls(findings: list[dict]) -> dict:
 
 def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
     target = Path(target_path)
-    all_files = [f for f in target.rglob("*") if f.is_file() and _should_scan(f)]
+    # T-0.2: consume the one walk's index; no re-walk of the tree here.
+    all_files = file_index.index_for(target).files(pred=_should_scan)
     all_findings: list[dict] = []
 
     # A1b corpus pre-pass: prove which $_SESSION keys carry request data
@@ -3349,14 +3253,17 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
                 # and the guard below reported "servlet rules unavailable".
                 # The rules themselves were fine -- they simply never
                 # executed, on any target, until now.
-                for _jp in target.rglob("*.java"):
-                    if any(seg in {".git", "target", "build", "__pycache__",
-                                   "node_modules", "test", "tests"}
-                           for seg in _jp.parts):
+                # T-0.2: index query; the dir exclusions (.git/target/build/
+                # __pycache__/node_modules) are walk policy now, so only the
+                # test/tests exclusion remains engine-local (parity).
+                for _jp in file_index.index_for(target).files(exts={".java"}):
+                    if any(seg in {"test", "tests"} for seg in _jp.parts):
                         continue
                     try:
-                        _src = _jp.read_text(encoding="utf-8", errors="replace")
+                        _src = file_index.read_source(_jp)
                     except OSError:
+                        continue
+                    if _src is None:
                         continue
                     for _sf in scan_java_web_servlets(_src, str(_jp)):
                         _sf["file"] = str(_jp)

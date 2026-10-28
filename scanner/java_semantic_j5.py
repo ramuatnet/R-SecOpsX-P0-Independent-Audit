@@ -2475,15 +2475,10 @@ def analyze_java_project(project_root: str) -> list[dict]:
     if not root.is_dir():
         return []
 
-    excluded = {
-        ".git", "build", "target", "out", "node_modules", "coverage",
-        "reports", "artifacts", "__pycache__"
-    }
-
-    java_files = sorted(
-        p for p in root.rglob("*.java")
-        if p.is_file() and not any(part.lower() in excluded for part in p.parts)
-    )
+    # T-0.2 (task.md): the one walk's index; this engine's small excluded
+    # set is part of the shared union policy applied at the one walk.
+    from core import file_index
+    java_files = sorted(file_index.index_for(root).files(exts={".java"}))
     if not java_files:
         return []
 
@@ -2491,8 +2486,10 @@ def analyze_java_project(project_root: str) -> list[dict]:
     method_index = {}
     for path in java_files:
         try:
-            text = path.read_text(encoding="utf-8", errors="replace")
+            text = file_index.read_source(path)
         except OSError:
+            continue
+        if text is None:
             continue
         path_str = str(path)
         sources[path_str] = text

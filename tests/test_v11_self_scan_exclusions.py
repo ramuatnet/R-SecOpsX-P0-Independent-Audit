@@ -144,7 +144,9 @@ def test_excluded_set_has_no_duplicates():
     documentation as duplication.
     """
     counts = Counter()
-    source = (REPO / "scanner" / "sast.py").read_text(encoding="utf-8")
+    # T-0.2 (task.md): the set literal now lives in core/file_index.py
+    # (single walk applies it); scanner/sast.py re-exports the object.
+    source = (REPO / "core" / "file_index.py").read_text(encoding="utf-8")
     block = source.split("EXCLUDED_FILES = {", 1)[1].split("}", 1)[0]
     code = re.sub(r"#.*", "", block)
     for token in re.findall(r'"([^"]+)"', code):

@@ -111,13 +111,11 @@ def _match_challenges(finding: dict, challenges: dict[str, dict]) -> list[dict]:
 
 
 def _source_files(target: Path):
-    for p in target.rglob("*"):
-        if not p.is_file() or p.suffix.lower() not in SOURCE_EXTENSIONS:
-            continue
-        parts = {x.lower() for x in p.parts}
-        if "node_modules" in parts or "dist" in parts or "build" in parts:
-            continue
-        yield p
+    # T-0.2 (task.md): the one walk's index; node_modules/dist/build are
+    # shared union walk policy now.
+    from core import file_index
+    yield from file_index.index_for(target).files(
+        exts={e.lower() for e in SOURCE_EXTENSIONS})
 
 
 def _build_challenge_source_refs(target: Path, challenges: dict[str, dict]) -> dict[str, dict[str, list[int]]]:
