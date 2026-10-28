@@ -35,6 +35,9 @@ except Exception:  # fallback for standalone compile/use
 # every deletion must carry a machine-readable reason.  filter_trace imports
 # nothing from the project, so this cannot create a cycle.
 from core import filter_trace
+# T-0.5 (task.md ground rule 12): every rule-table finditer runs through
+# the per-regex wall-clock budget; breaches emit REGEX_TIMEOUT telemetry.
+from core import regex_budget
 
 try:
     from core.deduplicator import group_findings
@@ -2888,7 +2891,10 @@ def scan_file(filepath: str) -> list[dict]:
             # C1: eval()/exec() semantics cannot occur in a data file;
             # see NON_EXECUTABLE_DATA_LANGUAGES above.
             continue
-        for match in rule["pattern"].finditer(source):
+        for match in regex_budget.timed_finditer(
+                rule["pattern"], source,
+                rule_id=rule.get("id") or "?",
+                file_path=str(filepath)):
             if (
                 _match_starts_in_comment(source, match.start(), language)
                 or _match_starts_in_python_string(source, match.start(), language)
@@ -2936,7 +2942,10 @@ def scan_file(filepath: str) -> list[dict]:
             # config files sometimes have language yaml/properties/json but path matters
             if not (language in {"yaml", "properties", "json", "xml", "graphql"} and any(l in langs for l in [language])):
                 continue
-        for match in rule["pattern"].finditer(source):
+        for match in regex_budget.timed_finditer(
+                rule["pattern"], source,
+                rule_id=rule.get("id") or "?",
+                file_path=str(filepath)):
             if rule.get("id") == "NPM_SUPPLY_CHAIN_SCRIPT" and package_lock:
                 continue
             if str(rule.get("vuln") or rule.get("vuln_type") or "").lower() == "ssrf":

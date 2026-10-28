@@ -27,6 +27,9 @@ from core import filter_trace
 # walker over report structures. Iterative, so nesting never touches the
 # Python call stack.
 from core import depth_guard
+# T-0.5 (task.md ground rule 12): per-regex wall-clock budget on every
+# rule-table finditer; breaches surface as REGEX_TIMEOUT telemetry.
+from core import regex_budget
 
 # Artifacts whose generation FAILED, as (artifact, reason).
 #
@@ -3226,6 +3229,9 @@ def main():
     _setup_logging(args.verbosity)
     # T-0.1: one drop ledger per scan; --explain-drops serializes it.
     filter_trace.begin_scan()
+    # T-0.5: one regex-budget collector per scan; REGEX_TIMEOUT rows are
+    # attached to report metadata only when a breach actually happened.
+    regex_budget.begin_scan()
     _banner()
 
     # --sbom ingest mode replaces the directory target with the document:
@@ -5836,6 +5842,13 @@ def main():
     if args.explain_drops:
         drops_doc = filter_trace.build_drops_document(payload)
         payload["filter_drops_summary"] = drops_doc["summary"]
+    # T-0.5: REGEX_TIMEOUT telemetry rides inside the report, but only
+    # when a budget was actually breached -- a breach implies pathological
+    # input (the old behaviour there was an unbounded hang), and adding
+    # the block unconditionally would change every deterministic report.
+    _rb_meta = regex_budget.current().as_metadata()
+    if _rb_meta.get("timeouts"):
+        payload.setdefault("metadata", {})["regex_budget"] = _rb_meta
     json_path = output_dir / "clean_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)
