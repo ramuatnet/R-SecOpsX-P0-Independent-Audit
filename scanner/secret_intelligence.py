@@ -491,6 +491,7 @@ _TYPE_SENTINEL = re.compile(
     r"|^(?:str|bytes|dict|list|tuple|int|float|bool|any|Any|None|Null|null|NULL|"
     r"true|false|True|False|undefined|undefined\(\))$"
 )
+_URL_PATH_VALUE = re.compile(r"^/[\w./-]+$")
 _CONFIG_GETTER_PREFIX = re.compile(
     r"^(?:os\.getenv|os\.environ|environ\b|getenv\b|process\.env\b|"
     r"settings\.getenv|config\.get\b|runtime_env\b)"
@@ -547,6 +548,7 @@ def _value_is_code_reference(v) -> bool:
         _GH_EXPRESSION.fullmatch(value)
         or _CONFIG_REFERENCE.fullmatch(value)
         or _TYPE_SENTINEL.fullmatch(value)
+        or _URL_PATH_VALUE.fullmatch(value)
         or _VERSION_RANGE.match(value)
     )
 
