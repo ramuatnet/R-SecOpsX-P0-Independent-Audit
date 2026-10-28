@@ -528,6 +528,41 @@ def _has_pii_value(text: str) -> bool:
     return _regex_any(PII_VALUE_PATTERNS, text)
 
 
+def _has_real_pii_value(text: str) -> bool:
+    """True when the text carries an actual PII-shaped value, not just a
+    field name or label.
+
+    Borrowing Presidio's context idea without its heavy NLP dependency:
+    a PII *observation* (identifier only) is noise unless either a real
+    value-shaped token (an email address, a phone number, a PAN/Aadhaar/SSN,
+    a payment-card number) is present, or an exposure sink is correlated.
+    The caller is responsible for the sink half of that disjunction.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return False
+    if _V24_EMAIL_VALUE_RE.search(text):
+        return True
+    for phone_match in _V20_PHONE_VALUE_RE.finditer(text):
+        digits = phone_match.group(0).replace(" ", "").replace("-", "").replace(
+            "(", "").replace(")", "").replace(".", "")
+        if digits in {"0123456789", "1234567890", "9876543210"}:
+            continue
+        window_start = max(0, phone_match.start() - 80)
+        window_end = min(len(text), phone_match.end() + 80)
+        window = text[window_start:window_end]
+        if re.search(r"\b(?:eg|e\.g\.?|example|invalid|format|placeholder)\b",
+                     window, re.I):
+            continue
+        if re.search(r"\b(?:19|20)\d{2}\b", phone_match.group(0)):
+            continue
+        return True
+    if _V20_NUMERIC_IDENTIFIER_RE.search(text):
+        return True
+    if _payment_data_is_concrete(text):
+        return True
+    return False
+
+
 def _classify_exposure(text: str, exposure_hits) -> tuple[bool, str]:
     """Classify an exposure only when a concrete sink and data-bearing value coexist.
 
@@ -1388,6 +1423,14 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
             # Contact/metadata text must not become a privacy indicator merely
             # because it contains an email address.
             if not pii_hits and not exposure_hits:
+                continue
+            # "No real value" downgrade: a PII observation (identifier only)
+            # is noise unless either a real PII-shaped value is present or
+            # an exposure sink is correlated. Borrowing Presidio's context
+            # idea without its heavy NLP dependency. This eliminates UI-label
+            # and property-getter noise in minified chunks without path-based
+            # blind spots.
+            if pii_hits and not exposure_hits and not _has_real_pii_value(text):
                 continue
             if pii_hits == ["EMAIL"] and (bool(EMAIL_METADATA_RE.search(text)) or bool(_V20_EMAIL_METADATA_RE.search(text))):
                 pii_hits = []

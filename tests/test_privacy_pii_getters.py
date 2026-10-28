@@ -141,15 +141,25 @@ def test_java_phone_getter_in_a_log_call_is_a_high_exposure():
     assert rows[0]["pii_types"] == ["PHONE"]
 
 
-def test_getter_without_a_sink_stays_an_observation():
+def test_getter_without_a_sink_or_value_is_not_reported():
+    # A bare accessor with no concrete value and no sink is noise: the
+    # "no real value" downgrade drops it (the policy the user asked for).
     rows = _scan("src/main/java/corp/Person.java", (
         "public class Person {\n"
         "  private String email;\n"
         "  public String getEmail() { return email; }\n"
         "}\n"))
-    assert rows, rows
-    assert all(r["privacy_evidence_state"] == "OBSERVED_ONLY" for r in rows)
-    assert rows[0]["risk_level"] == "LOW"
+    assert rows == [], rows
+
+
+def test_real_value_without_a_sink_still_observed():
+    rows = _scan("src/main/java/corp/Holder.java", (
+        "public class Holder {\n"
+        "  public String email = \"user@example.com\";\n"
+        "}\n"))
+    assert len(rows) == 1, rows
+    assert rows[0]["privacy_evidence_state"] == "OBSERVED_ONLY"
+    assert rows[0]["pii_types"] == ["EMAIL"]
 
 
 def test_password_accessor_is_not_pii_but_the_log_row_is_kept():

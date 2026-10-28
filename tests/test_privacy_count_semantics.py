@@ -21,7 +21,7 @@ FILLER = "const cfg={a:1,b:2};"
 def _enrich(tmp_path: pathlib.Path, flow: int = 0) -> dict:
     target = tmp_path / "src" / "payments" / "ui-bundle.js"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(FILLER * 40 + 'label:"PAN",' + FILLER * 5, encoding="utf-8")
+    target.write_text(FILLER * 40 + 'user.email="value@example.com",' + FILLER * 5, encoding="utf-8")
     kwargs = {}
     if flow:
         kwargs["data_flow_summary"] = {"total_data_flow_sensitivity_indicators": flow}

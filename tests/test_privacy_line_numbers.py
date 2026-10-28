@@ -1,4 +1,4 @@
-"""Privacy indicators must report a real source line, not the block index.
+﻿"""Privacy indicators must report a real source line, not the block index.
 
 The engine streams a file in fixed windows; ``line`` used to be the window
 counter, so a multi-line file reported 1/2/3 (the STR report shows
@@ -32,13 +32,13 @@ def test_multiline_file_reports_the_line_holding_the_token():
     with tempfile.TemporaryDirectory(prefix="rsx_privacy_line_") as raw:
         complaint = pathlib.Path(raw)
         lines = ["# field mapping"] + ["# col %d" % i for i in range(39)]
-        lines.append('aadhaar_field = "aadhaar"')
+        lines.append('aadhaar_field = "1234 5678 9012"')
         path, indicators = _scan(
             complaint, "src/payments/collect.py", "\n".join(lines) + "\n")
         assert len(indicators) == 1, indicators
         assert indicators[0]["line"] == 41
         source = path.read_text(encoding="utf-8").splitlines()
-        assert "aadhaar" in source[indicators[0]["line"] - 1]
+        assert "1234 5678 9012" in source[indicators[0]["line"] - 1]
 
 
 def test_line_is_accumulated_across_stream_blocks():
@@ -49,7 +49,7 @@ def test_line_is_accumulated_across_stream_blocks():
         count = (CHUNK * 2) // 100 + 100
         lines = [filler] * count
         match_line = count - 50
-        lines[match_line - 1] = 'var panField = "PAN";'
+        lines[match_line - 1] = 'var panField = "ABCDE1234F";'
         body = "\n".join(lines) + "\n"
         assert len(body) > CHUNK
         path, indicators = _scan(
@@ -57,13 +57,13 @@ def test_line_is_accumulated_across_stream_blocks():
         assert len(indicators) == 1, indicators
         assert indicators[0]["line"] == match_line
         source = path.read_text(encoding="utf-8").splitlines()
-        assert "PAN" in source[indicators[0]["line"] - 1]
+        assert "ABCDE1234F" in source[indicators[0]["line"] - 1]
 
 
 def test_minified_single_line_bundle_reports_line_one():
     with tempfile.TemporaryDirectory(prefix="rsx_privacy_line_min_") as raw:
         complaint = pathlib.Path(raw)
-        body = "const cfg={a:1,b:2};" * 500 + 'label:"PAN",' + "const z=1;"
+        body = "const cfg={a:1,b:2};" * 500 + 'email:"ops@example.org",' + "const z=1;"
         assert body.count("\n") == 0
         _, indicators = _scan(
             complaint, "src/payments/ui-bundle.js", body)
@@ -74,13 +74,13 @@ def test_minified_single_line_bundle_reports_line_one():
 def test_leading_blank_lines_do_not_shift_the_line():
     with tempfile.TemporaryDirectory(prefix="rsx_privacy_line_blank_") as raw:
         complaint = pathlib.Path(raw)
-        body = "\n" * 5 + 'label:"PAN",\nconst after = 1;\n'
+        body = "\n" * 5 + 'email:"ops@example.org",\nconst after = 1;\n'
         path, indicators = _scan(
             complaint, "src/payments/form.js", body)
         assert len(indicators) == 1, indicators
         assert indicators[0]["line"] == 6
         source = path.read_text(encoding="utf-8").splitlines()
-        assert "PAN" in source[indicators[0]["line"] - 1]
+        assert "ops@example.org" in source[indicators[0]["line"] - 1]
 
 
 def test_data_flow_context_row_keeps_line_zero():

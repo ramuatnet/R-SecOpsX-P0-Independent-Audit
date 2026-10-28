@@ -74,13 +74,13 @@ def test_engine_evidence_contains_the_matched_label_on_a_minified_file():
         before = dict(
             indicator="PII_PATTERN_OBSERVED",
             risk="LOW",
-            pii=["PAN"],
+            pii=["EMAIL"],
             line=1,
-            snippet='label:"PAN"',
+            snippet='email:"[REDACTED_EMAIL]"',
         )
         result = _scan(
             pathlib.Path(raw), "src/payments/ui-bundle.js",
-            FILLER * 40 + 'label:"PAN",' + FILLER * 10)
+            FILLER * 40 + 'email:"ops@example.org",' + FILLER * 10)
         indicators = result["indicators"]
         assert len(indicators) == 1, indicators
         row = indicators[0]
