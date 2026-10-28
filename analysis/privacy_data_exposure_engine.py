@@ -1665,7 +1665,93 @@ def _privacy_ast_sanitize_source(text):
 
 
 def _privacy_sanitized_exposure_text(text):
-    return _privacy_ast_sanitize_source(text)
+    """Sanitised exposure text, memoised for the current chunk.
+
+    The chunk loop asks for the same source three times (fast path, bounded
+    path, and the bounded path over its own output). Each request would redo
+    an O(n) scan, so keep the last few results -- four 128KB windows at most.
+    """
+    try:
+        cached = _PRIVACY_SANITIZE_CACHE.get(text)
+    except TypeError:          # unhashable input: fall through uncached
+        cached = None
+    if cached is not None:
+        return cached
+
+    clean = _privacy_ast_sanitize_source(text)
+    if not clean.strip():
+        clean = _privacy_lexical_sanitize_source(text)
+
+    if len(_PRIVACY_SANITIZE_CACHE) >= 4:
+        _PRIVACY_SANITIZE_CACHE.clear()
+    _PRIVACY_SANITIZE_CACHE[text] = clean
+    # Sanitising is idempotent; record that so the bounded path does not
+    # rescan its own output.
+    _PRIVACY_SANITIZE_CACHE[clean] = clean
+    return clean
+
+
+# ---------------------------------------------------------------------------
+# Non-Python source.
+#
+# _privacy_ast_sanitize_source() is a Python round-trip: Java and TypeScript
+# cannot parse, so it returned "" and the exposure rules were never evaluated
+# on the delivered estate (Java services + Angular TypeScript). That is why
+# every one of the STR report's 268 privacy rows is OBSERVED_ONLY.
+#
+# The lexical pass gives the same guarantee the AST pass gives: comments and
+# string literals are removed before any rule runs, so neither can create
+# exposure by itself. It is one left-to-right scan, so a quote inside a
+# comment and a ``//`` inside a string are each consumed by whichever token
+# starts first.
+# ---------------------------------------------------------------------------
+_PRIVACY_LEXICAL_TOKEN_RE = re.compile(
+    r"/\*[\s\S]*?\*/"                 # block comment
+    r"|//[^\n]*"                      # line comment
+    r"|\"(?:\\.|[^\"\\\n])*\""        # double-quoted literal
+    r"|'(?:\\.|[^'\\\n])*'"           # single-quoted literal
+    r"|`(?:\\.|[^`\\])*`"             # template literal (may span lines)
+)
+
+_PRIVACY_LEXICAL_HASH_COMMENT_RE = re.compile(r"(?m)^[ \t]*#[^\n]*")
+
+# Cheap pre-check: without a sink call no exposure rule can match, so there is
+# no reason to scan the chunk. Substring tests on the lowered chunk run at
+# memory speed; the regex this replaced managed 48 MB/s and cost more than
+# the scan it was meant to avoid.
+_PRIVACY_LEXICAL_SINK_TOKENS = (
+    "logger", "log.", "console.", "system.out", "system.err",
+    "print(", "printf(", "println(", "puts(",
+    "fetch(", "axios.", "http.post", "http.put", "http.patch",
+    "requests.", "urllib",
+    "insert(", "save(", "write(", "put_item(", "setitem(",
+)
+
+
+def _privacy_lexical_may_have_sink(text):
+    low = text.lower()
+    return any(token in low for token in _PRIVACY_LEXICAL_SINK_TOKENS)
+
+
+_PRIVACY_SANITIZE_CACHE: Dict[str, str] = {}
+
+
+def _privacy_lexical_sanitize_source(text):
+    """Strip comments and blank string literals in non-Python source."""
+    if not isinstance(text, str) or not text.strip():
+        return ""
+
+    if not _privacy_lexical_may_have_sink(text):
+        return ""
+
+    def _replace(match):
+        token = match.group(0)
+        if token.startswith("/"):
+            return " "
+        return "''"
+
+    return _PRIVACY_LEXICAL_HASH_COMMENT_RE.sub(
+        " ", _PRIVACY_LEXICAL_TOKEN_RE.sub(_replace, text))
 
 
 def _privacy_exposure_hits_fast(text):
