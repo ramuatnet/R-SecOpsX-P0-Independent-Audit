@@ -19,6 +19,10 @@ from pathlib import Path
 
 from core.config import TOOL_NAME, TOOL_FULL
 from core.path_utils import file_name, to_report_path
+# T-0.1 (task.md ground rule 3): every filter pass annotates, never silently
+# deletes.  filter_trace is dependency-free so scanner/, core/ and main.py
+# can all use it without import cycles.
+from core import filter_trace
 
 # Artifacts whose generation FAILED, as (artifact, reason).
 #
@@ -618,10 +622,18 @@ def _filter_benchmark_fixtures(findings: list[dict], include_fixtures: bool = Fa
             for occ in occs:
                 candidates = (occ.get("full_path"), occ.get("absolute_path"), occ.get("file"), occ.get("file_path"))
                 if any(_is_benchmark_fixture_path(v) for v in candidates if v):
+                    filter_trace.annotate_occurrence_drop(
+                        finding, "benchmark_fixture_boundary", occ,
+                        "occurrence path is a packaged benchmark/code-fix "
+                        "fixture (data/static/codefixes)")
                     dropped += 1
                     continue
                 valid_occs.append(occ)
             if not valid_occs:
+                filter_trace.record_finding_drop(
+                    finding, "benchmark_fixture_boundary",
+                    "every occurrence is a packaged benchmark/code-fix "
+                    "fixture (data/static/codefixes)")
                 continue
             finding["occurrences"] = valid_occs
             finding["instances"] = len(valid_occs)
@@ -631,6 +643,10 @@ def _filter_benchmark_fixtures(findings: list[dict], include_fixtures: bool = Fa
             continue
         candidates = (finding.get("full_path"), finding.get("absolute_path"), finding.get("file"), finding.get("file_path"))
         if any(_is_benchmark_fixture_path(v) for v in candidates if v):
+            filter_trace.record_finding_drop(
+                finding, "benchmark_fixture_boundary",
+                "finding path is a packaged benchmark/code-fix fixture "
+                "(data/static/codefixes)")
             dropped += 1
             continue
         kept.append(finding)
@@ -653,13 +669,22 @@ def _filter_findings_to_target(findings: list[dict], target_root: str) -> tuple[
                 full_candidate = occ.get("full_path") or occ.get("absolute_path")
                 report_candidate = occ.get("file") or occ.get("file_path")
                 if full_candidate and not _is_path_within_root(str(full_candidate), target_root):
+                    filter_trace.annotate_occurrence_drop(
+                        finding, "intake_target_boundary", occ,
+                        "occurrence resolves outside the scan target")
                     dropped += 1
                     continue
                 if report_candidate and not _is_path_within_root(str(report_candidate), target_root):
+                    filter_trace.annotate_occurrence_drop(
+                        finding, "intake_target_boundary", occ,
+                        "occurrence resolves outside the scan target")
                     dropped += 1
                     continue
                 valid_occs.append(occ)
             if not valid_occs:
+                filter_trace.record_finding_drop(
+                    finding, "intake_target_boundary",
+                    "every occurrence resolves outside the scan target")
                 dropped += 1
                 continue
             finding["occurrences"] = valid_occs
@@ -676,8 +701,17 @@ def _filter_findings_to_target(findings: list[dict], target_root: str) -> tuple[
             # occurrence paths are valid. Prefer a valid occurrence anchor.
             valid_anchor = next((o.get("full_path") or o.get("file") for o in (finding.get("occurrences") or []) if o.get("full_path") or o.get("file")), None)
             if valid_anchor and _is_path_within_root(str(valid_anchor), target_root):
+                # T-0.1: a judgement, not a drop -- but ground rule 11 still
+                # requires it to be explainable from the payload.
+                filter_trace.annotate(
+                    finding, "intake_target_boundary", "kept_after_path_repair",
+                    "stale top-level path repaired to a valid in-target "
+                    "occurrence anchor")
                 finding["full_path"] = valid_anchor
             else:
+                filter_trace.record_finding_drop(
+                    finding, "intake_target_boundary",
+                    "no occurrence remains inside the scan target")
                 dropped += 1
                 continue
         kept.append(finding)
@@ -990,6 +1024,10 @@ def _dedupe_findings(findings: list[dict]) -> list[dict]:
         )
 
         if key in seen:
+            filter_trace.record_finding_drop(
+                finding, "intake_exact_dedupe",
+                "exact duplicate (rule, file, line, snippet) of an earlier "
+                "finding in the same intake batch", decision="merged")
             continue
 
         seen.add(key)
@@ -1285,6 +1323,10 @@ def _drop_out_of_scope_occurrences(payload: dict, target: str) -> int:
         for occ in finding.get("occurrences") or []:
             candidate = occ.get("full_path") or occ.get("absolute_path") or occ.get("file")
             if candidate and not _is_path_within_root(str(candidate), target):
+                filter_trace.annotate_occurrence_drop(
+                    finding, "scope_boundary_post_normalization", occ,
+                    "occurrence resolves outside the scan target after "
+                    "path normalization")
                 removed += 1
                 continue
             kept.append(occ)
@@ -1426,6 +1468,10 @@ def _prune_unsupported_occurrences(payload: dict) -> int:
             if supported:
                 kept.append(occ)
             else:
+                filter_trace.annotate_occurrence_drop(
+                    finding, "occurrence_evidence_gate", occ,
+                    f"occurrence evidence does not satisfy the "
+                    f"{vt or 'unknown'} contract for this grouped finding")
                 removed += 1
 
         if kept:
@@ -1440,6 +1486,39 @@ def _prune_unsupported_occurrences(payload: dict) -> int:
             finding["instances"] = 0
             finding["occurrence_count"] = 0
     return removed
+
+
+def _evidex_refresh_filter(payload: dict) -> int:
+    """Re-validate evidence, then drop findings the pruning passes emptied.
+
+    This used to be two unannotated list comprehensions inline in main()
+    (T-0.1): a finding zeroed by the scope or evidence gate simply vanished
+    here with no record.  Every removal is now annotated on the finding and
+    recorded in the drop ledger.
+    """
+    from core.analyzer import _apply_evidex_validation
+    refreshed = []
+    dropped = 0
+    for finding in payload.get("findings", []):
+        if not finding.get("occurrences"):
+            filter_trace.record_finding_drop(
+                finding, "evidex_refresh",
+                "no occurrences remain after scope/evidence pruning")
+            dropped += 1
+            continue
+        refreshed.append(_apply_evidex_validation(finding))
+    kept = []
+    for finding in refreshed:
+        if int(finding.get("instances", 0) or 0) > 0 and finding.get("occurrences"):
+            kept.append(finding)
+            continue
+        filter_trace.record_finding_drop(
+            finding, "evidex_refresh",
+            "zero instances or empty occurrences after evidence "
+            "re-validation")
+        dropped += 1
+    payload["findings"] = kept
+    return dropped
 
 
 def _apply_iac_metadata(payload: dict) -> None:
@@ -1492,18 +1571,28 @@ def _final_report_integrity_pass(payload: dict) -> dict:
     findings = []
     for finding in payload.get("findings", []):
         if not isinstance(finding, dict):
+            filter_trace.record_finding_drop(
+                finding, "final_report_integrity",
+                "non-dict entry in the finding population")
             continue
         raw_occs = finding.get("occurrences") or []
         cleaned = []
         seen = set()
         for occ in raw_occs:
             if not isinstance(occ, dict):
+                filter_trace.annotate_occurrence_drop(
+                    finding, "final_report_integrity", occ,
+                    "non-dict occurrence entry")
                 continue
             file_value = str(occ.get("file") or occ.get("file_path") or occ.get("full_path") or "")
             line_value = occ.get("line")
             snippet = str(occ.get("snippet") or occ.get("evidence") or "")
             key = (file_value, line_value, snippet)
             if key in seen:
+                filter_trace.annotate_occurrence_drop(
+                    finding, "final_report_integrity", occ,
+                    "duplicate occurrence (file, line, snippet) at the "
+                    "serialization boundary")
                 continue
             seen.add(key)
             item = dict(occ)
@@ -1514,6 +1603,10 @@ def _final_report_integrity_pass(payload: dict) -> dict:
             cleaned.append(item)
 
         if not cleaned:
+            filter_trace.record_finding_drop(
+                finding, "final_report_integrity",
+                "no occurrence survived the serialization-boundary integrity "
+                "rebuild")
             continue
 
         finding["occurrences"] = cleaned
@@ -2384,6 +2477,11 @@ def _apply_final_report_safety(payload: dict) -> dict:
     1. Replaces stale/mismatched remediation in the canonical finding set.
     2. Calibrates actual PEM private-key findings to High/P2.
     3. Redacts secret material from findings and every nested report artifact.
+
+    T-0.1 audit: this pass deletes no finding and no occurrence -- it only
+    annotates (remediation, severity, redaction flags). Verified 2026-10-28;
+    if a deletion is ever added here it must annotate/ledger like every
+    other filter pass (tests/test_no_silent_drops.py).
     """
     findings = payload.get("findings", []) or []
     for finding in findings:
@@ -2960,10 +3058,22 @@ def main():
             "Report-only; it never changes the exit code."
         ),
     )
+    parser.add_argument(
+        "--explain-drops", dest="explain_drops", action="store_true",
+        help=(
+            "write drops.json next to clean_report.json: every finding the "
+            "filter pipeline removed, with the pass and machine-readable "
+            "reason that removed it (task.md T-0.1). Occurrence-level drops "
+            "on reported findings are annotated in-place as "
+            "finding['filter_trace'] regardless of this flag."
+        ),
+    )
     parser.set_defaults(verbosity="info")
     args = parser.parse_args()
 
     _setup_logging(args.verbosity)
+    # T-0.1: one drop ledger per scan; --explain-drops serializes it.
+    filter_trace.begin_scan()
     _banner()
 
     # --sbom ingest mode replaces the directory target with the document:
@@ -3440,18 +3550,14 @@ def main():
     # Re-validate AFTER scope/evidence pruning. Earlier validation may have
     # inspected pre-group evidence arrays containing occurrences that are no
     # longer part of the finding. The final evidence state must describe only
-    # retained occurrences.
-    from core.analyzer import _apply_evidex_validation
-    refreshed = []
-    for _finding in payload.get("findings", []):
-        if not _finding.get("occurrences"):
-            continue
-        refreshed.append(_apply_evidex_validation(_finding))
-    payload["findings"] = refreshed
-    payload["findings"] = [
-        f for f in payload.get("findings", [])
-        if int(f.get("instances", 0) or 0) > 0 and f.get("occurrences")
-    ]
+    # retained occurrences.  (T-0.1: the drop half of this boundary is now
+    # annotated + ledgered inside _evidex_refresh_filter.)
+    refreshed_drops = _evidex_refresh_filter(payload)
+    if refreshed_drops:
+        _safe_print(
+            f"       => EVIDEX refresh removed {refreshed_drops} findings "
+            "(filter_trace / --explain-drops has the reasons)"
+        )
     _apply_iac_metadata(payload)
     payload = normalize_payload(payload)
 
@@ -5571,12 +5677,30 @@ def main():
     # silently (zero-silent-loss invariant).
     from analysis.ufib_release import refresh_release_manifest
     refresh_release_manifest(payload)
+    # T-0.1: with --explain-drops the drop ledger is serialized alongside
+    # the report; the summary also rides inside clean_report.json so the
+    # artifact self-describes its own exclusions.
+    drops_doc = None
+    if args.explain_drops:
+        drops_doc = filter_trace.build_drops_document(payload)
+        payload["filter_drops_summary"] = drops_doc["summary"]
     json_path = output_dir / "clean_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)
     _safe_print(f"       => {json_path}")
 
     generated_files = ["clean_report.json"]
+
+    if drops_doc is not None:
+        drops_path = output_dir / "drops.json"
+        with open(drops_path, "w", encoding="utf-8") as f:
+            json.dump(drops_doc, f, indent=2, default=str)
+        generated_files.append("drops.json")
+        _safe_print(
+            f"       => {drops_path} "
+            f"({drops_doc['summary']['total_findings_removed']} findings "
+            "removed by filter passes, each with a machine-readable reason)"
+        )
 
     if not args.no_pdf:
         _step("Git diff / change intelligence")

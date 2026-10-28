@@ -20,6 +20,9 @@ from typing import Any
 
 from core.mapper import get_owasp_summary, get_mitre_summary
 from core.rule_contract_adapter import adapt_findings
+# T-0.1 (task.md ground rule 3): every filter pass annotates, never silently
+# deletes.  filter_trace is dependency-free, so no import cycle is possible.
+from core import filter_trace
 from core.config import TOOL_FULL, RISK_MODEL
 from core.risk_scorer import score_finding, compute_portfolio_score, SCORING_MODEL_DESCRIPTION
 from core.attack_graph import get_attack_paths, get_pivot_points
@@ -218,14 +221,35 @@ def deduplicate(findings: list[dict]) -> list[dict]:
             if "http" in both_cats or {e_vt, f_vt} == {"ssrf", "api_idor"}:
                 # Keep whichever is SSRF; discard IDOR or non-SSRF http finding
                 if f_vt == "ssrf" or f_sc == "http":
+                    filter_trace.record_finding_drop(
+                        existing, "dedup_merge",
+                        "same fingerprint as incoming http/SSRF finding; "
+                        "the http-sink classification wins",
+                        decision="merged")
                     phase1[existing_idx] = f
+                else:
+                    filter_trace.record_finding_drop(
+                        f, "dedup_merge",
+                        "same fingerprint as a kept http/SSRF finding; the "
+                        "http-sink classification wins",
+                        decision="merged")
                 # else existing is already the right one (ssrf or http)
                 continue
 
             # Upgrade to TAINT-VALIDATED when incoming has real taint path
             if (f.get("detection") == "TAINT-VALIDATED"
                     and existing.get("detection") != "TAINT-VALIDATED"):
+                filter_trace.record_finding_drop(
+                    existing, "dedup_merge",
+                    "same fingerprint as incoming TAINT-VALIDATED finding; "
+                    "the taint-confirmed classification wins",
+                    decision="merged")
                 phase1[existing_idx] = f
+            else:
+                filter_trace.record_finding_drop(
+                    f, "dedup_merge",
+                    "exact fingerprint duplicate of an already-kept finding",
+                    decision="merged")
 
     # Level 2: root-cause grouping
     groups: dict[str, dict] = {}
@@ -242,6 +266,25 @@ def deduplicate(findings: list[dict]) -> list[dict]:
             existing      = groups[rck]
             incoming_rank = CONFIDENCE_RANK.get(f.get("confidence", ""), 0)
             existing_rank = CONFIDENCE_RANK.get(existing.get("confidence", ""), 0)
+
+            # T-0.1: whichever row is DISCARDED here must be explainable --
+            # but the annotation must never land on the surviving
+            # representative (a "merged" trace on a reported finding would
+            # be a lie). The replacement decision comes first; only the
+            # losing object is annotated.
+            if incoming_rank > existing_rank:
+                filter_trace.record_finding_drop(
+                    existing, "dedup_merge",
+                    f"root-cause grouped; replaced as representative of "
+                    f"'{rck}' by a higher-confidence incoming finding "
+                    "(occurrences preserved)",
+                    decision="merged")
+            else:
+                filter_trace.record_finding_drop(
+                    f, "dedup_merge",
+                    f"root-cause grouped into the existing finding for key "
+                    f"'{rck}'; its occurrence is retained on the survivor",
+                    decision="merged")
 
             if incoming_rank > existing_rank:
                 occ_bak  = existing["occurrences"]
@@ -1014,11 +1057,18 @@ def _finalize_occurrence_integrity(findings: list[dict]) -> list[dict]:
         occs, seen = [], set()
         for occ in raw_occs:
             if not isinstance(occ, dict):
+                filter_trace.annotate_occurrence_drop(
+                    f, "occurrence_integrity", occ,
+                    "non-dict occurrence entry")
                 continue
             file_value = str(occ.get("file") or occ.get("file_path") or occ.get("full_path") or f.get("file") or "")
             line_value = occ.get("line")
             key = (file_value, line_value, str(occ.get("snippet") or occ.get("evidence") or ""))
             if key in seen:
+                filter_trace.annotate_occurrence_drop(
+                    f, "occurrence_integrity", occ,
+                    "duplicate occurrence (file, line, snippet) at the "
+                    "integrity rebuild")
                 continue
             seen.add(key)
             item = dict(occ)
@@ -1028,6 +1078,9 @@ def _finalize_occurrence_integrity(findings: list[dict]) -> list[dict]:
             item.setdefault("file_name", file_value.replace("\\", "/").split("/")[-1])
             occs.append(item)
         if not occs:
+            filter_trace.record_finding_drop(
+                f, "occurrence_integrity",
+                "no occurrence survived the integrity rebuild")
             continue
         f["occurrences"] = occs
         f["affected_files"] = list(dict.fromkeys(o["file"] for o in occs if o.get("file")))
@@ -1075,6 +1128,10 @@ def _finalize_occurrence_integrity(findings: list[dict]) -> list[dict]:
         f["evidence"] = list(result.get("evidence") or [])
 
         if not f.get("evidence_valid") and str(f.get("finding_class") or "").lower() == "confirmed":
+            filter_trace.record_finding_drop(
+                f, "occurrence_integrity",
+                "confirmed-class finding failed evidence re-validation "
+                "against its final occurrences")
             continue
         finalized.append(f)
     return finalized
@@ -1094,10 +1151,21 @@ def build_report_payload(findings: list[dict], sbom: list[dict],
     for f in deduped:
         e = enrich_finding(f)
         if not e or not e.get("vuln_type"):
+            # T-0.1: enrich_finding signals "not a reportable finding" by
+            # returning {} (e.g. IDOR on an http sink). That removal used
+            # to be an unannotated `continue`.
+            filter_trace.record_finding_drop(
+                f if isinstance(f, dict) else e, "enrichment_gate",
+                "enrich_finding classified the finding as not reportable "
+                "(empty enrichment result)")
             continue
         e = score_finding(e)
         if e.get("vuln_type"):
             enriched.append(e)
+        else:
+            filter_trace.record_finding_drop(
+                e, "enrichment_gate",
+                "scoring stripped the canonical vuln_type")
 
     # FINAL REPORT INTEGRITY PASS (V8 Enterprise): occurrence data is the
     # authoritative source of truth.  Rebuild all occurrence-derived fields
@@ -1175,6 +1243,11 @@ def _merge_semantic_duplicate_findings(findings: list[dict]) -> list[dict]:
                     occ = spel_seen.setdefault("occurrences", [])
                     occ.extend(f.get("occurrences", [_occurrence_from_finding(f)]))
                     spel_seen["instances"] = len(occ)
+                filter_trace.record_finding_drop(
+                    f, "dedup_merge",
+                    "Spring SpEL duplicate consolidated into the "
+                    "pattern+taint-confirmed survivor",
+                    decision="merged")
                 continue
         else:
             out.append(f)
@@ -1193,6 +1266,10 @@ def _qa_normalize_occurrences(findings: list[dict]) -> list[dict]:
             full_value = occ.get("full_path") or file_value
             key = (file_value, occ.get("line"))
             if key in seen:
+                filter_trace.annotate_occurrence_drop(
+                    f, "qa_occurrence_normalize", occ,
+                    "duplicate (file, line) occurrence consolidated during "
+                    "QA normalization")
                 continue
             seen.add(key)
             new_occ = dict(occ)

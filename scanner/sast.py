@@ -31,6 +31,11 @@ except Exception:  # fallback for standalone compile/use
     def get_mapping(vuln_type: str) -> dict:
         return {}
 
+# T-0.1 (task.md ground rule 3): the shell-sink taint gate deletes findings;
+# every deletion must carry a machine-readable reason.  filter_trace imports
+# nothing from the project, so this cannot create a cycle.
+from core import filter_trace
+
 try:
     from core.deduplicator import group_findings
 except Exception:
@@ -88,6 +93,9 @@ EXCLUDED_FILES = {
     # caller-supplied clean_report.json by default, so it can land in a
     # directory that is later re-scanned.
     "security_continuous.json",
+    # T-0.1: --explain-drops writes drops.json beside clean_report.json;
+    # same self-scan hazard as every entry above.
+    "drops.json",
 }
 
 # qbom.json added with the Quantum BOM artifact (CERT-In v2.0 Table 8). The handoff
@@ -2821,7 +2829,14 @@ def _gate_shell_sink_findings(results: list[dict]) -> list[dict]:
         if any(abs(line - t) <= SHELL_SINK_TAINT_WINDOW for t in taint_lines):
             kept.append(finding)
         # Otherwise the sink was never shown to carry an untrusted value, so
-        # it is not reported.
+        # it is not reported.  T-0.1: "not reported" must still be an
+        # explained decision, not a silent disappearance.
+        else:
+            filter_trace.record_finding_drop(
+                finding, "shell_sink_taint_gate",
+                f"shell-sink regex hit (line {line}) has no taint-validated "
+                f"command_injection occurrence within ±"
+                f"{SHELL_SINK_TAINT_WINDOW} lines")
     return kept
 
 

@@ -1731,6 +1731,8 @@ ARTIFACT_FILE_NAMES = {
     # Phase 5.3: continuous re-evaluation artifact, written beside the
     # stored report and therefore re-scannable input.
     "security_continuous.json",
+    # T-0.1: --explain-drops writes drops.json beside clean_report.json.
+    "drops.json",
 }
 
 
