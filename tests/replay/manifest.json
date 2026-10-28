@@ -1,0 +1,2816 @@
+{
+ "corpus": "tests/vuln-test-corpus",
+ "entries": [
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "df34c88f4718c8a13234f35055870fa1516b0f0cd554f86a6c73cded5f6ac976",
+   "id": "ed65ad6fbed391b5",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "ai_ml/safe_agent_dispatch.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "5e516c6016c1abc2e1ce7e200b012e944e5a6e9e48ed708936211301d057e307",
+   "id": "34ab6a0109653b15",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "ai_ml/safe_loading.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "aa7618c9efd88a039f5f2a6073209dcb41a42c1f66351b4ad0ae21f52976f413",
+   "id": "0dc0cc635180d57b",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "ai_ml/safe_model.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "998735115717ec883d694fb4a95f61ffc46e56ede76898f52453ba555b6d2cef",
+   "id": "926e1ccf61c7ac66",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "ai_ml/safe_weights_only.py"
+  },
+  {
+   "cwe": "CWE-94",
+   "expected": "TP",
+   "fixture_sha256": "e2cdc02574c8432a7b862cb130242f5363b53ff5dbdf51fddfb2b85facc078de",
+   "id": "ce9514fd1867769d",
+   "lang": "python",
+   "line": 16,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_agent_eval.py.ground_truth.json"
+   },
+   "rule_id": "SAST-CODEINJ",
+   "source": "ai_ml/vulnerable_agent_eval.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "2af31496412d10b9eed17f785148e12ed0544a653a2195b9be1eacddbf2cc5eb",
+   "id": "020266a25dfe598d",
+   "lang": "python",
+   "line": 10,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_hardcoded_key.py.ground_truth.json"
+   },
+   "rule_id": "SAST-HARDCRED",
+   "source": "ai_ml/vulnerable_hardcoded_key.py"
+  },
+  {
+   "cwe": "CWE-94",
+   "expected": "TP",
+   "fixture_sha256": "e7e8abc49f311932c6d155664a227004c6dea7606530855a26d6aeba1bc1436e",
+   "id": "9e8c93976d0efe6a",
+   "lang": "python",
+   "line": 19,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_loading.py.ground_truth.json"
+   },
+   "rule_id": "SAST-CODEINJ",
+   "source": "ai_ml/vulnerable_loading.py"
+  },
+  {
+   "cwe": "CWE-502",
+   "expected": "TP",
+   "fixture_sha256": "e7e8abc49f311932c6d155664a227004c6dea7606530855a26d6aeba1bc1436e",
+   "id": "4b924102b16cb087",
+   "lang": "python",
+   "line": 14,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_loading.py.ground_truth.json"
+   },
+   "rule_id": "SAST-DESER",
+   "source": "ai_ml/vulnerable_loading.py"
+  },
+  {
+   "cwe": "CWE-94",
+   "expected": "TP",
+   "fixture_sha256": "b691c5efe9029a856b4088d94397641bf5bc6e2e10d1de250c85e39e3902ebaa",
+   "id": "7023f7c6c61e5960",
+   "lang": "python",
+   "line": 33,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_model.py.ground_truth.json"
+   },
+   "rule_id": "SAST-CODEINJ",
+   "source": "ai_ml/vulnerable_model.py"
+  },
+  {
+   "cwe": "CWE-502",
+   "expected": "TP",
+   "fixture_sha256": "b691c5efe9029a856b4088d94397641bf5bc6e2e10d1de250c85e39e3902ebaa",
+   "id": "ff1f4d7e380b7783",
+   "lang": "python",
+   "line": 14,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_model.py.ground_truth.json"
+   },
+   "rule_id": "SAST-DESER",
+   "source": "ai_ml/vulnerable_model.py"
+  },
+  {
+   "cwe": "CWE-502",
+   "expected": "TP",
+   "fixture_sha256": "18a5c6bce90b3019dcf3d827f265dde127a85c189bc47aff50d69f6988d20005",
+   "id": "f4cfc3ee1559409d",
+   "lang": "python",
+   "line": 13,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_pickle_input.py.ground_truth.json"
+   },
+   "rule_id": "SAST-DESER",
+   "source": "ai_ml/vulnerable_pickle_input.py"
+  },
+  {
+   "cwe": "CWE-94",
+   "expected": "TP",
+   "fixture_sha256": "1a9f37274df33c2ed457ba8147cd20f74e1cd042c1a7613fe6017587946107a3",
+   "id": "5d0543c71bcb2093",
+   "lang": "python",
+   "line": 20,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "ai_ml/vulnerable_prompt_template.py.ground_truth.json"
+   },
+   "rule_id": "SAST-CODEINJ",
+   "source": "ai_ml/vulnerable_prompt_template.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "5be458654d4a0f63400eab9dd38667d521692a6755e9fdd06f894d8faedae962",
+   "id": "62a7ebc646840145",
+   "lang": "python",
+   "line": 6,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/approved_aes.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-APPROVED-CIPHER",
+   "source": "cbom/approved_aes.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "4171328a198b2454297db6cf7fdc88b20b763bcafea16dc8c876c1b580b1dbbc",
+   "id": "1a9996e68eeadf80",
+   "lang": "python",
+   "line": 6,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/asymmetric_rsa.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-ASYMMETRIC-KEY",
+   "source": "cbom/asymmetric_rsa.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "5ab5b19b36ac8b7c27ca204d7594beb6c6fcc998cc4ff2240db0900b691ad837",
+   "id": "15f61fb56d5d2ba0",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "cbom/clean_hashing.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "39b6faf0f791dcf3c07bd161a849eab63b4b2932cb15d10571e98ba5f9e76f06",
+   "id": "55ac67abd1f578fe",
+   "lang": "python",
+   "line": 1,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/hardcoded_key.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-HARDCODED-KEY",
+   "source": "cbom/hardcoded_key.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "980e7a013d87b7b460109d2c074ba0f1f47907de715ccfcc2755aeb0e9da1582",
+   "id": "b9dde2072f99582c",
+   "lang": "python",
+   "line": 11,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/mixed_crypto.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-CIPHER",
+   "source": "cbom/mixed_crypto.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "980e7a013d87b7b460109d2c074ba0f1f47907de715ccfcc2755aeb0e9da1582",
+   "id": "8db25b2d904fcf11",
+   "lang": "python",
+   "line": 7,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/mixed_crypto.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-HASH",
+   "source": "cbom/mixed_crypto.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "931245f875f272c7416f639e9b469ae9f28c57b827de5c03a63fefd8b1bf8e5d",
+   "id": "9f6ee50091e4f1d7",
+   "lang": "python",
+   "line": 7,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/transport_tls.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-TRANSPORT-CRYPTO",
+   "source": "cbom/transport_tls.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "5abcedbc5bfd6ebdec40aaac5d717486f321c80a69c0f0e54313a17be09bf7b9",
+   "id": "e8efb04ceb9bc9a0",
+   "lang": "python",
+   "line": 8,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/weak_des.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-CIPHER",
+   "source": "cbom/weak_des.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "70040a03d16185a8f918b60fa2e29c31a82c1a281058de228eef51d8cbb25cbd",
+   "id": "8fc37de21385cad0",
+   "lang": "python",
+   "line": 6,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/weak_hash.py.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-HASH",
+   "source": "cbom/weak_hash.py"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "a99c8ac4f18d1dd40d760ce7f5117b8871bfc37dbdfab488ae2da5a4f45c7250",
+   "id": "a3c3e57bf6a85b5d",
+   "lang": "javascript",
+   "line": 2,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/weak_rc4.js.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-CIPHER",
+   "source": "cbom/weak_rc4.js"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "a99c8ac4f18d1dd40d760ce7f5117b8871bfc37dbdfab488ae2da5a4f45c7250",
+   "id": "fe1240a9011ec1c9",
+   "lang": "javascript",
+   "line": 5,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/weak_rc4.js.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-CIPHER",
+   "source": "cbom/weak_rc4.js"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "b85193c6f675e502fd0a69ca05c1f5a5119b60603eeab1e1e90ea76a5219a3dd",
+   "id": "7975a1a8aa1f5bdf",
+   "lang": "javascript",
+   "line": 5,
+   "provenance": {
+    "kind": "crypto-inventory",
+    "label": "cbom/weak_sha1.js.ground_truth.json"
+   },
+   "rule_id": "CBOM-WEAK-HASH",
+   "source": "cbom/weak_sha1.js"
+  },
+  {
+   "cwe": "CWE-494",
+   "expected": "TP",
+   "fixture_sha256": "8471fa7e52c430d47cacf5275a75914978694e4e14a6c9b605a74c79efe3ed59",
+   "id": "ce0bb5a98d22e068",
+   "lang": "docker",
+   "line": 3,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/curl_pipe_shell.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-INSECURE-DOWNLOAD",
+   "source": "iac/docker/curl_pipe_shell.Dockerfile"
+  },
+  {
+   "cwe": "CWE-1059",
+   "expected": "TP",
+   "fixture_sha256": "8471fa7e52c430d47cacf5275a75914978694e4e14a6c9b605a74c79efe3ed59",
+   "id": "636807cc04d77c6d",
+   "lang": "docker",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/curl_pipe_shell.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-MISSING-HEALTHCHECK",
+   "source": "iac/docker/curl_pipe_shell.Dockerfile"
+  },
+  {
+   "cwe": "CWE-1059",
+   "expected": "TP",
+   "fixture_sha256": "7ef5c5d0f38bda701d81bdc485bd42127e13ab2f2173592436b3e6b6f3ecca7f",
+   "id": "15e1738e75c4a814",
+   "lang": "docker",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/latest_tag.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-MISSING-HEALTHCHECK",
+   "source": "iac/docker/latest_tag.Dockerfile"
+  },
+  {
+   "cwe": "CWE-1104",
+   "expected": "TP",
+   "fixture_sha256": "7ef5c5d0f38bda701d81bdc485bd42127e13ab2f2173592436b3e6b6f3ecca7f",
+   "id": "7ea3a5679bb4d614",
+   "lang": "docker",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/latest_tag.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-UNPINNED-IMAGE",
+   "source": "iac/docker/latest_tag.Dockerfile"
+  },
+  {
+   "cwe": "CWE-1059",
+   "expected": "TP",
+   "fixture_sha256": "5714a1b8e31038c181533709b04523b9837546a6d8f409ff8005694720659060",
+   "id": "78b31dadcee59511",
+   "lang": "docker",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/root_user.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-MISSING-HEALTHCHECK",
+   "source": "iac/docker/root_user.Dockerfile"
+  },
+  {
+   "cwe": "CWE-250",
+   "expected": "TP",
+   "fixture_sha256": "5714a1b8e31038c181533709b04523b9837546a6d8f409ff8005694720659060",
+   "id": "b6206966149b353d",
+   "lang": "docker",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/root_user.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-PRIVILEGED-CONTAINER",
+   "source": "iac/docker/root_user.Dockerfile"
+  },
+  {
+   "cwe": "CWE-250",
+   "expected": "TP",
+   "fixture_sha256": "5714a1b8e31038c181533709b04523b9837546a6d8f409ff8005694720659060",
+   "id": "0f9e1cf2a5f25781",
+   "lang": "docker",
+   "line": 5,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/docker/root_user.Dockerfile.ground_truth.json"
+   },
+   "rule_id": "IAC-PRIVILEGED-CONTAINER",
+   "source": "iac/docker/root_user.Dockerfile"
+  },
+  {
+   "cwe": "CWE-668",
+   "expected": "TP",
+   "fixture_sha256": "a64aa4331c800a6e441b432873add3cb1cf92a1c1abbcab388b024f49382de6d",
+   "id": "352027a2ee27c4f6",
+   "lang": "k8s",
+   "line": 6,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/k8s/host_network.yaml.ground_truth.json"
+   },
+   "rule_id": "IAC-HOST-NAMESPACE-SHARING",
+   "source": "iac/k8s/host_network.yaml"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "cdd7513fdbd17f66913977a7be2e5c2c6f5038b03f65908f10f9f52f8d65ebef",
+   "id": "f3799d62338e3c9d",
+   "lang": "k8s",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "iac/k8s/pod_level_nonroot.yaml"
+  },
+  {
+   "cwe": "CWE-250",
+   "expected": "TP",
+   "fixture_sha256": "0c35a7fcf33b041cd79b24e0e166328c8901f17166c9c473efc23cbae4980422",
+   "id": "d3624cf1f034c422",
+   "lang": "k8s",
+   "line": 11,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/k8s/privileged_pod.yaml.ground_truth.json"
+   },
+   "rule_id": "IAC-PRIVILEGED-CONTAINER",
+   "source": "iac/k8s/privileged_pod.yaml"
+  },
+  {
+   "cwe": "CWE-732",
+   "expected": "TP",
+   "fixture_sha256": "56e2cfe917de23a29053bebf233e6a8d85a2a12bfccbb5097845bfd84b28bfa2",
+   "id": "f2f394202953648b",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/iam_wildcard.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-OVERBROAD-PERMISSIONS",
+   "source": "iac/terraform/iam_wildcard.tf"
+  },
+  {
+   "cwe": "CWE-732",
+   "expected": "TP",
+   "fixture_sha256": "f48b5dc08d0b48a108b8bef5b2cd6c2af286c6cbe4b54cb892078daeda3de68b",
+   "id": "5cc7b20986017d50",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/iam_wildcard_jsonencode.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-OVERBROAD-PERMISSIONS",
+   "source": "iac/terraform/iam_wildcard_jsonencode.tf"
+  },
+  {
+   "cwe": "CWE-284",
+   "expected": "TP",
+   "fixture_sha256": "45b192a832bc4493c79e89e1603521c6338517b772288e67a858da00c38312f3",
+   "id": "d63338ec148a6a6a",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/open_security_group.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-PUBLIC-EXPOSURE",
+   "source": "iac/terraform/open_security_group.tf"
+  },
+  {
+   "cwe": "CWE-284",
+   "expected": "TP",
+   "fixture_sha256": "67fc6c81ed775f6a7db8f4d53ac49339c978c0d395d755e53140449716c663fd",
+   "id": "a990f8fb55265bf4",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/public_bucket.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-PUBLIC-EXPOSURE",
+   "source": "iac/terraform/public_bucket.tf"
+  },
+  {
+   "cwe": "CWE-311",
+   "expected": "TP",
+   "fixture_sha256": "67fc6c81ed775f6a7db8f4d53ac49339c978c0d395d755e53140449716c663fd",
+   "id": "30e76ab46aeccf0c",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/public_bucket.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-UNENCRYPTED-STORAGE",
+   "source": "iac/terraform/public_bucket.tf"
+  },
+  {
+   "cwe": "CWE-284",
+   "expected": "TP",
+   "fixture_sha256": "1a5e2ecc5c3c20d35715a1103bae76d7fd58fac357ae0266ad9102b23a3fd5fd",
+   "id": "0d9ed5f795b2e00b",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/public_database.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-PUBLIC-EXPOSURE",
+   "source": "iac/terraform/public_database.tf"
+  },
+  {
+   "cwe": "CWE-311",
+   "expected": "TP",
+   "fixture_sha256": "1a5e2ecc5c3c20d35715a1103bae76d7fd58fac357ae0266ad9102b23a3fd5fd",
+   "id": "a60b879a41ca5e0c",
+   "lang": "terraform",
+   "line": 1,
+   "provenance": {
+    "kind": "config-semantics",
+    "label": "iac/terraform/public_database.tf.ground_truth.json"
+   },
+   "rule_id": "IAC-UNENCRYPTED-STORAGE",
+   "source": "iac/terraform/public_database.tf"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "2a7de7939dc4e74a8f0940c5e6724437284f1cc8c2e1a6e8ec97a275884ca32a",
+   "id": "dc58078962920b05",
+   "lang": "terraform",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "iac/terraform/secure_baseline.tf"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "5c89bbb39e407a41b8a114771cd9769941d536bcada8cc4ce7bef493d506e765",
+   "id": "853e79cdde4a3c20",
+   "lang": "cpp",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/cpp/safe.cpp"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "ab6cee0442df6b919b227e21d506cc66b6b727e943fa380e38d8df0de3ae0520",
+   "id": "08448e539537d6ac",
+   "lang": "cpp",
+   "line": 41,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/cpp/vulnerable.cpp.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/cpp/vulnerable.cpp"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "ab6cee0442df6b919b227e21d506cc66b6b727e943fa380e38d8df0de3ae0520",
+   "id": "8b3c0a0989a85695",
+   "lang": "cpp",
+   "line": 11,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/cpp/vulnerable.cpp.ground_truth.json"
+   },
+   "rule_id": "SAST-HARDCRED",
+   "source": "sast/cpp/vulnerable.cpp"
+  },
+  {
+   "cwe": "CWE-22",
+   "expected": "TP",
+   "fixture_sha256": "ab6cee0442df6b919b227e21d506cc66b6b727e943fa380e38d8df0de3ae0520",
+   "id": "33523af4de2329da",
+   "lang": "cpp",
+   "line": 48,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/cpp/vulnerable.cpp.ground_truth.json"
+   },
+   "rule_id": "SAST-PATH",
+   "source": "sast/cpp/vulnerable.cpp"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "ab6cee0442df6b919b227e21d506cc66b6b727e943fa380e38d8df0de3ae0520",
+   "id": "827003ba36a6c2c0",
+   "lang": "cpp",
+   "line": 33,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/cpp/vulnerable.cpp.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/cpp/vulnerable.cpp"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "9700fe4af91f0ea2917fb3e47c3369134ffd74164046e4d2ad2fa34a66abdc6f",
+   "id": "9532d947209cdf3d",
+   "lang": "dotnet",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/dotnet/SafeController.cs"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "10f13ef1c2470ee6c1ecaf963a9122cfdb81a9a93d4163aa10c8ed27a6ac562c",
+   "id": "3e11a445928b519e",
+   "lang": "dotnet",
+   "line": 38,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/dotnet/VulnerableController.cs.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/dotnet/VulnerableController.cs"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "10f13ef1c2470ee6c1ecaf963a9122cfdb81a9a93d4163aa10c8ed27a6ac562c",
+   "id": "827f0ecb947f8452",
+   "lang": "dotnet",
+   "line": 12,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/dotnet/VulnerableController.cs.ground_truth.json"
+   },
+   "rule_id": "SAST-HARDCRED",
+   "source": "sast/dotnet/VulnerableController.cs"
+  },
+  {
+   "cwe": "CWE-22",
+   "expected": "TP",
+   "fixture_sha256": "10f13ef1c2470ee6c1ecaf963a9122cfdb81a9a93d4163aa10c8ed27a6ac562c",
+   "id": "8f61f27c82e8c21e",
+   "lang": "dotnet",
+   "line": 54,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/dotnet/VulnerableController.cs.ground_truth.json"
+   },
+   "rule_id": "SAST-PATH",
+   "source": "sast/dotnet/VulnerableController.cs"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "10f13ef1c2470ee6c1ecaf963a9122cfdb81a9a93d4163aa10c8ed27a6ac562c",
+   "id": "8ca1e80999bfbe36",
+   "lang": "dotnet",
+   "line": 21,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/dotnet/VulnerableController.cs.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/dotnet/VulnerableController.cs"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "02bd341fa6214c17780f2c5627c34c0e65c45a81b411559228b03f37273033d0",
+   "id": "db3dbbf28fc891e1",
+   "lang": "go",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/go/safe.go"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "b2ae8077e27f21e7291b5d7b7fa76cc2754c2c01d8a51f1212eada88df040923",
+   "id": "97ad98856bbf945b",
+   "lang": "go",
+   "line": 48,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/go/vulnerable.go.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/go/vulnerable.go"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "b2ae8077e27f21e7291b5d7b7fa76cc2754c2c01d8a51f1212eada88df040923",
+   "id": "2243f6d5699e9301",
+   "lang": "go",
+   "line": 25,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/go/vulnerable.go.ground_truth.json"
+   },
+   "rule_id": "SAST-HARDCRED",
+   "source": "sast/go/vulnerable.go"
+  },
+  {
+   "cwe": "CWE-22",
+   "expected": "TP",
+   "fixture_sha256": "b2ae8077e27f21e7291b5d7b7fa76cc2754c2c01d8a51f1212eada88df040923",
+   "id": "4170a8bf2ddb18f2",
+   "lang": "go",
+   "line": 60,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/go/vulnerable.go.ground_truth.json"
+   },
+   "rule_id": "SAST-PATH",
+   "source": "sast/go/vulnerable.go"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "b2ae8077e27f21e7291b5d7b7fa76cc2754c2c01d8a51f1212eada88df040923",
+   "id": "89feb1532f0a6c43",
+   "lang": "go",
+   "line": 35,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/go/vulnerable.go.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/go/vulnerable.go"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "2e33cf48255b6f4ec27b17eb1078f95b0e28a8b73ad7ef59ae97d92c5737f571",
+   "id": "f64a1ddb5995cfb7",
+   "lang": "java",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/java/SafeServlet.java"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "48e19bd4b249d3a2f3483653812940a5c4c40000fd1f3d5ec6d5c029324b1e3e",
+   "id": "fd9b99a3c3903346",
+   "lang": "java",
+   "line": 32,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/java/VulnerableServlet.java.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/java/VulnerableServlet.java"
+  },
+  {
+   "cwe": "CWE-502",
+   "expected": "TP",
+   "fixture_sha256": "48e19bd4b249d3a2f3483653812940a5c4c40000fd1f3d5ec6d5c029324b1e3e",
+   "id": "5d344ee6b0e40b27",
+   "lang": "java",
+   "line": 50,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/java/VulnerableServlet.java.ground_truth.json"
+   },
+   "rule_id": "SAST-DESER",
+   "source": "sast/java/VulnerableServlet.java"
+  },
+  {
+   "cwe": "CWE-22",
+   "expected": "TP",
+   "fixture_sha256": "48e19bd4b249d3a2f3483653812940a5c4c40000fd1f3d5ec6d5c029324b1e3e",
+   "id": "b925e931523d1da7",
+   "lang": "java",
+   "line": 38,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/java/VulnerableServlet.java.ground_truth.json"
+   },
+   "rule_id": "SAST-PATH",
+   "source": "sast/java/VulnerableServlet.java"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "48e19bd4b249d3a2f3483653812940a5c4c40000fd1f3d5ec6d5c029324b1e3e",
+   "id": "ee57647f0aeff799",
+   "lang": "java",
+   "line": 23,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/java/VulnerableServlet.java.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/java/VulnerableServlet.java"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "36e475ac6ba123986434f37013985e4ca2630e263eb05d1fdfaab9cc5959f85c",
+   "id": "431fcbae945a99b9",
+   "lang": "php",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/php/safe.php"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "2a760c7b8927edc423bb85da2a319090b397937740be1d1463f4d9cdf8608f09",
+   "id": "975dc7137a8fa95b",
+   "lang": "php",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/php/safe_xss.php"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "e7560d750344dbfeeb5b523ac8b053fcfd4021455bd02c3fb4478013997cebf3",
+   "id": "6ea25f80d54a9e06",
+   "lang": "php",
+   "line": 23,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/php/vulnerable.php.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/php/vulnerable.php"
+  },
+  {
+   "cwe": "CWE-94",
+   "expected": "TP",
+   "fixture_sha256": "e7560d750344dbfeeb5b523ac8b053fcfd4021455bd02c3fb4478013997cebf3",
+   "id": "a350e01966e33968",
+   "lang": "php",
+   "line": 31,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/php/vulnerable.php.ground_truth.json"
+   },
+   "rule_id": "SAST-CODEINJ",
+   "source": "sast/php/vulnerable.php"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "e7560d750344dbfeeb5b523ac8b053fcfd4021455bd02c3fb4478013997cebf3",
+   "id": "7aa79dfdf453e49d",
+   "lang": "php",
+   "line": 5,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/php/vulnerable.php.ground_truth.json"
+   },
+   "rule_id": "SAST-HARDCRED",
+   "source": "sast/php/vulnerable.php"
+  },
+  {
+   "cwe": "CWE-22",
+   "expected": "TP",
+   "fixture_sha256": "e7560d750344dbfeeb5b523ac8b053fcfd4021455bd02c3fb4478013997cebf3",
+   "id": "f4fbb2b3e16147b9",
+   "lang": "php",
+   "line": 27,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/php/vulnerable.php.ground_truth.json"
+   },
+   "rule_id": "SAST-PATH",
+   "source": "sast/php/vulnerable.php"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "e7560d750344dbfeeb5b523ac8b053fcfd4021455bd02c3fb4478013997cebf3",
+   "id": "0b566f2f993a18a0",
+   "lang": "php",
+   "line": 16,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/php/vulnerable.php.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/php/vulnerable.php"
+  },
+  {
+   "cwe": "CWE-79",
+   "expected": "TP",
+   "fixture_sha256": "b28633d3a9316f9dd317731ee8f81b571c97241c336778ac07f4aec263478f26",
+   "id": "136fa4f7b9e2fac8",
+   "lang": "php",
+   "line": 4,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/php/vulnerable_xss.php.ground_truth.json"
+   },
+   "rule_id": "SAST-XSS",
+   "source": "sast/php/vulnerable_xss.php"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "3d0059cf79a93b4b4476065cecff80c7d0ae2bcdf4b12d0db05ba5a3397dd510",
+   "id": "be26a7a2a9e3cfb7",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/python/safe_app.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "bfe136ac632ce069f2e735eea5b72e188b3b9f6716e6b412fb0cba38b1220c8f",
+   "id": "eab7b1a62f2e718e",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/python/safe_idor.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "11a705a365a41c99af8ef3ee9d573c360f6b2557f0dbc7043072c337627bdaeb",
+   "id": "9b76aa7bd77d74a8",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/python/safe_ssrf.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "605e2bb86b65ffebeef75912f6928a434f7b71ceabaf9c707cdea077a27813b6",
+   "id": "b7d267790e0e75eb",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/python/safe_tls.py"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "d6591af97a8558eee14368ff84d40f46617c504a18cbb09680137bd6e7afe5a1",
+   "id": "2687b7b14ea9f89e",
+   "lang": "python",
+   "line": 27,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_app.py.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/python/vulnerable_app.py"
+  },
+  {
+   "cwe": "CWE-94",
+   "expected": "TP",
+   "fixture_sha256": "d6591af97a8558eee14368ff84d40f46617c504a18cbb09680137bd6e7afe5a1",
+   "id": "0da7a4e08cd7f24b",
+   "lang": "python",
+   "line": 42,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_app.py.ground_truth.json"
+   },
+   "rule_id": "SAST-CODEINJ",
+   "source": "sast/python/vulnerable_app.py"
+  },
+  {
+   "cwe": "CWE-215",
+   "expected": "TP",
+   "fixture_sha256": "d6591af97a8558eee14368ff84d40f46617c504a18cbb09680137bd6e7afe5a1",
+   "id": "ab87f68a6d5a9ca5",
+   "lang": "python",
+   "line": 45,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_app.py.ground_truth.json"
+   },
+   "rule_id": "SAST-DEBUG",
+   "source": "sast/python/vulnerable_app.py"
+  },
+  {
+   "cwe": "CWE-502",
+   "expected": "TP",
+   "fixture_sha256": "d6591af97a8558eee14368ff84d40f46617c504a18cbb09680137bd6e7afe5a1",
+   "id": "27d8d92cc1b8c1cf",
+   "lang": "python",
+   "line": 34,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_app.py.ground_truth.json"
+   },
+   "rule_id": "SAST-DESER",
+   "source": "sast/python/vulnerable_app.py"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "d6591af97a8558eee14368ff84d40f46617c504a18cbb09680137bd6e7afe5a1",
+   "id": "21b3044f9db3b22b",
+   "lang": "python",
+   "line": 17,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_app.py.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/python/vulnerable_app.py"
+  },
+  {
+   "cwe": "CWE-639",
+   "expected": "TP",
+   "fixture_sha256": "d6c773e0a0c5f2336a411e36e171d861b8a83a73c615f478f4e08e69c011f920",
+   "id": "95256dd292ef1e7e",
+   "lang": "python",
+   "line": 9,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_idor.py.ground_truth.json"
+   },
+   "rule_id": "SAST-IDOR",
+   "source": "sast/python/vulnerable_idor.py"
+  },
+  {
+   "cwe": "CWE-918",
+   "expected": "TP",
+   "fixture_sha256": "78f705052b5da9e9d925ce29c0f376e387b5fe17290d5cda3770981672051247",
+   "id": "f393ab694e764f63",
+   "lang": "python",
+   "line": 11,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_ssrf.py.ground_truth.json"
+   },
+   "rule_id": "SAST-SSRF",
+   "source": "sast/python/vulnerable_ssrf.py"
+  },
+  {
+   "cwe": "CWE-295",
+   "expected": "TP",
+   "fixture_sha256": "adc984a1822c2dbec66cb5deb60d7fae71c1eb4a8f066752194ab4d80f1ebffd",
+   "id": "2f3709d1a91497c0",
+   "lang": "python",
+   "line": 9,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/python/vulnerable_tls.py.ground_truth.json"
+   },
+   "rule_id": "SAST-TLSBYPASS",
+   "source": "sast/python/vulnerable_tls.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "20d8d03daf3efad2de6a2566175e432347fba5079951d4146fd21d01a8861b92",
+   "id": "cc43afc9f9e38402",
+   "lang": "rust",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sast/rust/safe.rs"
+  },
+  {
+   "cwe": "CWE-78",
+   "expected": "TP",
+   "fixture_sha256": "2ea034148f2bc226095fe93882e5d61c1f3efeb8100a40ade61d358b7186d545",
+   "id": "d5261c9171887124",
+   "lang": "rust",
+   "line": 33,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/rust/vulnerable.rs.ground_truth.json"
+   },
+   "rule_id": "SAST-CMDI",
+   "source": "sast/rust/vulnerable.rs"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "2ea034148f2bc226095fe93882e5d61c1f3efeb8100a40ade61d358b7186d545",
+   "id": "f19415a46da9e40e",
+   "lang": "rust",
+   "line": 9,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/rust/vulnerable.rs.ground_truth.json"
+   },
+   "rule_id": "SAST-HARDCRED",
+   "source": "sast/rust/vulnerable.rs"
+  },
+  {
+   "cwe": "CWE-22",
+   "expected": "TP",
+   "fixture_sha256": "2ea034148f2bc226095fe93882e5d61c1f3efeb8100a40ade61d358b7186d545",
+   "id": "6012060b8e599a07",
+   "lang": "rust",
+   "line": 45,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/rust/vulnerable.rs.ground_truth.json"
+   },
+   "rule_id": "SAST-PATH",
+   "source": "sast/rust/vulnerable.rs"
+  },
+  {
+   "cwe": "CWE-89",
+   "expected": "TP",
+   "fixture_sha256": "2ea034148f2bc226095fe93882e5d61c1f3efeb8100a40ade61d358b7186d545",
+   "id": "88619159322cd663",
+   "lang": "rust",
+   "line": 14,
+   "provenance": {
+    "kind": "fixture-semantics",
+    "label": "sast/rust/vulnerable.rs.ground_truth.json"
+   },
+   "rule_id": "SAST-SQLI",
+   "source": "sast/rust/vulnerable.rs"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "8aebd5aaad567e3de764ec1fc80dbadd41f489e6908ae358c38e4767c73e8f25",
+   "id": "206adf494a8c114e",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/maven/multi/pom.xml.ground_truth.json",
+    "package": "commons-lang:commons-lang",
+    "version": "2.6"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/maven/multi/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "8aebd5aaad567e3de764ec1fc80dbadd41f489e6908ae358c38e4767c73e8f25",
+   "id": "b09990da8e34212b",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/maven/multi/pom.xml.ground_truth.json",
+    "package": "com.google.code.gson:gson",
+    "version": "2.10.1"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/maven/multi/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "aba364f120d1bd1584c773c4a2d6c82b94876d810d65a176d03c0f19c7b9abe6",
+   "id": "dc650d3dae5ca9f3",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/maven/single/pom.xml.ground_truth.json",
+    "package": "commons-lang:commons-lang",
+    "version": "2.6"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/maven/single/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "a089a00f06341eda30ea6ea007b03222bb3be5b119b0222325a226822a9bf334",
+   "id": "0ce2d50a5a3c7940",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/npm/multi/package.json.ground_truth.json",
+    "package": "ms",
+    "version": "2.1.3"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/npm/multi/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "a089a00f06341eda30ea6ea007b03222bb3be5b119b0222325a226822a9bf334",
+   "id": "b73b1b675e248513",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/npm/multi/package.json.ground_truth.json",
+    "package": "left-pad",
+    "version": "1.3.0"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/npm/multi/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "a089a00f06341eda30ea6ea007b03222bb3be5b119b0222325a226822a9bf334",
+   "id": "d6f2f8d958c81387",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/npm/multi/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.21"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/npm/multi/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "5f41473bdb29ce23b5cc2fd0268a22b7690df62be8399235c1c3cb0d31b3b24f",
+   "id": "7946ca7a37221c97",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/npm/optional/package.json.ground_truth.json",
+    "package": "ms",
+    "version": "2.1.3"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/npm/optional/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "5f41473bdb29ce23b5cc2fd0268a22b7690df62be8399235c1c3cb0d31b3b24f",
+   "id": "f4b008453454f28f",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/npm/optional/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.21"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/npm/optional/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "a9e45cca85d3adb73aa6b4ef44a585fff090358d7ef38561f4009afad874bae7",
+   "id": "ab316fffb7f35597",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/npm/single/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.21"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/npm/single/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7947e7804e1a808b0d08a460469a089be9dc5f4dfc625aeb186d0cd779f66ba7",
+   "id": "0990b6dd6b7625ac",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/comments/requirements.txt.ground_truth.json",
+    "package": "certifi",
+    "version": "2024.2.2"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/comments/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7947e7804e1a808b0d08a460469a089be9dc5f4dfc625aeb186d0cd779f66ba7",
+   "id": "8e551077df79778c",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/comments/requirements.txt.ground_truth.json",
+    "package": "idna",
+    "version": "3.6"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/comments/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "3838fd8651790683e46e4f1da522a21bf4f485e9714bb03c442d312232af0b04",
+   "id": "f0bc7c5625abdee8",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sbom/pypi/empty/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "03171eba4090199e683704d2e8878e56ba2a5955082786abc9144d3ab25750ec",
+   "id": "081e1afcd25a3d65",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/multi/requirements.txt.ground_truth.json",
+    "package": "six",
+    "version": "1.16.0"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "03171eba4090199e683704d2e8878e56ba2a5955082786abc9144d3ab25750ec",
+   "id": "11698f4ab2336d8c",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/multi/requirements.txt.ground_truth.json",
+    "package": "iniconfig",
+    "version": "2.0.0"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "03171eba4090199e683704d2e8878e56ba2a5955082786abc9144d3ab25750ec",
+   "id": "257aadb72c8c5d6d",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/multi/requirements.txt.ground_truth.json",
+    "package": "click",
+    "version": "8.3.3"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "03171eba4090199e683704d2e8878e56ba2a5955082786abc9144d3ab25750ec",
+   "id": "44ca3abe8ecc1dae",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/multi/requirements.txt.ground_truth.json",
+    "package": "colorama",
+    "version": "0.4.6"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "4885f9d38a7ece22ff1d42b49600512ece8c21ada2bd3249ef7167c4a779fc23",
+   "id": "6a0ba92d25a0f43a",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/ranges/requirements.txt.ground_truth.json",
+    "package": "packaging",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/ranges/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "4885f9d38a7ece22ff1d42b49600512ece8c21ada2bd3249ef7167c4a779fc23",
+   "id": "7b00670dd0893892",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/ranges/requirements.txt.ground_truth.json",
+    "package": "pluggy",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/ranges/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "003059bc5ecc93608ff3bcdd66af0c51db8ad97719b6ef9d0043f4a30559b2f8",
+   "id": "43edb1bcfd0707b7",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/single/requirements.txt.ground_truth.json",
+    "package": "click",
+    "version": "8.3.3"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/single/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "2fb5f25b9caf361a02d485d4d43ed2a6bdba9c1ba828d4e9632c5a3d8767e52d",
+   "id": "0c5f3b9756ee91a8",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/transitive/requirements.txt.ground_truth.json",
+    "package": "flask",
+    "version": "3.0.0"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "2fb5f25b9caf361a02d485d4d43ed2a6bdba9c1ba828d4e9632c5a3d8767e52d",
+   "id": "1420ba4fc375ffff",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/transitive/requirements.txt.ground_truth.json",
+    "package": "blinker",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "2fb5f25b9caf361a02d485d4d43ed2a6bdba9c1ba828d4e9632c5a3d8767e52d",
+   "id": "164bfe56f90ec93b",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/transitive/requirements.txt.ground_truth.json",
+    "package": "Werkzeug",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "2fb5f25b9caf361a02d485d4d43ed2a6bdba9c1ba828d4e9632c5a3d8767e52d",
+   "id": "322282784464ddf4",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/transitive/requirements.txt.ground_truth.json",
+    "package": "itsdangerous",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "2fb5f25b9caf361a02d485d4d43ed2a6bdba9c1ba828d4e9632c5a3d8767e52d",
+   "id": "e66eae8a81ab286a",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/transitive/requirements.txt.ground_truth.json",
+    "package": "Jinja2",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "2fb5f25b9caf361a02d485d4d43ed2a6bdba9c1ba828d4e9632c5a3d8767e52d",
+   "id": "f82c5e358a2e720a",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": null,
+    "kind": "component-inventory",
+    "label": "sbom/pypi/transitive/requirements.txt.ground_truth.json",
+    "package": "click",
+    "version": "unknown"
+   },
+   "rule_id": "SBOM-COMPONENT-INVENTORY",
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "76b31464b2cb1a7316d52f122b63d2e97d576bed8e51a459d097514c8ff094fc",
+   "id": "f74987a9f69e3e04",
+   "lang": "crates",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2021-25900",
+    "kind": "OSV",
+    "label": "sca/crates/vulnerable/Cargo.lock.ground_truth.json",
+    "package": "smallvec",
+    "version": "1.6.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/crates/vulnerable/Cargo.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "0e1187b156689b5c1026083396e3cfe341296560b229afeecc0c3e991d24a88d",
+   "id": "105e166290fbab23",
+   "lang": "go",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2023-29401",
+    "kind": "OSV",
+    "label": "sca/go/vulnerable/go.mod.ground_truth.json",
+    "package": "github.com/gin-gonic/gin",
+    "version": "v1.6.3"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/go/vulnerable/go.mod"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "0e1187b156689b5c1026083396e3cfe341296560b229afeecc0c3e991d24a88d",
+   "id": "233fc25c5bcd70c8",
+   "lang": "go",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2020-28483",
+    "kind": "OSV",
+    "label": "sca/go/vulnerable/go.mod.ground_truth.json",
+    "package": "github.com/gin-gonic/gin",
+    "version": "v1.6.3"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/go/vulnerable/go.mod"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "0e1187b156689b5c1026083396e3cfe341296560b229afeecc0c3e991d24a88d",
+   "id": "398b53a02e298ef9",
+   "lang": "go",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2023-26125",
+    "kind": "OSV",
+    "label": "sca/go/vulnerable/go.mod.ground_truth.json",
+    "package": "github.com/gin-gonic/gin",
+    "version": "v1.6.3"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/go/vulnerable/go.mod"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "102df1ba19c92537",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2021-45046",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "29903c3dc5cc5280",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2021-44832",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "35ef09444ca8b199",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2025-68161",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "5d0906fd4663a2f6",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-34480",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "a3477607590a1a65",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-34477",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "be2d1cb5e9d61078",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2021-45105",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3f204f7fe7e8580cd760b5559a7c19d2c86ea8854a9e236a8fd2903d81da4848",
+   "id": "d2c7ca2813902920",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2021-44228",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable/pom.xml.ground_truth.json",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3c742abef453ed46cf87fecdf811646df8a9268102c66aa51f51f6741ca4f653",
+   "id": "576dbd42e8736bf4",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2022-42889",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable_commons/pom.xml.ground_truth.json",
+    "package": "org.apache.commons:commons-text",
+    "version": "1.9"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable_commons/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3c742abef453ed46cf87fecdf811646df8a9268102c66aa51f51f6741ca4f653",
+   "id": "e888352bf5fb1d40",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2020-25638",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable_commons/pom.xml.ground_truth.json",
+    "package": "org.hibernate:hibernate-core",
+    "version": "3.6.10.Final"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable_commons/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "3c742abef453ed46cf87fecdf811646df8a9268102c66aa51f51f6741ca4f653",
+   "id": "f813275055c073c7",
+   "lang": "maven",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2019-14900",
+    "kind": "OSV",
+    "label": "sca/maven/vulnerable_commons/pom.xml.ground_truth.json",
+    "package": "org.hibernate:hibernate-core",
+    "version": "3.6.10.Final"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/maven/vulnerable_commons/pom.xml"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "052831412cf049cf",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-2950",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.15"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "10c204432882c1ae",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2020-8203",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.15"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "3c03fe656e81a1bc",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-4800",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.15"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "9b7a18dbfe877da6",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-43796",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "express",
+    "version": "4.17.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "9ed2db4f90992fc1",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2021-23337",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.15"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "a66e75d2132f9f20",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-29041",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "express",
+    "version": "4.17.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "c22de1ba93ef5b4d",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2025-13465",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.15"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "7c13f31411d67814441aa41cf5851a74a51e8ed8ffbb89af899926c1801ab081",
+   "id": "fb16e5f9f077efe7",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2020-28500",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable/package.json.ground_truth.json",
+    "package": "lodash",
+    "version": "4.17.15"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "705472fa1dfdbc49ebc08f9796a83d5f1f86ff2e9a85dae64ec3d82a10a6c07d",
+   "id": "2a8479b2f88615fe",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2022-23540",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable_orm/package.json.ground_truth.json",
+    "package": "jsonwebtoken",
+    "version": "0.4.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "705472fa1dfdbc49ebc08f9796a83d5f1f86ff2e9a85dae64ec3d82a10a6c07d",
+   "id": "39f606bfe0a22ef4",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-69240",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable_orm/package.json.ground_truth.json",
+    "package": "sequelize",
+    "version": "6.37.3"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "705472fa1dfdbc49ebc08f9796a83d5f1f86ff2e9a85dae64ec3d82a10a6c07d",
+   "id": "4a47bc95cb2e1685",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-30951",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable_orm/package.json.ground_truth.json",
+    "package": "sequelize",
+    "version": "6.37.3"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "705472fa1dfdbc49ebc08f9796a83d5f1f86ff2e9a85dae64ec3d82a10a6c07d",
+   "id": "abed1f332b11ff61",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2022-23539",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable_orm/package.json.ground_truth.json",
+    "package": "jsonwebtoken",
+    "version": "0.4.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "705472fa1dfdbc49ebc08f9796a83d5f1f86ff2e9a85dae64ec3d82a10a6c07d",
+   "id": "b36b8c37090369cb",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2015-9235",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable_orm/package.json.ground_truth.json",
+    "package": "jsonwebtoken",
+    "version": "0.4.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "705472fa1dfdbc49ebc08f9796a83d5f1f86ff2e9a85dae64ec3d82a10a6c07d",
+   "id": "bb898fd6e030a0d1",
+   "lang": "npm",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2022-23541",
+    "kind": "OSV",
+    "label": "sca/npm/vulnerable_orm/package.json.ground_truth.json",
+    "package": "jsonwebtoken",
+    "version": "0.4.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "6fd5031b009067fe8339156e873aedda0616e8f5226f325bad77b8f3efa08135",
+   "id": "396589595403be59",
+   "lang": "packagist",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2025-64500",
+    "kind": "OSV",
+    "label": "sca/packagist/vulnerable/composer.lock.ground_truth.json",
+    "package": "symfony/http-foundation",
+    "version": "4.4.49"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/packagist/vulnerable/composer.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "6fd5031b009067fe8339156e873aedda0616e8f5226f325bad77b8f3efa08135",
+   "id": "49f3d643b295a165",
+   "lang": "packagist",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-50345",
+    "kind": "OSV",
+    "label": "sca/packagist/vulnerable/composer.lock.ground_truth.json",
+    "package": "symfony/http-foundation",
+    "version": "4.4.49"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/packagist/vulnerable/composer.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "5d409c10e664c77011fd6af5efb3aaec430d6d2c6214ed9e5990ee21efe36ff0",
+   "id": "7be6d830766ecc95",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "sca/pypi/clean/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "b535749d1d5d6deeb12a64df6f81c999b0ed924a965798ca26daad2d1894bd73",
+   "id": "63cc5d0f64fa3e0c",
+   "lang": "pypi",
+   "line": 4,
+   "provenance": {
+    "cve": "CVE-2020-14343",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable/requirements.txt.ground_truth.json",
+    "package": "pyyaml",
+    "version": "5.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "b535749d1d5d6deeb12a64df6f81c999b0ed924a965798ca26daad2d1894bd73",
+   "id": "9cc3149bcd6e8fcb",
+   "lang": "pypi",
+   "line": 5,
+   "provenance": {
+    "cve": "CVE-2024-24762",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable/requirements.txt.ground_truth.json",
+    "package": "fastapi",
+    "version": "0.88.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "4121457346a2610d",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-35195",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "requests",
+    "version": "2.31.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "44feda7dcdfeb169",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-56326",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "jinja2",
+    "version": "2.10"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "7918be86520c514f",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2020-14343",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "pyyaml",
+    "version": "3.13"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "7afd5aa26ba6ce7c",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2017-18342",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "pyyaml",
+    "version": "3.13"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "872737b3329bb799",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-22195",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "jinja2",
+    "version": "2.10"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "87f9b26714e6e6ea",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-25645",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "requests",
+    "version": "2.31.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "8890b32b17612da6",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2019-10906",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "jinja2",
+    "version": "2.10"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "bd5e91b868258535",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2020-28493",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "jinja2",
+    "version": "2.10"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "d6ab77e7b9938aab",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-47081",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "requests",
+    "version": "2.31.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "eafdd69fab265d87",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2025-27516",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "jinja2",
+    "version": "2.10"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9c07389a5fced0e91fbacad246a351f3ae6f20d6ae7aa565c66ab086f58ecd12",
+   "id": "ed9d3d17e8e0eb02",
+   "lang": "pypi",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-34064",
+    "kind": "OSV",
+    "label": "sca/pypi/vulnerable_multi/requirements.txt.ground_truth.json",
+    "package": "jinja2",
+    "version": "2.10"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "17cb0b39ae5542de",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2023-22797",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "20deca15b928f501",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2023-22795",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "25f21d776f8a32ea",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-26143",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "2b5aa25aa8b4f0fb",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2023-22792",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "4a5487e7fd5273e6",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-41128",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "4eb79371b66ada56",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-26143",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "rails",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "70a52e488e44d65b",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-28103",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "8702937d3f67c13a",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-47887",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "8ecff19c39d5a7ee",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2024-54133",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "114d48f33a564921363f2d3dda871704e83cff706978cf5c16b2990ef69e9751",
+   "id": "b0fd22256fc16d62",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2023-28362",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable/Gemfile.lock.ground_truth.json",
+    "package": "actionpack",
+    "version": "7.0.3.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9903c2bc295997aeac0dbf866606e9eae5a7e6c9018bb73845dac5e2dc0d9984",
+   "id": "249626f8afb462fd",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-73648",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock.ground_truth.json",
+    "package": "rails-html-sanitizer",
+    "version": "1.6.2"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9903c2bc295997aeac0dbf866606e9eae5a7e6c9018bb73845dac5e2dc0d9984",
+   "id": "29b9163ee4346815",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-47737",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock.ground_truth.json",
+    "package": "puma",
+    "version": "6.6.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9903c2bc295997aeac0dbf866606e9eae5a7e6c9018bb73845dac5e2dc0d9984",
+   "id": "39dcef34f0dfd3a1",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-54696",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock.ground_truth.json",
+    "package": "json",
+    "version": "2.18.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9903c2bc295997aeac0dbf866606e9eae5a7e6c9018bb73845dac5e2dc0d9984",
+   "id": "b32a61a842f133fe",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-33210",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock.ground_truth.json",
+    "package": "json",
+    "version": "2.18.0"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock"
+  },
+  {
+   "cwe": null,
+   "expected": "TP",
+   "fixture_sha256": "9903c2bc295997aeac0dbf866606e9eae5a7e6c9018bb73845dac5e2dc0d9984",
+   "id": "efe0480bf3debbce",
+   "lang": "rubygems",
+   "line": 0,
+   "provenance": {
+    "cve": "CVE-2026-47736",
+    "kind": "OSV",
+    "label": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock.ground_truth.json",
+    "package": "puma",
+    "version": "6.6.1"
+   },
+   "rule_id": "SCA-VULN-DEP",
+   "source": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "829373af23c8fa2a310569212460bb3bf4a3cf0cc6408142f29a6b09d0c0d555",
+   "id": "a7269cb140156f0d",
+   "lang": "python",
+   "line": 2,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/aws_credentials.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/aws_credentials.py"
+  },
+  {
+   "cwe": null,
+   "expected": "FP",
+   "fixture_sha256": "6290e058e0a23ddc1b3bd97d355cdb27764e0f4d5bea03d115cd7e9a7278b6b7",
+   "id": "218f40ffcd231492",
+   "lang": "python",
+   "line": 0,
+   "provenance": {
+    "kind": "safe-fixture",
+    "note": "any finding on this source is a false positive"
+   },
+   "rule_id": "*",
+   "source": "secrets/clean_config.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "3d2affc2379774a7eb624731a79b36b56bd965a9c445ef590a21fad13cfb0943",
+   "id": "56b3869e91b8869e",
+   "lang": "python",
+   "line": 2,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/database_url.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-CONFIG-PASSWORD",
+   "source": "secrets/database_url.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "710547969615d546dbc29c40418dfc0dea9903a22358558c3b23270071734566",
+   "id": "47e86c99746cf81d",
+   "lang": "python",
+   "line": 4,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/github_token.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/github_token.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "7e34f923565d5feee6778c835be478517a7a3f8bad181ede698c6514661cc995",
+   "id": "30b1ab4954f0351e",
+   "lang": "python",
+   "line": 1,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/gitlab_huggingface.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/gitlab_huggingface.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "7e34f923565d5feee6778c835be478517a7a3f8bad181ede698c6514661cc995",
+   "id": "e6b1816449b413b8",
+   "lang": "python",
+   "line": 2,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/gitlab_huggingface.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/gitlab_huggingface.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "7bb14fbcce4e92e38c0b4051e48478a5472f31f64a8ce3d79853c60fecbffb27",
+   "id": "0bdb3ae802ea4bf8",
+   "lang": "python",
+   "line": 3,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/jwt_signing.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-CONFIG-PASSWORD",
+   "source": "secrets/jwt_signing.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "77d59982d1d82653e6e802f61121296df95b685f08a1b89253c71937c1a2d068",
+   "id": "ebeb98c05920780f",
+   "lang": "python",
+   "line": 1,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/openai_key.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/openai_key.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "e90738faf1a957e2cc44b0ce119af603364288733722f86c38ec061f1af82ab7",
+   "id": "44acc85c207efb62",
+   "lang": "python",
+   "line": 2,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/package_registry_tokens.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/package_registry_tokens.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "e90738faf1a957e2cc44b0ce119af603364288733722f86c38ec061f1af82ab7",
+   "id": "167f4e44e3aa0e9d",
+   "lang": "python",
+   "line": 3,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/package_registry_tokens.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/package_registry_tokens.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "FN",
+   "fixture_sha256": "63ef1fcc2442d93c61844a36e3781367ef09531638e55252d1daa1fddc791bae",
+   "id": "bde133106c7d5126",
+   "lang": "python",
+   "line": 2,
+   "provenance": {
+    "kind": "known-miss",
+    "label": "secrets/slack_webhook.py.ground_truth.json",
+    "reason": "Pre-existing detection gap, A/B-proven at HEAD 47e77fb and every measured tree since (corpus scores 161/162 with this single miss). The bare-token-on-assignment-line form is not emitted by the provider-key signature rule. Not introduced by any batch; pinned here so a rule change that starts finding it fails the replay until the re-pin is deliberate."
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/slack_webhook.py"
+  },
+  {
+   "cwe": "CWE-798",
+   "expected": "TP",
+   "fixture_sha256": "c82aa054e32bf80f7ca3908b38f0a037e16d4e2f3659339da15fc395244fa359",
+   "id": "073341cdbf835520",
+   "lang": "python",
+   "line": 2,
+   "provenance": {
+    "kind": "format-rule",
+    "label": "secrets/stripe_key.py.ground_truth.json"
+   },
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "source": "secrets/stripe_key.py"
+  }
+ ],
+ "entry_count": 183,
+ "schema": "rsecopsx.corpus_manifest/v1"
+}

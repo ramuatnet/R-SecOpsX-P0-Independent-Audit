@@ -1,0 +1,11 @@
+{
+ "schema": "rsecopsx.known_misses/v1",
+ "misses": [
+  {
+   "source": "secrets/slack_webhook.py",
+   "rule_id": "SECRET-PROVIDER-KEY",
+   "line": 2,
+   "reason": "Pre-existing detection gap, A/B-proven at HEAD 47e77fb and every measured tree since (corpus scores 161/162 with this single miss). The bare-token-on-assignment-line form is not emitted by the provider-key signature rule. Not introduced by any batch; pinned here so a rule change that starts finding it fails the replay until the re-pin is deliberate."
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+# tests/replay artifacts are byte-compared by gates (emitter --check,
+# the golden diff in analysis/validation/replay.py). core.autocrlf=true
+# on a Windows checkout must never rewrite them, or every fresh clone
+# would go red on line endings alone.
+tests/replay/** text eol=lf

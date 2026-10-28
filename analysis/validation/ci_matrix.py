@@ -73,6 +73,22 @@ def run_ci_matrix() -> dict:
          "--corpus", str(ROOT / "tests" / "vuln-test-corpus")]
     ))
 
+    # T-3.1: the committed manifest + pinned SCA store must describe the
+    # corpus as it stands (a label/fixture edit without a re-emit fails
+    # here, before the replay can diff against a stale index).
+    gates.append(_run(
+        "corpus_manifest",
+        [sys.executable, str(ROOT / "tools" / "emit_corpus_manifest.py"),
+         "--check"]
+    ))
+
+    # T-3.2: deterministic replay -- double-run byte-identical, golden
+    # diff, and the manifest's TP/FN/FP assertions, all offline.
+    gates.append(_run(
+        "corpus_replay",
+        [sys.executable, "-m", "analysis.validation.replay"]
+    ))
+
     # V2.3: version fuzzing
     gates.append(_run(
         "version_fuzzing",

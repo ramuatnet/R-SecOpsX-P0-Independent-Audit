@@ -1,0 +1,2440 @@
+{
+ "finding_count": 161,
+ "fixture_count": 87,
+ "fixtures": [
+  {
+   "family": "ai_ml",
+   "findings": [],
+   "source": "ai_ml/safe_agent_dispatch.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [],
+   "source": "ai_ml/safe_loading.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [],
+   "source": "ai_ml/safe_model.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [],
+   "source": "ai_ml/safe_weights_only.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [
+    {
+     "basename": "vulnerable_agent_eval.py",
+     "class": "SAST-CODEINJ",
+     "cve": null,
+     "cwe": "CWE-94",
+     "evidence": "eval(",
+     "line": 16,
+     "package": null,
+     "rule_id": "EVAL_CALL",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "ai_ml/vulnerable_agent_eval.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [
+    {
+     "basename": "vulnerable_hardcoded_key.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "openai.api_key = \"sk-proj-AbCdEf0123456789AbCdEf0123456789AbCdEf01\"",
+     "line": 10,
+     "package": null,
+     "rule_id": "GENERIC_API_KEY_PASSWORD",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "ai_ml/vulnerable_hardcoded_key.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [
+    {
+     "basename": "vulnerable_loading.py",
+     "class": "SAST-DESER",
+     "cve": null,
+     "cwe": "CWE-502",
+     "evidence": "torch.load(",
+     "line": 14,
+     "package": null,
+     "rule_id": "PYTHON_TORCH_LOAD_UNSAFE",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable_loading.py",
+     "class": "SAST-CODEINJ",
+     "cve": null,
+     "cwe": "CWE-94",
+     "evidence": "config = AutoConfig.from_pretrained(name, trust_remote_code=True)",
+     "line": 19,
+     "package": null,
+     "rule_id": "PYTHON_TRANSFORMERS_REMOTE_CODE",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "ai_ml/vulnerable_loading.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [
+    {
+     "basename": "vulnerable_model.py",
+     "class": "SAST-DESER",
+     "cve": null,
+     "cwe": "CWE-502",
+     "evidence": "pickle.load(",
+     "line": 14,
+     "package": null,
+     "rule_id": "PYTHON_PICKLE_LOAD",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable_model.py",
+     "class": "SAST-CODEINJ",
+     "cve": null,
+     "cwe": "CWE-94",
+     "evidence": "exec(code, {\"model\": model, \"np\": np})",
+     "line": 33,
+     "package": null,
+     "rule_id": "PYTHON_EXEC_CALL",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "ai_ml/vulnerable_model.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [
+    {
+     "basename": "vulnerable_pickle_input.py",
+     "class": "SAST-DESER",
+     "cve": null,
+     "cwe": "CWE-502",
+     "evidence": "return pickle.loads(request.data)",
+     "line": 13,
+     "package": null,
+     "rule_id": "PYTHON_PICKLE_LOADS",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "ai_ml/vulnerable_pickle_input.py"
+  },
+  {
+   "family": "ai_ml",
+   "findings": [
+    {
+     "basename": "vulnerable_prompt_template.py",
+     "class": "SAST-CODEINJ",
+     "cve": null,
+     "cwe": "CWE-94",
+     "evidence": "return env.from_string(template).render()",
+     "line": 20,
+     "package": null,
+     "rule_id": "PYTHON_JINJA_FROM_STRING",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "ai_ml/vulnerable_prompt_template.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "approved_aes.py",
+     "class": "CBOM-APPROVED-CIPHER",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Envelope encryption for records at rest.\"\"\"\nfrom Crypto.Cipher import AES\n\n\ndef seal(key: bytes, data: bytes) -> bytes:\n    cipher = AES.new(key, AES.MODE_GCM)\n    return cipher.encrypt_and_digest(data)",
+     "line": 6,
+     "package": null,
+     "rule_id": "AES",
+     "severity": "Low",
+     "version": null
+    }
+   ],
+   "source": "cbom/approved_aes.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "asymmetric_rsa.py",
+     "class": "CBOM-ASYMMETRIC-KEY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Signing keypair generated once per deployment.\"\"\"\nfrom Crypto.PublicKey import RSA\n\n\ndef new_signing_key(bits: int = 3072):\n    return RSA.generate(bits)",
+     "line": 6,
+     "package": null,
+     "rule_id": "RSA",
+     "severity": "Medium",
+     "version": null
+    }
+   ],
+   "source": "cbom/asymmetric_rsa.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [],
+   "source": "cbom/clean_hashing.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "hardcoded_key.py",
+     "class": "CBOM-HARDCODED-KEY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "SIGNING_KEY = \"\"\"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAyMockSigningKeyMaterialNotARealKeyDoNotUse000000\n00000000000000000000000000000000000000000000000000000000000000\n-----END RSA PRIVATE KEY-----\"\"\"",
+     "line": 1,
+     "package": null,
+     "rule_id": "Hardcoded Private Key",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "cbom/hardcoded_key.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "mixed_crypto.py",
+     "class": "CBOM-WEAK-HASH",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Both a weak digest and a weak cipher, on separate lines.\"\"\"\nimport hashlib\nfrom Crypto.Cipher import DES\n\n\ndef fingerprint(data: bytes) -> str:\n    return hashlib.md5(data).hexdigest()\n\n\ndef legacy_encrypt(key: bytes, data: bytes) -> bytes:\n    return DES.new(key, DES.MODE_ECB).encrypt(data)",
+     "line": 7,
+     "package": null,
+     "rule_id": "MD5",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "mixed_crypto.py",
+     "class": "CBOM-WEAK-CIPHER",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Both a weak digest and a weak cipher, on separate lines.\"\"\"\nimport hashlib\nfrom Crypto.Cipher import DES\n\n\ndef fingerprint(data: bytes) -> str:\n    return hashlib.md5(data).hexdigest()\n\n\ndef legacy_encrypt(key: bytes, data: bytes) -> bytes:\n    return DES.new(key, DES.MODE_ECB).encrypt(data)",
+     "line": 11,
+     "package": null,
+     "rule_id": "DES / 3DES",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "cbom/mixed_crypto.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "transport_tls.py",
+     "class": "CBOM-TRANSPORT-CRYPTO",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Outbound HTTPS client for the dependency mirror.\"\"\"\nimport ssl\nimport urllib.request\n\n\ndef build_opener():\n    context = ssl.create_default_context(cafile=\"corporate-ca.pem\")\n    return urllib.request.build_opener(HTTPSHandler(context=context))",
+     "line": 7,
+     "package": null,
+     "rule_id": "TLS / SSL",
+     "severity": "Medium",
+     "version": null
+    }
+   ],
+   "source": "cbom/transport_tls.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "weak_des.py",
+     "class": "CBOM-WEAK-CIPHER",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Legacy field encryption for records migrated from the old platform.\"\"\"\nfrom Crypto.Cipher import DES\n\nBLOCK = \"DES/ECB/PKCS5Padding\"\n\n\ndef encrypt_field(key: bytes, data: bytes) -> bytes:\n    return DES.new(key, DES.MODE_ECB).encrypt(data)",
+     "line": 8,
+     "package": null,
+     "rule_id": "DES / 3DES",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "cbom/weak_des.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "weak_hash.py",
+     "class": "CBOM-WEAK-HASH",
+     "cve": null,
+     "cwe": null,
+     "evidence": "\"\"\"Checksum of an uploaded archive before it is stored.\"\"\"\nimport hashlib\n\n\ndef archive_digest(path: bytes) -> str:\n    return hashlib.md5(path).hexdigest()",
+     "line": 6,
+     "package": null,
+     "rule_id": "MD5",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "cbom/weak_hash.py"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "weak_rc4.js",
+     "class": "CBOM-WEAK-CIPHER",
+     "cve": null,
+     "cwe": null,
+     "evidence": "// Stream cipher used by the protocol adapter.\nconst { RC4 } = require(\"./vendor/stream\");\n\nfunction obfuscate(key, plaintext) {\n  const cipher = new RC4(key);\n  return cipher.process(plaintext);\n}\n\nmodule.exports = { obfuscate };",
+     "line": 2,
+     "package": null,
+     "rule_id": "RC4",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "weak_rc4.js",
+     "class": "CBOM-WEAK-CIPHER",
+     "cve": null,
+     "cwe": null,
+     "evidence": "// Stream cipher used by the protocol adapter.\nconst { RC4 } = require(\"./vendor/stream\");\n\nfunction obfuscate(key, plaintext) {\n  const cipher = new RC4(key);\n  return cipher.process(plaintext);\n}\n\nmodule.exports = { obfuscate };",
+     "line": 5,
+     "package": null,
+     "rule_id": "RC4",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "cbom/weak_rc4.js"
+  },
+  {
+   "family": "cbom",
+   "findings": [
+    {
+     "basename": "weak_sha1.js",
+     "class": "CBOM-WEAK-HASH",
+     "cve": null,
+     "cwe": null,
+     "evidence": "// Short identifier derived from the manifest contents.\nconst crypto = require(\"crypto\");\n\nfunction manifestId(contents) {\n  return crypto.createHash(\"sha1\").update(contents).digest(\"hex\");\n}\n\nmodule.exports = { manifestId };",
+     "line": 5,
+     "package": null,
+     "rule_id": "SHA1",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "cbom/weak_sha1.js"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "curl_pipe_shell.Dockerfile",
+     "class": "IAC-MISSING-HEALTHCHECK",
+     "cve": null,
+     "cwe": "CWE-1059",
+     "evidence": "FROM python:3.12-slim",
+     "line": 1,
+     "package": null,
+     "rule_id": "DOCKER_MISSING_HEALTHCHECK",
+     "severity": "Low",
+     "version": null
+    },
+    {
+     "basename": "curl_pipe_shell.Dockerfile",
+     "class": "IAC-INSECURE-DOWNLOAD",
+     "cve": null,
+     "cwe": "CWE-494",
+     "evidence": "RUN curl -fsSL https://get.example.com/install.sh | sh",
+     "line": 3,
+     "package": null,
+     "rule_id": "DOCKER_CURL_PIPE_SHELL",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/docker/curl_pipe_shell.Dockerfile"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "latest_tag.Dockerfile",
+     "class": "IAC-UNPINNED-IMAGE",
+     "cve": null,
+     "cwe": "CWE-1104",
+     "evidence": "FROM node:latest",
+     "line": 1,
+     "package": null,
+     "rule_id": "DOCKER_LATEST_TAG",
+     "severity": "Medium",
+     "version": null
+    },
+    {
+     "basename": "latest_tag.Dockerfile",
+     "class": "IAC-MISSING-HEALTHCHECK",
+     "cve": null,
+     "cwe": "CWE-1059",
+     "evidence": "FROM node:latest",
+     "line": 1,
+     "package": null,
+     "rule_id": "DOCKER_MISSING_HEALTHCHECK",
+     "severity": "Low",
+     "version": null
+    }
+   ],
+   "source": "iac/docker/latest_tag.Dockerfile"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "root_user.Dockerfile",
+     "class": "IAC-MISSING-HEALTHCHECK",
+     "cve": null,
+     "cwe": "CWE-1059",
+     "evidence": "FROM node:18-slim",
+     "line": 1,
+     "package": null,
+     "rule_id": "DOCKER_MISSING_HEALTHCHECK",
+     "severity": "Low",
+     "version": null
+    },
+    {
+     "basename": "root_user.Dockerfile",
+     "class": "IAC-PRIVILEGED-CONTAINER",
+     "cve": null,
+     "cwe": "CWE-250",
+     "evidence": "FROM node:18-slim",
+     "line": 1,
+     "package": null,
+     "rule_id": "DOCKER_MISSING_USER",
+     "severity": "Medium",
+     "version": null
+    },
+    {
+     "basename": "root_user.Dockerfile",
+     "class": "IAC-PRIVILEGED-CONTAINER",
+     "cve": null,
+     "cwe": "CWE-250",
+     "evidence": "USER root",
+     "line": 5,
+     "package": null,
+     "rule_id": "DOCKER_RUNS_AS_ROOT",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/docker/root_user.Dockerfile"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "host_network.yaml",
+     "class": "IAC-HOST-NAMESPACE-SHARING",
+     "cve": null,
+     "cwe": "CWE-668",
+     "evidence": "hostNetwork: true",
+     "line": 6,
+     "package": null,
+     "rule_id": "K8S_HOST_NETWORK",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/k8s/host_network.yaml"
+  },
+  {
+   "family": "iac",
+   "findings": [],
+   "source": "iac/k8s/pod_level_nonroot.yaml"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "privileged_pod.yaml",
+     "class": "IAC-PRIVILEGED-CONTAINER",
+     "cve": null,
+     "cwe": "CWE-250",
+     "evidence": "privileged: true",
+     "line": 11,
+     "package": null,
+     "rule_id": "K8S_PRIVILEGED_CONTAINER",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/k8s/privileged_pod.yaml"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "iam_wildcard.tf",
+     "class": "IAC-OVERBROAD-PERMISSIONS",
+     "cve": null,
+     "cwe": "CWE-732",
+     "evidence": "resource \"aws_iam_role_policy\" \"deployer\" { name = \"ci-deployer\" role = aws_iam_role.ci.id  policy = jsonencode({ Version = \"2012-10-17\" Statement = [{ Effect   = \"Allow\" Action   = [\"*\"] Resource = \"arn:aws:s3:::acme-artifacts/*\" }] }) }",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_AWS_IAM_WILDCARD_ACTION_SERVICE",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/terraform/iam_wildcard.tf"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "iam_wildcard_jsonencode.tf",
+     "class": "IAC-OVERBROAD-PERMISSIONS",
+     "cve": null,
+     "cwe": "CWE-732",
+     "evidence": "resource \"aws_iam_role_policy\" \"publisher\" { name = \"ci-publisher\" role = aws_iam_role.ci.id  policy = jsonencode({ Version = \"2012-10-17\" Statement = [{ Effect   = \"Allow\" Action   = \"*\" Resource = \"*\" }] }) }",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_IAM_JSONENCODE_WILDCARD",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/terraform/iam_wildcard_jsonencode.tf"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "open_security_group.tf",
+     "class": "IAC-PUBLIC-EXPOSURE",
+     "cve": null,
+     "cwe": "CWE-284",
+     "evidence": "cidr_blocks = [\"0.0.0.0/0\"]",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_OPEN_SECURITY_GROUP_INGRESS",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "iac/terraform/open_security_group.tf"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "public_bucket.tf",
+     "class": "IAC-PUBLIC-EXPOSURE",
+     "cve": null,
+     "cwe": "CWE-284",
+     "evidence": "acl    = \"public-read\"",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_PUBLIC_S3_ACL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "public_bucket.tf",
+     "class": "IAC-UNENCRYPTED-STORAGE",
+     "cve": null,
+     "cwe": "CWE-311",
+     "evidence": "resource \"aws_s3_bucket\" \"artifacts\" {",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_UNENCRYPTED_S3_BUCKET",
+     "severity": "Medium",
+     "version": null
+    }
+   ],
+   "source": "iac/terraform/public_bucket.tf"
+  },
+  {
+   "family": "iac",
+   "findings": [
+    {
+     "basename": "public_database.tf",
+     "class": "IAC-PUBLIC-EXPOSURE",
+     "cve": null,
+     "cwe": "CWE-284",
+     "evidence": "publicly_accessible = true",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_RDS_PUBLICLY_ACCESSIBLE",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "public_database.tf",
+     "class": "IAC-UNENCRYPTED-STORAGE",
+     "cve": null,
+     "cwe": "CWE-311",
+     "evidence": "storage_encrypted   = false",
+     "line": 1,
+     "package": null,
+     "rule_id": "TF_RDS_STORAGE_NOT_ENCRYPTED",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "iac/terraform/public_database.tf"
+  },
+  {
+   "family": "iac",
+   "findings": [],
+   "source": "iac/terraform/secure_baseline.tf"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/cpp/safe.cpp"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable.cpp",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "const char* db_pass = \"hardcoded_password\";",
+     "line": 11,
+     "package": null,
+     "rule_id": "CPP_HARDCODED_CREDENTIAL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.cpp",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "sqlite3_exec(db, sql, nullptr, nullptr, nullptr);",
+     "line": 33,
+     "package": null,
+     "rule_id": "CPP_SQLITE3_EXEC_VARIABLE",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.cpp",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "std::system(cmd);",
+     "line": 41,
+     "package": null,
+     "rule_id": "CPP_SYSTEM_VARIABLE",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.cpp",
+     "class": "SAST-PATH",
+     "cve": null,
+     "cwe": "CWE-22",
+     "evidence": "snprintf(path, sizeof(path), \"/var/www/uploads/%s\", file);",
+     "line": 48,
+     "package": null,
+     "rule_id": "CPP_PATH_SNPRINTF_INTERP",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/cpp/vulnerable.cpp"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/dotnet/SafeController.cs"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "VulnerableController.cs",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "private readonly string _connStr = \"Server=localhost;Database=testdb;User Id=root;Password=hardcoded_password;\";",
+     "line": 12,
+     "package": null,
+     "rule_id": "DOTNET_HARDCODED_CREDENTIAL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "VulnerableController.cs",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "using var reader = cmd.ExecuteReader();",
+     "line": 21,
+     "package": null,
+     "rule_id": "DOTNET_SQL_INTERPOLATED",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "VulnerableController.cs",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "Arguments = \"/c \" + cmd,",
+     "line": 38,
+     "package": null,
+     "rule_id": "DOTNET_PROCESS_START_INFO",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "VulnerableController.cs",
+     "class": "SAST-PATH",
+     "cve": null,
+     "cwe": "CWE-22",
+     "evidence": "var path = Path.Combine(@\"C:\\Uploads\", filename);",
+     "line": 54,
+     "package": null,
+     "rule_id": "TAINT_MULTIPART_TRAVERSAL",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/dotnet/VulnerableController.cs"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/go/safe.go"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable.go",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "db, err := sql.Open(\"mysql\", \"root:hardcoded_pass@tcp(127.0.0.1:3306)/test\")",
+     "line": 25,
+     "package": null,
+     "rule_id": "GO_HARDCODED_CREDENTIAL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.go",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "rows, err := db.Query(q)",
+     "line": 35,
+     "package": null,
+     "rule_id": "GO_SQL_CONCAT_INTERMEDIATE",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.go",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "out, err := exec.Command(\"sh\", \"-c\", \"echo \"+input).Output()",
+     "line": 48,
+     "package": null,
+     "rule_id": "GO_EXEC_SH_C",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.go",
+     "class": "SAST-PATH",
+     "cve": null,
+     "cwe": "CWE-22",
+     "evidence": "path := \"/var/www/uploads/\" + name",
+     "line": 60,
+     "package": null,
+     "rule_id": "GO_PATH_CONCAT",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/go/vulnerable.go"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/java/SafeServlet.java"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "VulnerableServlet.java",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "ResultSet rs = stmt.executeQuery(sql)) {",
+     "line": 23,
+     "package": null,
+     "rule_id": "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "VulnerableServlet.java",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "Process p = Runtime.getRuntime().exec(cmd);",
+     "line": 32,
+     "package": null,
+     "rule_id": "JAVA_TAINT_COMMAND_INJECTION",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "VulnerableServlet.java",
+     "class": "SAST-PATH",
+     "cve": null,
+     "cwe": "CWE-22",
+     "evidence": "File f = new File(\"/var/www/uploads/\" + fileName); // no validation",
+     "line": 38,
+     "package": null,
+     "rule_id": "TAINT_MULTIPART_TRAVERSAL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "VulnerableServlet.java",
+     "class": "SAST-DESER",
+     "cve": null,
+     "cwe": "CWE-502",
+     "evidence": "Object obj = ois.readObject(); // <-- dangerous",
+     "line": 50,
+     "package": null,
+     "rule_id": "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "sast/java/VulnerableServlet.java"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/php/safe.php"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/php/safe_xss.php"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable.php",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "$pass = \"hardcoded_password\";",
+     "line": 5,
+     "package": null,
+     "rule_id": "PHP_HARDCODED_CREDENTIAL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.php",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "$result = $mysqli->query($sql);",
+     "line": 16,
+     "package": null,
+     "rule_id": "TAINT_PHP_SQL_INJECTION",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.php",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "system(\"echo \" . $cmd); // vulnerable",
+     "line": 23,
+     "package": null,
+     "rule_id": "TAINT_PHP_COMMAND_INJECTION",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.php",
+     "class": "SAST-PATH",
+     "cve": null,
+     "cwe": "CWE-22",
+     "evidence": "include(\"/var/www/includes/\" . $file); // no validation",
+     "line": 27,
+     "package": null,
+     "rule_id": "PHP_PATH_USER_INPUT_VAR",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.php",
+     "class": "SAST-CODEINJ",
+     "cve": null,
+     "cwe": "CWE-94",
+     "evidence": "eval(",
+     "line": 31,
+     "package": null,
+     "rule_id": "EVAL_CALL",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "sast/php/vulnerable.php"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable_xss.php",
+     "class": "SAST-XSS",
+     "cve": null,
+     "cwe": "CWE-79",
+     "evidence": "echo $_GET['comment'];",
+     "line": 4,
+     "package": null,
+     "rule_id": "PHP_XSS_TAINTED_ECHO",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/php/vulnerable_xss.php"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/python/safe_app.py"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/python/safe_idor.py"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/python/safe_ssrf.py"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/python/safe_tls.py"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable_app.py",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "cursor.execute(query)",
+     "line": 17,
+     "package": null,
+     "rule_id": "TAINT_SQL_INJECTION",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable_app.py",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)",
+     "line": 27,
+     "package": null,
+     "rule_id": "SUBPROCESS_SHELL_TRUE",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable_app.py",
+     "class": "SAST-DESER",
+     "cve": null,
+     "cwe": "CWE-502",
+     "evidence": "obj = pickle.loads(data)  # dangerous!",
+     "line": 34,
+     "package": null,
+     "rule_id": "PYTHON_PICKLE_LOADS",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable_app.py",
+     "class": "SAST-CODEINJ",
+     "cve": null,
+     "cwe": "CWE-94",
+     "evidence": "return render_string(tpl)  # Jinja2 auto\u2011escape is OFF in this example",
+     "line": 42,
+     "package": null,
+     "rule_id": "PYTHON_RENDER_STRING",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable_app.py",
+     "class": "SAST-DEBUG",
+     "cve": null,
+     "cwe": "CWE-215",
+     "evidence": "app.run(debug=True, host=\"0.0.0.0\", port=5000)",
+     "line": 45,
+     "package": null,
+     "rule_id": "FLASK_DEBUG",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/python/vulnerable_app.py"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable_idor.py",
+     "class": "SAST-IDOR",
+     "cve": null,
+     "cwe": "CWE-639",
+     "evidence": "invoice = Invoice.objects.get(pk=request.GET[\"id\"])",
+     "line": 9,
+     "package": null,
+     "rule_id": "PY_IDOR_OBJECT_FETCH",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/python/vulnerable_idor.py"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable_ssrf.py",
+     "class": "SAST-SSRF",
+     "cve": null,
+     "cwe": "CWE-918",
+     "evidence": "return requests.get(target, timeout=10).text",
+     "line": 11,
+     "package": null,
+     "rule_id": "TAINT_SSRF_EXPANDED",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/python/vulnerable_ssrf.py"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable_tls.py",
+     "class": "SAST-TLSBYPASS",
+     "cve": null,
+     "cwe": "CWE-295",
+     "evidence": "return requests.get(UPSTREAM, verify=False, timeout=10).json()",
+     "line": 9,
+     "package": null,
+     "rule_id": "PY_TLS_CERT_VALIDATION_DISABLED",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "sast/python/vulnerable_tls.py"
+  },
+  {
+   "family": "sast",
+   "findings": [],
+   "source": "sast/rust/safe.rs"
+  },
+  {
+   "family": "sast",
+   "findings": [
+    {
+     "basename": "vulnerable.rs",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "const DB_PASS: &str = \"hardcoded_pass\";",
+     "line": 9,
+     "package": null,
+     "rule_id": "RUST_HARDCODED_CREDENTIAL",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.rs",
+     "class": "SAST-SQLI",
+     "cve": null,
+     "cwe": "CWE-89",
+     "evidence": "let mut stmt = conn.prepare(&sql).unwrap();",
+     "line": 14,
+     "package": null,
+     "rule_id": "RUST_SQL_SINK",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.rs",
+     "class": "SAST-CMDI",
+     "cve": null,
+     "cwe": "CWE-78",
+     "evidence": "let output = Command::new(\"sh\")",
+     "line": 33,
+     "package": null,
+     "rule_id": "RUST_COMMAND_EXEC",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "vulnerable.rs",
+     "class": "SAST-PATH",
+     "cve": null,
+     "cwe": "CWE-22",
+     "evidence": "let path = format!(\"/var/www/uploads/{}\", filename);",
+     "line": 45,
+     "package": null,
+     "rule_id": "RUST_PATH_FORMAT",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "sast/rust/vulnerable.rs"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "pom.xml",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "com.google.code.gson:gson",
+     "line": 0,
+     "package": "com.google.code.gson:gson",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2.10.1"
+    },
+    {
+     "basename": "pom.xml",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "commons-lang:commons-lang",
+     "line": 0,
+     "package": "commons-lang:commons-lang",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2.6"
+    }
+   ],
+   "source": "sbom/maven/multi/pom.xml"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "pom.xml",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "commons-lang:commons-lang",
+     "line": 0,
+     "package": "commons-lang:commons-lang",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2.6"
+    }
+   ],
+   "source": "sbom/maven/single/pom.xml"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "package.json",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "left-pad",
+     "line": 0,
+     "package": "left-pad",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "1.3.0"
+    },
+    {
+     "basename": "package.json",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "lodash",
+     "line": 0,
+     "package": "lodash",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "4.17.21"
+    },
+    {
+     "basename": "package.json",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "ms",
+     "line": 0,
+     "package": "ms",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2.1.3"
+    }
+   ],
+   "source": "sbom/npm/multi/package.json"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "package.json",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "lodash",
+     "line": 0,
+     "package": "lodash",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "4.17.21"
+    },
+    {
+     "basename": "package.json",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "ms",
+     "line": 0,
+     "package": "ms",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2.1.3"
+    }
+   ],
+   "source": "sbom/npm/optional/package.json"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "package.json",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "lodash",
+     "line": 0,
+     "package": "lodash",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "4.17.21"
+    }
+   ],
+   "source": "sbom/npm/single/package.json"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "certifi",
+     "line": 0,
+     "package": "certifi",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2024.2.2"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "idna",
+     "line": 0,
+     "package": "idna",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "3.6"
+    }
+   ],
+   "source": "sbom/pypi/comments/requirements.txt"
+  },
+  {
+   "family": "sbom",
+   "findings": [],
+   "source": "sbom/pypi/empty/requirements.txt"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "click",
+     "line": 0,
+     "package": "click",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "8.3.3"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "colorama",
+     "line": 0,
+     "package": "colorama",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "0.4.6"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "iniconfig",
+     "line": 0,
+     "package": "iniconfig",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "2.0.0"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "six",
+     "line": 0,
+     "package": "six",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "1.16.0"
+    }
+   ],
+   "source": "sbom/pypi/multi/requirements.txt"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "packaging",
+     "line": 0,
+     "package": "packaging",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "pluggy",
+     "line": 0,
+     "package": "pluggy",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    }
+   ],
+   "source": "sbom/pypi/ranges/requirements.txt"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "click",
+     "line": 0,
+     "package": "click",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "8.3.3"
+    }
+   ],
+   "source": "sbom/pypi/single/requirements.txt"
+  },
+  {
+   "family": "sbom",
+   "findings": [
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "blinker",
+     "line": 0,
+     "package": "blinker",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "click",
+     "line": 0,
+     "package": "click",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "flask",
+     "line": 0,
+     "package": "flask",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "3.0.0"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "itsdangerous",
+     "line": 0,
+     "package": "itsdangerous",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "jinja2",
+     "line": 0,
+     "package": "jinja2",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    },
+    {
+     "basename": "requirements.txt",
+     "class": "SBOM-COMPONENT-INVENTORY",
+     "cve": null,
+     "cwe": null,
+     "evidence": "werkzeug",
+     "line": 0,
+     "package": "werkzeug",
+     "rule_id": "SBOM-COMPONENT-INVENTORY",
+     "severity": null,
+     "version": "unknown"
+    }
+   ],
+   "source": "sbom/pypi/transitive/requirements.txt"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2021-25900",
+     "cwe": null,
+     "evidence": "Buffer overflow in SmallVec::insert_many",
+     "line": null,
+     "package": "smallvec",
+     "rule_id": "GHSA-43w2-9j62-hq99",
+     "severity": "Critical",
+     "version": "1.6.0"
+    }
+   ],
+   "source": "sca/crates/vulnerable/Cargo.lock"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2023-29401",
+     "cwe": null,
+     "evidence": "Gin Web Framework does not properly sanitize filename parameter of Context.FileAttachment function",
+     "line": null,
+     "package": "github.com/gin-gonic/gin",
+     "rule_id": "GHSA-2c4m-59x9-fr2g",
+     "severity": "Medium",
+     "version": "v1.6.3"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2023-26125",
+     "cwe": null,
+     "evidence": "Improper input validation in github.com/gin-gonic/gin",
+     "line": null,
+     "package": "github.com/gin-gonic/gin",
+     "rule_id": "GHSA-3vp4-m3rf-835h",
+     "severity": "Medium",
+     "version": "v1.6.3"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-28483",
+     "cwe": null,
+     "evidence": "Inconsistent Interpretation of HTTP Requests in github.com/gin-gonic/gin",
+     "line": null,
+     "package": "github.com/gin-gonic/gin",
+     "rule_id": "GHSA-h395-qcrw-5vmq",
+     "severity": "High",
+     "version": "v1.6.3"
+    }
+   ],
+   "source": "sca/go/vulnerable/go.mod"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-34480",
+     "cwe": null,
+     "evidence": "Apache Log4j Core: Silent log event loss in XmlLayout due to unescaped XML 1.0 forbidden characters",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-3pxv-7cmr-fjr4",
+     "severity": "Medium",
+     "version": "2.14.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-34477",
+     "cwe": null,
+     "evidence": "Apache Log4j Core: `verifyHostName` attribute silently ignored in TLS configuration",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-6hg6-v5c8-fphq",
+     "severity": "Medium",
+     "version": "2.14.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2021-45046",
+     "cwe": null,
+     "evidence": "Incomplete fix for Apache Log4j vulnerability",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-7rjr-3q55-vv33",
+     "severity": "Critical",
+     "version": "2.14.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2021-44832",
+     "cwe": null,
+     "evidence": "Improper Input Validation and Injection in Apache Log4j2",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-8489-44mv-ggj8",
+     "severity": "Medium",
+     "version": "2.14.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2021-44228",
+     "cwe": null,
+     "evidence": "Remote code injection in Log4j",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-jfh8-c2jp-5v3q",
+     "severity": "Critical",
+     "version": "2.14.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2021-45105",
+     "cwe": null,
+     "evidence": "Apache Log4j2 vulnerable to Improper Input Validation and Uncontrolled Recursion",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-p6xc-xr62-6r2g",
+     "severity": "High",
+     "version": "2.14.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2025-68161",
+     "cwe": null,
+     "evidence": "Apache Log4j does not verify the TLS hostname in its Socket Appender",
+     "line": null,
+     "package": "org.apache.logging.log4j:log4j-core",
+     "rule_id": "GHSA-vc5p-v9hr-52mj",
+     "severity": "Medium",
+     "version": "2.14.1"
+    }
+   ],
+   "source": "sca/maven/vulnerable/pom.xml"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2022-42889",
+     "cwe": null,
+     "evidence": "Arbitrary code execution in Apache Commons Text",
+     "line": null,
+     "package": "org.apache.commons:commons-text",
+     "rule_id": "GHSA-599f-7c49-w659",
+     "severity": "Critical",
+     "version": "1.9"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2019-14900",
+     "cwe": null,
+     "evidence": "SQL Injection in Hibernate ORM",
+     "line": null,
+     "package": "org.hibernate:hibernate-core",
+     "rule_id": "GHSA-8grg-q944-cch5",
+     "severity": "Medium",
+     "version": "3.6.10.Final"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-25638",
+     "cwe": null,
+     "evidence": "SQL injection in hibernate-core",
+     "line": null,
+     "package": "org.hibernate:hibernate-core",
+     "rule_id": "GHSA-j8jw-g6fq-mp7h",
+     "severity": "High",
+     "version": "3.6.10.Final"
+    }
+   ],
+   "source": "sca/maven/vulnerable_commons/pom.xml"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-28500",
+     "cwe": null,
+     "evidence": "Regular Expression Denial of Service (ReDoS) in lodash",
+     "line": null,
+     "package": "lodash",
+     "rule_id": "GHSA-29mw-wpgm-hmr9",
+     "severity": "Medium",
+     "version": "4.17.15"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2021-23337",
+     "cwe": null,
+     "evidence": "Command Injection in lodash",
+     "line": null,
+     "package": "lodash",
+     "rule_id": "GHSA-35jh-r3h4-6jhm",
+     "severity": "High",
+     "version": "4.17.15"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-2950",
+     "cwe": null,
+     "evidence": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+     "line": null,
+     "package": "lodash",
+     "rule_id": "GHSA-f23m-r3pf-42rh",
+     "severity": "Medium",
+     "version": "4.17.15"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-8203",
+     "cwe": null,
+     "evidence": "Prototype Pollution in lodash",
+     "line": null,
+     "package": "lodash",
+     "rule_id": "GHSA-p6mc-m468-83gw",
+     "severity": "High",
+     "version": "4.17.15"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-43796",
+     "cwe": null,
+     "evidence": "express vulnerable to XSS via response.redirect()",
+     "line": null,
+     "package": "express",
+     "rule_id": "GHSA-qw6h-vgh9-j6wx",
+     "severity": "Low",
+     "version": "4.17.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-4800",
+     "cwe": null,
+     "evidence": "lodash vulnerable to Code Injection via `_.template` imports key names",
+     "line": null,
+     "package": "lodash",
+     "rule_id": "GHSA-r5fr-rjxr-66jc",
+     "severity": "High",
+     "version": "4.17.15"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-29041",
+     "cwe": null,
+     "evidence": "Express.js Open Redirect in malformed URLs",
+     "line": null,
+     "package": "express",
+     "rule_id": "GHSA-rv95-896h-c2vc",
+     "severity": "Medium",
+     "version": "4.17.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2025-13465",
+     "cwe": null,
+     "evidence": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+     "line": null,
+     "package": "lodash",
+     "rule_id": "GHSA-xxjr-mmjv-4gpg",
+     "severity": "Medium",
+     "version": "4.17.15"
+    }
+   ],
+   "source": "sca/npm/vulnerable/package.json"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-30951",
+     "cwe": null,
+     "evidence": "Sequelize v6 Vulnerable to SQL Injection via JSON Column Cast Type",
+     "line": null,
+     "package": "sequelize",
+     "rule_id": "GHSA-6457-6jrx-69cr",
+     "severity": "High",
+     "version": "6.37.3"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2022-23539",
+     "cwe": null,
+     "evidence": "jsonwebtoken unrestricted key type could lead to legacy keys usage ",
+     "line": null,
+     "package": "jsonwebtoken",
+     "rule_id": "GHSA-8cf7-32gw-wr33",
+     "severity": "High",
+     "version": "0.4.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2015-9235",
+     "cwe": null,
+     "evidence": "Verification Bypass in jsonwebtoken",
+     "line": null,
+     "package": "jsonwebtoken",
+     "rule_id": "GHSA-c7hr-j4mj-j2w6",
+     "severity": "Critical",
+     "version": "0.4.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2022-23541",
+     "cwe": null,
+     "evidence": "jsonwebtoken's insecure implementation of key retrieval function could lead to Forgeable Public/Private Tokens from RSA to HMAC",
+     "line": null,
+     "package": "jsonwebtoken",
+     "rule_id": "GHSA-hjrf-2m68-5959",
+     "severity": "Medium",
+     "version": "0.4.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2022-23540",
+     "cwe": null,
+     "evidence": "jsonwebtoken vulnerable to signature validation bypass due to insecure default algorithm in jwt.verify()",
+     "line": null,
+     "package": "jsonwebtoken",
+     "rule_id": "GHSA-qwph-4952-7xr6",
+     "severity": "Medium",
+     "version": "0.4.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-69240",
+     "cwe": null,
+     "evidence": "Sequelize: SQL Injection (Oracle DB)",
+     "line": null,
+     "package": "sequelize",
+     "rule_id": "GHSA-v8fg-2rw7-q452",
+     "severity": "Critical",
+     "version": "6.37.3"
+    }
+   ],
+   "source": "sca/npm/vulnerable_orm/package.json"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2025-64500",
+     "cwe": null,
+     "evidence": "Symfony's incorrect parsing of PATH_INFO can lead to limited authorization bypass",
+     "line": null,
+     "package": "symfony/http-foundation",
+     "rule_id": "GHSA-3rg7-wf37-54rm",
+     "severity": "High",
+     "version": "4.4.49"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-50345",
+     "cwe": null,
+     "evidence": "Symfony vulnerable to open redirect via browser-sanitized URLs",
+     "line": null,
+     "package": "symfony/http-foundation",
+     "rule_id": "GHSA-mrqx-rp3w-jpjp",
+     "severity": "Low",
+     "version": "4.4.49"
+    }
+   ],
+   "source": "sca/packagist/vulnerable/composer.lock"
+  },
+  {
+   "family": "sca",
+   "findings": [],
+   "source": "sca/pypi/clean/requirements.txt"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-14343",
+     "cwe": null,
+     "evidence": "Improper Input Validation in PyYAML",
+     "line": null,
+     "package": "pyyaml",
+     "rule_id": "GHSA-8q59-q68h-6hv4",
+     "severity": "Critical",
+     "version": "5.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-24762",
+     "cwe": null,
+     "evidence": "PYSEC-2024-38",
+     "line": null,
+     "package": "fastapi",
+     "rule_id": "PYSEC-2024-38",
+     "severity": "High",
+     "version": "0.88.0"
+    }
+   ],
+   "source": "sca/pypi/vulnerable/requirements.txt"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2019-10906",
+     "cwe": null,
+     "evidence": "Jinja2 sandbox escape via string formatting",
+     "line": null,
+     "package": "jinja2",
+     "rule_id": "GHSA-462w-v97r-4m45",
+     "severity": "High",
+     "version": "2.10"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-14343",
+     "cwe": null,
+     "evidence": "Improper Input Validation in PyYAML",
+     "line": null,
+     "package": "pyyaml",
+     "rule_id": "GHSA-8q59-q68h-6hv4",
+     "severity": "Critical",
+     "version": "3.13"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-47081",
+     "cwe": null,
+     "evidence": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+     "line": null,
+     "package": "requests",
+     "rule_id": "GHSA-9hjg-9r4m-mvj7",
+     "severity": "Medium",
+     "version": "2.31.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-35195",
+     "cwe": null,
+     "evidence": "Requests `Session` object does not verify requests after making first request with verify=False",
+     "line": null,
+     "package": "requests",
+     "rule_id": "GHSA-9wx4-h78v-vm56",
+     "severity": "Medium",
+     "version": "2.31.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2025-27516",
+     "cwe": null,
+     "evidence": "Jinja2 vulnerable to sandbox breakout through attr filter selecting format method",
+     "line": null,
+     "package": "jinja2",
+     "rule_id": "GHSA-cpwx-vrp4-4pq7",
+     "severity": "Medium",
+     "version": "2.10"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2020-28493",
+     "cwe": null,
+     "evidence": "Regular Expression Denial of Service (ReDoS) in Jinja2",
+     "line": null,
+     "package": "jinja2",
+     "rule_id": "GHSA-g3rq-g295-4j3m",
+     "severity": "Medium",
+     "version": "2.10"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-25645",
+     "cwe": null,
+     "evidence": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+     "line": null,
+     "package": "requests",
+     "rule_id": "GHSA-gc5v-m9x4-r6x2",
+     "severity": "Medium",
+     "version": "2.31.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-22195",
+     "cwe": null,
+     "evidence": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter",
+     "line": null,
+     "package": "jinja2",
+     "rule_id": "GHSA-h5c8-rqwp-cp95",
+     "severity": "Medium",
+     "version": "2.10"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-34064",
+     "cwe": null,
+     "evidence": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter",
+     "line": null,
+     "package": "jinja2",
+     "rule_id": "GHSA-h75v-3vvj-5mfj",
+     "severity": "Medium",
+     "version": "2.10"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-56326",
+     "cwe": null,
+     "evidence": "Jinja has a sandbox breakout through indirect reference to format method",
+     "line": null,
+     "package": "jinja2",
+     "rule_id": "GHSA-q2x7-8rv6-6q7h",
+     "severity": "Medium",
+     "version": "2.10"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2017-18342",
+     "cwe": null,
+     "evidence": "PyYAML insecurely deserializes YAML strings leading to arbitrary code execution",
+     "line": null,
+     "package": "pyyaml",
+     "rule_id": "GHSA-rprw-h62v-c2w7",
+     "severity": "Critical",
+     "version": "3.13"
+    }
+   ],
+   "source": "sca/pypi/vulnerable_multi/requirements.txt"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2023-28362",
+     "cwe": null,
+     "evidence": "Actionpack has possible cross-site scripting vulnerability via User Supplied Values to redirect_to",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-4g8v-vg43-wpgf",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2023-22795",
+     "cwe": null,
+     "evidence": "ReDoS based DoS vulnerability in Action Dispatch",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-8xww-x3g3-6jcv",
+     "severity": "Low",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2023-22797",
+     "cwe": null,
+     "evidence": "Open Redirect Vulnerability in Action Pack",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-9445-4cr6-336r",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-26143",
+     "cwe": null,
+     "evidence": "Rails has possible XSS Vulnerability in Action Controller",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-9822-6m93-xqf4",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-26143",
+     "cwe": null,
+     "evidence": "Rails has possible XSS Vulnerability in Action Controller",
+     "line": null,
+     "package": "rails",
+     "rule_id": "GHSA-9822-6m93-xqf4",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-28103",
+     "cwe": null,
+     "evidence": "Missing security headers in Action Pack on non-HTML responses",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-fwhr-88qx-h9g7",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2023-22792",
+     "cwe": null,
+     "evidence": "ReDoS based DoS vulnerability in Action Dispatch",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-p84v-45xj-wwqj",
+     "severity": "Low",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-47887",
+     "cwe": null,
+     "evidence": "Possible ReDoS vulnerability in HTTP Token authentication in Action Controller",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-vfg9-r3fq-jvx4",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-54133",
+     "cwe": null,
+     "evidence": "Possible Content Security Policy bypass in Action Dispatch",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-vfm5-rmrh-j26v",
+     "severity": "Low",
+     "version": "7.0.3.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2024-41128",
+     "cwe": null,
+     "evidence": "Possible ReDoS vulnerability in query parameter filtering in Action Dispatch",
+     "line": null,
+     "package": "actionpack",
+     "rule_id": "GHSA-x76w-6vjr-8xgj",
+     "severity": "Medium",
+     "version": "7.0.3.1"
+    }
+   ],
+   "source": "sca/rubygems/vulnerable/Gemfile.lock"
+  },
+  {
+   "family": "sca",
+   "findings": [
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-47737",
+     "cwe": null,
+     "evidence": "Puma PROXY Protocol v1 Accepts Repeated Protocol Headers on Persistent Connections",
+     "line": null,
+     "package": "puma",
+     "rule_id": "GHSA-2vqw-3mp8-cgmx",
+     "severity": "High",
+     "version": "6.6.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-33210",
+     "cwe": null,
+     "evidence": "Ruby JSON has a format string injection vulnerability",
+     "line": null,
+     "package": "json",
+     "rule_id": "GHSA-3m6g-2423-7cp3",
+     "severity": "High",
+     "version": "2.18.0"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-73648",
+     "cwe": null,
+     "evidence": "Rails HTML Sanitizers: Possible XSS vulnerability with certain configurations",
+     "line": null,
+     "package": "rails-html-sanitizer",
+     "rule_id": "GHSA-cj75-f6xr-r4g7",
+     "severity": "Medium",
+     "version": "1.6.2"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-47736",
+     "cwe": null,
+     "evidence": "Puma PROXY Protocol v1 Parser Allows Remote Memory Exhaustion ",
+     "line": null,
+     "package": "puma",
+     "rule_id": "GHSA-qpgp-93vx-g8v8",
+     "severity": "High",
+     "version": "6.6.1"
+    },
+    {
+     "basename": null,
+     "class": null,
+     "cve": "CVE-2026-54696",
+     "cwe": null,
+     "evidence": "Ruby json: JSON generator heap buffer overflow when streaming to an IO",
+     "line": null,
+     "package": "json",
+     "rule_id": "GHSA-x2f5-4prf-w687",
+     "severity": "Low",
+     "version": "2.18.0"
+    }
+   ],
+   "source": "sca/rubygems/vulnerable_rails_stack/Gemfile.lock"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "aws_credentials.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 2,
+     "package": null,
+     "rule_id": "AWS_ACCESS_KEY",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "secrets/aws_credentials.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [],
+   "source": "secrets/clean_config.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "database_url.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "postgresql://reporting_user:[REDACTED]@ssw0rd@db.internal:5432/reports",
+     "line": 2,
+     "package": null,
+     "rule_id": "STRUCTURED_CONNECTION_CREDENTIAL",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "secrets/database_url.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "github_token.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 4,
+     "package": null,
+     "rule_id": "GITHUB_TOKEN",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "secrets/github_token.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "gitlab_huggingface.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 1,
+     "package": null,
+     "rule_id": "GITLAB_TOKEN",
+     "severity": "Critical",
+     "version": null
+    },
+    {
+     "basename": "gitlab_huggingface.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 2,
+     "package": null,
+     "rule_id": "HUGGINGFACE_TOKEN",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "secrets/gitlab_huggingface.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "jwt_signing.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[SECRET MATERIAL REDACTED]",
+     "line": 3,
+     "package": null,
+     "rule_id": "JWT_SIGNING_SECRET",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "secrets/jwt_signing.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "openai_key.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 1,
+     "package": null,
+     "rule_id": "OPENAI_KEY",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "secrets/openai_key.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "package_registry_tokens.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 2,
+     "package": null,
+     "rule_id": "NPM_TOKEN",
+     "severity": "High",
+     "version": null
+    },
+    {
+     "basename": "package_registry_tokens.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 3,
+     "package": null,
+     "rule_id": "PYPI_TOKEN",
+     "severity": "High",
+     "version": null
+    }
+   ],
+   "source": "secrets/package_registry_tokens.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [],
+   "source": "secrets/slack_webhook.py"
+  },
+  {
+   "family": "secrets",
+   "findings": [
+    {
+     "basename": "stripe_key.py",
+     "class": "SAST-HARDCRED",
+     "cve": null,
+     "cwe": "CWE-798",
+     "evidence": "[KNOWN SECRET REDACTED]",
+     "line": 2,
+     "package": null,
+     "rule_id": "STRIPE_SECRET_KEY",
+     "severity": "Critical",
+     "version": null
+    }
+   ],
+   "source": "secrets/stripe_key.py"
+  }
+ ],
+ "manifest_sha256": "dc803119a047f351cc72b89a151df2a0f9815816adbc33e4c2eff5fba15f4f7a",
+ "schema": "rsecopsx.corpus_replay/v1"
+}
