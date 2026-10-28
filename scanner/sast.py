@@ -224,7 +224,7 @@ ENTERPRISE_RULES: list[dict] = [
     {"id":"SPRING_CACHEABLE_USER_KEY","title":"Spring @Cacheable User-Controlled Key","vuln":"cache_key_injection","sev":"Medium","langs":["java"],"cwe":"CWE-20","owasp":"A04:2021 - Insecure Design","pat":r"@Cacheable\s*\([^)]*key\s*=\s*[\"'][^\"']*#(?:user|request|param|id)"},
     {"id":"JAVA_TEMPLATE_INJECTION","title":"Java Template Injection Indicator","vuln":"template_injection","sev":"High","langs":["java"],"cwe":"CWE-94","owasp":"A03:2021 - Injection","pat":r"TemplateEngine\.process\s*\([^)]*(?:request|getParameter)|Freemarker|VelocityEngine|StringTemplateResolver"},
     {"id":"SPRING_WEBFLUX_AUTH_GAP","title":"Spring WebFlux Authorization Propagation Gap","vuln":"auth_misconfiguration","sev":"High","langs":["java"],"cwe":"CWE-284","owasp":"A01:2021 - Broken Access Control","pat":r"RouterFunctions\.route\s*\(|SecurityWebFilterChain|authorizeExchange\s*\(\s*\)\s*\.anyExchange\s*\(\s*\)\s*\.permitAll"},
-    {"id":"SPRING_MISSING_VALIDATION","title":"Spring Missing @Valid / @Validated Indicator","vuln":"missing_validation","sev":"Medium","langs":["java"],"cwe":"CWE-20","owasp":"A04:2021 - Insecure Design","pat":r"@(PostMapping|PutMapping|PatchMapping)[\s\S]{0,250}@(RequestBody|ModelAttribute)(?![\s\S]{0,80}@(?:Valid|Validated))"},
+    {"id":"SPRING_MISSING_VALIDATION","title":"Spring Missing @Valid / @Validated Indicator","vuln":"missing_validation","sev":"Medium","langs":["java"],"cwe":"CWE-20","owasp":"A04:2021 - Insecure Design","pat":r"@(PostMapping|PutMapping|PatchMapping)(?:(?!@(?:Valid|Validated))[\s\S]){0,250}@(RequestBody|ModelAttribute)(?![\s\S]{0,80}@(?:Valid|Validated))"},
 
     # C# / .NET
     {"id":"DOTNET_BINARYFORMATTER","title":".NET BinaryFormatter Deserialization","vuln":"insecure_deserialization","sev":"Critical","langs":["csharp"],"cwe":"CWE-502","owasp":"A08:2021 - Software and Data Integrity Failures","pat":r"BinaryFormatter\s*\(|\.Deserialize\s*\("},
@@ -2740,7 +2740,8 @@ def _is_placeholder_credential(match: "re.Match[str]") -> bool:
         raw_value = (match.group("credval") or "").strip()
     except (IndexError, re.error):
         return False
-    if _CAMEL_PLACEHOLDER_PREFIX.match(raw_value):
+    if raw_value.startswith("/") and re.fullmatch(r"/[\w./-]+", raw_value):
+        # A URL/path constant (e.g. "/faces/pages/login.xhtml"), not secret material.
         return True
     if _ENV_VAR_NAME_VALUE.fullmatch(raw_value):
         # "AZURE_COGNITIVE_SEARCH_ADMIN_KEY" names an environment variable:
