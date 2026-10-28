@@ -1520,7 +1520,14 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
     observed_only = sum(1 for i in indicators if i.get("privacy_evidence_state") == "OBSERVED_ONLY")
     exposed_count = sum(1 for i in indicators if i.get("privacy_evidence_state") == "EXPOSED")
     vulnerability_count = sum(1 for i in indicators if i.get("privacy_exposure_confirmed") and i.get("risk_level") in {"HIGH", "CRITICAL"})
-    third_party_count = sum(1 for i in indicators if i.get("third_party_transfer_hint") and i.get("privacy_exposure_confirmed"))
+    # Count the established indicator, not a hint word: a chunk that merely
+    # mentions "analytics" now carries an EXPOSED log row, and a transfer
+    # with no vendor name in it was previously not counted at all.
+    third_party_count = sum(
+        1 for i in indicators
+        if i.get("privacy_exposure_confirmed")
+        and i.get("indicator") == "PII_THIRD_PARTY_TRANSFER"
+    )
 
     _privacy_finding_keys = set()
     deduplicated_privacy_findings = []
@@ -2064,6 +2071,118 @@ def _privacy_build_decision_record(
             "mode": "PRODUCTION_SEMANTIC",
         },
     }
+
+
+# ============================================================================
+# Expanded logging-sink rule (additive, opt-out).
+#
+# The shipped PII_LOGGING rule requires "(" immediately after the receiver --
+# "print(", "logger.(", "console.log(", "log.(" -- so the shapes production
+# code actually uses were invisible:
+#   logger.info(user.email)        log.debug(user.email)
+#   LOGGER.warn(user.getEmail())   System.out.println(user.getEmail())
+# Its field alternation also requires "user.email", so Java getters
+# (user.getEmail()) never matched either.
+#
+# This is a SECOND rule object; EXPOSURE_PATTERNS is not edited. It keeps the
+# PII_LOGGING indicator name so the existing severity, recommended actions and
+# reporting columns apply unchanged. RSECOPSX_PRIVACY_EXPOSURE_RULES=0
+# restores the previous behaviour (transfer syntax only).
+# ============================================================================
+_PRIVACY_LOG_SINK_EXPANDED_RE = re.compile(
+    r"(?:"
+    r"\b(?:logger|log|LOG|LOGGER)\s*\.\s*[A-Za-z_]\w*\s*\("
+    r"|\bconsole\s*\.\s*(?:log|info|warn|error|debug|trace)\s*\("
+    r"|\bSystem\s*\.\s*(?:out|err)\s*\.\s*print(?:ln|f)?\s*\("
+    r"|\b(?:print|printf|println|puts)\s*\("
+    r")"
+    # Bounded gap: a minified 128KB single-line chunk makes an unbounded
+    # [^\n]*? rescan the rest of the line for every sink occurrence.
+    r"[^\n]{0,200}?"
+    r"(?:"
+    r"\b(?:user|req(?:uest)?|body|data|payload|record|customer|account|"
+    r"employee|profile|session|member|person)"
+    r"\s*\.\s*(?:get|is)?"
+    r"(?:email|phone|mobile|msisdn|address|dob|ssn|pan|aadhaar|aadhar|"
+    r"card|cvv|password|token)"
+    r"(?:[_A-Z][A-Za-z]*)?"
+    r"|[\"'](?:email|phone|address|dob|ssn|pan|aadhaar|card|cvv|password|token)"
+    r"[\"']\s*[:=]"
+    r")",
+    re.I,
+)
+
+# The transfer syntax the old fallback used, compiled once instead of once
+# per chunk, so supplying a rule set cannot lose that detection.
+_PRIVACY_TRANSFER_SINK_RE = re.compile(
+    r"(?:"
+    r"\brequests\.(?:post|put|patch|request)\s*\("
+    r"|\bfetch\s*\("
+    r"|\baxios\.(?:post|put|patch|request)\s*\("
+    r"|\bhttp\.post\s*\("
+    r"|\burllib\.request\.urlopen\s*\("
+    r")"
+    r"[^\n]{0,200}?"
+    r"\b(?:user|req(?:uest)?|body|data|payload|record|"
+    r"customer|account)\."
+    r"(?:email|phone|phon|ssn|aadhaar|pan|card)\b",
+    re.I,
+)
+
+_PRIVACY_EXPOSURE_RULES_V2 = (
+    ("PII_LOGGING", _PRIVACY_LOG_SINK_EXPANDED_RE, "HIGH",
+     "PII or sensitive data may be written to logs."),
+    ("PII_THIRD_PARTY_TRANSFER", _PRIVACY_TRANSFER_SINK_RE, "HIGH",
+     "PII may be sent to an external or third-party endpoint."),
+)
+
+
+def _privacy_exposure_rules_enabled() -> bool:
+    """RSECOPSX_PRIVACY_EXPOSURE_RULES=0 restores the legacy rule set."""
+    try:
+        value = os.environ.get("RSECOPSX_PRIVACY_EXPOSURE_RULES", "1")
+    except Exception:
+        return True
+    return str(value).strip().lower() not in {"0", "false", "off", "no"}
+
+
+if _privacy_exposure_rules_enabled():
+    # The name the preservation block below already looks for. Without it the
+    # bounded path had no rule objects and knew only the transfer syntax.
+    _PRIVACY_EXPOSURE_RULES = _PRIVACY_EXPOSURE_RULES_V2
+
+
+_PRIVACY_EXPOSURE_RESULT_CACHE: Dict[str, tuple] = {}
+_RSECOPSX_PRIVACY_EXPOSURE_HITS_BOUNDED_BASE = _privacy_exposure_hits_bounded
+
+
+def _privacy_exposure_hits_bounded_memo(text):
+    """Bounded exposure hits, memoised for the current chunk.
+
+    The chunk loop asks for the same window twice -- once inside the fast
+    path and once directly -- and each call re-ran every rule over the whole
+    window. Key on the sanitised text so both requests share one evaluation.
+    A copy is returned because callers mutate the list.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return []
+
+    key = _privacy_sanitized_exposure_text(text)
+    if not key:
+        return []
+
+    cached = _PRIVACY_EXPOSURE_RESULT_CACHE.get(key)
+    if cached is not None:
+        return list(cached)
+
+    hits = tuple(_RSECOPSX_PRIVACY_EXPOSURE_HITS_BOUNDED_BASE(text) or ())
+    if len(_PRIVACY_EXPOSURE_RESULT_CACHE) >= 4:
+        _PRIVACY_EXPOSURE_RESULT_CACHE.clear()
+    _PRIVACY_EXPOSURE_RESULT_CACHE[key] = hits
+    return list(hits)
+
+
+_privacy_exposure_hits_bounded = _privacy_exposure_hits_bounded_memo
 
 
 # ============================================================================
