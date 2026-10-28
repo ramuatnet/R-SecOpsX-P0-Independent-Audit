@@ -23,6 +23,10 @@ from core.path_utils import file_name, to_report_path
 # deletes.  filter_trace is dependency-free so scanner/, core/ and main.py
 # can all use it without import cycles.
 from core import filter_trace
+# T-0.4 (task.md ground rule 12): depth cap + cycle detection for every
+# walker over report structures. Iterative, so nesting never touches the
+# Python call stack.
+from core import depth_guard
 
 # Artifacts whose generation FAILED, as (artifact, reason).
 #
@@ -1776,23 +1780,26 @@ def _cleanup_report_noise(payload: dict) -> None:
     }
 
     def _clean_node(node):
-        if isinstance(node, dict):
-            if (
-                node.get("taint_chain") == []
-                and node.get("detection") != "ENTERPRISE_MULTI_LANGUAGE_TAINT_V1"
-            ):
-                node.pop("taint_chain", None)
+        # T-0.4: the recursive walk died with RecursionError on 10k-deep
+        # input and on any cycle. depth_guard walks iteratively with a
+        # depth cap and counts both violations instead of crashing.
+        def _visit(container, depth):
+            if isinstance(container, dict):
+                if (
+                    container.get("taint_chain") == []
+                    and container.get("detection") != "ENTERPRISE_MULTI_LANGUAGE_TAINT_V1"
+                ):
+                    container.pop("taint_chain", None)
 
-            for key in empty_list_fields:
-                if node.get(key) == []:
-                    node.pop(key, None)
+                for key in empty_list_fields:
+                    if container.get(key) == []:
+                        container.pop(key, None)
 
-            for value in list(node.values()):
-                _clean_node(value)
-
-        elif isinstance(node, list):
-            for item in node:
-                _clean_node(item)
+        depth_guard.process_containers(node, _visit)
+        report = depth_guard.last_report()
+        if report:
+            # Ground rule 3: truncation/cycles are annotated, never silent.
+            payload.setdefault("metadata", {})["depth_guard"] = report.as_dict()
 
     _clean_node(payload)
 
@@ -1928,9 +1935,8 @@ def _normalize_fixed_version_fields(payload):
                 result.append(token)
         return result
 
-    def _normalize_record(record):
-        if not isinstance(record, dict):
-            return
+    def _normalize_versions_in(record):
+        """Normalize fixed-version fields on ONE record (no recursion)."""
         raw_versions = record.get('fixed_versions')
         raw_fixed_in = record.get('fixed_in')
         versions = _canonical(raw_versions)
@@ -1955,18 +1961,69 @@ def _normalize_fixed_version_fields(payload):
             else:
                 record['fixed_versions'] = []
                 record['fixed_in'] = not_applicable
-        for key in ('vulnerabilities', 'vulnerability_intelligence', 'advisories'):
-            nested = record.get(key)
-            if isinstance(nested, list):
-                for item in nested:
-                    if isinstance(item, dict):
-                        _normalize_record(item)
+
+    def _normalize_record(record):
+        """Walk a record chain iteratively (T-0.4).
+
+        The old version recursed per nested advisory record: a cycle
+        through 'vulnerabilities' raised RecursionError, and a 10k-deep
+        chain did the same. Explicit stack now, with depth cap and
+        path-based cycle detection reported through depth_guard.
+        """
+        if not isinstance(record, dict):
+            return
+        keys = ('vulnerabilities', 'vulnerability_intelligence', 'advisories')
+        report = depth_guard.TraversalReport()
+        # Frame stages: 0 = normalize this record, 1 = open the next key's
+        # item iterator, 2 = pull one item (may push a child frame).
+        active = [{"rec": record, "depth": 0, "stage": 0,
+                   "key_i": 0, "items": None}]
+        on_path = {id(record)}
+        while active:
+            fr = active[-1]
+            if fr["stage"] == 0:
+                _normalize_versions_in(fr["rec"])
+                fr["stage"] = 1
+            if fr["stage"] == 1:
+                if fr["key_i"] >= len(keys):
+                    active.pop()
+                    on_path.discard(id(fr["rec"]))
+                    continue
+                nested = fr["rec"].get(keys[fr["key_i"]])
+                fr["key_i"] += 1
+                fr["items"] = iter(nested) if isinstance(nested, list) else iter(())
+                fr["stage"] = 2
+            try:
+                item = next(fr["items"])
+            except StopIteration:
+                fr["stage"] = 1
+                continue
+            if not isinstance(item, dict):
+                continue
+            if id(item) in on_path:
+                report.cycles_detected += 1
+                continue
+            if fr["depth"] + 1 > depth_guard.MAX_DEPTH:
+                report.depth_truncated += 1
+                continue
+            on_path.add(id(item))
+            active.append({"rec": item, "depth": fr["depth"] + 1,
+                           "stage": 0, "key_i": 0, "items": None})
+        depth_guard.set_last_report(report)
 
     if not isinstance(payload, dict):
         return
+    total = depth_guard.TraversalReport()
     for pkg in payload.get('sbom', []) or []:
         if isinstance(pkg, dict):
             _normalize_record(pkg)
+            report = depth_guard.last_report()
+            if report:
+                total.depth_truncated += report.depth_truncated
+                total.cycles_detected += report.cycles_detected
+    if total:
+        # Ground rule 3: truncation/cycles reach the payload, never silent.
+        payload.setdefault("metadata", {})["depth_guard"] = total.as_dict()
 
 def _build_dependency_reporting_views(payload: dict) -> None:
     """Create stable report-facing dependency/CVE views without changing scanner findings."""
@@ -2439,36 +2496,125 @@ def _redact_secret_text(value: object) -> object:
 
 
 def _redact_secret_evidence(node, secret_context: bool = False):
-    if isinstance(node, list):
-        return [_redact_secret_evidence(x, secret_context) for x in node]
-    if isinstance(node, tuple):
-        return tuple(_redact_secret_evidence(x, secret_context) for x in node)
-    if isinstance(node, dict):
-        is_secret_finding = (
-            str(node.get("vuln_type") or "").lower() == "hardcoded_secret"
-            or any(k in str(node.get("title") or "").lower() for k in ("secret", "private key", "credential", "password", "api key", "access key"))
+    """Rebuild a deep copy of ``node`` with secret evidence redacted.
+
+    T-0.4: the old implementation recursed per container; 10k-deep input
+    or any cycle raised RecursionError and killed the scan at the
+    serialization boundary. This is now a two-phase iterative rebuild:
+
+      phase 1 -- walk the original structure with an explicit stack,
+                 one frame per container occurrence, recording parent ->
+                 child links (and cycle/depth-violation sentinels);
+      phase 2 -- frames are already in pre-order, so processing them in
+                 reverse visits every child before its parent and the
+                 rebuilt subtree is available when the parent needs it.
+
+    Behaviour parity with the recursive version: strings are redacted via
+    _redact_secret_text, non-string leaves pass through, containers are
+    rebuilt (tuples stay tuples), and a secret finding gains the
+    evidence_redacted flags. A cycle or a subtree past depth_guard
+    MAX_DEPTH becomes a fail-closed placeholder string (redaction must
+    never leave unexamined bytes behind) and is counted in the
+    TraversalReport surfaced as metadata['depth_guard_redact'].
+    """
+    report = depth_guard.TraversalReport()
+    _CYCLE, _TRUNC = -1, -2
+
+    def _is_secret_finding(d):
+        return (
+            str(d.get("vuln_type") or "").lower() == "hardcoded_secret"
+            or any(k in str(d.get("title") or "").lower() for k in ("secret", "private key", "credential", "password", "api key", "access key"))
         )
-        out = {}
-        for key, val in node.items():
-            key_low = str(key).lower()
-            child_secret = secret_context or is_secret_finding or key_low in _SECRET_EVIDENCE_KEYS
-            if isinstance(val, str):
-                # Evidence-bearing fields are always safe-redacted in secret
-                # findings; PEM blocks are safe-redacted everywhere.
-                # Apply the narrow assignment redactor globally as well as to
-                # secret findings. This catches nested JSON-encoded intelligence
-                # strings (for example crypto_misuse.evidence_match) without
-                # globally removing benign telemetry fields such as data.value.
-                out[key] = _redact_secret_text(val)
-            else:
-                out[key] = _redact_secret_evidence(val, child_secret)
-        if is_secret_finding:
-            out["evidence_redacted"] = True
-            out["evidence_redaction_type"] = "REPORT_SECRET_VALUE_REDACTION"
-        return out
-    if isinstance(node, str):
-        return _redact_secret_text(node)
-    return node
+
+    if not isinstance(node, (dict, list, tuple)):
+        depth_guard.set_last_report(report)
+        return _redact_secret_text(node) if isinstance(node, str) else node
+
+    # ---- phase 1: frame tree, iterative, with path-based cycle detection
+    frames = [{
+        "node": node, "ctx": secret_context, "depth": 0, "links": [],
+        "is_secret": False, "items": None, "started": False, "out": None,
+    }]
+    active = [0]
+    on_path = {id(node)}
+    while active:
+        fi = active[-1]
+        frame = frames[fi]
+        orig = frame["node"]
+        if not frame["started"]:
+            frame["started"] = True
+            frame["pairs"] = list(orig.items()) if isinstance(orig, dict) else list(orig)
+            frame["items"] = iter(frame["pairs"])
+        try:
+            item = next(frame["items"])
+        except StopIteration:
+            active.pop()
+            on_path.discard(id(orig))
+            continue
+        if isinstance(orig, dict):
+            key, val = item
+            # Mirrors the recursive child_secret computation exactly.
+            child_ctx = (frame["ctx"] or frame["is_secret"]
+                         or str(key).lower() in _SECRET_EVIDENCE_KEYS)
+        else:
+            key, val = None, item
+            child_ctx = frame["ctx"]
+        if isinstance(val, (dict, list, tuple)):
+            if id(val) in on_path:
+                report.cycles_detected += 1
+                frame["links"].append((key, _CYCLE))
+                continue
+            if frame["depth"] + 1 > depth_guard.MAX_DEPTH:
+                report.depth_truncated += 1
+                frame["links"].append((key, _TRUNC))
+                continue
+            frames.append({
+                "node": val, "ctx": child_ctx, "depth": frame["depth"] + 1,
+                "links": [], "is_secret": False, "items": None,
+                "started": False, "out": None,
+            })
+            child_idx = len(frames) - 1
+            frame["links"].append((key, child_idx))
+            on_path.add(id(val))
+            active.append(child_idx)
+        else:
+            frame["links"].append((key, None))  # leaf: phase 2 transforms it
+
+    # ---- phase 2: reverse pre-order = children before parents
+    def _resolve(val, target):
+        if target is None:
+            return _redact_secret_text(val) if isinstance(val, str) else val
+        if target == _CYCLE:
+            return "<depth_guard: cycle omitted>"
+        if target == _TRUNC:
+            return "<depth_guard: depth limit reached; subtree omitted>"
+        return frames[target]["out"]
+
+    for fi in range(len(frames) - 1, -1, -1):
+        frame = frames[fi]
+        orig = frame["node"]
+        links = frame["links"]
+        if isinstance(orig, dict):
+            out = {}
+            li = 0
+            for key, val in orig.items():
+                out[key] = _resolve(val, links[li][1])
+                li += 1
+            if frame["is_secret"]:
+                out["evidence_redacted"] = True
+                out["evidence_redaction_type"] = "REPORT_SECRET_VALUE_REDACTION"
+            frame["out"] = out
+        elif isinstance(orig, list):
+            frame["out"] = [
+                _resolve(val, links[li][1]) for li, val in enumerate(orig)
+            ]
+        else:  # tuple
+            frame["out"] = tuple(
+                _resolve(val, links[li][1]) for li, val in enumerate(orig)
+            )
+
+    depth_guard.set_last_report(report)
+    return frames[0]["out"]
 
 
 def _apply_final_report_safety(payload: dict) -> dict:
@@ -2512,6 +2658,12 @@ def _apply_final_report_safety(payload: dict) -> dict:
 
     safe = _redact_secret_evidence(payload)
     metadata = safe.setdefault("metadata", {})
+    # T-0.4: if the redaction walk hit a cycle or the depth cap, the
+    # violation is reported here (ground rule 3/12) -- fail-closed
+    # placeholders were already substituted for the offending subtrees.
+    redact_report = depth_guard.last_report()
+    if redact_report:
+        metadata["depth_guard_redact"] = redact_report.as_dict()
     metadata["report_evidence_redaction"] = {
         "enabled": True,
         "scope": "secret_and_private_key_evidence",
