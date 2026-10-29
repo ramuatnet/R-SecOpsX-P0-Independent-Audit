@@ -2853,6 +2853,23 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
             # It must also not vanish: this is the handler the servlet bug
             # escaped through, so it is logged rather than left a bare pass.
             _LOG.debug("optional semantic layer skipped: %s", _semantic_error)
+
+    # T-2.1+T-2.2: interprocedural taint post-pass.  The worker pool is
+    # single-file, so a value that crosses a module boundary (route handler
+    # -> dao/model) is invisible to it and the SQL sink stays dark while H1
+    # reports the build site.  RSX_Taint_INTERPROC=0 disables; any failure
+    # leaves every worker finding exactly as produced (fail-open, J5 order).
+    _interproc_enabled = _os.environ.get(
+        "RSX_Taint_INTERPROC", "1"
+    ).strip().lower() not in {"0", "false", "off", "no"}
+    if _interproc_enabled:
+        try:
+            from scanner.taint_interproc import apply_interproc_taint as _ip
+            _ip(target, all_files, all_findings)
+        except Exception as _ip_error:
+            _LOG.debug("interprocedural taint post-pass skipped: %s",
+                       _ip_error)
+
     # Phase 6: model-artifact analysis -- static pickle-opcode extraction and
     # safetensors structure checks (scanner/model_artifact.py). Native
     # technique: the artifact is DISASSEMBLED with pickletools, never

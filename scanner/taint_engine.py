@@ -29,6 +29,13 @@ TAINT_SOURCES = {
     # Flask / FastAPI / Werkzeug request surfaces
     "request.args", "request.form", "request.json", "request.data", "request.headers", "request.cookies",
     "request.values", "request.get_json", "request.files", "input", "sys.argv",
+    # aiohttp server request surface: ``await request.post()`` parses the
+    # request body (form/multipart) exactly like Flask's request.form, and it
+    # is the payload path of the T-2.2 route->dao boundary miss (dvpwa reads
+    # the POST body here before handing it to the dao). Only the lowercase
+    # token is added: aiohttp's Request has no ``.get()`` body method, and
+    # Django's ``request.POST`` is a different (case-sensitive) name.
+    "request.post",
     # A5: ``os.environ``/``os.getenv`` were removed from TAINT_SOURCES. The
     # deployment environment is written by the deployer -- an operator input,
     # not an untrusted network source (ground truth in_scope: "a demonstrable
@@ -245,6 +252,14 @@ def _network_source(expr) -> bool:
     text = str(expr or "").strip()
     if not text:
         return False
+    if text.startswith("__param__:"):
+        # T-2.1 interprocedural parameter seed (scanner/taint_interproc.py).
+        # An edge is only ever created from a caller whose provenance already
+        # passed this predicate (A5/G-035 extended across files: sys.argv and
+        # input() never cross a call), so the marker *stands for*
+        # request-derived provenance and both the summary walk and the
+        # seeded re-run must let it hop through a same-file helper here.
+        return True
     if text.lower().startswith("route parameter "):
         return True
     head = re.split(r"[\(\[]", text, maxsplit=1)[0].strip().lower()
@@ -528,6 +543,13 @@ class TaintVisitor(ast.NodeVisitor):
         # sqlalchemy, dropped on ANY non-builder reassignment, and read only
         # for a sink in the same function at a later line: proof, not hope.
         self._builder_assigns: dict[str, tuple[str, int, ast.AST]] = {}
+        # T-2.1/T-2.2: interprocedural parameter seeds
+        # (scanner/taint_interproc.py), keyed by the def's line number so a
+        # class-qualified callee (Student.create) seeds exactly its own frame
+        # and never an unrelated same-named def in another class. Empty on
+        # every intra-procedural run, so worker findings are byte-identical
+        # when the post-pass is off or finds no cross-file edge.
+        self._interproc_seeds: dict[int, dict[str, TaintedVar]] = {}
 
     def _mark_tainted(self, name: str, tv: TaintedVar) -> None:
         """Write taint and remember which statement block wrote it."""
@@ -1365,6 +1387,14 @@ class TaintVisitor(ast.NodeVisitor):
                         # reporting/attack_path_view.py strips the brace form too, so
                         # artifacts already written with it read cleanly as well.
                         p, f"route parameter {p}", node.lineno, [], frozenset()))
+            # T-2.1: a cross-file caller's argument taint lands on this
+            # parameter, carrying the caller's provenance plus the
+            # ``__param__`` marker that identifies the file boundary the
+            # value crossed. Applied after the route-parameter seed so the
+            # interprocedural chain (richer provenance) wins if both apply.
+            for p, tv in self._interproc_seeds.get(node.lineno, {}).items():
+                if p in params:
+                    self._mark_tainted(p, tv)
             self.generic_visit(node)
         finally:
             self._block_path = prev_block
@@ -2790,6 +2820,38 @@ def _scan_enterprise_text(filepath: str, source: str, lang: str) -> list[dict]:
     return findings
 
 
+def _taint_dicts(findings: list) -> list[dict]:
+    """Render TaintFinding objects as report dicts.
+
+    Extracted from ``_python_ast_findings`` so the interprocedural
+    post-pass (scanner/taint_interproc.py) renders its seeded run through
+    exactly this table: one schema, one source of truth for group_key and
+    the metadata columns.
+    """
+    rendered = []
+    for tf in findings:
+        m = get_mapping(tf.vuln_type)
+        # Fallback control set when the central mapping omits a Big-4 column.
+        # Previously referenced but never bound, which raised NameError for any
+        # vuln_type missing pci_dss and dropped the whole finding.
+        controls = BIG4_TAINT_CONTROLS.get(tf.vuln_type, {})
+        sev = tf.severity or m.get("severity", "High")
+        snippet = tf.snippet.strip()
+        rendered.append({
+            "rule_id": tf.rule_id or f"TAINT_{tf.vuln_type.upper()}", "title": tf.title or m.get("title", tf.vuln_type.replace("_", " ").title()),
+            "vuln_type": tf.vuln_type, "severity": sev, "priority": _priority(sev), "confidence": tf.confidence,
+            "language": tf.language, "file": tf.file, "line": tf.line, "snippet": snippet,
+            "group_key": f"{tf.vuln_type}|{tf.file}|{tf.line}|{snippet[:100]}", "function": tf.function,
+            "description": f"Taint flow: {tf.taint_path}", "remediation": tf.remediation or m.get("remediation", []),
+            "owasp": tf.owasp or m.get("owasp", ""), "owasp_id": m.get("owasp_id", ""), "cwe": tf.cwe or m.get("cwe", ""), "cwe_desc": m.get("cwe_desc", ""),
+            "mitre": m.get("mitre", ""), "mitre_desc": m.get("mitre_desc", ""), "pci_dss": m.get("pci_dss") or controls.get("pci_dss", ""), "nist": m.get("nist") or controls.get("nist", ""), "nist_800_53": m.get("nist_800_53") or m.get("nist") or controls.get("nist", ""), "iso27001": m.get("iso27001") or controls.get("iso27001", ""), "iso_27001": m.get("iso_27001") or m.get("iso27001") or controls.get("iso27001", ""), "soc2": m.get("soc2") or controls.get("soc2", ""),
+            "business_impact": m.get("business_impact", ""), "exploitability": m.get("exploitability", "High"),
+            "taint_path": tf.taint_path, "taint_chain": tf.chain, "source_expr": tf.source_expr, "sink_call": tf.sink_call,
+            "evidence": f"{tf.file}:{tf.line}: {snippet}", "detection": "AST Taint Analysis", "engine": "scanner.taint_engine", "cvss": None, "cve": None,
+        })
+    return rendered
+
+
 def _python_ast_findings(filepath: str, source: str) -> list[dict]:
     try:
         tree = ast.parse(source)
@@ -2805,28 +2867,7 @@ def _python_ast_findings(filepath: str, source: str) -> list[dict]:
     visitor = TaintVisitor(lines, filepath, route_params, funcs, route_handlers)
     visitor._tainted_returns = dict(pre._tainted_returns)
     visitor.visit(tree)
-    findings = []
-    for tf in visitor.findings:
-        m = get_mapping(tf.vuln_type)
-        # Fallback control set when the central mapping omits a Big-4 column.
-        # Previously referenced but never bound, which raised NameError for any
-        # vuln_type missing pci_dss and dropped the whole finding.
-        controls = BIG4_TAINT_CONTROLS.get(tf.vuln_type, {})
-        sev = tf.severity or m.get("severity", "High")
-        snippet = tf.snippet.strip()
-        findings.append({
-            "rule_id": tf.rule_id or f"TAINT_{tf.vuln_type.upper()}", "title": tf.title or m.get("title", tf.vuln_type.replace("_", " ").title()),
-            "vuln_type": tf.vuln_type, "severity": sev, "priority": _priority(sev), "confidence": tf.confidence,
-            "language": tf.language, "file": tf.file, "line": tf.line, "snippet": snippet,
-            "group_key": f"{tf.vuln_type}|{tf.file}|{tf.line}|{snippet[:100]}", "function": tf.function,
-            "description": f"Taint flow: {tf.taint_path}", "remediation": tf.remediation or m.get("remediation", []),
-            "owasp": tf.owasp or m.get("owasp", ""), "owasp_id": m.get("owasp_id", ""), "cwe": tf.cwe or m.get("cwe", ""), "cwe_desc": m.get("cwe_desc", ""),
-            "mitre": m.get("mitre", ""), "mitre_desc": m.get("mitre_desc", ""), "pci_dss": m.get("pci_dss") or controls.get("pci_dss", ""), "nist": m.get("nist") or controls.get("nist", ""), "nist_800_53": m.get("nist_800_53") or m.get("nist") or controls.get("nist", ""), "iso27001": m.get("iso27001") or controls.get("iso27001", ""), "iso_27001": m.get("iso_27001") or m.get("iso27001") or controls.get("iso27001", ""), "soc2": m.get("soc2") or controls.get("soc2", ""),
-            "business_impact": m.get("business_impact", ""), "exploitability": m.get("exploitability", "High"),
-            "taint_path": tf.taint_path, "taint_chain": tf.chain, "source_expr": tf.source_expr, "sink_call": tf.sink_call,
-            "evidence": f"{tf.file}:{tf.line}: {snippet}", "detection": "AST Taint Analysis", "engine": "scanner.taint_engine", "cvss": None, "cve": None,
-        })
-    return findings
+    return _taint_dicts(visitor.findings)
 
 
 # ---------------------------------------------------------------------------
