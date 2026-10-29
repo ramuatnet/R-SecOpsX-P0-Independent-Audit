@@ -24,3 +24,7 @@ Working folder/
 *.retired
 *.prof
 *.tmp
+
+# T-1.5 parity-gate scratch: the ~5 MB synthetic minified bundle the perf
+# mode regenerates locally (never a repo artifact).
+tests/parity/_perf/

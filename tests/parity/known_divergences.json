@@ -1,0 +1,645 @@
+{
+  "annotations": [
+    {
+      "class": "unsupported_regex_crate",
+      "file": "cbom/mixed_crypto.py.ground_truth.json",
+      "line": 11,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "1ba9f8e0e3dc7ea2",
+      "rule_id": "MD5_USAGE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/php/vulnerable.php",
+      "line": 23,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "22c8e13c11ec74af",
+      "rule_id": "TAINT_PHP_COMMAND_INJECTION",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/go/vulnerable.go",
+      "line": 35,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "355977279fc6b750",
+      "rule_id": "GO_SQL_CONCAT_INTERMEDIATE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_metadata_collision",
+      "file": "sast/python/vulnerable_app.py",
+      "line": 27,
+      "reason": "the Python taint layer enriched the grouped representative at this anchor (description/taint_chain/source_expr/...); the Rust engine runs the regex + enterprise tables only (status.limits)",
+      "row_hash": "4c3f23bad4f680f3",
+      "rule_id": "SUBPROCESS_SHELL_TRUE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/dotnet/VulnerableController.cs",
+      "line": 54,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "4d00c9191b274c07",
+      "rule_id": "TAINT_MULTIPART_TRAVERSAL",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/php/vulnerable.php",
+      "line": 16,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "5a62e40fa196d5dc",
+      "rule_id": "TAINT_PHP_SQL_INJECTION",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "sast/php/vulnerable_xss.php",
+      "line": 4,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "5bf87d4052585ea0",
+      "rule_id": "PHP_XSS_TAINTED_ECHO",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/python/vulnerable_ssrf.py",
+      "line": 11,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "6e26377ae5f88513",
+      "rule_id": "TAINT_SSRF_EXPANDED",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "cbom/weak_sha1.js",
+      "line": 5,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "7c6ac73e72a87714",
+      "rule_id": "SHA1_USAGE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 32,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "81aea88e8979c89a",
+      "rule_id": "JAVA_TAINT_COMMAND_INJECTION",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "ai_ml/vulnerable_hardcoded_key.py",
+      "line": 10,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "84b8c9adeffb3793",
+      "rule_id": "GENERIC_API_KEY_PASSWORD",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 38,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "84b995bb77716d54",
+      "rule_id": "TAINT_MULTIPART_TRAVERSAL",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_metadata_collision",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 23,
+      "reason": "the Python taint layer enriched the grouped representative at this anchor (description/taint_chain/source_expr/...); the Rust engine runs the regex + enterprise tables only (status.limits)",
+      "row_hash": "91883a57288d38da",
+      "rule_id": "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "ai_ml/vulnerable_model.py",
+      "line": 33,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "91ffd9e30487d69e",
+      "rule_id": "PYTHON_EXEC_CALL",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "secrets/stripe_key.py",
+      "line": 2,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "928d00e2ae338354",
+      "rule_id": "GENERIC_API_KEY_PASSWORD",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "sast/php/vulnerable.php",
+      "line": 27,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "9590de73b6312888",
+      "rule_id": "PHP_PATH_USER_INPUT_VAR",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_metadata_collision",
+      "file": "ai_ml/vulnerable_pickle_input.py",
+      "line": 13,
+      "reason": "the Python taint layer enriched the grouped representative at this anchor (description/taint_chain/source_expr/...); the Rust engine runs the regex + enterprise tables only (status.limits)",
+      "row_hash": "9e0dcffe45c60235",
+      "rule_id": "PYTHON_PICKLE_LOADS",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "sast/php/vulnerable.php",
+      "line": 31,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "ab2f004cdddf2ce7",
+      "rule_id": "EVAL_CALL",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "ai_ml/vulnerable_loading.py",
+      "line": 14,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "c0488b4a3cbb20af",
+      "rule_id": "PYTHON_TORCH_LOAD_UNSAFE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/dotnet/VulnerableController.cs",
+      "line": 38,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "c4f03fb85600aa84",
+      "rule_id": "DOTNET_PROCESS_START_INFO",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_not_ported",
+      "file": "sast/python/vulnerable_app.py",
+      "line": 17,
+      "reason": "row comes from the Python taint engine; the Rust v1 engine is regex + enterprise tables only (status.limits)",
+      "row_hash": "c693c9200d3ddedb",
+      "rule_id": "TAINT_SQL_INJECTION",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "cbom/weak_hash.py.ground_truth.json",
+      "line": 11,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "cdad4e2014ce8083",
+      "rule_id": "MD5_USAGE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "cbom/weak_hash.py",
+      "line": 6,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "d0d0df50cbd81931",
+      "rule_id": "MD5_USAGE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "cbom/mixed_crypto.py",
+      "line": 7,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "d461975eff0608af",
+      "rule_id": "MD5_USAGE",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "sast/python/vulnerable_idor.py",
+      "line": 9,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "d8009d3dd8c8d2c0",
+      "rule_id": "PY_IDOR_OBJECT_FETCH",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "anchor_field_drift",
+      "file": "ai_ml/vulnerable_model.py",
+      "line": 14,
+      "reason": "both engines fire at rule+file+line but the row differs elsewhere (commonly snippet: Python's focus-pattern evidence vs the Rust engine's stripped matched line -- status.limits)",
+      "row_hash": "da0b7b1fa0eb91cd",
+      "rule_id": "PYTHON_PICKLE_LOAD",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "secrets/openai_key.py",
+      "line": 1,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "e06cf3e540e21414",
+      "rule_id": "GENERIC_API_KEY_PASSWORD",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "unsupported_regex_crate",
+      "file": "ai_ml/vulnerable_agent_eval.py",
+      "line": 16,
+      "reason": "python-only regex syntax; the regex crate rejects the pattern and the engine discloses it in rules_unsupported",
+      "row_hash": "f8518f0b0b71fe05",
+      "rule_id": "EVAL_CALL",
+      "side": "py",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/dotnet/SafeController.cs",
+      "line": 69,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "06c95a87c1927a9c",
+      "rule_id": "DOTNET_PATH_COMBINE_TRAVERSAL",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/rust/vulnerable.rs",
+      "line": 13,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "06f6fa6b3654e256",
+      "rule_id": "RUST_SQL_FORMAT",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "cbom/hardcoded_key.py",
+      "line": 1,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "1cc9c87dbe09122a",
+      "rule_id": "PRIVATE_KEY_HEADER",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "cbom/hardcoded_key.py.ground_truth.json",
+      "line": 11,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "1f54d6741a2714ce",
+      "rule_id": "PRIVATE_KEY_HEADER",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/java/SafeServlet.java",
+      "line": 46,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "42172a57f2d8741a",
+      "rule_id": "JAVA_PATH_TRAVERSAL_FILE",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/go/vulnerable.go",
+      "line": 34,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "424da16a4a1a171c",
+      "rule_id": "GO_SQL_CONCAT_INTERMEDIATE",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/dotnet/SafeController.cs",
+      "line": 28,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "459576967d75ceaa",
+      "rule_id": "DOTNET_SQL_INTERPOLATED",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/cpp/safe.cpp",
+      "line": 83,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "48d2354f85036e8c",
+      "rule_id": "CPP_FORMAT_STRING",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 48,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "49bd550d8d16a47e",
+      "rule_id": "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/cpp/vulnerable.cpp",
+      "line": 32,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "59ed30d1f3c2ba01",
+      "rule_id": "CPP_FORMAT_STRING",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/go/safe.go",
+      "line": 68,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "5f4ff3d7c6dd7610",
+      "rule_id": "GO_PATH_CONCAT",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/dotnet/SafeController.cs",
+      "line": 56,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "5f817d68d5d06c67",
+      "rule_id": "DOTNET_PROCESS_START_INFO",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "ai_ml/vulnerable_loading.py",
+      "line": 4,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "60f7666ac676081d",
+      "rule_id": "PYTHON_TRANSFORMERS_REMOTE_CODE",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_metadata_collision",
+      "file": "ai_ml/vulnerable_pickle_input.py",
+      "line": 13,
+      "reason": "the Python taint layer enriched the grouped representative at this anchor (description/taint_chain/source_expr/...); the Rust engine runs the regex + enterprise tables only (status.limits)",
+      "row_hash": "657db4b2dc0b091c",
+      "rule_id": "PYTHON_PICKLE_LOADS",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 38,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "6c90899c6d204c7c",
+      "rule_id": "JAVA_PATH_TRAVERSAL_FILE",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_metadata_collision",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 23,
+      "reason": "the Python taint layer enriched the grouped representative at this anchor (description/taint_chain/source_expr/...); the Rust engine runs the regex + enterprise tables only (status.limits)",
+      "row_hash": "7880cdd077477603",
+      "rule_id": "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "anchor_field_drift",
+      "file": "ai_ml/vulnerable_model.py",
+      "line": 14,
+      "reason": "both engines fire at rule+file+line but the row differs elsewhere (commonly snippet: Python's focus-pattern evidence vs the Rust engine's stripped matched line -- status.limits)",
+      "row_hash": "7b3b77f85577618c",
+      "rule_id": "PYTHON_PICKLE_LOAD",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/php/safe.php",
+      "line": 41,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "8645eb571516bc57",
+      "rule_id": "PHP_INCLUDE_CONCAT_PATH",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/rust/safe.rs",
+      "line": 39,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "8bcaf31cb7171602",
+      "rule_id": "RUST_COMMAND_EXEC",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/dotnet/VulnerableController.cs",
+      "line": 20,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "9c19e2424b89b6a3",
+      "rule_id": "DOTNET_SQL_INTERPOLATED",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/dotnet/VulnerableController.cs",
+      "line": 44,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "a0dc1e95f114fae7",
+      "rule_id": "DOTNET_PROCESS_START_INFO",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "secrets/aws_credentials.py",
+      "line": 2,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "a7da9a257784d884",
+      "rule_id": "AWS_ACCESS_KEY",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/cpp/vulnerable.cpp",
+      "line": 48,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "ac304fff7bdecfbe",
+      "rule_id": "CPP_FORMAT_STRING",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/dotnet/VulnerableController.cs",
+      "line": 38,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "b01221abc36acf1d",
+      "rule_id": "DOTNET_COMMAND_CONCAT",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/python/vulnerable_app.py.ground_truth.json",
+      "line": 20,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "b66aa6bd8e7ae0a6",
+      "rule_id": "SUBPROCESS_SHELL_TRUE",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/java/SafeServlet.java",
+      "line": 22,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "b8343ff5f7942f9a",
+      "rule_id": "JAVA_JDBC_SQL_INTERMEDIATE_QUERY",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/php/vulnerable.php",
+      "line": 27,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "b9714ff8613ed923",
+      "rule_id": "PHP_INCLUDE_CONCAT_PATH",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/cpp/safe.cpp",
+      "line": 83,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "bb7384cdaf80eaa4",
+      "rule_id": "CPP_PATH_SNPRINTF_INTERP",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/php/vulnerable.php",
+      "line": 3,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "c1f6f208122c93da",
+      "rule_id": "PHP_HARDCODED_CREDENTIAL",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "taint_metadata_collision",
+      "file": "sast/python/vulnerable_app.py",
+      "line": 27,
+      "reason": "the Python taint layer enriched the grouped representative at this anchor (description/taint_chain/source_expr/...); the Rust engine runs the regex + enterprise tables only (status.limits)",
+      "row_hash": "ca459c68f0dd467b",
+      "rule_id": "SUBPROCESS_SHELL_TRUE",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/dotnet/VulnerableController.cs",
+      "line": 54,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "ce7225bdf324b4e7",
+      "rule_id": "DOTNET_PATH_COMBINE_TRAVERSAL",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/cpp/safe.cpp",
+      "line": 39,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "d0e8b0b065039d05",
+      "rule_id": "CPP_HARDCODED_CREDENTIAL",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/java/VulnerableServlet.java",
+      "line": 22,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "d17aa5d05f10429c",
+      "rule_id": "JAVA_JDBC_SQL_CONCAT",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/rust/safe.rs",
+      "line": 53,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "e38685f201c51c2f",
+      "rule_id": "RUST_PATH_FORMAT",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "focus_reanchor",
+      "file": "sast/php/vulnerable.php",
+      "line": 15,
+      "reason": "same rule+file on both engines at different lines (Python's focus-pattern/evidence re-anchor is not ported)",
+      "row_hash": "ebd30b32641177e9",
+      "rule_id": "PHP_HARDCODED_CREDENTIAL",
+      "side": "rust",
+      "target": "corpus"
+    },
+    {
+      "class": "py_suppression_not_ported",
+      "file": "sast/php/vulnerable.php",
+      "line": 16,
+      "reason": "the Python engine suppressed this row (rule-specific validators and in-string/comment suppression are not ported in v1 -- status.limits)",
+      "row_hash": "f4eb5caab65cf04b",
+      "rule_id": "PHP_SQL_INTERMEDIATE_QUERY",
+      "side": "rust",
+      "target": "corpus"
+    }
+  ],
+  "schema": "rsecopsx.parity_annotations/v1"
+}

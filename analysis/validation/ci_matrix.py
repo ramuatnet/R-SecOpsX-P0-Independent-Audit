@@ -130,6 +130,17 @@ def run_ci_matrix() -> dict:
         timeout=900,
     ))
 
+    # T-1.5: engine parity -- py vs rust on the golden corpus, normalized
+    # rows, annotated deltas. Runs AFTER rust_core (same process order)
+    # so the native extension the build just produced is loadable; if it
+    # is not, this gate fails RED the same way rust_core does -- never a
+    # silent skip. Strict/perf modes are on-demand flip criteria, not CI.
+    gates.append(_run(
+        "engine_parity",
+        [sys.executable, "-m", "analysis.validation.parity_gate"],
+        timeout=600,
+    ))
+
     passed = sum(1 for g in gates if g["passed"])
     failed = [g["name"] for g in gates if not g["passed"]]
 

@@ -314,7 +314,14 @@ def scan_directory(target: str | os.PathLike, workers: int = 2) -> list[dict]:
     findings = envelope.get("findings") or []
     if not isinstance(findings, list):
         raise RuntimeError("rust engine findings is not a list")
-    return findings
+    # Drop-in parity with scanner.sast.scan_directory (T-1.5 caught this):
+    # the public entry point returns the GROUPED report shape from
+    # core.deduplicator -- raw per-match rows only live in the envelope.
+    # main.py feeds either engine's return into the same downstream
+    # pipeline, so the shapes must match here, not just the row schema.
+    from core.deduplicator import group_findings
+
+    return group_findings(findings)
 
 
 def _remember_status(status: dict) -> None:
