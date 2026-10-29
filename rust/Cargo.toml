@@ -1,0 +1,41 @@
+# T-1.1 + T-1.2 (task.md): the native scan core.
+#
+#   scan(root, config) -> FindingsJson   -- existing finding schema
+#   walker (ignore crate) + aho-corasick literal prefilter + regex crate
+#
+# The rule PROGRAM comes from Python (built by scanner/rust_engine.py out
+# of the declarative rules/*.v1.yaml -- T-1.3 will formalise that
+# compiler). This crate carries no rule logic: patterns, policy lists and
+# per-rule static finding fields all arrive in the config JSON.
+#
+# Build:  cargo build --release        (from rust/)
+# The artifact rust/target/release/rsecopsx_core.dll is imported as
+# rsecopsx_core.pyd by scanner/rust_engine.py (copied by tools or tests).
+
+[package]
+name = "rsecopsx_core"
+version = "0.1.0"
+edition = "2021"
+description = "R-SecOpsX native scan core: walker, literal prefilter, regex engine"
+license = "Proprietary"
+
+[lib]
+name = "rsecopsx_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+# 0.26+: Python 3.14 support (the interpreter this repo runs on).
+pyo3 = { version = "0.26", features = ["extension-module"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Linear-time DFA matching: no catastrophic backtracking by construction,
+# which is the ReDoS posture the Python engine enforces with a budget
+# (T-0.5). The Rust engine gets it for free from the crate.
+regex = "1"
+aho-corasick = "1"
+ignore = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

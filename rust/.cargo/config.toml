@@ -1,0 +1,15 @@
+# T-1.1: deterministic windows-gnu builds.
+#
+# The crate links against the BUNDLED mingw runtime (libgcc/libpthread/
+# msvcrt import libs under lib/rustlib/x86_64-pc-windows-gnu/lib/
+# self-contained, shipped by the rust-mingw component) so a build needs
+# only a gcc-style LINKER DRIVER on PATH -- llvm-mingw's clang, or a real
+# MinGW gcc -- and not a separately installed mingw runtime. Without the
+# explicit flag, rustc may discover an external driver that has no libgcc
+# of its own (llvm-mingw ships compiler-rt) and the link fails with
+# "unable to find library -lgcc".
+#
+# Inert on hosts whose default target is not x86_64-pc-windows-gnu (the
+# common MSVC toolchain), so a standard rustup install is unaffected.
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-Clink-self-contained=yes"]

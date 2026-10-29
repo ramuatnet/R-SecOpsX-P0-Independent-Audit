@@ -3147,6 +3147,16 @@ def main():
         help="Parallel workers (default 2)",
     )
     parser.add_argument(
+        "--engine",
+        choices=("py", "rust"),
+        default="py",
+        help="Findings engine: 'py' (default: regex + taint + AST) or "
+             "'rust' (T-1.1/T-1.2 native walk + aho-corasick prefilter + "
+             "regex crate over the regex + enterprise rule tables). The "
+             "rust engine prints its limitations on every run; parity "
+             "with py is gated by T-1.5 before 'py' stops being default.",
+    )
+    parser.add_argument(
         "--no-pdf", action="store_true",
         help="skip PDF rendering (Security_Report.pdf and "
              "Security_Executive_Report.pdf). clean_report.json, the SBOM, QBOM, "
@@ -3314,10 +3324,20 @@ def main():
         _safe_print("  [i] SBOM ingest mode: source scan skipped "
                     "(no source tree to scan)")
     else:
-        _step("Scanning codebase", f"regex + AST taint, {args.workers} workers")
-        from scanner.sast import scan_directory
+        if args.engine == "rust":
+            # T-1.1: --engine rust. Same finding schema; limitations are
+            # disclosed on the CLI for every run (no silent divergence).
+            from scanner import rust_engine
 
-        raw = scan_directory(target, workers=args.workers)
+            _step("Scanning codebase", "rust: walk + prefilter + regex (native core)")
+            raw = rust_engine.scan_directory(target, workers=args.workers)
+            for _line in rust_engine.disclosure_lines():
+                _safe_print(f"       [rust] {_line}")
+        else:
+            _step("Scanning codebase", f"regex + AST taint, {args.workers} workers")
+            from scanner.sast import scan_directory
+
+            raw = scan_directory(target, workers=args.workers)
         _safe_print(f"       => {len(raw)} raw findings in {time.time() - t0:.1f}s")
 
     if sbom_ingest_doc is None:

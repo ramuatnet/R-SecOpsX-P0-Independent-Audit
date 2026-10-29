@@ -23,7 +23,7 @@ _LOG = logging.getLogger("rsx.analysis.validation.ci_matrix")
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _run(name: str, cmd: list[str]) -> dict:
+def _run(name: str, cmd: list[str], timeout: int = 300) -> dict:
     """Run a validation command and return its result."""
     _LOG.info("running: %s", " ".join(cmd))
     try:
@@ -32,7 +32,7 @@ def _run(name: str, cmd: list[str]) -> dict:
             capture_output=True,
             text=True,
             cwd=str(ROOT),
-            timeout=300,
+            timeout=timeout,
         )
         return {
             "name": name,
@@ -118,6 +118,16 @@ def run_ci_matrix() -> dict:
     gates.append(_run(
         "mutation_testing",
         [sys.executable, "-m", "analysis.validation.mutation"]
+    ))
+
+    # T-1.1/T-1.2: native engine -- cargo build + crate unit tests + the
+    # bridge tests with RSX_RUST_REQUIRED=1. Fails RED (never skips) when
+    # the toolchain or the build is missing: a silently dropped gate is a
+    # silent drop of native-engine validation.
+    gates.append(_run(
+        "rust_core",
+        [sys.executable, str(ROOT / "tools" / "rust_core_gate.py")],
+        timeout=900,
     ))
 
     passed = sum(1 for g in gates if g["passed"])
