@@ -37,8 +37,8 @@ SCHEMA_ID = "rsecopsx.rules/v1"
 # Canonical key order for emission (stable diffs).
 _FIELD_ORDER = (
     "id", "title", "vuln", "sev", "langs", "cwe", "owasp", "pattern",
-    "flags", "evidence_pat", "sink_category", "contract_ref", "remediation",
-    "note", "disabled",
+    "flags", "evidence_pat", "sink_category", "contract_ref", "sanitizers",
+    "barriers", "remediation", "note", "disabled",
 )
 
 _FLAG_LETTERS = ((re.I, "i"), (re.M, "m"), (re.S, "s"))

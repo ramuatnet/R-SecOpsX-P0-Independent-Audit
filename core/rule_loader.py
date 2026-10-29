@@ -139,6 +139,17 @@ def validate_doc(doc: dict, *, source: str = "<rule file>") -> None:
                 re.compile(rule["pattern"], flags)
             except re.error as exc:
                 raise RuleFormatError(f"{where}: pattern does not compile: {exc}") from exc
+        if isinstance(rule, dict) and "barriers" in rule:
+            # T-2.3: barrier patterns are compiled here so a bad regex
+            # fails at load (the "silent half-load" law), matching the
+            # main-pattern discipline above.
+            flags = _compile_flags(rule.get("flags", _DEFAULT_FLAGS))
+            for i, b in enumerate(rule["barriers"]):
+                try:
+                    re.compile(b, flags)
+                except re.error as exc:
+                    raise RuleFormatError(
+                        f"{where}.barriers[{i}]: does not compile: {exc}") from exc
 
 
 def _compile_flags(letters: str) -> int:
@@ -220,4 +231,40 @@ def load_contract_refs() -> dict:
         doc = _load_doc(_RULES_DIR / name)
         out.update({r["id"]: r["contract_ref"] for r in doc["rules"]
                     if r.get("contract_ref")})
+    return out
+
+
+def load_sanitizer_overrides() -> dict:
+    """T-2.3: rule id -> {vuln, sanitizers} for rules declaring sanitizers.
+
+    Declarative data with a dedicated accessor (like contract_ref /
+    sink_category); never leaked into the legacy table shapes.  Empty for
+    a pack that declares none -- the taint engine then sees only its
+    built-in per-class table, keeping every oracle byte-identical.
+    """
+    out = {}
+    for name in ("enterprise_v1.yaml", "regex_v1.yaml"):
+        doc = _load_doc(_RULES_DIR / name)
+        for r in doc["rules"]:
+            s = r.get("sanitizers")
+            if s:
+                out[r["id"]] = {"vuln": r["vuln"], "sanitizers": list(s)}
+    return out
+
+
+def load_barrier_overrides() -> dict:
+    """T-2.3: rule id -> barrier regex patterns (raw strings).
+
+    Compiled by the consumer (ufib_brain) with the same default flags the
+    main pattern uses; validate_doc already proved each compiles.  Empty
+    for a pack that declares none -> G6 sees only its contract
+    counterevidence, keeping every oracle byte-identical.
+    """
+    out = {}
+    for name in ("enterprise_v1.yaml", "regex_v1.yaml"):
+        doc = _load_doc(_RULES_DIR / name)
+        for r in doc["rules"]:
+            b = r.get("barriers")
+            if b:
+                out[r["id"]] = list(b)
     return out

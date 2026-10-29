@@ -170,6 +170,59 @@ SANITIZERS: dict[str, frozenset[str]] = {
 
 _ALL_SANITIZERS: frozenset[str] = frozenset().union(*SANITIZERS.values())
 
+# T-2.3: rule-declared sanitizer overrides.  Rules may extend one of the
+# THREE modelled classes (xss / command_injection / ssrf) with extra
+# dotted-names; they can never CREATE a class (that would change
+# frozenset(SANITIZERS) and the sanitized_for semantics the taint layer
+# relies on).  Loaded lazily from core.rule_loader; with no rule
+# declarations (the production pack) the effective table IS the built-in
+# SANITIZERS object, so every existing flow is byte-identical.
+_RULE_SANITIZERS: Optional[dict[str, frozenset[str]]] = None
+_EFFECTIVE: Optional[dict[str, frozenset[str]]] = None
+
+
+def _load_rule_sanitizers() -> dict[str, frozenset[str]]:
+    """vuln class -> extra sanitizer names declared by rules (T-2.3).
+
+    Additive only; filtered to the modelled classes so an unknown vuln
+    declaration is dropped here (the loader keeps it, the engine refuses
+    it) rather than silently widening the class vocabulary.
+    """
+    try:
+        from core import rule_loader
+        decls = rule_loader.load_sanitizer_overrides()
+    except Exception:  # noqa: BLE001 - a broken rule pack must not kill taint
+        return {}
+    known = set(SANITIZERS)
+    out: dict[str, set[str]] = {}
+    for _rule_id, info in decls.items():
+        vuln = info.get("vuln")
+        if vuln not in known:
+            continue
+        out.setdefault(vuln, set()).update(info.get("sanitizers") or ())
+    return {k: frozenset(v) for k, v in out.items()}
+
+
+def _effective_sanitizers() -> dict[str, frozenset[str]]:
+    """Built-in SANITIZERS extended by any rule-declared sanitizers.
+
+    Cached.  With no declarations this returns the SANITIZERS object
+    itself (identity, not a copy), so the hot path costs one global-None
+    check and the sanitizer tables cannot drift.
+    """
+    global _EFFECTIVE, _RULE_SANITIZERS
+    if _EFFECTIVE is None:
+        if _RULE_SANITIZERS is None:
+            _RULE_SANITIZERS = _load_rule_sanitizers()
+        if not _RULE_SANITIZERS:
+            _EFFECTIVE = SANITIZERS
+        else:
+            _EFFECTIVE = {
+                k: (v | _RULE_SANITIZERS.get(k, frozenset()))
+                for k, v in SANITIZERS.items()
+            }
+    return _EFFECTIVE
+
 # Shell interpreters whose presence in an argv list means the argument vector
 # is still interpreted by a shell (``bash -c <payload>``, ``sh -c ...``).
 _SHELL_INTERPRETERS = frozenset({
@@ -782,7 +835,7 @@ class TaintVisitor(ast.NodeVisitor):
         # Without a vuln class there is nothing to be "safe for".
         if not for_vuln:
             return False
-        names = SANITIZERS.get(for_vuln)
+        names = _effective_sanitizers().get(for_vuln)
         if not names:
             return False
         return any(fn == s or fn.endswith("." + s) for s in names)
@@ -807,12 +860,13 @@ class TaintVisitor(ast.NodeVisitor):
         double-sanitizer chains and nested sanitizers gain attribution).
         """
         covered: Optional[frozenset[str]] = None
+        eff = _effective_sanitizers()
 
         def _walk(n, wrapped: frozenset[str]) -> None:
             nonlocal covered
             if isinstance(n, ast.Call):
                 fn = self._resolve_fn(self._unparse(n.func))
-                cls = frozenset(c for c, names in SANITIZERS.items()
+                cls = frozenset(c for c, names in eff.items()
                                 if any(fn == s or fn.endswith("." + s) for s in names))
                 if cls:
                     for child in ast.iter_child_nodes(n):
@@ -824,7 +878,7 @@ class TaintVisitor(ast.NodeVisitor):
                 if t is not None:
                     # Tainted-name occurrence: wrapper sanitizer or proven
                     # upstream sanitization both satisfy the class.
-                    occ = wrapped | (t.sanitized_for & frozenset(SANITIZERS))
+                    occ = wrapped | (t.sanitized_for & frozenset(eff))
                 elif self._match_source(n):
                     occ = wrapped
             elif isinstance(n, (ast.Attribute, ast.Subscript)) and self._match_source(n):

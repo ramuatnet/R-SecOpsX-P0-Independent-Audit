@@ -98,6 +98,80 @@ def clear_source_cache() -> None:
     _FILE_CACHE.clear()
 
 
+# ---------------------------------------------------------------------------
+# T-2.3: rule-declared barriers (contract-driven suppression)
+# ---------------------------------------------------------------------------
+# A barrier is a construct the RULE declares as proving its finding not
+# exploitable when present (an allowlist assignment, an authz guard, ...).
+# Rules may add barriers; they can never REMOVE the contract's own
+# counterevidence.  Compiled lazily from core.rule_loader (validate_doc
+# already proved each pattern compiles).  With no rule declaring a barrier
+# (the production pack) this is empty -> G6 sees only its contract
+# counterevidence, keeping every oracle byte-identical.
+_RULE_BARRIERS: dict[str, tuple] | None = None
+
+
+def _load_rule_barriers() -> dict[str, tuple]:
+    """rule id -> tuple of compiled barrier patterns (T-2.3).
+
+    Patterns use the same default flags the rule's main pattern uses
+    (ims).  A barrier is file-scope counterevidence, so it is matched
+    against the analyzed source like the contract's SCOPE_FILE entries.
+    """
+    try:
+        from core import rule_loader
+        decls = rule_loader.load_barrier_overrides()
+    except Exception:  # noqa: BLE001 - a broken rule pack must not kill UFIB
+        return {}
+    flags = re.IGNORECASE | re.MULTILINE | re.DOTALL
+    out: dict[str, tuple] = {}
+    for rule_id, patterns in decls.items():
+        compiled = []
+        for p in patterns:
+            try:
+                compiled.append(re.compile(p, flags))
+            except re.error:
+                continue  # validate_doc already rejected bad ones; defensive
+        if compiled:
+            out[rule_id] = tuple(compiled)
+    return out
+
+
+def _rule_barriers(rule_id: Any) -> tuple:
+    """Compiled barriers for ``rule_id`` (cached); () when none."""
+    global _RULE_BARRIERS
+    if _RULE_BARRIERS is None:
+        _RULE_BARRIERS = _load_rule_barriers()
+    if not rule_id:
+        return ()
+    return _RULE_BARRIERS.get(str(rule_id), ())
+
+
+def _g6_rule_barriers(finding: dict, file_text: str | None,
+                      ev: list[dict]) -> list[str]:
+    """Additive decisive counterevidence from the finding's rule barriers.
+
+    Deliberately NOT subject to the multipath downgrade below: a barrier
+    is a gate the value must pass (a control present in the file), not a
+    per-path safe construct, so its presence defeats every grouped path.
+    Unreadable file -> no barrier applied (they are additive, so this
+    never flips the contract's own context-unverifiable cap).
+    """
+    pats = _rule_barriers(finding.get("rule_id"))
+    if not pats or file_text is None:
+        return []
+    kinds: list[str] = []
+    for pat in pats:
+        if pat.search(file_text):
+            ev.append({"kind": "counterevidence:rule_barrier",
+                       "state": CONTRADICTED,
+                       "provenance": "collector:rule_barrier",
+                       "detail": "rule-declared barrier matched: %s"
+                                 % pat.pattern})
+            kinds.append("rule_barrier")
+    return kinds
+
+
 def _observed_text(finding: dict) -> str:
     """The OBSERVED material only: what the detector matched. Deliberately
     excludes title/description/remediation prose -- an engine that writes
@@ -421,6 +495,11 @@ def _g6_contradiction(finding: dict, contract: dict, target: str | None,
         qualifying.extend(downgraded)
         decisive = [d for d in decisive
                     if d in {h["kind"] for h in pod_hits}]
+
+    # T-2.3 rule barriers: additive decisive counterevidence, applied
+    # after the multipath downgrade (a barrier is a gate, not a per-path
+    # safe construct).  Empty when the finding's rule declares none.
+    decisive.extend(_g6_rule_barriers(finding, file_text, ev))
 
     if decisive:
         return "FAIL", "decisive counterevidence: %s" % sorted(set(decisive))
