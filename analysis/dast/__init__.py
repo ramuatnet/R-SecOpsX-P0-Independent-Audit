@@ -11,6 +11,16 @@
 T-5.2..T-5.5 (auth, active checks, OOB, correlation) build on this
 package; nothing here emits findings, so the scan oracles are untouched.
 """
+from analysis.dast.auth import (  # noqa: F401
+    AuthProfile,
+    AuthSession,
+    build_session,
+    build_sessions,
+    differential,
+    load_profiles,
+    session_headers,
+    SessionReplay,
+)
 from analysis.dast.crawler import CrawlConfig, FetchResponse, crawl  # noqa: F401
 from analysis.dast.model import (  # noqa: F401
     MODEL_SCHEMA,

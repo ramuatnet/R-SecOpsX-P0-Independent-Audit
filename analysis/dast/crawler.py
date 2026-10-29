@@ -46,6 +46,10 @@ class CrawlConfig:
     respect_robots: bool = True
     timeout_s: float = 10.0
     user_agent: str = DEFAULT_USER_AGENT
+    # T-5.2: headers from an AuthSession (e.g. Authorization/Cookie) attached
+    # to every request.  When None the fetch keeps its original 3-arg call
+    # shape, so unauthenticated fetches (and their tests) are unchanged.
+    auth_headers: Optional[dict] = None
 
 
 @dataclass(frozen=True)
@@ -131,12 +135,18 @@ def crawl(config: CrawlConfig,
             sleep(config.rate_limit_s)
         requests_made += 1
 
+    def _do_fetch(url: str) -> FetchResponse:
+        if config.auth_headers:
+            return fetch(url, config.timeout_s, config.user_agent,
+                         headers=dict(config.auth_headers))
+        return fetch(url, config.timeout_s, config.user_agent)
+
     def _try_sitemap(url: str):
         # Recon like robots: rate-limited, but a bounded side channel --
         # at most 5 sitemap fetches, never consuming the page budget.
         _throttle()
         try:
-            resp = fetch(url, config.timeout_s, config.user_agent)
+            resp = _do_fetch(url)
         except Exception as exc:               # noqa: BLE001 - disclose, continue
             errors.append({"url": url, "reason": type(exc).__name__})
             return
@@ -150,7 +160,7 @@ def crawl(config: CrawlConfig,
         robots_url = urljoin(config.base_url, "/robots.txt")
         _throttle()
         try:
-            resp = fetch(robots_url, config.timeout_s, config.user_agent)
+            resp = _do_fetch(robots_url)
             if resp.status < 400:
                 _entries, robots_sitemaps, disallow = parse_robots(
                     resp.body, robots_url)
@@ -181,7 +191,7 @@ def crawl(config: CrawlConfig,
         _throttle()
         fetched += 1
         try:
-            resp = fetch(url, config.timeout_s, config.user_agent)
+            resp = _do_fetch(url)
         except Exception as exc:               # noqa: BLE001
             errors.append({"url": url, "reason": type(exc).__name__})
             continue
@@ -229,7 +239,7 @@ def crawl(config: CrawlConfig,
                 _throttle()
                 fetched += 1
                 try:
-                    js_resp = fetch(absu, config.timeout_s, config.user_agent)
+                    js_resp = _do_fetch(absu)
                     if js_resp.status < 400:
                         for e in parse_js(js_resp.body, absu, kind="crawl"):
                             routes.append(e)
