@@ -516,6 +516,35 @@ def run_target_tests(workdir: Path, test_cmd: Optional[list[str]],
 # ---------------------------------------------------------------------------
 # the verdict
 # ---------------------------------------------------------------------------
+def _code_context(target_path: Path, finding: dict) -> Optional[dict]:
+    """Enclosing-symbol context for the finding via the T-1.4 span layer.
+
+    Additive and fully defensive: resolves the finding's source under the
+    target root (absolute or relative), then asks the span layer for the
+    innermost definition around the finding's line. ``enclosing_symbol`` is
+    ``None`` for top-level code or a language with no grammar (honest). Any
+    failure -> ``None`` (the fix cycle never breaks on context enrichment).
+    """
+    try:
+        from scanner import span_layer
+        raw = str(finding.get("file") or "")
+        if not raw:
+            return None
+        cand = Path(raw)
+        src = cand if cand.is_absolute() else target_path / cand
+        line = int(finding.get("line") or 0)
+        language = finding.get("language") or span_layer.infer_language(src)
+        return {
+            "file": raw,
+            "line": line,
+            "language": language,
+            "enclosing_symbol": span_layer.enclosing_symbol_for_file(
+                src, line, language=finding.get("language") or None),
+        }
+    except Exception:  # noqa: BLE001 - context enrichment is optional
+        return None
+
+
 def validate_fix(target, patch_text: str, finding: dict,
                  test_cmd: Optional[list[str]] = None,
                  test_timeout_s: float = DEFAULT_TEST_TIMEOUT_S,
@@ -551,6 +580,12 @@ def validate_fix(target, patch_text: str, finding: dict,
         report["tool_version"] = TOOL_VERSION
     except Exception:
         report["tool_version"] = ""
+
+    # T-1.4 span layer: the enclosing symbol for the finding's location, as
+    # additive, parity-excluded context on the verdict (computed from the
+    # ORIGINAL target's source; defensive -- an unreadable file or no
+    # grammar degrades to None, never fails the fix cycle).
+    report["code_context"] = _code_context(target_path, finding)
 
     # 1. private copy
     try:

@@ -11,6 +11,7 @@ mod engine;
 mod findings;
 mod prefilter;
 mod scanner_result;
+mod spans;
 mod walk;
 
 use pyo3::prelude::*;
@@ -73,10 +74,33 @@ fn compile_rules(config_json: &str) -> PyResult<String> {
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("serialize program: {e}")))
 }
 
+/// T-1.4 AST + span layer: SpanTable + symbol table for one source buffer.
+///
+/// Returns a JSON envelope `{"schema": "rsecopsx.span_table/v1", ...}` with
+/// grammar-backed `spans`/`symbols` for the eleven task.md languages, or
+/// Phase-0 line spans (`grammar: false`, `fallback` disclosed) where no
+/// grammar exists. Never raises for an unknown language -- that IS the
+/// fallback path.
+#[pyfunction]
+fn span_table(source: &str, language: &str) -> PyResult<String> {
+    let table = spans::span_table(source, language);
+    serde_json::to_string(&table)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("serialize span table: {e}")))
+}
+
+/// The language keys with a compiled-in tree-sitter grammar (disclosure).
+#[pyfunction]
+fn span_languages() -> Vec<String> {
+    spans::GRAMMAR_LANGUAGES.iter().map(|s| s.to_string()).collect()
+}
+
 #[pymodule]
 fn rsecopsx_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(scan, m)?)?;
     m.add_function(wrap_pyfunction!(compile_rules, m)?)?;
+    m.add_function(wrap_pyfunction!(span_table, m)?)?;
+    m.add_function(wrap_pyfunction!(span_languages, m)?)?;
     m.add("ENGINE_VERSION", engine::ENGINE_VERSION)?;
+    m.add("SPAN_TABLE_SCHEMA", spans::SPAN_TABLE_SCHEMA)?;
     Ok(())
 }

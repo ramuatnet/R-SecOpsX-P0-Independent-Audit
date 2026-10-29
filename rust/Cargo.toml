@@ -34,6 +34,22 @@ serde_json = "1"
 regex = "1"
 aho-corasick = "1"
 ignore = "0.4"
+# T-1.4 AST + span layer. tree-sitter grammars compiled IN to the cdylib,
+# so the native core carries its AST capability with no runtime wheel
+# dependency (the offline invariant). Where a grammar is absent the span
+# table falls back to Phase-0 line spans (spans.rs).
+tree-sitter = "0.25"
+tree-sitter-python = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-php = "0.23"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-rust = "0.23"
+tree-sitter-ruby = "0.23"
+tree-sitter-c = "0.23"
+tree-sitter-cpp = "0.23"
 
 [profile.release]
 opt-level = 3
