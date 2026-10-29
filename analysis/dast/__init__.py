@@ -12,7 +12,10 @@
               GET/POST only, rate limit, 429 backoff, per-route budget)
               emitting the additive ``rsecopsx.dast_findings/v1``
               artifact -- separate from SAST finding rows, so the scan
-              oracles stay untouched until T-5.5 correlation.
+              oracles stay untouched until T-5.5 correlation;
+``oob``       T-5.4 Interactsh-style DNS/HTTP callback listener for
+              blind SSRF/XXE/RCE (pure protocol logic offline-testable;
+              live servers opt-in, loopback default).
 """
 from analysis.dast.auth import (  # noqa: F401
     AuthProfile,
@@ -40,5 +43,13 @@ from analysis.dast.model import (  # noqa: F401
     merge_with_sast,
     normalize_path,
     route_key,
+)
+from analysis.dast.oob import (  # noqa: F401
+    build_dns_response,
+    handle_callback,
+    handle_dns_query,
+    InteractionStore,
+    OOBClient,
+    parse_dns_qname,
 )
 from analysis.dast.target_model import build_target_model  # noqa: F401

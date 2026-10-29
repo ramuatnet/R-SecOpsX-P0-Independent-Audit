@@ -88,6 +88,12 @@ REDIRECT_PAYLOADS = ["https://evil.test/steal"]
 SSRF_PAYLOADS = ["http://169.254.169.254/latest/meta-data/"]
 DESER_PAYLOADS = ['O:8:"stdClass":0:{}', "rO0ABGO7vcHJvZmlsZQ"]
 
+# T-5.4: which checks mint an OOB callback payload for blind bugs.  The
+# URL is injected as a parameter VALUE (the target fetches it); a callback
+# arriving for the token confirms (or promotes) the owning finding.
+OOB_KIND_BY_CHECK = {"dast.ssrf": "ssrf", "dast.xxe": "xxe",
+                     "dast.cmdi": "rce"}
+
 SQLI_RE = re.compile(
     r"You have an error in your SQL|SQL syntax|mysql_[a-z_]+\(|mysqli?_|"
     r"pg_[a-z_]+\(|PostgreSQL.*ERROR|ORA-\d{4,5}|sqlite3?\."
@@ -197,6 +203,10 @@ class CheckContext:
     backoff_sleep: Callable[[float], None] = time.sleep
     backoff_s: float = 5.0
     throttle_sleep: Callable[[float], None] = time.sleep
+    # T-5.4: optional OOB client (duck-typed: .mint(kind)->(url,token),
+    # .confirm(token, timeout)->interaction).  None disables all OOB.
+    oob: Optional[object] = None
+    oob_wait_s: float = 0.0
 
 
 def _method_of(route) -> str:
@@ -298,6 +308,13 @@ class _Runner:
         self.route_aborted = False
         self.rate_seen = False
         self.tls_done = False
+        # T-5.4: ordered pending entries awaiting a callback.  A list of
+        # {token, route_key, check_id, route, kind} -- NOT a token-keyed
+        # dict, because a fixed test RNG can mint the same token for two
+        # checks and the collision must not drop either entry.
+        self.oob_pending: list = []
+        self.oob_confirmed = 0
+        self.effective_cap = MAX_PROBES_PER_ROUTE
 
     def begin_route(self, route: dict) -> None:
         self.route = route
@@ -305,6 +322,17 @@ class _Runner:
         self.route_probe_count = 0
         self.route_aborted = False
         self.rate_seen = False
+        # OOB prepends one probe per OOB-capable check per probeable
+        # target (+1 for the xxe re-probe).  Give the route a bounded
+        # headroom so enabling OOB never costs a check that fit within
+        # the base cap (T-5.3 parity); still a hard bound: base + O(1).
+        if self.ctx.oob:
+            n_targets = len(_targets(route))
+            self.effective_cap = (MAX_PROBES_PER_ROUTE
+                                  + len(OOB_KIND_BY_CHECK)
+                                  * max(1, n_targets))
+        else:
+            self.effective_cap = MAX_PROBES_PER_ROUTE
 
     def skip(self, check_id: str, reason: str) -> None:
         self.skips.append({"check": check_id, "route_key": self.route_key,
@@ -313,7 +341,7 @@ class _Runner:
     def block_reason(self) -> Optional[str]:
         if self.route_aborted:
             return "route_aborted_429"
-        if self.route_probe_count >= MAX_PROBES_PER_ROUTE:
+        if self.route_probe_count >= self.effective_cap:
             return "budget_exhausted"
         return None
 
@@ -335,7 +363,7 @@ class _Runner:
                probe=False) -> Optional[ProbeResponse]:
         if self.route_aborted:
             return None
-        if probe and self.route_probe_count >= MAX_PROBES_PER_ROUTE:
+        if probe and self.route_probe_count >= self.effective_cap:
             return None
         if not _on_scope(url, self.ctx.base_url):
             self.aborts.append({"route_key": self.route_key,
@@ -482,6 +510,19 @@ def _probe_check(route, runner, check_id, payloads, detect, *,
     if reason:
         runner.skip(check_id, reason)
         return
+    payloads = list(payloads)
+    # T-5.4: mint an OOB callback URL and PREPEND it so the token is
+    # pending even if a signature probe early-returns.  The URL is a
+    # parameter VALUE -- the target fetches it; the callback confirms.
+    kind = OOB_KIND_BY_CHECK.get(check_id)
+    if ctx.oob and kind:
+        oob_url, token = ctx.oob.mint(kind)
+        payloads.insert(0, oob_url)
+        runner.oob_pending.append({
+            "token": token, "kind": kind, "check_id": check_id,
+            "route_key": str(route.get("route_key") or runner.route_key),
+            "route": route,
+        })
     for target in targets:
         for payload in payloads:
             reason = runner.block_reason()
@@ -621,6 +662,36 @@ def _ck_xxe(route, runner) -> None:
                 "response_excerpt": _excerpt(resp.body),
             })
             return
+    # T-5.4: blind XXE -- re-send with an OOB SYSTEM entity; a callback
+    # arriving later confirms it.  (Worst-case POST probe count stays <=
+    # MAX_PROBES_PER_ROUTE: file probe + oob probe = 2 for this check.)
+    if ctx.oob:
+        reason = runner.block_reason()
+        if reason:
+            runner.skip("dast.xxe", reason)
+            return
+        oob_url, token = ctx.oob.mint("xxe")
+        xml = ('<?xml version="1.0"?>'
+               f'<!DOCTYPE r [<!ENTITY xxe SYSTEM "{oob_url}">]>'
+               "<r>&xxe;</r>")
+        oob_resp = runner._fetch(
+            url, method="POST", data=xml,
+            headers={"Origin": CORS_ORIGIN, "Content-Type": "application/xml"},
+            probe=True)
+        if oob_resp is not None:
+            runner.oob_pending.append({
+                "token": token, "kind": "xxe", "check_id": "dast.xxe",
+                "route_key": str(route.get("route_key") or runner.route_key),
+                "route": route,
+            })
+            for sig in FILE_READ_SIGS:
+                if sig in (oob_resp.body or ""):
+                    runner.add_finding(route, "dast.xxe", "likely", {
+                        "signature": sig,
+                        "request_url": url[:MAX_URL_CHARS],
+                        "response_excerpt": _excerpt(oob_resp.body),
+                    })
+                    return
 
 
 def _ck_idor(route, runner) -> None:
@@ -744,6 +815,61 @@ _PASSIVE: dict[str, Callable] = {
 }
 
 
+def _oob_promote(ctx: CheckContext, runner: "_Runner") -> None:
+    """T-5.4: confirm pending OOB tokens and create/promote findings.
+
+    A callback arriving for a minted token is the evidence for a blind
+    bug: no interaction -> nothing changes; interaction + no finding ->
+    a new ``confirmed`` finding; interaction + an existing finding ->
+    that finding is promoted to ``confirmed`` with the interaction
+    merged into its evidence.  ``stats["oob_confirmed"]`` counts the
+    pending entries whose token produced a matching interaction.
+
+    Interactions are attributed back to their owning entry by the
+    callback path (``/{kind}``); a group holding exactly one entry takes
+    its first interaction regardless of path, so DNS-only callbacks
+    (empty path) still confirm.
+    """
+    if not ctx.oob or not runner.oob_pending:
+        return
+    # Group pending entries by token (drain consumes, so one call per
+    # token).  A fixed test RNG can mint one token for several checks.
+    by_token: dict = {}
+    for entry in runner.oob_pending:
+        by_token.setdefault(entry["token"], []).append(entry)
+    for token in sorted(by_token):
+        entries = by_token[token]
+        interactions = ctx.oob.collect(token, timeout=ctx.oob_wait_s)
+        if not interactions:
+            continue
+        for i, entry in enumerate(entries):
+            want = f"/{entry['kind']}"
+            match = next((x for x in interactions
+                          if str(x.get("path") or "") == want), None)
+            if match is None and len(entries) == 1:
+                match = interactions[0]      # DNS-only / single-owner
+            if match is None:
+                continue
+            interactions = [x for x in interactions if x is not match]
+            runner.oob_confirmed += 1
+            ev = {"oob_interaction": {
+                "proto": str(match.get("proto") or ""),
+                "host": str(match.get("host") or ""),
+                "path": str(match.get("path") or ""),
+                "ts": float(match.get("ts") or 0.0),
+            }}
+            route_key, check_id = entry["route_key"], entry["check_id"]
+            hits = [f for f in runner.findings
+                    if f["check"] == check_id and f["route_key"] == route_key]
+            if hits:
+                for f in hits:
+                    f["confidence"] = "confirmed"
+                    f["evidence"].update(ev)
+            else:
+                runner.add_finding(entry["route"], check_id, "confirmed",
+                                   dict(ev))
+
+
 def run_checks(ctx: CheckContext) -> dict:
     """Run every active check against the target model.
 
@@ -801,6 +927,9 @@ def run_checks(ctx: CheckContext) -> dict:
                 continue
             _PROBES[cid](route, runner)
 
+    # T-5.4: confirm OOB callbacks once every route has been probed.
+    _oob_promote(ctx, runner)
+
     findings = sorted(runner.findings,
                       key=lambda f: (f["route_key"], f["check"]))
     by_check: dict[str, int] = {}
@@ -816,6 +945,7 @@ def run_checks(ctx: CheckContext) -> dict:
             "by_check": dict(sorted(by_check.items())),
             "skips": runner.skips,
             "aborts": runner.aborts,
+            "oob_confirmed": runner.oob_confirmed,
         },
     }
 
@@ -880,6 +1010,12 @@ def main(argv=None) -> int:
                     help="allow the bounded rate-limit burst probe")
     ap.add_argument("--live", action="store_true",
                     help="allow the live TLS handshake check")
+    ap.add_argument("--oob-host", default=None,
+                    help="enable OOB callbacks via a listener whose public "
+                         "host the target can reach (e.g. oob.example.test)")
+    ap.add_argument("--oob-wait", type=float, default=0.0,
+                    help="seconds to wait for OOB interactions per token "
+                         "(0 = non-blocking drain)")
     args = ap.parse_args(argv)
     path = Path(args.model)
     try:
@@ -895,9 +1031,14 @@ def main(argv=None) -> int:
     if args.profiles:
         profiles, errors = load_profiles(args.profiles)
         sessions = build_sessions(profiles)
+    oob = None
+    if args.oob_host:
+        from analysis.dast.oob import OOBClient                 # noqa: PLC0415
+        oob = OOBClient(public_host=args.oob_host)
     ctx = CheckContext(base_url=args.base_url, routes=routes,
                        fetch=default_probe_fetch, sessions=sessions or None,
-                       aggressive=args.aggressive, live=args.live)
+                       aggressive=args.aggressive, live=args.live,
+                       oob=oob, oob_wait_s=args.oob_wait)
     out = run_checks(ctx)
     blob = json.dumps(out, indent=2, sort_keys=True) + "\n"
     if args.out:
