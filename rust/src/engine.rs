@@ -20,7 +20,7 @@ use crate::prefilter::Prefilter;
 use crate::scanner_result::{is_scanner_result_json, is_scanner_result_xml};
 use crate::walk;
 
-pub const ENGINE_VERSION: &str = "rsecopsx rust core v0.1.0 (walk+prefilter+regex)";
+pub const ENGINE_VERSION: &str = "rsecopsx rust core v0.2.0 (rule-program+walk+prefilter+regex)";
 pub const ENVELOPE_SCHEMA: &str = "rsecopsx.rust_findings/v1";
 
 /// Python's `_F`: re.IGNORECASE | re.MULTILINE | re.DOTALL (ims).
@@ -101,20 +101,17 @@ fn is_comment(snippet: &str, language: &str, cfg: &ScanConfig) -> bool {
     s.starts_with('*') && cfg.block_comment_langs.iter().any(|l| l == &lang)
 }
 
-/// Which rules may fire on this file at all (language gates).
+/// Which rules may fire on this file at all (language gates). Every
+/// gate is DECLARATIVE data on the rule (T-1.3): the loader derives
+/// `data_file_gate` from the rule's class, and this file contains no
+/// per-rule knowledge.
 fn eligible(rule: &RuleConfig, language: &str, cfg: &ScanConfig) -> bool {
     if let Some(langs) = &rule.langs {
         if !langs.is_empty() && !langs.iter().any(|l| l == language) {
             return false;
         }
     }
-    // scanner.sast applies the data-file gate to REGEX_RULES only
-    // (`vuln_type == "code_injection"`): eval()/exec() semantics cannot
-    // occur in a data file.
-    if rule.kind == "regex"
-        && rule.vuln_type.as_deref() == Some("code_injection")
-        && cfg.non_executable_data_langs.iter().any(|l| l == language)
-    {
+    if rule.data_file_gate && cfg.non_executable_data_langs.iter().any(|l| l == language) {
         return false;
     }
     true
@@ -164,18 +161,19 @@ pub fn scan_root(root: &str, cfg: &ScanConfig) -> Value {
         let file_str = wf.abs.to_string_lossy().to_string();
         let lines: Vec<&str> = source.lines().collect();
         files_scanned += 1;
-        // Python: package-lock.json is not the source for npm lifecycle
-        // script rules (package.json only) -- by FILE NAME at any depth.
-        let is_package_lock = path
+        // Lowercased name at any depth, for the declarative skip list.
+        let file_name_lower = path
             .file_name()
-            .map(|n| n.to_string_lossy().eq_ignore_ascii_case("package-lock.json"))
-            .unwrap_or(false);
+            .map(|n| n.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
 
         for (ri, rule) in cfg.rules.iter().enumerate() {
             if compiled[ri].is_none() || !eligible(rule, &language, cfg) {
                 continue;
             }
-            if rule.id == "NPM_SUPPLY_CHAIN_SCRIPT" && is_package_lock {
+            if !rule.skip_file_names.is_empty()
+                && rule.skip_file_names.iter().any(|n| n == &file_name_lower)
+            {
                 continue;
             }
             let re = compiled[ri].as_ref().expect("checked above");

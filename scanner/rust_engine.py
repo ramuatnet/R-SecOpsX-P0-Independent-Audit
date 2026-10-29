@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 CONFIG_SCHEMA = "rsecopsx.rust_scan_config/v1"
+# T-1.3: the compiled rule program -- config + every rule's literal set.
+PROGRAM_SCHEMA = "rsecopsx.rule_program/v1"
 ENVELOPE_SCHEMA = "rsecopsx.rust_findings/v1"
 
 # Fields `_make_finding` derives from the match; the Rust engine fills
@@ -31,6 +33,10 @@ _PER_MATCH_KEYS = ("file", "line", "snippet", "evidence", "group_key", "language
 _CORE: Any = None
 _LAST_STATUS: dict | None = None
 _LOAD_ERROR: str | None = None
+# config JSON (sort_keys) -> compiled program JSON; keyed on the whole
+# document because policy lists differ per target while rules do not.
+_PROGRAM_CACHE: dict[str, str] = {}
+_PROGRAM_CACHE_CAP = 64
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -156,6 +162,27 @@ def _langs_of(rule: dict, *keys: str) -> list[str] | None:
     return sorted(str(v) for v in val)
 
 
+def _skip_file_names_of(rule_id: str) -> list[str]:
+    """Declarative skip list shipped in the rule program.
+
+    Mirrors scanner/sast.py (the enterprise matching loop): npm
+    lifecycle-script controls are evaluated from package.json only --
+    a lockfile merely records resolved versions. The Rust engine carries
+    NO rule ids: it just honours this list (T-1.3, no rule logic in
+    Rust source).
+    """
+    if rule_id == "NPM_SUPPLY_CHAIN_SCRIPT":
+        return ["package-lock.json"]
+    return []
+
+
+def _data_file_gate_of(row: dict) -> bool:
+    """Declarative data-file gate: only REGEX_RULES of the executable-
+    injection class get it (mirrors scanner/sast.py, REGEX_RULES loop:
+    eval()/exec() semantics cannot occur in a data file)."""
+    return row["kind"] == "regex" and row.get("vuln_type") == "code_injection"
+
+
 def build_config(target: str | os.PathLike) -> dict:
     """One config JSON: rule program + every policy list, sourced from the
     same Python objects the `--engine py` path uses."""
@@ -201,6 +228,23 @@ def build_config(target: str | os.PathLike) -> dict:
             }
         )
 
+    # T-1.3 rule-program bindings: YAML is the single source (the same
+    # accessors the UFIB/scoring side reads), and the declarative gates
+    # the Rust engine consumes are derived HERE, next to the Python
+    # logic they mirror.
+    from core import rule_loader
+
+    contract_refs = rule_loader.load_contract_refs()
+    sink_categories = rule_loader.load_sink_categories()
+    for row in rules:
+        rid = row["id"]
+        if rid in contract_refs:
+            row["contract_ref"] = contract_refs[rid]
+        if rid in sink_categories:
+            row["sink_category"] = sink_categories[rid]
+        row["skip_file_names"] = _skip_file_names_of(rid)
+        row["data_file_gate"] = _data_file_gate_of(row)
+
     scannable = sast.SCANNABLE_EXT
     return {
         "schema": CONFIG_SCHEMA,
@@ -224,6 +268,29 @@ def build_config(target: str | os.PathLike) -> dict:
     }
 
 
+def _compile_program(config: dict) -> str:
+    """T-1.3: raw config -> compiled rule program (literal sets computed
+    once per distinct config; Rust's compile_rules runs the same
+    extractor the prefilter would, so program and config scans are
+    byte-identical). Cached: per-scan cost is a string lookup."""
+    core = load_extension()
+    key = json.dumps(config, ensure_ascii=True, sort_keys=True)
+    hit = _PROGRAM_CACHE.get(key)
+    if hit is not None:
+        return hit
+    program = core.compile_rules(key)
+    parsed = json.loads(program)
+    if parsed.get("schema") != PROGRAM_SCHEMA:
+        raise RuntimeError(
+            f"compile_rules returned schema {parsed.get('schema')!r}, "
+            f"want {PROGRAM_SCHEMA!r}"
+        )
+    if len(_PROGRAM_CACHE) >= _PROGRAM_CACHE_CAP:
+        _PROGRAM_CACHE.clear()
+    _PROGRAM_CACHE[key] = program
+    return program
+
+
 def scan_directory(target: str | os.PathLike, workers: int = 2) -> list[dict]:
     """Drop-in for scanner.sast.scan_directory: same finding schema.
 
@@ -233,8 +300,9 @@ def scan_directory(target: str | os.PathLike, workers: int = 2) -> list[dict]:
     """
     del workers  # signature parity only
     core = load_extension()
-    config_json = json.dumps(build_config(target), ensure_ascii=True)
-    raw = core.scan(str(target), config_json)
+    # T-1.3: scans run on the compiled rule program, not the raw config.
+    program_json = _compile_program(build_config(target))
+    raw = core.scan(str(target), program_json)
     envelope = json.loads(raw)
     schema = envelope.get("schema")
     if schema != ENVELOPE_SCHEMA:

@@ -267,3 +267,126 @@ def test_disclosure_lines_surface_status(rust_engine, core):
     assert status is not None
     if status.get("rules_unsupported"):
         assert "UNSUPPORTED rules" in text
+
+
+# --------------------------------------------------------------------------
+# T-1.3: the rule program (literal set, bindings, declarative gates)
+# --------------------------------------------------------------------------
+
+
+def test_config_ships_contract_bindings_and_declarative_gates(config):
+    """YAML is the single source: contract/sink bindings ride along, and
+    the two behaviour gates the Python engine applies are shipped as
+    declarative data -- the Rust engine never keys on a rule id."""
+    by_id = {r["id"]: r for r in config["rules"]}
+    assert by_id["AWS_ACCESS_KEY"]["contract_ref"] == "hardcoded_secret"
+    assert by_id["PHP_SQL_INTERMEDIATE_QUERY"]["sink_category"] == "sql"
+
+    # Declarative skip list: derived exactly where Python derives it.
+    assert by_id["NPM_SUPPLY_CHAIN_SCRIPT"]["skip_file_names"] == [
+        "package-lock.json"
+    ]
+    for rid, row in by_id.items():
+        if rid != "NPM_SUPPLY_CHAIN_SCRIPT":
+            assert row["skip_file_names"] == [], rid
+
+    # Data-file gate == REGEX_RULES of the executable-injection class, no more.
+    gated = {rid for rid, row in by_id.items() if row["data_file_gate"]}
+    expect = {
+        row["id"]
+        for row in config["rules"]
+        if row["kind"] == "regex" and row.get("vuln_type") == "code_injection"
+    }
+    assert gated == expect
+    assert gated, "the gate must actually apply to something (guard against silent None)"
+
+
+def test_rule_program_literals_and_determinism(core, rust_engine, config):
+    """compile_rules stamps every rule's literal set; the program is
+    byte-stable, and empty literals are exactly the unprefilterable set
+    the engine discloses (fail-safe, never a blackout)."""
+    raw = json.dumps(config, ensure_ascii=True, sort_keys=True)
+    p1 = core.compile_rules(raw)
+    p2 = core.compile_rules(raw)
+    assert p1 == p2, "rule program must be byte-deterministic"
+    program = json.loads(p1)
+    assert program["schema"] == rust_engine.PROGRAM_SCHEMA
+
+    # Index-aligned (the tables carry one duplicate id by design -- both
+    # engine and Python run BOTH rows, so order and length must match).
+    assert len(program["rules"]) == len(config["rules"])
+    literals: dict[str, list] = {}
+    for built, src_row in zip(program["rules"], config["rules"]):
+        assert built["id"] == src_row["id"]
+        lits = built.get("literals")
+        assert isinstance(lits, list), built["id"]  # present, possibly empty
+        literals.setdefault(built["id"], lits)
+
+    # Extraction sanity: mandatory runs of a representative rule.
+    sub = literals["SUBPROCESS_SHELL_TRUE"]
+    assert "subprocess." in sub and "True" in sub
+
+    # Empty literal sets == the engine's disclosed unprefilterable list.
+    rust_engine.scan_directory(REPO / "tests" / "vuln-test-corpus")
+    status = rust_engine._LAST_STATUS
+    unpref = set(status["rules_unprefilterable"])
+    assert unpref == {rid for rid, lits in literals.items() if lits == []}
+
+
+def test_program_scan_matches_config_scan_byte_identical(core, config):
+    """The compiler must not change what the engine finds: scanning the
+    corpus with the raw config and with the compiled program produces
+    byte-identical envelopes (parity of the compile step itself)."""
+    raw = json.dumps(config, ensure_ascii=True, sort_keys=True)
+    program = core.compile_rules(raw)
+    env_cfg = core.scan(str(REPO / "tests" / "vuln-test-corpus"), raw)
+    env_prog = core.scan(str(REPO / "tests" / "vuln-test-corpus"), program)
+    assert env_cfg == env_prog
+
+
+def test_no_rule_logic_in_rust_source():
+    """T-1.3: no rule id, and no per-rule knowledge tokens, may appear in
+    the Rust sources -- gates travel as declarative data in the program."""
+    from scanner import sast
+
+    sources = "".join(
+        f.read_text(encoding="utf-8")
+        for f in sorted((REPO / "rust" / "src").glob("*.rs"))
+    )
+    rule_ids = [
+        r.get("id")
+        for r in (list(sast.REGEX_RULES) + list(sast.COMPILED_ENTERPRISE_RULES))
+        if r.get("id")
+    ]
+    leaked = [rid for rid in rule_ids if rid in sources]
+    assert not leaked, f"rule ids in Rust source: {leaked}"
+    for token in ("code_injection", "package-lock", "NPM_SUPPLY_CHAIN_SCRIPT"):
+        assert token not in sources, token
+
+
+def test_declarative_skip_file_mechanism(core, rust_engine):
+    """The skip list is honoured by the engine generically (mechanism
+    test with a synthetic rule; the real derivation is pinned above)."""
+    tmp = __import__("tempfile").mkdtemp(prefix="rsx_skip_")
+    tmp = Path(tmp)
+    (tmp / "open.json").write_text("EVILTOKEN here", encoding="utf-8")
+    (tmp / "blocked.json").write_text("EVILTOKEN here", encoding="utf-8")
+    config = {
+        "schema": rust_engine.CONFIG_SCHEMA,
+        "scannable_ext": [".json"],
+        "lang_by_ext": {".json": "json"},
+        "rules": [
+            {
+                "id": "SYNTH_SKIP",
+                "pattern": "EVILTOKEN",
+                "flags": "",
+                "kind": "regex",
+                "skip_file_names": ["blocked.json"],
+                "static_finding": {},
+            }
+        ],
+    }
+    env = json.loads(core.scan(str(tmp), json.dumps(config)))
+    hits = [f for f in env["findings"] if f["rule_id"] == "SYNTH_SKIP"]
+    files = sorted(Path(f["file"]).name for f in hits)
+    assert files == ["open.json"], files

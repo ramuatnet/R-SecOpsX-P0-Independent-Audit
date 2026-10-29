@@ -352,7 +352,21 @@ impl Prefilter {
 
         for rule in rules {
             let ci = rule.flags.contains('i');
-            match mandatory_literals(&rule.pattern) {
+            // T-1.3: the compiled rule program ships its literal set.
+            // A raw scan config (no `literals`) extracts here instead --
+            // both paths run the SAME extractor, so either input yields
+            // an identical prefilter.
+            let extracted: Option<Vec<String>> = match &rule.literals {
+                Some(pre) => {
+                    if pre.is_empty() {
+                        None
+                    } else {
+                        Some(pre.clone())
+                    }
+                }
+                None => mandatory_literals(&rule.pattern),
+            };
+            match extracted {
                 None => {
                     unprefilterable.push(rule.id.clone());
                     rule_lits.push(None);
