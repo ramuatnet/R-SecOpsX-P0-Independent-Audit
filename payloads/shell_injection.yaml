@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'shell_injection'
+    cwe: 'CWE-78'
+    description: 'OS command injection probes for shell sinks (system/exec/check_output with shell=True).'
+    payloads: ['; id', '`id`', '$(id)', '"; id #', "' | id", '; cat /etc/passwd', '&& whoami', '| sort']
+    encoders: ['url', 'base64', 'double_encode', 'null_byte', 'case_flip', 'polyglot']

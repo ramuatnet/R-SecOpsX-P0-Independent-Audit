@@ -1,0 +1,50 @@
+{
+  "per_rule": {
+    "SAST-CMDI": {
+      "applicable": 7,
+      "detected": 3,
+      "stability": 0.4286
+    },
+    "SAST-CODEINJ": {
+      "applicable": 35,
+      "detected": 33,
+      "stability": 0.9429
+    },
+    "SAST-DEBUG": {
+      "applicable": 7,
+      "detected": 6,
+      "stability": 0.8571
+    },
+    "SAST-DESER": {
+      "applicable": 28,
+      "detected": 25,
+      "stability": 0.8929
+    },
+    "SAST-HARDCRED": {
+      "applicable": 8,
+      "detected": 8,
+      "stability": 1.0
+    },
+    "SAST-IDOR": {
+      "applicable": 8,
+      "detected": 8,
+      "stability": 1.0
+    },
+    "SAST-SQLI": {
+      "applicable": 7,
+      "detected": 5,
+      "stability": 0.7143
+    },
+    "SAST-SSRF": {
+      "applicable": 7,
+      "detected": 3,
+      "stability": 0.4286
+    },
+    "SAST-TLSBYPASS": {
+      "applicable": 7,
+      "detected": 7,
+      "stability": 1.0
+    }
+  },
+  "schema": "rsecopsx.variant_stability/v1"
+}

@@ -141,6 +141,17 @@ def run_ci_matrix() -> dict:
         timeout=600,
     ))
 
+    # T-3.3: per-rule detection stability vs the committed baseline.
+    # Fails on any per-rule drop beyond the 5pp tolerance (task.md
+    # gate). Reverse mode (--reverse) is the FN hunt and stays on-demand
+    # -- CI measures forward stability only.
+    gates.append(_run(
+        "variant_stability",
+        [sys.executable, "-m", "analysis.validation.variant_hunter",
+         "--check-baseline"],
+        timeout=600,
+    ))
+
     passed = sum(1 for g in gates if g["passed"])
     failed = [g["name"] for g in gates if not g["passed"]]
 

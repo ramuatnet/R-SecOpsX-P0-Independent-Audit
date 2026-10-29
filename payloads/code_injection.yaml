@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'code_injection'
+    cwe: 'CWE-94'
+    description: 'Interpreter code injection probes for eval/exec/template sinks.'
+    payloads: ['__import__(''os'').system(''id'')', '().__class__.__mro__[1].__subclasses__()', '1+1', 'open(''/etc/passwd'').read()']
+    encoders: ['url', 'base64', 'unicode', 'double_encode', 'null_byte']

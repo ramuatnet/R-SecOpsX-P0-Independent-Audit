@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'insecure_deserialization'
+    cwe: 'CWE-502'
+    description: 'Deserialization marker probes; the sink template carries the real gadget, these are canaries for encoded transport.'
+    payloads: ['rO0ABXNy', 'gASVwAAAAAAAACMBGNvcw', 'Y3BhY2tp', 'pickle']
+    encoders: ['base64', 'url', 'unicode', 'null_byte']

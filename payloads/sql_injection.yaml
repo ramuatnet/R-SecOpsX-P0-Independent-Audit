@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'sql_injection'
+    cwe: 'CWE-89'
+    description: 'SQL injection probes for string-built queries.'
+    payloads: [''' OR ''1''=''1', '1; DROP TABLE users--', ''' UNION SELECT NULL--', 'admin''--', ''') OR 1=1--']
+    encoders: ['url', 'html', 'double_encode', 'null_byte', 'case_flip']

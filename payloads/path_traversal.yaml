@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'path_traversal'
+    cwe: 'CWE-22'
+    description: 'Directory traversal probes for file-path sinks.'
+    payloads: ['../../../etc/passwd', '..\\..\\windows\\win.ini', '....//....//etc/passwd', '/etc/passwd', 'C:\\Windows\\win.ini']
+    encoders: ['url', 'double_encode', 'unicode', 'null_byte']

