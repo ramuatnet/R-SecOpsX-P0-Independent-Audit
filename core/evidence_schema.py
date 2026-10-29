@@ -31,6 +31,24 @@ class EvidenceType(str, Enum):
     OTHER = "other"
 
 
+class VerificationStatus(str, Enum):
+    """T-4.2 dynamic-verification outcome for one finding's PoC.
+
+    UNTESTED      -- PoC generated; no capture has been attempted.
+    REPRODUCED    -- capture ran and the stated expectation matched.
+    REFUTED       -- capture ran and the stated expectation failed.
+    INCONCLUSIVE  -- capture ran but carried no expectation to judge.
+    BLOCKED       -- the sandbox could not bring the target up (runtime
+                     missing, launch failed, ready timeout).
+    """
+
+    UNTESTED = "UNTESTED"
+    REPRODUCED = "REPRODUCED"
+    REFUTED = "REFUTED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+    BLOCKED = "BLOCKED"
+
+
 @dataclass(frozen=True)
 class EvidenceSource:
     engine: str
@@ -77,6 +95,9 @@ class Evidence:
     content_or_context: Any
     confidence: EvidenceConfidence
     related_finding_id: str | None = None
+    # T-4.2: defaults keep every pre-T-4 constructor and mapping round-trip
+    # byte-compatible; only the repro bundler writes anything else.
+    verification_status: VerificationStatus = VerificationStatus.UNTESTED
 
     @classmethod
     def create(
@@ -90,6 +111,7 @@ class Evidence:
         related_finding_id: str | None = None,
         evidence_id: str | None = None,
         timestamp: str | None = None,
+        verification_status: VerificationStatus = VerificationStatus.UNTESTED,
     ) -> "Evidence":
         obj = cls(
             evidence_id=evidence_id or str(uuid4()),
@@ -100,6 +122,7 @@ class Evidence:
             content_or_context=content_or_context,
             confidence=confidence,
             related_finding_id=related_finding_id,
+            verification_status=verification_status,
         )
         obj.validate()
         return obj
@@ -113,6 +136,9 @@ class Evidence:
             raise EvidenceValidationError("type must be EvidenceType")
         if not isinstance(self.confidence, EvidenceConfidence):
             raise EvidenceValidationError("confidence must be EvidenceConfidence")
+        if not isinstance(self.verification_status, VerificationStatus):
+            raise EvidenceValidationError(
+                "verification_status must be VerificationStatus")
         if self.content_or_context is None:
             raise EvidenceValidationError("content_or_context is required")
 
@@ -127,6 +153,7 @@ class Evidence:
             "content_or_context": self.content_or_context,
             "confidence": self.confidence.value,
             "related_finding_id": self.related_finding_id,
+            "verification_status": self.verification_status.value,
         }
 
 
@@ -228,9 +255,21 @@ def evidence_from_mapping(data: Mapping[str, Any]) -> Evidence:
         content_or_context=data.get("content_or_context"),
         confidence=confidence,
         related_finding_id=data.get("related_finding_id"),
+        verification_status=_verification_status(data.get(
+            "verification_status")),
     )
     evidence.validate()
     return evidence
+
+
+def _verification_status(value: Any) -> VerificationStatus:
+    if value is None or value == "":
+        return VerificationStatus.UNTESTED
+    try:
+        return VerificationStatus(str(value))
+    except ValueError as exc:
+        raise EvidenceValidationError(
+            f"Invalid verification_status: {value!r}") from exc
 
 
 def _required(value: Any, field_name: str) -> None:
