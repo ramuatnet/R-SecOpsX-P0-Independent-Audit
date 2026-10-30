@@ -100,14 +100,24 @@ def test_refresh_is_called_and_not_just_defined():
 # ------------------------------------------------------ behavioural checks --
 
 def _write_artifacts(monkeypatch, tmp_path, ages: dict) -> None:
-    """Create artifacts with the given age in seconds relative to 'now'."""
+    """Create artifacts with the given age in seconds relative to the
+    staleness anchor (newest production source mtime) -- the value
+    artifact_staleness actually compares against.  Anchoring on
+    time.time() instead made these tests wall-clock dependent despite
+    the comment below: they passed only while some production file
+    happened to be less than `age` old, and started failing once 20h
+    had elapsed since main.py was last written (observed 2026-10-31,
+    failed at HEAD too)."""
     out = tmp_path / "artifacts"
+    anchor, _names = mod.newest_production_source_mtime()
+    if not anchor:                       # no sources at all -> fall back
+        anchor = time.time()
     for name, age in ages.items():
         d = out / name
         d.mkdir(parents=True, exist_ok=True)
         art = d / "clean_report.json"
         art.write_text(json.dumps({"metadata": {}, "findings": []}), encoding="utf-8")
-        when = time.time() - age
+        when = anchor - age
         import os
         os.utime(art, (when, when))
     monkeypatch.setattr(mod, "OUT", out)
