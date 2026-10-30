@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 from analysis.dast.model import HTTP_METHODS, make_entry
 
@@ -371,9 +371,17 @@ def parse_html(html: str, ref: str, kind: str = "html",
         action = form["action"]
         loc = "query" if method == "GET" else "body"
         params = [{"name": n, "in": loc} for n in form["inputs"] if n]
+        if urlsplit(action).path == "" and urlsplit(ref).scheme in {"http", "https"}:
+            # action="#" / "" / "?x" submits to the page itself (HTML
+            # spec); resolve against the page URL so the params land on
+            # the RIGHT route (DVWA's vuln pages all use action="#",
+            # previously collapsing to "/" and losing the pairing).
+            action_path = urlsplit(urljoin(ref, "#")).path or "/"
+        else:
+            action_path = urlsplit(action).path or "/"
         if _href_is_local(action or "/", ref):
             entries.append(make_entry(
-                method=method, path=urlsplit(action).path or "/",
+                method=method, path=action_path,
                 kind=kind, ref=ref, params=params,
             ))
         if method == "GET" and _link_ok(action) and _href_is_local(action, ref):

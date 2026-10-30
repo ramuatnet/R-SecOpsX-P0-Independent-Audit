@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import urlsplit
@@ -76,8 +77,22 @@ def build_target_model(target, *,
                        crawl_url: Optional[str] = None,
                        fetch: Optional[Callable[..., FetchResponse]] = None,
                        sleep: Optional[Callable[[float], None]] = None,
-                       limits: Optional[SourceLimits] = None) -> dict:
-    """Auto-detect sources under ``target``, optionally crawl, merge SAST."""
+                       limits: Optional[SourceLimits] = None,
+                       crawl_auth_headers: Optional[dict] = None,
+                       crawl_respect_robots: bool = True,
+                       crawl_exclude: tuple = ()) -> dict:
+    """Auto-detect sources under ``target``, optionally crawl, merge SAST.
+
+    ``crawl_auth_headers`` (T-5.5) attaches e.g. a session Cookie to every
+    crawl fetch; when None the crawl keeps its original unauthenticated
+    shape (T-5.1 contract, pinned by test).  ``crawl_respect_robots=False``
+    is the authorized-testing opt-out (some deliberately-vulnerable apps
+    ship ``Disallow: /``); the default stays robots-aware.
+    ``crawl_exclude`` (T-5.5) is a tuple of path prefixes the crawler
+    never fetches -- an authenticated crawl that follows ``/logout.php``
+    destroys its own session; excluded URLs land in the crawl report's
+    ``excluded`` list (disclosed, never silent).
+    """
     limits = limits or SourceLimits()
     root = Path(target)
     if root.is_file():
@@ -104,7 +119,13 @@ def build_target_model(target, *,
             kwargs["fetch"] = fetch
         if sleep is not None:
             kwargs["sleep"] = sleep
-        result = crawl(CrawlConfig(base_url=crawl_url), **kwargs)
+        cfg = CrawlConfig(base_url=crawl_url,
+                          respect_robots=bool(crawl_respect_robots))
+        if crawl_auth_headers:
+            cfg = replace(cfg, auth_headers=dict(crawl_auth_headers))
+        if crawl_exclude:
+            cfg = replace(cfg, exclude_paths=tuple(crawl_exclude))
+        result = crawl(cfg, **kwargs)
         entries.extend(result["routes"])
         source_status.append({
             "kind": "crawl",
@@ -116,6 +137,7 @@ def build_target_model(target, *,
             "pages": result["pages"],
             "out_of_scope": result["out_of_scope"],
             "blocked_by_robots": result["blocked_by_robots"],
+            "excluded": result["excluded"],
             "errors": result["errors"],
             "truncated": result["truncated"],
         }

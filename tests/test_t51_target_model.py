@@ -256,6 +256,21 @@ def test_parse_html_links_forms_and_params():
     assert not any(l.startswith("mailto:") or l.startswith("#") for l in links)
 
 
+def test_parse_html_form_action_hash_lands_on_page_route():
+    """action="#" submits to the page itself (HTML spec); the params must
+    land on that page's route, not on '/'.  DVWA's vuln pages all use
+    action="#", and the T-5.5 correlation gate depends on the pairing."""
+    page = ('<html><body><form action="#" method="GET">'
+            '<input name="id"><input name="Submit" type="submit">'
+            "</form></body></html>")
+    entries, links = parse_html(page, "http://t.local/vulnerabilities/sqli/",
+                                kind="crawl")
+    keys = sorted(e["route_key"] for e in entries)
+    assert keys == ["GET /vulnerabilities/sqli"]     # normalize_path strips /
+    assert {p["name"] for p in entries[0]["params"]} == {"id", "Submit"}
+    assert not any(l.startswith("#") for l in links)
+
+
 # ---------------------------------------------------------------------------
 # JS route extraction
 # ---------------------------------------------------------------------------

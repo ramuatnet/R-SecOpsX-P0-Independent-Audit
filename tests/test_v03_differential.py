@@ -425,8 +425,22 @@ def test_an_absent_peer_reports_blocked_not_agreement():
     """If a missing tool produced an empty result set, the run would report
     "no disagreements" -- perfect agreement between two tools, one of which
     was never asked. That is the most misleading output this module could
-    produce."""
-    result = differential.run_differential("any.json", "semgrep")
+    produce.
+
+    The peer's absence has to be forced: this machine now HAS semgrep on
+    PATH, so without forcing ``shutil.which`` to fail the availability gate
+    opens, the target check fires instead, and reasons[0] names the missing
+    target rather than the missing peer -- asserting the peer reason then
+    depends on what happens to be installed. Forcing keeps the intent
+    (absent peer, not absent target) independent of the environment, the
+    same way the runner-gap test below forces availability open.
+    """
+    original_which = differential.shutil.which
+    differential.shutil.which = lambda *_args, **_kw: None
+    try:
+        result = differential.run_differential("any.json", "semgrep")
+    finally:
+        differential.shutil.which = original_which
 
     assert result["status"] == differential.STATUS_BLOCKED
     assert result["reasons"]

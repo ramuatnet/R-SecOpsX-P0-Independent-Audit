@@ -50,6 +50,10 @@ class CrawlConfig:
     # to every request.  When None the fetch keeps its original 3-arg call
     # shape, so unauthenticated fetches (and their tests) are unchanged.
     auth_headers: Optional[dict] = None
+    # T-5.5: path prefixes that are NEVER fetched (an authenticated crawl
+    # that follows logout.php destroys its own session -- disclosed and
+    # counted in the report's ``excluded`` list).
+    exclude_paths: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -60,15 +64,20 @@ class FetchResponse:
     body: str
 
 
-def default_fetch(url: str, timeout_s: float, user_agent: str) -> FetchResponse:
+def default_fetch(url: str, timeout_s: float, user_agent: str,
+                  headers: Optional[dict] = None) -> FetchResponse:
     """GET one URL with stdlib urllib (the repo's offline-optional pattern).
 
     Raises on transport failure; the crawler records the error and moves
     on.  Body is capped so a hostile endpoint cannot exhaust memory.
+    ``headers`` (T-5.5) carries e.g. an authenticated crawl's Cookie; the
+    original 3-arg call shape stays valid for unauthenticated crawls.
     """
+    hdrs = {"User-Agent": user_agent, "Accept": "*/*"}
+    hdrs.update({str(k): str(v) for k, v in (headers or {}).items()})
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": user_agent, "Accept": "*/*"},
+        headers=hdrs,
         method="GET",
     )
     with urllib.request.urlopen(req, timeout=timeout_s) as resp:
@@ -102,6 +111,13 @@ def _robots_blocked(path: str, disallow: list[str]) -> bool:
     return False
 
 
+def _excluded(path: str, exclude_paths: tuple) -> bool:
+    for prefix in exclude_paths:
+        if prefix and path.startswith(prefix):
+            return True
+    return False
+
+
 def _canonical(url: str) -> str:
     parts = urlsplit(url)
     return parts._replace(fragment="").geturl()
@@ -114,7 +130,8 @@ def crawl(config: CrawlConfig,
 
     ``routes``   route-model entries (kind ``crawl``);
     ``pages``    HTML pages successfully fetched, BFS order;
-    ``out_of_scope`` / ``blocked_by_robots`` / ``errors`` / ``truncated``.
+    ``out_of_scope`` / ``blocked_by_robots`` / ``excluded`` / ``errors``
+    / ``truncated``.
     """
     fetch = fetch or default_fetch
     origin = _origin(config.base_url)
@@ -122,6 +139,7 @@ def crawl(config: CrawlConfig,
     pages: list[str] = []
     out_of_scope: list[str] = []
     blocked: list[str] = []
+    excluded: list[str] = []
     errors: list[dict] = []
     disallow: list[str] = []
     robots_sitemaps: list[str] = []
@@ -185,6 +203,9 @@ def crawl(config: CrawlConfig,
         if config.same_origin_only and not _same_origin(url, origin):
             out_of_scope.append(url)
             continue
+        if _excluded(parts.path, config.exclude_paths):
+            excluded.append(url)
+            continue
         if _robots_blocked(parts.path, disallow):
             blocked.append(url)
             continue
@@ -233,6 +254,9 @@ def crawl(config: CrawlConfig,
                 if config.same_origin_only and not _same_origin(absu, origin):
                     out_of_scope.append(absu)
                     continue
+                if _excluded(urlsplit(absu).path, config.exclude_paths):
+                    excluded.append(absu)
+                    continue
                 if _robots_blocked(urlsplit(absu).path, disallow):
                     blocked.append(absu)
                     continue
@@ -256,6 +280,7 @@ def crawl(config: CrawlConfig,
         "pages": pages,
         "out_of_scope": sorted(set(out_of_scope)),
         "blocked_by_robots": sorted(set(blocked)),
+        "excluded": sorted(set(excluded)),
         "errors": errors,
         "truncated": truncated,
         "robots": {"disallow": disallow, "sitemaps": robots_sitemaps},

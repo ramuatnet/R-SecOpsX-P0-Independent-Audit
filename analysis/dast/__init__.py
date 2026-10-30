@@ -16,6 +16,10 @@
 ``oob``       T-5.4 Interactsh-style DNS/HTTP callback listener for
               blind SSRF/XXE/RCE (pure protocol logic offline-testable;
               live servers opt-in, loopback default).
+``correlate`` T-5.5 SAST<->DAST correlation: same route + same sink
+              collapses to one merged row in the additive
+              ``rsecopsx.correlated_findings/v1`` artifact (inputs
+              read-only; unlinkable pairs annotated, never dropped).
 """
 from analysis.dast.auth import (  # noqa: F401
     AuthProfile,
@@ -43,6 +47,13 @@ from analysis.dast.model import (  # noqa: F401
     merge_with_sast,
     normalize_path,
     route_key,
+)
+from analysis.dast import correlate  # noqa: F401 - the MODULE (kept
+# importable as analysis.dast.correlate; the package exports the schema
+# and sink map by value, the function via correlate.correlate)
+from analysis.dast.correlate import (  # noqa: F401
+    CORRELATE_SCHEMA,
+    SINK_CLASS_BY_CHECK,
 )
 from analysis.dast.oob import (  # noqa: F401
     build_dns_response,

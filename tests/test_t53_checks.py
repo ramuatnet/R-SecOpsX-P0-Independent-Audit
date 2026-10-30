@@ -188,7 +188,9 @@ CANARY = "rsxXssCanary7f3c"
 def test_xss_reflected_positive_and_negative():
     def pos_responder(url, method, data, headers):
         if CANARY in url or (data and CANARY in str(data)):
-            return _resp(200, f"<html>You searched for <b>{CANARY}</b></html>")
+            # the payload IS the tag -- reflect it verbatim, as an
+            # unfiltered sink would
+            return _resp(200, f"<html>You searched for <{CANARY}></html>")
         return _resp(200, "<html>ok</html>")
     pos = C.run_checks(_ctx([_route("/s")], FakeFetch(pos_responder)))
     hits = [f for f in pos["findings"] if f["check"] == "dast.xss_reflected"]
@@ -198,6 +200,24 @@ def test_xss_reflected_positive_and_negative():
         return _resp(200, "<html>searched</html>")
     neg = C.run_checks(_ctx([_route("/s")], FakeFetch(neg_responder)))
     assert not [f for f in neg["findings"] if f["check"] == "dast.xss_reflected"]
+
+
+def test_xss_encoded_reflections_are_not_findings():
+    """Negative controls (DVWA gate): a redirect stub echoes the canary
+    URL-encoded in an href, and careful apps echo it entity-encoded or
+    tag-stripped -- none of those is an injectable reflection."""
+    def responder(body):
+        return lambda u, m, d, h: _resp(200, body)
+    cases = [
+        f"<a href=\"/s?q=%3C{CANARY}%3E\">next</a>",     # URL-encoded
+        f"<html>&lt;{CANARY}&gt;</html>",                # HTML entity
+        f"<html>You searched for {CANARY}</html>",        # tag stripped
+    ]
+    for body in cases:
+        out = C.run_checks(_ctx([_route("/s")], FakeFetch(responder(body))))
+        hits = [f for f in out["findings"]
+                if f["check"] == "dast.xss_reflected"]
+        assert not hits, body
 
 
 # ---------------------------------------------------------------------------
@@ -236,22 +256,131 @@ def test_cmdi_positive_and_negative():
     assert not [f for f in neg["findings"] if f["check"] == "dast.cmdi"]
 
 
+def test_cmdi_executed_canary_without_shell_signature_is_tentative():
+    """DVWA exec style: the app echoes the command line AND the echo
+    output runs -- canary survives payload-strip without uid= evidence."""
+    payload = ";echo RSXCMDcanary"
+
+    def pos(url, m, d, h):
+        return _resp(200, f"<pre>Executing: ping -c 4 {payload}\n"
+                          f"64 bytes ...\nRSXCMDcanary\n</pre>")
+    hits = [f for f in C.run_checks(_ctx([_route("/ping")], FakeFetch(pos)))["findings"]
+            if f["check"] == "dast.cmdi"]
+    assert hits and hits[0]["confidence"] == "tentative"
+
+
+def test_cmdi_reflected_payload_only_is_not_a_finding():
+    """Redirect-stub style: the canary appears ONLY inside the reflected
+    (raw or URL-encoded) payload string -- stripping the payload copies
+    removes it, so no execution evidence remains."""
+    def neg(url, m, d, h):
+        return _resp(200, "<a href=\"/ping?ip=%3Becho%20RSXCMDcanary\">go</a>")
+    out = C.run_checks(_ctx([_route("/ping")], FakeFetch(neg)))
+    assert not [f for f in out["findings"] if f["check"] == "dast.cmdi"]
+
+    def neg_raw(url, m, d, h):
+        return _resp(200, "<html>you asked for ;echo RSXCMDcanary</html>")
+    out2 = C.run_checks(_ctx([_route("/ping")], FakeFetch(neg_raw)))
+    assert not [f for f in out2["findings"] if f["check"] == "dast.cmdi"]
+
+
 # ---------------------------------------------------------------------------
 # SSTI
 # ---------------------------------------------------------------------------
 
 def test_ssti_positive_and_negative():
     def pos(url, m, d, h):
-        if "7*7" in url or "7*7" in str(d):
-            return _resp(200, "<html>49</html>")
+        if "987*654" in url or "987*654" in str(d):
+            return _resp(200, "<html>645498</html>")
         return _resp(200, "hi")
     hits = [f for f in C.run_checks(_ctx([_route("/greet")], FakeFetch(pos)))["findings"]
             if f["check"] == "dast.ssti"]
     assert hits and hits[0]["evidence"]["param"]
+    assert hits[0]["evidence"]["marker"] == "645498"
 
     neg = C.run_checks(_ctx([_route("/greet")], FakeFetch(
         lambda u, m, d, h: _resp(200, "hi"))))
     assert not [f for f in neg["findings"] if f["check"] == "dast.ssti"]
+
+
+def test_ssti_page_content_is_not_a_render():
+    """Gate FP controls (DVWA login token, wrongsecrets CSRF-error nav):
+    hex-token fragments, nav labels, version strings, and a page that
+    merely echoes the payload are not template evaluation.  The rare
+    product must stand alone as an actual render."""
+    cases = [
+        # hex token embedding the product (DVWA-style CSRF token)
+        "<html><input value='c9ff645498d5c961'></html>",
+        # challenge-number nav label (wrongsecrets403 page)
+        "<a href='/challenge/challenge-49'>Challenge 49</a>",
+        # version fragment: dot/word neighbours, not a render
+        "<span>build v1.645498.3</span>",
+        # both probe payloads echoed raw = nothing evaluated; a stray
+        # standalone product on the page still cannot fire (per-payload
+        # veto has to cover every payload in SSTI_PAYLOADS)
+        "<html>{{987*654}} / ${987*654} printed; try 645498</html>",
+        # product present but glued into an identifier
+        "<td>x645498y</td>",
+    ]
+    for body in cases:
+        out = C.run_checks(_ctx([_route("/greet")], FakeFetch(
+            lambda u, m, d, h, b=body: _resp(200, b))))
+        hits = [f for f in out["findings"] if f["check"] == "dast.ssti"]
+        assert not hits, body
+
+
+def test_probe_requests_carry_authenticated_scan_session():
+    """T-5.5: the first ok profile's headers ride on EVERY runner request
+    (baseline + probes); caller-set headers still win (role Cookie)."""
+    from analysis.dast.auth import AuthSession
+
+    sessions = {
+        "scan": AuthSession(name="scan", strategy="cookie",
+                            headers={"Cookie": "PHPSESSID=abc; security=low"},
+                            expires_at=None, status="ok", verified=None),
+        "broken": AuthSession(name="broken", strategy="cookie",
+                              headers={}, expires_at=None,
+                              status="error:http_401", verified=None),
+    }
+    ff = FakeFetch(lambda u, m, d, h: _resp(200, "<html>ok</html>", {}))
+    out = C.run_checks(_ctx([_route("/s")], ff, sessions=sessions))
+    assert ff.calls, "no requests made"
+    for call in ff.calls:
+        assert call["headers"].get("Cookie") == "PHPSESSID=abc; security=low", \
+            call["url"]
+    # ...and the unauthenticated default is unchanged
+    ff2 = FakeFetch(lambda u, m, d, h: _resp(200, "<html>ok</html>", {}))
+    C.run_checks(_ctx([_route("/s")], ff2))
+    assert all("Cookie" not in c["headers"] for c in ff2.calls)
+    # session attach never muddies the findings contract
+    assert out["schema"] == C.FINDINGS_SCHEMA
+
+
+def test_excluded_paths_get_no_request_and_disclosed_skips():
+    """DVWA gate root cause: GET /logout.php lives in the model (link
+    extraction, not just crawl), and probing it kills the authenticated
+    session mid-scan. Excluded routes get NO fetch -- not even the
+    baseline -- and every check is a machine-readable skip."""
+    ff = FakeFetch(lambda u, m, d, h: _resp(200, "<html>ok</html>", {}))
+    routes = [_route("/logout.php", params=[]), _route("/s")]
+    out = C.run_checks(_ctx(routes, ff, exclude_paths=("/logout.php",)))
+    assert not any("/logout.php" in c["url"] for c in ff.calls)
+    assert any("/s" in c["url"] for c in ff.calls)   # others unaffected
+    lk = [s for s in out["stats"]["skips"]
+          if s["route_key"] == "GET /logout.php"]
+    expected = len(C.CHECKS) - 1          # every route check, tls is *
+    assert len(lk) == expected and lk, lk
+    assert all(s["reason"] == "excluded_path" for s in lk)
+
+
+def test_excluded_paths_match_after_traversal_normalization():
+    ctx = C.CheckContext(base_url="http://t.local/", routes=[],
+                         fetch=lambda *a, **k: None,
+                         exclude_paths=("/logout.php",))
+    assert C._excluded_route({"path": "/../../logout.php"}, ctx)
+    assert C._excluded_route({"path": "/../../../logout.php"}, ctx)
+    assert C._excluded_route({"path": "logout.php"}, ctx)
+    assert not C._excluded_route({"path": "/vulnerabilities/sqli"}, ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +399,33 @@ def test_open_redirect_positive_and_negative():
     neg = C.run_checks(_ctx([_route("/login")], FakeFetch(
         lambda u, m, d, h: _resp(200, "home"))))
     assert not [f for f in neg["findings"] if f["check"] == "dast.open_redirect"]
+
+
+def test_redirect_target_follows_same_origin_only():
+    """Transport decision behind default_probe_fetch: same-host 3xx hops
+    are followed (Apache's trailing-slash 301 canonicalization must not
+    stub the probe), cross-origin 3xx stay observable as the
+    open-redirect signal."""
+    base = "http://t.local/"
+    # same host, relative Location -> followed
+    nxt = C._redirect_target(
+        301, {"location": "/vulnerabilities/sqli/?id=1"},
+        "http://t.local/vulnerabilities/sqli?id=1", base)
+    assert nxt == "http://t.local/vulnerabilities/sqli/?id=1"
+    # cross-origin -> NOT followed
+    assert C._redirect_target(
+        302, {"location": "https://evil.test/steal"},
+        "http://t.local/go", base) is None
+    # different port is a different origin -> NOT followed
+    assert C._redirect_target(
+        301, {"location": "http://t.local:9999/x"},
+        "http://t.local/x", base) is None
+    # non-3xx, missing Location, and self-redirect (loop guard)
+    assert C._redirect_target(200, {"location": "/x"},
+                              "http://t.local/a", base) is None
+    assert C._redirect_target(301, {}, "http://t.local/a", base) is None
+    assert C._redirect_target(301, {"location": "/a"},
+                              "http://t.local/a", base) is None
 
 
 # ---------------------------------------------------------------------------
@@ -456,3 +612,12 @@ def test_envelope_stats_and_skips_are_machine_readable():
     assert "by_check" in out["stats"]
     assert isinstance(out["stats"].get("skips"), list)
     assert all("reason" in s for s in out["stats"]["skips"])
+
+def test_sqlite_error_signature_matches_modern_driver_text():
+    """T-5.5 gate exposed a signature gap: better-sqlite3 (juice-shop)
+    reports errors as ``SQLITE_ERROR: ...`` with NO dot, which the
+    original sqlite3-dot alternative never matched.  The alternative
+    is additive; no oracle exercises DAST."""
+    assert C.SQLI_RE.search("Error: SQLITE_ERROR: incomplete input")
+    assert C.SQLI_RE.search("sqlite3.OperationalError: no such table")
+    assert not C.SQLI_RE.search("plain 200 response")

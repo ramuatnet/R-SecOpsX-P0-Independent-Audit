@@ -52,7 +52,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
-from urllib.parse import quote, urlencode, urljoin, urlsplit
+from urllib.parse import quote, quote_plus, urlencode, urljoin, urlsplit
 
 from analysis.dast.auth import build_sessions, load_profiles, session_headers
 from analysis.dast.sources import MAX_SOURCE_BYTES
@@ -83,7 +83,7 @@ SQLI_PAYLOADS = ["'", "' OR '1'='1' --"]
 XSS_PAYLOADS = ["<" + XSS_CANARY + ">"]
 LFI_PAYLOADS = ["../../../../etc/passwd"]
 CMDI_PAYLOADS = [";" + "echo " + CMDI_CANARY]
-SSTI_PAYLOADS = ["{{7*7}}", "${7*7}"]
+SSTI_PAYLOADS = ["{{987*654}}", "${987*654}"]
 REDIRECT_PAYLOADS = ["https://evil.test/steal"]
 SSRF_PAYLOADS = ["http://169.254.169.254/latest/meta-data/"]
 DESER_PAYLOADS = ['O:8:"stdClass":0:{}', "rO0ABGO7vcHJvZmlsZQ"]
@@ -96,10 +96,16 @@ OOB_KIND_BY_CHECK = {"dast.ssrf": "ssrf", "dast.xxe": "xxe",
 
 SQLI_RE = re.compile(
     r"You have an error in your SQL|SQL syntax|mysql_[a-z_]+\(|mysqli?_|"
-    r"pg_[a-z_]+\(|PostgreSQL.*ERROR|ORA-\d{4,5}|sqlite3?\."
+    r"pg_[a-z_]+\(|PostgreSQL.*ERROR|ORA-\d{4,5}|sqlite3?\.|SQLITE_ERROR"
     r"|SQLSTATE\[[0-9A-Z]+\]|Unclosed quotation mark|unterminated "
     r"quoted string|Warning.*mysql|syntax error at line", re.I)
 JWT_RE = re.compile(r"eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*")
+# standalone render of the SSTI payloads' product (987*654): neighbours
+# must not be word chars/dots (hex-token/version fragments are not
+# results).  The RARE product is the point -- a mundane marker like '49'
+# matches challenge-number nav labels ("Challenge 49" on wrongsecrets)
+# and CSRF-error pages, which two gate runs proved.
+_SSTI_MARKER_RE = re.compile(r"(?<![\w.])645498(?![\w.])")
 DESER_RE = re.compile(
     r"InvalidClassException|ClassNotFoundException|NotSerializableException"
     r"|StreamCorruptedException|ObjectInputStream|unserialize\(\)|__wakeup"
@@ -207,6 +213,11 @@ class CheckContext:
     # .confirm(token, timeout)->interaction).  None disables all OOB.
     oob: Optional[object] = None
     oob_wait_s: float = 0.0
+    # T-5.5: path prefixes that receive NO request at all -- not even the
+    # baseline.  An authenticated scan that probes /logout.php ends its
+    # own session mid-run; excluded routes are disclosed as per-check
+    # skips (excluded_path), never silently dropped.
+    exclude_paths: tuple = ()
 
 
 def _method_of(route) -> str:
@@ -227,6 +238,32 @@ def _on_scope(url: str, base_url: str) -> bool:
     bp = b.port or (443 if b.scheme == "https" else 80)
     up = u.port or (443 if u.scheme == "https" else 80)
     return bp == up
+
+
+MAX_REDIRECT_HOPS = 3
+
+
+def _redirect_target(status: int, headers: dict, current_url: str,
+                     original_url: str) -> Optional[str]:
+    """Same-origin next hop for a 3xx, or None (keep the response as-is).
+
+    Cross-origin Locations are never followed: that 3xx IS the
+    open-redirect signal, and following it would leave the scope anchor.
+    Same-origin hops (trailing-slash canonicalization and friends) are
+    followed so the probe reaches the real endpoint instead of a
+    redirect stub -- bounded by ``MAX_REDIRECT_HOPS`` in the caller.
+    """
+    if not (300 <= int(status) < 400):
+        return None
+    loc = str((headers or {}).get("location") or "").strip()
+    if not loc:
+        return None
+    nxt = urljoin(current_url, loc)
+    if nxt == current_url:
+        return None                          # self-redirect: stop, no loop
+    if not _on_scope(nxt, original_url):
+        return None                          # cross-origin: observable 3xx
+    return nxt
 
 
 def _excerpt(body: str, at: Optional[int] = None) -> str:
@@ -264,6 +301,28 @@ def _build_request(ctx: CheckContext, route, *, target=None, payload=None,
         url += "?" + urlencode(pairs, quote_via=quote, safe=_QSAFE)
     data = body if (m == "POST" and body) else None
     return url, m, data
+
+
+def _excluded_route(route, ctx: CheckContext) -> bool:
+    """True when the route resolves onto an exclude_paths prefix.
+
+    The path is normalized through the same ``urljoin`` as the request,
+    so model artifacts like ``/../../logout.php`` (link-extraction
+    variants) collapse onto ``/logout.php`` and match the prefix too.
+    """
+    if not ctx.exclude_paths:
+        return False
+    path = urlsplit(urljoin(ctx.base_url,
+                            str(route.get("path") or "/"))).path or "/"
+    for raw in ctx.exclude_paths:
+        p = str(raw or "").strip()
+        if not p:
+            continue
+        if not p.startswith("/"):
+            p = "/" + p
+        if path.startswith(p):
+            return True
+    return False
 
 
 def _targets(route) -> list[str]:
@@ -315,6 +374,18 @@ class _Runner:
         self.oob_pending: list = []
         self.oob_confirmed = 0
         self.effective_cap = MAX_PROBES_PER_ROUTE
+        # T-5.2 sessions attach to EVERY request the runner makes (the
+        # authenticated scan session = first profile in file order with
+        # status ok and non-empty headers; the "none" strategy stays the
+        # unauthenticated baseline).  Role-specific probes (_ck_idor)
+        # override Cookie/Authorization by passing them explicitly --
+        # setdefault below yields to caller-set headers.
+        self.scan_headers: dict = {}
+        for _name, _s in (ctx.sessions or {}).items():
+            if (str(getattr(_s, "status", "")) == "ok"
+                    and getattr(_s, "headers", None)):
+                self.scan_headers = dict(session_headers(_s))
+                break
 
     def begin_route(self, route: dict) -> None:
         self.route = route
@@ -375,9 +446,14 @@ class _Runner:
         self.probed_requests += 1
         if probe:
             self.route_probe_count += 1
+        # authenticated scan session on every request; caller-set headers
+        # (Origin, Content-Type, role Cookie) win over the defaults
+        _hdrs = dict(headers or {})
+        for _k, _v in self.scan_headers.items():
+            _hdrs.setdefault(_k, _v)
         try:
             raw = self.ctx.fetch(url, self.ctx.timeout_s, self.ctx.user_agent,
-                                 headers=dict(headers or {}), data=data,
+                                 headers=_hdrs, data=data,
                                  method=method)
         except Exception as exc:           # noqa: BLE001 - disclose, continue
             self.aborts.append({"route_key": self.route_key,
@@ -564,12 +640,11 @@ def _detect_sqli(resp, ctx, target, payload):
 
 def _detect_xss(resp, ctx, target, payload):
     body = resp.body or ""
-    if XSS_CANARY not in body:
+    # The payload IS the tag: only a literal unencoded copy counts.
+    # Encoded (&lt;...), URL-encoded (%3C...), and tag-stripped
+    # reflections (bare canary text) are safe, not findings.
+    if f"<{XSS_CANARY}>" not in body:
         return None
-    for enc in (f"&lt;{XSS_CANARY}", f"&#60;{XSS_CANARY}",
-                f"&#x3c;{XSS_CANARY}", f"&#x3C;{XSS_CANARY}"):
-        if enc in body:
-            return None                     # reflected, but encoded -> safe
     return ("likely", {})
 
 
@@ -584,14 +659,35 @@ def _detect_cmdi(resp, ctx, target, payload):
     body = resp.body or ""
     if CMDI_CANARY not in body:
         return None
-    conf = "likely" if CMDI_OUT_RE.search(body) else "tentative"
-    return (conf, {"canary": CMDI_CANARY})
+    if CMDI_OUT_RE.search(body):
+        return ("likely", {"canary": CMDI_CANARY})
+    # The canary is alphanumeric, so it survives URL-encoding and appears
+    # in ANY reflected URL (redirect stubs, search pages).  Remove every
+    # copy of the injecting string -- raw, query-encoded, form-encoded --
+    # first: a canary that only ever appears INSIDE a reflected payload
+    # is plain reflection, while one that SURVIVES the strip (produced
+    # elsewhere, e.g. an echo of the executed command line) is tentative
+    # evidence of execution.
+    stripped = body
+    p = str(payload)
+    for form in (p, quote(p, safe=_QSAFE), quote_plus(p)):
+        if form:
+            stripped = stripped.replace(form, "")
+    if CMDI_CANARY not in stripped:
+        return None
+    return ("tentative", {"canary": CMDI_CANARY})
 
 
 def _detect_ssti(resp, ctx, target, payload):
     body = resp.body or ""
-    if "49" in body and str(payload) not in body:
-        return ("likely", {"payload": str(payload)[:80], "marker": "49"})
+    # The RARE product (645498) must appear standalone: mundane markers
+    # like '49' match challenge-number nav labels and CSRF-error pages
+    # (both gate FPs), while hex/version fragments fail the word
+    # boundaries.  The payload itself must NOT be echoed -- a page
+    # printing {{987*654}} as text rendered nothing.
+    if _SSTI_MARKER_RE.search(body) and str(payload) not in body:
+        return ("likely", {"payload": str(payload)[:80],
+                           "marker": "645498"})
     return None
 
 
@@ -897,6 +993,12 @@ def run_checks(ctx: CheckContext) -> dict:
 
     for route in routes:
         runner.begin_route(route)
+        # T-5.5: excluded paths get NO fetch at all -- the baseline would
+        # log an authenticated scan out mid-run (DVWA's /logout.php).
+        if _excluded_route(route, ctx):
+            for c in route_checks:
+                runner.skip(c["id"], "excluded_path")
+            continue
         # Baseline: the route's own method (GET for destructive routes),
         # sent with a foreign Origin so the CORS check has something to
         # reflect.
@@ -962,8 +1064,18 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def default_probe_fetch(url: str, timeout_s: float, user_agent: str,
                         headers=None, data=None,
                         method: str = "GET") -> ProbeResponse:
-    """GET/POST one URL with stdlib urllib; redirects are NOT followed so
-    a 3xx Location stays observable (open-redirect detection)."""
+    """GET/POST one URL with stdlib urllib.
+
+    Same-origin 3xx are followed (``_redirect_target``, bounded by
+    ``MAX_REDIRECT_HOPS``) so canonicalizing targets -- Apache's
+    trailing-slash 301, which every DVWA vuln directory issues -- are
+    probed for real instead of returning the redirect stub page.
+    Method+body are preserved across 301/302/307/308 (we are probing,
+    not browsing; 301 directory canonicalization must re-POST to run);
+    303 switches to GET per spec.  Cross-origin 3xx are returned
+    UNFOLLOWED: that Location IS the open-redirect signal
+    (``_detect_redirect`` reads it off the response).
+    """
     hdrs = {"User-Agent": user_agent, "Accept": "*/*"}
     hdrs.update({str(k): str(v) for k, v in (headers or {}).items()})
     body = None
@@ -976,23 +1088,33 @@ def default_probe_fetch(url: str, timeout_s: float, user_agent: str,
             body = data.encode("utf-8")
         else:
             body = bytes(data)
-    req = urllib.request.Request(url, data=body, headers=hdrs,
-                                 method=method or "GET")
     opener = urllib.request.build_opener(_NoRedirect)
-    try:
-        with opener.open(req, timeout=timeout_s) as resp:
-            raw = resp.read(MAX_SOURCE_BYTES)
+    cur_url, cur_method, cur_body = url, (method or "GET"), body
+    for _hop in range(MAX_REDIRECT_HOPS + 1):
+        req = urllib.request.Request(cur_url, data=cur_body, headers=hdrs,
+                                     method=cur_method)
+        try:
+            with opener.open(req, timeout=timeout_s) as resp:
+                raw = resp.read(MAX_SOURCE_BYTES)
+                return ProbeResponse(
+                    url=cur_url, status=resp.status,
+                    headers={k.lower(): v
+                             for k, v in resp.headers.items()},
+                    body=raw.decode("utf-8", "replace"))
+        except urllib.error.HTTPError as he:  # 3xx/4xx/5xx/429 as a response
+            rhdrs = {k.lower(): v
+                     for k, v in (he.headers.items() if he.headers else [])}
+            nxt = _redirect_target(he.code, rhdrs, cur_url, url)
+            if nxt is not None and _hop < MAX_REDIRECT_HOPS:
+                cur_url = nxt
+                if he.code == 303:           # See Other: always becomes GET
+                    cur_method, cur_body = "GET", None
+                continue
+            raw = he.read(MAX_SOURCE_BYTES)
             return ProbeResponse(
-                url=resp.geturl(), status=resp.status,
-                headers={k.lower(): v for k, v in resp.headers.items()},
+                url=cur_url, status=he.code, headers=rhdrs,
                 body=raw.decode("utf-8", "replace"))
-    except urllib.error.HTTPError as he:    # 3xx/4xx/5xx/429 as a response
-        raw = he.read(MAX_SOURCE_BYTES)
-        return ProbeResponse(
-            url=url, status=he.code,
-            headers={k.lower(): v
-                     for k, v in (he.headers.items() if he.headers else [])},
-            body=raw.decode("utf-8", "replace"))
+    return ProbeResponse(url=cur_url, status=0, headers={}, body="")
 
 
 def main(argv=None) -> int:

@@ -3236,6 +3236,71 @@ def main():
             "finding['filter_trace'] regardless of this flag."
         ),
     )
+    parser.add_argument(
+        "--dast-base-url", dest="dast_base_url", default=None,
+        help=(
+            "T-5.5 opt-in: after the SAST pass, crawl+probe this live base "
+            "URL (safe mode: GET/POST only, robots-aware, same-origin), then "
+            "correlate the dynamic findings with the static ones (same route "
+            "AND same sink -> one merged row). Adds payload['dast_target_"
+            "model'], payload['dast'] and payload['correlated_findings']; "
+            "SAST finding rows are never modified. Omitted, no network is "
+            "used and the report is byte-identical to a non-DAST scan."
+        ),
+    )
+    parser.add_argument(
+        "--dast-model", dest="dast_model", default=None,
+        help=(
+            "use a prebuilt rsecopsx.dast_target_model/v1 JSON instead of "
+            "auto-detecting sources and crawling (requires --dast-base-url "
+            "for the probe phase)."
+        ),
+    )
+    parser.add_argument(
+        "--dast-oob-host", dest="dast_oob_host", default=None,
+        help=(
+            "enable T-5.4 OOB callbacks: blind SSRF/XXE/RCE probes mint "
+            "http://{token}.HOST/{kind} payloads; confirmations promote "
+            "findings to 'confirmed'. HOST must point at a running "
+            "'python -m analysis.dast.oob serve' listener."
+        ),
+    )
+    parser.add_argument(
+        "--dast-wait", dest="dast_wait", type=float, default=0.0,
+        help="seconds to poll OOB callbacks per minted token (default 0.0).",
+    )
+    parser.add_argument(
+        "--dast-profiles", dest="dast_profiles", default=None,
+        help=(
+            "T-5.2 auth profiles JSON for the DAST probe phase (cookie/"
+            "bearer/form/oauth2_cc/script strategies). The first ok "
+            "profile also authenticates the model-less crawl (T-5.5); a "
+            "pre-built model via --dast-model remains supported."
+        ),
+    )
+    parser.add_argument(
+        "--dast-exclude-path", dest="dast_exclude_path", action="append",
+        default=None, metavar="PREFIX",
+        help=(
+            "path prefix the DAST crawl never fetches (repeatable); use "
+            "for session-destroying routes like /logout.php on an "
+            "authenticated crawl. Excluded URLs are disclosed in the "
+            "crawl report, never silently dropped."
+        ),
+    )
+    parser.add_argument(
+        "--dast-ignore-robots", dest="dast_ignore_robots",
+        action="store_true",
+        help=(
+            "crawl the target even when robots.txt disallows it (authorized "
+            "testing only -- some deliberately-vulnerable apps ship "
+            "'Disallow: /'). The default keeps the crawl robots-aware."
+        ),
+    )
+    parser.add_argument(
+        "--dast-rate", dest="dast_rate", type=float, default=0.5,
+        help="seconds between DAST probe requests (default 0.5).",
+    )
     parser.set_defaults(verbosity="info")
     args = parser.parse_args()
 
@@ -5852,6 +5917,91 @@ def main():
             "error": str(_wstg_error),
             "dataset": "OWASP Web Security Testing Guide v4.2",
         }
+
+    # T-5.5: SAST<->DAST correlation (opt-in via --dast-base-url; a
+    # flag-off scan executes none of this and stays byte-identical --
+    # parity-first).  Three ADDITIVE report keys; payload["findings"]
+    # rows are never touched, so engine-triple A/B holds with the flag
+    # on as well.  Failures are disclosed in-report, never silent.
+    if args.dast_base_url:
+        _step("DAST active checks + SAST correlation")
+        try:
+            from analysis.dast.checks import (
+                CheckContext,
+                default_probe_fetch,
+                run_checks,
+            )
+            from analysis.dast.correlate import correlate as _correlate
+            from analysis.dast.target_model import build_target_model
+            if args.dast_model:
+                with open(args.dast_model, "r", encoding="utf-8") as _mf:
+                    _dast_model_doc = json.load(_mf)
+            else:
+                # T-5.5: the model-less crawl inherits the scan session
+                # (first ok profile) so an authenticated crawl does not
+                # wander into logout/login walls, and --dast-exclude-path
+                # keeps session-destroying routes out of the frontier.
+                _crawl_auth = {}
+                if args.dast_profiles:
+                    from analysis.dast.auth import (
+                        build_sessions,
+                        load_profiles as _lp2,
+                    )
+                    _cp, _ce = _lp2(args.dast_profiles)
+                    if not _ce:
+                        for _s in build_sessions(_cp).values():
+                            if (str(getattr(_s, "status", "")) == "ok"
+                                    and getattr(_s, "headers", None)):
+                                _crawl_auth = dict(_s.headers)
+                                break
+                _dast_model_doc = build_target_model(
+                    target, crawl_url=args.dast_base_url,
+                    crawl_respect_robots=not args.dast_ignore_robots,
+                    crawl_auth_headers=_crawl_auth or None,
+                    crawl_exclude=tuple(args.dast_exclude_path or ()))
+            _dast_oob = None
+            if args.dast_oob_host:
+                from analysis.dast.oob import OOBClient
+                _dast_oob = OOBClient(public_host=args.dast_oob_host)
+            _dast_sessions = None
+            if args.dast_profiles:
+                from analysis.dast.auth import build_sessions, load_profiles
+                _profiles, _perr = load_profiles(args.dast_profiles)
+                if _perr:
+                    raise ValueError(
+                        "dast profiles: " + "; ".join(str(e) for e in _perr))
+                _dast_sessions = build_sessions(_profiles)
+            _dast_doc = run_checks(CheckContext(
+                base_url=args.dast_base_url,
+                routes=list(_dast_model_doc.get("routes") or []),
+                fetch=default_probe_fetch,
+                rate_limit_s=max(0.0, float(args.dast_rate)),
+                sessions=_dast_sessions,
+                oob=_dast_oob,
+                oob_wait_s=max(0.0, float(args.dast_wait)),
+                exclude_paths=tuple(args.dast_exclude_path or ()),
+            ))
+            _corr_doc = _correlate(
+                payload.get("findings") or [],
+                _dast_doc.get("findings") or [],
+                apibom_items=payload.get("apibom") or [],
+            )
+            payload["dast_target_model"] = _dast_model_doc
+            payload["dast"] = _dast_doc
+            payload["correlated_findings"] = _corr_doc
+            _safe_print(
+                "       => DAST routes=%d findings=%d correlated=%d "
+                "sink-only candidates=%d"
+                % (len(_dast_model_doc.get("routes") or []),
+                   len(_dast_doc.get("findings") or []),
+                   _corr_doc["stats"]["merged"],
+                   _corr_doc["stats"]["sink_only"]))
+        except Exception as _dast_exc:  # noqa: BLE001 -- disclosed below
+            payload["dast_pipeline_error"] = (
+                f"{type(_dast_exc).__name__}: {_dast_exc}")
+            _safe_print(
+                "       !! DAST pipeline error (disclosed in report): "
+                f"{type(_dast_exc).__name__}: {_dast_exc}")
 
     _step("Writing JSON report")
     # The release manifest is the single release authority (mission 9): it is
