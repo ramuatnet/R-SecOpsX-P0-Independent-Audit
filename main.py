@@ -3208,6 +3208,18 @@ def main():
         ),
     )
     parser.add_argument(
+        "--policy", dest="policy", default=None, metavar="FILE",
+        help=(
+            "evaluate the finished report against a policy-as-code file "
+            "(YAML, schema rsecopsx.policy/v1): fail_on rung, scope "
+            "include/exclude, exclusions with reasons, SLA per severity and "
+            "required evidence. Replaces the hardcoded --fail-on rung logic "
+            "with a reviewable gate; the result is persisted as "
+            "metadata.policy_gate and exits 1 when the policy fails. Can be "
+            "combined with --fail-on; both gates are recorded."
+        ),
+    )
+    parser.add_argument(
         "--sbom", dest="sbom", default=None,
         help=(
             "ingest an existing CycloneDX/SPDX JSON SBOM instead of scanning "
@@ -6416,6 +6428,26 @@ def main():
     from analysis.ufib_release import refresh_release_manifest
     refresh_release_manifest(payload)
     security_gate = _record_security_gate(payload, args.fail_on)
+
+    # ------------------------------------------------------------------
+    # Policy gate (T-8.3).  Same boundary as the security gate above: the
+    # population is final, and metadata.policy_gate lands in the SAME json
+    # rewrite so the artefact and the exit code can never disagree.  A bad
+    # policy is a usage error (rc 2), not a scan result.
+    # ------------------------------------------------------------------
+    policy_gate = None
+    if args.policy is not None:
+        from analysis.policy import (PolicyInvalid, evaluate,
+                                     load_policy_file, rows_from_payload)
+        try:
+            _policy = load_policy_file(args.policy)
+        except PolicyInvalid as _pol_exc:
+            print(f"policy error: {_pol_exc.reason}", file=sys.stderr)
+            sys.exit(2)
+        policy_gate = evaluate(_policy, rows_from_payload(payload),
+                               time.time())
+        payload.setdefault("metadata", {})["policy_gate"] = policy_gate
+
     try:
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, default=str)
@@ -6585,12 +6617,31 @@ def main():
             f"carried a severity this gate does not recognise and were not "
             f"counted: {gate['unrecognised_severities']}"
         )
+
+    # Policy gate banner rides the same final boundary.  The full row
+    # detail lives in metadata.policy_gate inside clean_report.json;
+    # this line is the scrollback summary for the reader.
+    if policy_gate is not None:
+        if policy_gate["passed"]:
+            _safe_print(
+                f"  POLICY GATE: PASSED -- "
+                f"{policy_gate['counts']['pass']} row(s) evaluated, "
+                f"0 blocking"
+            )
+        else:
+            _safe_print(
+                f"  POLICY GATE: FAILED -- "
+                f"{policy_gate['counts']['blocking']} blocking row(s) "
+                f"(see metadata.policy_gate in the report)"
+            )
     _safe_print("")
 
-    if not gate["security_gate_passed"]:
-        # 1 = "findings at or above the requested severity".  2 stays reserved
-        # for usage errors, so a caller can tell a failing scan from a
-        # mistyped command line.
+    if not gate["security_gate_passed"] or (
+        policy_gate is not None and not policy_gate["passed"]
+    ):
+        # 1 = "findings at or above the requested severity" or "policy gate
+        # failed".  2 stays reserved for usage errors, so a caller can tell
+        # a failing scan from a mistyped command line.
         sys.exit(1)
 
 
