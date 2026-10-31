@@ -16,6 +16,14 @@ level).
 
 Backend failures are LOUD: postgres:// (PHASE 9) exits rc 1 with the
 machine reason on stderr, never a silent fallback to a local file.
+
+Auth flags (T-9.1): --auth-file is validated EAGERLY (rc 2 on any
+authoring error, even without --serve -- a broken config must fail the
+deploy, not the first request).  --audit-log appends canonical JSONL
+(flush per line) and is only consumed with --serve; without --serve it
+creates NO file (zero-I/O default preserved).  --serve-host defaults to
+127.0.0.1; binding elsewhere without --auth-file is rc 2
+(auth_required_for_non_loopback, guard lives in api.serve before bind).
 """
 from __future__ import annotations
 
@@ -27,6 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .api import serve
+from .auth import AuthInvalid, load_auth_file
 from .events import RealSender, deliver_events
 from .model import DOC_SCHEMA
 from .queue import add_schedule, cron_tick, drain, enqueue_jobs
@@ -95,9 +104,21 @@ def main(argv=None) -> int:
     ap.add_argument("--serve", action="store_true")
     ap.add_argument("--serve-port", type=int, default=0)
     ap.add_argument("--serve-ready-file")
+    ap.add_argument("--auth-file")
+    ap.add_argument("--audit-log")
+    ap.add_argument("--serve-host", default="127.0.0.1")
     ap.add_argument("--as-of")
     ap.add_argument("--out")
     args = ap.parse_args(argv)
+
+    # eager even without --serve: a broken auth file fails the deploy
+    auth_cfg = None
+    if args.auth_file:
+        try:
+            auth_cfg = load_auth_file(args.auth_file)
+        except AuthInvalid as exc:
+            print(f"auth error: {exc.reason}", file=sys.stderr)
+            return 2
 
     now = _parse_as_of(args.as_of)
     skips = []
@@ -187,9 +208,31 @@ def main(argv=None) -> int:
         stats["dry"] = dstats["dry"]
 
         if args.serve:
-            serve(backend, port=args.serve_port,
-                  ready_file=args.serve_ready_file,
-                  runner=scan_runner if args.runner == "scan" else None)
+            audit_fn = None
+            if args.audit_log:
+                # append-only JSONL, flush per line: a crash must not
+                # cost audit rows; sink errors propagate (no swallow)
+                import threading
+                _audit_lock = threading.Lock()
+                _audit_fh = open(args.audit_log, "a", encoding="utf-8",
+                                 newline="\n")
+
+                def audit_fn(entry):
+                    line = json.dumps(entry, sort_keys=True,
+                                      ensure_ascii=True)
+                    with _audit_lock:
+                        _audit_fh.write(line + "\n")
+                        _audit_fh.flush()
+            try:
+                serve(backend, host=args.serve_host,
+                      port=args.serve_port,
+                      ready_file=args.serve_ready_file,
+                      runner=scan_runner if args.runner == "scan" else None,
+                      auth=auth_cfg, audit_fn=audit_fn)
+            except ValueError as exc:
+                # guard refused the bind (e.g. non-loopback, no auth)
+                print(f"serve error: {exc}", file=sys.stderr)
+                return 2
 
         jobs = backend.list_jobs()
         schedules = schedules or backend.schedules()

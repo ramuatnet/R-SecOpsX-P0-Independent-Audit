@@ -12,8 +12,10 @@ Submodules are imported AS submodules (``from . import model`` ...) so
 ``from .model import *`` would shadow the name and break
 ``pkg.model is model``.
 """
-from . import api, connect, events, model, queue, storage  # noqa: F401
+from . import api, auth, connect, events, model, queue, storage  # noqa: F401
 from .api import route, serve
+from .auth import (ROLE_RANK, AuthConfig, AuthInvalid, audit_entry,
+                   load_auth_file, required_role, verify)
 from .events import RealSender, deliver_events, follow_events, sse_replay
 from .model import (DOC_SCHEMA, EVENT_KINDS, JOB_STATUSES, MAX_ATTEMPTS,
                     MAX_BODY_BYTES, MAX_ENQUEUE_BATCH, MAX_EVENTS_REPLAY,
@@ -24,8 +26,10 @@ from .storage import BackendUnavailable, SqliteBackend, WebhookInvalid, open_bac
 
 __all__ = [
     "DOC_SCHEMA", "EVENT_KINDS", "JOB_STATUSES", "MAX_ATTEMPTS",
-    "MAX_ENQUEUE_BATCH", "MAX_WEBHOOKS", "SCHEMA", "CronExpr",
-    "add_schedule", "cron_tick", "deliver_events", "drain",
-    "enqueue_jobs", "job_id_for", "route", "run_job", "sse_frame",
-    "validate_job", "webhook_payload",
+    "MAX_ENQUEUE_BATCH", "MAX_WEBHOOKS", "ROLE_RANK", "SCHEMA",
+    "AuthConfig", "AuthInvalid", "CronExpr",
+    "add_schedule", "audit_entry", "cron_tick", "deliver_events", "drain",
+    "enqueue_jobs", "job_id_for", "load_auth_file", "required_role",
+    "route", "run_job", "sse_frame",
+    "validate_job", "verify", "webhook_payload",
 ]

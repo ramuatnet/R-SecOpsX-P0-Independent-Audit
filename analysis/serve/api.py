@@ -21,12 +21,22 @@ Unknown path -> 404 route_not_found; known path, wrong method -> 405.
 Every JSON body is canonical (sort_keys, ensure_ascii) so artifacts
 and wire bytes agree.  Request bodies are capped at MAX_BODY_BYTES
 before parsing (413 body_too_large) -- untrusted input, bounded.
+
+Auth (T-9.1): serve() takes an optional AuthConfig; with auth=None the
+API is open (flag-off, t82 behaviour byte-identical).  With auth set
+every request is gated by required_role/verify BEFORE the 413 cap and
+the router (headers only, nothing read off the wire); /v1/health stays
+open.  Non-loopback bind WITHOUT auth refuses to start
+(ValueError auth_required_for_non_loopback).  An optional audit_fn
+receives one fixed-shape audit_entry per request (allowed and denied);
+exceptions from an audit sink are not swallowed by the auth layer.
 """
 from __future__ import annotations
 
 import json
 import time
 
+from .auth import ROLE_RANK, audit_entry, required_role, verify
 from .model import (JOB_STATUSES, MAX_BODY_BYTES, SCHEMA, sse_frame)
 from .queue import add_schedule, enqueue_jobs
 from .events import sse_replay
@@ -150,15 +160,23 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
 
 
 def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
-          tick_s=1.0, follow_cap_s=10) -> None:
+          tick_s=1.0, follow_cap_s=10, auth=None, audit_fn=None) -> None:
     """Blocking loopback server: route + background cron/drain ticker.
 
-    Binds 127.0.0.1 by default (loopback only -- no auth yet, PHASE 9
-    owns RBAC; exposing this beyond localhost would be a hole, so the
-    default keeps it local).  ``runner=None`` means DRY: the ticker
-    marks jobs done without spawning scans -- --runner scan is the
-    explicit opt-in and lives in connect.scan_runner.
+    Binds 127.0.0.1 by default (loopback only).  ``auth=None`` keeps the
+    API open -- flag-off behaviour, byte-identical to T-8.2 -- but a
+    non-loopback host with no auth refuses to start (guard below): the
+    RBAC hole the old docstring warned about is closed, not papered over.
+    ``runner=None`` means DRY: the ticker marks jobs done without
+    spawning scans -- --runner scan is the explicit opt-in and lives in
+    connect.scan_runner.  ``audit_fn`` receives one audit_entry per
+    request (allowed and denied; actor/role null when anonymous or
+    health); sink exceptions are not swallowed here.
     """
+    if auth is None and host not in ("127.0.0.1", "localhost", "::1"):
+        # before bind: a refused start is cheaper than an open door
+        raise ValueError("auth_required_for_non_loopback")
+
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     from urllib.parse import parse_qs
     import time as _time
@@ -198,9 +216,38 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
             path = parts[0]
             query = {k: v[0] for k, v in parse_qs(parts[1]).items()} \
                 if len(parts) == 2 else {}
+
+            def _audit(status, decision, actor, role, reason):
+                if audit_fn is not None:
+                    audit_fn(audit_entry(
+                        method=method, path=path, status=status,
+                        decision=decision, actor=actor, role=role,
+                        reason=reason, ts=_time.time()))
+
+            # AUTH GATE first: headers only, health is open, nothing
+            # else is looked at until the caller is entitled to it
+            actor = role = None
+            need = required_role(method, path)
+            if auth is not None and need is not None:
+                principal, why = verify(auth,
+                                        self.headers.get("Authorization"),
+                                        now=_time.time())
+                if principal is None:
+                    _audit(401, "denied", None, None, why)
+                    self._send(*_err(401, "unauthorized", reason=why))
+                    self.close_connection = True
+                    return
+                actor, role = principal["actor"], principal["role"]
+                if ROLE_RANK[role] < ROLE_RANK[need]:
+                    _audit(403, "denied", actor, role, "insufficient_role")
+                    self._send(*_err(403, "forbidden", required=need))
+                    self.close_connection = True
+                    return
+
             declared = int(self.headers.get("Content-Length") or 0)
             if declared > MAX_BODY_BYTES:
                 # bounded: reject BEFORE reading the untrusted body
+                _audit(413, "allowed", actor, role, None)
                 self._send(*_err(413, "body_too_large",
                                  cap=MAX_BODY_BYTES))
                 self.close_connection = True
@@ -214,10 +261,12 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
                 except ValueError:
                     follow = 0
                 if follow > 0:
+                    _audit(200, "allowed", actor, role, None)
                     self._stream_events(query)
                     return
             status, headers, payload = route(
                 backend, method, path, query, body, now_fn=_time.time)
+            _audit(status, "allowed", actor, role, None)
             self._send(status, headers, payload)
 
         def _stream_events(self, query: dict) -> None:
