@@ -3164,6 +3164,12 @@ def main():
              "declared but never consulted, so it skipped nothing until G-138.")
     parser.add_argument("--no-excel", action="store_true")
     parser.add_argument(
+        "--html-embedded", dest="html_embedded", action="store_true",
+        help="write triage.html beside clean_report.json: the D-2 airgap "
+             "triage SPA with the findings subset embedded, so it opens "
+             "offline over file:// with no server (fetch mode blocks there).",
+    )
+    parser.add_argument(
         "--include-benchmark-fixtures",
         action="store_true",
         help="Include packaged benchmark/code-fix fixtures such as data/static/codefixes in scan findings. Disabled by default.",
@@ -6094,6 +6100,20 @@ def main():
             f"{verdicts_doc['summary']['released_count']} released / "
             f"{verdicts_doc['summary']['held_count']} held, each with "
             "gate results and rationale)"
+        )
+
+    if args.html_embedded:
+        # T-9.6 / D-2: the triage SPA with the findings subset embedded,
+        # built from the SAME payload just serialized to clean_report.json
+        # so the page and the report can never disagree.  Flag-off writes
+        # nothing (test_v11_invariance-style pin in test_t96).
+        from reporting.triage_spa import build as build_triage_spa
+        triage_path = output_dir / "triage.html"
+        triage_path.write_bytes(build_triage_spa(payload, embedded=True))
+        generated_files.append("triage.html")
+        _safe_print(
+            f"       => {triage_path} "
+            "(embedded triage SPA -- open directly, no server needed)"
         )
 
     if not args.no_pdf:

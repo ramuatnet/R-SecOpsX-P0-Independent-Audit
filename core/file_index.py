@@ -89,6 +89,10 @@ EXCLUDED_FILES = {
     # same self-scan hazard (caught by test_v11_self_scan_exclusions when
     # the artifact name landed without this entry).
     "verdicts.json",
+    # T-9.6 / D-2: --html-embedded writes triage.html beside
+    # clean_report.json.  HTML IS a scannable extension (XSS rules), so a
+    # re-scan of the output directory would read the SPA as input.
+    "triage.html",
 }
 
 EXCLUDED_DIRS = {

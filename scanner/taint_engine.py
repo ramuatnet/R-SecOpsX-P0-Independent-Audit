@@ -1825,6 +1825,9 @@ ARTIFACT_FILE_NAMES = {
     # DoD --explain-verdict writes verdicts.json beside clean_report.json
     # (kept in exact set-agreement with sast/file_index EXCLUDED_FILES).
     "verdicts.json",
+    # T-9.6 / D-2: --html-embedded writes triage.html beside
+    # clean_report.json (HTML is scannable -- XSS rules would read it).
+    "triage.html",
 }
 
 
