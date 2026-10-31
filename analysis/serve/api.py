@@ -49,6 +49,10 @@ from .model import (JOB_STATUSES, MAX_BODY_BYTES, SCHEMA, sse_frame)
 from .queue import add_schedule, enqueue_jobs
 from .events import sse_replay
 from .storage import WebhookInvalid
+from .artifacts import (
+    ArtifactInvalid, delete as delete_artifact, encode_content,
+    get as get_artifact, list_artifacts, put as put_artifact,
+)
 
 _JSON = {"Content-Type": "application/json"}
 _SSE = {"Content-Type": "text/event-stream"}
@@ -62,6 +66,8 @@ _ROUTES = {
     ("GET", "/v1/webhooks"),
     ("POST", "/v1/webhooks"),
     ("GET", "/v1/events"),
+    ("GET", "/v1/artifacts"),
+    ("POST", "/v1/artifacts"),
 }
 
 
@@ -170,6 +176,63 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
             return _err(400, "bad_since")
         frames = sse_replay(backend, since=since, tenant=tenant)
         return (200, _SSE, b"".join(frames))
+
+    if path == "/v1/artifacts":
+        if method == "POST":
+            try:
+                row = json.loads(body)
+            except (ValueError, UnicodeDecodeError):
+                return _err(400, "bad_json")
+            if not isinstance(row, dict):
+                return _err(400, "artifact_name_invalid")
+            name = row.get("name")
+            kind = row.get("kind")
+            content = row.get("content")
+            encoding = row.get("encoding", "utf-8")
+            if encoding not in ("utf-8", "base64"):
+                return _err(400, "artifact_encoding_invalid")
+            if encoding == "base64":
+                import base64 as _b64
+                try:
+                    content = _b64.b64decode(content, validate=True)
+                except Exception:
+                    return _err(400, "artifact_content_invalid")
+            try:
+                meta = put_artifact(backend, name, content, kind=kind,
+                                    tenant=tenant, job_id=row.get("job_id"),
+                                    now=now_fn())
+            except ArtifactInvalid as exc:
+                return _err(400, exc.reason)
+            return _ok(201, {"artifact": meta})
+        if method == "GET":
+            return _ok(200, {"artifacts": list_artifacts(
+                backend, tenant=tenant, kind=query.get("kind"))})
+        return _err(405, "method_not_allowed")
+
+    if path.startswith("/v1/artifacts/"):
+        key = path[len("/v1/artifacts/"):]
+        if method == "GET":
+            try:
+                row = get_artifact(backend, key, tenant=tenant,
+                                   verify=True)
+            except ArtifactInvalid as exc:
+                return _err(410 if exc.reason == "artifact_content_corrupt"
+                            else 400, exc.reason)
+            if row is None:
+                # cross-tenant key lands here too -- a 404, never a 403
+                return _err(404, "artifact_not_found")
+            encoding, content_str = encode_content(row["content"])
+            meta = {k: row[k] for k in ("id", "name", "kind", "digest",
+                                        "size", "created_at", "tenant",
+                                        "job_id")}
+            meta["encoding"] = encoding
+            meta["content"] = content_str
+            return _ok(200, {"artifact": meta})
+        if method == "DELETE":
+            if delete_artifact(backend, key, tenant=tenant):
+                return _ok(200, {"deleted": True})
+            return _err(404, "artifact_not_found")
+        return _err(405, "method_not_allowed")
 
     if (method, path) not in _ROUTES and path in {p for _, p in _ROUTES}:
         return _err(405, "method_not_allowed")

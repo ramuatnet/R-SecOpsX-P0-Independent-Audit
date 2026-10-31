@@ -52,6 +52,7 @@ def _translate(sql: str) -> str:
     out = out.replace("DOUBLE PRECISION", "REAL")
     out = out.replace(" BIGINT", " INTEGER")
     out = out.replace("ADD COLUMN IF NOT EXISTS", "ADD COLUMN")
+    out = out.replace("BYTEA", "BLOB")   # T-9.5 artifacts content column
     return out
 
 

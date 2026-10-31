@@ -56,6 +56,12 @@ MAX_RUN_PER_DRAIN = 50
 MAX_CRON_OCCURRENCES = 10           # per tick, per schedule (disclosed)
 CRON_HORIZON_DAYS = 8 * 366         # never-matching expr -> ValueError
 
+# T-9.5 artifact store: global across tenants (disclosed, like the
+# webhook/schedule caps); the API path is tighter still -- POST bodies
+# ride the MAX_BODY_BYTES gate long before the store sees them
+MAX_ARTIFACTS = 200
+MAX_ARTIFACT_BYTES = 8_388_608      # 8 MiB per artifact (store-level)
+
 # 5-field cron: minute hour day-of-month month day-of-week (UTC minutes).
 _CRON_FIELDS = (
     ("minute", 0, 59),

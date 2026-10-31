@@ -108,6 +108,11 @@ class SqliteBackend:
                     event_seq INTEGER, webhook_id TEXT,
                     attempts INTEGER, status TEXT, at REAL,
                     PRIMARY KEY (event_seq, webhook_id));
+                CREATE TABLE IF NOT EXISTS artifacts (
+                    id TEXT PRIMARY KEY, name TEXT, kind TEXT,
+                    digest TEXT, size INTEGER, content BLOB,
+                    created_at REAL, tenant TEXT NOT NULL DEFAULT '',
+                    job_id TEXT);
                 """)
             # T-9.2 migration: databases created before multi-tenancy
             # gain the column with '' = the legacy/unscoped tenant, so
@@ -299,6 +304,64 @@ class SqliteBackend:
             row["status"] = _coerce_delivery_status(row["status"])
             out.append(row)
         return out
+
+    # -- artifacts (T-9.5) -----------------------------------------------
+    def insert_artifact(self, row: dict, now: float) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO artifacts (id, name, kind, digest, size,"
+                " content, created_at, tenant, job_id)"
+                " VALUES (?,?,?,?,?,?,?,?,?)",
+                (row["id"], row["name"], row["kind"], row["digest"],
+                 row["size"], row["content"], now,
+                 row.get("tenant") or "", row.get("job_id")))
+
+    def update_artifact(self, aid: str, row: dict, now: float) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE artifacts SET name=?, kind=?, digest=?, size=?,"
+                " content=?, created_at=?, tenant=?, job_id=? WHERE id=?",
+                (row["name"], row["kind"], row["digest"], row["size"],
+                 row["content"], now, row.get("tenant") or "",
+                 row.get("job_id"), aid))
+
+    def get_artifact(self, aid: str, tenant=None):
+        sql = "SELECT * FROM artifacts WHERE id = ?"
+        params: list = [aid]
+        if tenant is not None:
+            sql += " AND tenant = ?"    # cross-tenant id -> None -> 404
+            params.append(tenant)
+        with self._lock:
+            row = self._conn.execute(sql, params).fetchone()
+        return dict(row) if row is not None else None
+
+    def list_artifacts(self, tenant=None, kind=None) -> "list[dict]":
+        """Metas only -- explicit columns, never the content blob."""
+        conds, params = [], []
+        if tenant is not None:
+            conds.append("tenant = ?")
+            params.append(tenant)
+        if kind is not None:
+            conds.append("kind = ?")
+            params.append(kind)
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, name, kind, digest, size, created_at,"
+                f" tenant, job_id FROM artifacts{where}"
+                " ORDER BY name, id",  # noqa: S608
+                params).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_artifact(self, aid: str, tenant=None) -> bool:
+        sql = "DELETE FROM artifacts WHERE id = ?"
+        params: list = [aid]
+        if tenant is not None:
+            sql += " AND tenant = ?"
+            params.append(tenant)
+        with self._lock, self._conn:
+            cur = self._conn.execute(sql, params)
+            return cur.rowcount > 0
 
     def close(self) -> None:
         with self._lock:
@@ -550,6 +613,68 @@ class PostgresBackend:
             out.append(row)
         return out
 
+    # -- artifacts (T-9.5) -----------------------------------------------
+    def insert_artifact(self, row: dict, now: float) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO artifacts (id, name, kind, digest, size,"
+                " content, created_at, tenant, job_id)"
+                " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (row["id"], row["name"], row["kind"], row["digest"],
+                 row["size"], row["content"], now,
+                 row.get("tenant") or "", row.get("job_id")))
+
+    def update_artifact(self, aid: str, row: dict, now: float) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE artifacts SET name=%s, kind=%s, digest=%s,"
+                " size=%s, content=%s, created_at=%s, tenant=%s,"
+                " job_id=%s WHERE id=%s",
+                (row["name"], row["kind"], row["digest"], row["size"],
+                 row["content"], now, row.get("tenant") or "",
+                 row.get("job_id"), aid))
+
+    def get_artifact(self, aid: str, tenant=None):
+        sql = "SELECT * FROM artifacts WHERE id = %s"
+        params: list = [aid]
+        if tenant is not None:
+            sql += " AND tenant = %s"    # cross-tenant id -> None -> 404
+            params.append(tenant)
+        with self._lock:
+            cur = self._conn.execute(sql, params)
+            row = _pg_row(cur, cur.fetchone())
+        if row is not None and isinstance(row.get("content"), memoryview):
+            row["content"] = bytes(row["content"])   # BYTEA -> bytes
+        return row
+
+    def list_artifacts(self, tenant=None, kind=None) -> "list[dict]":
+        """Metas only -- explicit columns, never the content blob."""
+        conds, params = [], []
+        if tenant is not None:
+            conds.append("tenant = %s")
+            params.append(tenant)
+        if kind is not None:
+            conds.append("kind = %s")
+            params.append(kind)
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, name, kind, digest, size, created_at,"
+                f" tenant, job_id FROM artifacts{where}"
+                " ORDER BY name, id",  # noqa: S608
+                params)
+            return [_pg_row(cur, r) for r in cur.fetchall()]
+
+    def delete_artifact(self, aid: str, tenant=None) -> bool:
+        sql = "DELETE FROM artifacts WHERE id = %s"
+        params: list = [aid]
+        if tenant is not None:
+            sql += " AND tenant = %s"
+            params.append(tenant)
+        with self._lock, self._conn:
+            cur = self._conn.execute(sql, params)
+            return cur.rowcount > 0
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()
@@ -583,6 +708,12 @@ _PG_DDL = (
         event_seq BIGINT, webhook_id TEXT,
         attempts BIGINT, status TEXT, at DOUBLE PRECISION,
         PRIMARY KEY (event_seq, webhook_id))""",
+    """
+    CREATE TABLE IF NOT EXISTS artifacts (
+        id TEXT PRIMARY KEY, name TEXT, kind TEXT,
+        digest TEXT, size BIGINT, content BYTEA,
+        created_at DOUBLE PRECISION, tenant TEXT NOT NULL DEFAULT '',
+        job_id TEXT)""",
 )
 
 
