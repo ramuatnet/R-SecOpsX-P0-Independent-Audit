@@ -14,6 +14,14 @@ Roles (RBAC): "viewer" (read API state) < "editor" (may enqueue scan
 jobs) < "admin" (may mutate schedules/webhooks). Health stays OPEN with
 auth enabled -- liveness must never depend on credentials.
 
+Tenancy (T-9.2): a token entry may declare ``"tenant": "<name>"`` and a
+JWT may carry a ``tenant`` claim; the principal then gains a "tenant"
+key and every API read/write is scoped to it.  Credentials WITHOUT a
+tenant are UNSCOPED operators (they see every tenant -- single-tenant
+deployments therefore behave exactly as before).  A bad tenant in a
+JWT claim is invalid_credentials, never a silent fall-back to
+unscoped: dropping tenant scope silently would be an escalation.
+
 JWT validation pins (each has a machine reason): header alg MUST be
 "HS256" (rejects alg-none and every asymmetric-alg confusion attempt),
 "exp" is REQUIRED (a token without an expiry is invalid_credentials),
@@ -97,8 +105,14 @@ def load_auth_file(path):
         role = item["role"]
         if role not in ROLE_RANK:
             raise AuthInvalid(f"token_bad_role:{i}:{role}")
-        tokens.append({"name": item["name"], "token": item["token"],
-                       "role": role})
+        entry = {"name": item["name"], "token": item["token"],
+                 "role": role}
+        if "tenant" in item:
+            tenant = item["tenant"]
+            if not isinstance(tenant, str) or not tenant:
+                raise AuthInvalid(f"tenant_invalid:{i}")
+            entry["tenant"] = tenant
+        tokens.append(entry)
 
     jwt_secret = jwt_issuer = jwt_audience = None
     if "jwt" in doc:
@@ -191,7 +205,14 @@ def _verify_jwt(config, token, now):
     role = claims.get("role", "viewer")
     if role not in ROLE_RANK:
         role = "viewer"
-    return {"actor": sub, "role": role}, None
+    principal = {"actor": sub, "role": role}
+    tenant = claims.get("tenant")
+    if tenant is not None:
+        # a malformed tenant claim must never degrade to unscoped
+        if not isinstance(tenant, str) or not tenant:
+            return None, "invalid_credentials"
+        principal["tenant"] = tenant
+    return principal, None
 
 
 def verify(config, header, now):
@@ -211,7 +232,10 @@ def verify(config, header, now):
     value = value.strip()
     for entry in config.tokens:
         if hmac.compare_digest(entry["token"], value):
-            return {"actor": entry["name"], "role": entry["role"]}, None
+            principal = {"actor": entry["name"], "role": entry["role"]}
+            if entry.get("tenant"):      # absent key = unscoped operator
+                principal["tenant"] = entry["tenant"]
+            return principal, None
     if config.jwt_secret is not None:
         return _verify_jwt(config, value, now)
     return None, "invalid_credentials"

@@ -36,17 +36,24 @@ def _row_frame(row: dict) -> bytes:
     return sse_frame(body, event=row["kind"], id=row["seq"])
 
 
-def sse_replay(backend, since: int, limit: int = MAX_EVENTS_REPLAY):
-    """Frames for rows after ``since`` (exclusive cursor), oldest first."""
-    return [_row_frame(r) for r in backend.events_since(since, limit=limit)]
+def sse_replay(backend, since: int, limit: int = MAX_EVENTS_REPLAY,
+               tenant=None):
+    """Frames for rows after ``since`` (exclusive cursor), oldest first.
+
+    ``tenant`` (T-9.2): None = every tenant (legacy/operator view);
+    a string filters the log to that tenant's rows only.
+    """
+    return [_row_frame(r) for r in backend.events_since(
+        since, limit=limit, tenant=tenant)]
 
 
 def follow_events(backend, since: int, deadline: float, now_fn, sleep_fn,
-                  poll_s: float = 0.25):
+                  poll_s: float = 0.25, tenant=None):
     """Yield new rows until the wall-clock deadline (inclusive poll)."""
     cursor = int(since)
     while True:
-        rows = backend.events_since(cursor, limit=MAX_EVENTS_REPLAY)
+        rows = backend.events_since(cursor, limit=MAX_EVENTS_REPLAY,
+                                    tenant=tenant)
         for row in rows:
             cursor = row["seq"]
             yield row
@@ -86,6 +93,10 @@ def deliver_events(backend, sender, now, sleep_fn, dry=False,
               if e["kind"] not in WEBHOOK_EXCLUDED_KINDS]
     for ev in events:
         for hook in hooks:
+            # T-9.2: exact tenant match -- a hook only ever sees its own
+            # tenant's events (legacy "" == "" keeps single-tenant as-is)
+            if (hook.get("tenant") or "") != (ev.get("tenant") or ""):
+                continue
             prior = backend.delivery_recorded(ev["seq"], hook["id"])
             if prior is not None and prior.get("status") != "dry":
                 continue  # real receipt is terminal; dry is replaceable
@@ -113,7 +124,8 @@ def deliver_events(backend, sender, now, sleep_fn, dry=False,
                 backend.append_event(
                     "webhook.delivered",
                     {"seq": ev["seq"], "webhook_id": hook["id"],
-                     "status": code}, at=now)
+                     "status": code}, at=now,
+                    tenant=ev.get("tenant") or "")
                 stats["delivered"] += 1
             else:
                 backend.upsert_delivery(ev["seq"], hook["id"],
@@ -122,6 +134,7 @@ def deliver_events(backend, sender, now, sleep_fn, dry=False,
                 backend.append_event(
                     "webhook.failed",
                     {"seq": ev["seq"], "webhook_id": hook["id"],
-                     "status": code}, at=now)
+                     "status": code}, at=now,
+                    tenant=ev.get("tenant") or "")
                 stats["failed"] += 1
     return stats

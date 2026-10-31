@@ -30,6 +30,14 @@ open.  Non-loopback bind WITHOUT auth refuses to start
 (ValueError auth_required_for_non_loopback).  An optional audit_fn
 receives one fixed-shape audit_entry per request (allowed and denied);
 exceptions from an audit sink are not swallowed by the auth layer.
+
+Tenancy (T-9.2): route() gains an optional ``tenant`` kwarg threaded
+from the verified principal's "tenant" key (see auth.py) to every
+storage call.  A scoped principal only ever sees its own jobs, events,
+schedules and webhooks; a cross-tenant job id is a 404 (no existence
+oracle), and client-posted "tenant" body keys are dropped by
+validate_job.  tenant=None (no auth, or an unscoped credential) keeps
+the single-tenant view -- flag-off behaviour unchanged.
 """
 from __future__ import annotations
 
@@ -70,8 +78,12 @@ def _err(status: int, error: str, **extra):
 
 
 def route(backend, method: str, path: str, query: dict, body: bytes,
-          now_fn=time.time) -> "tuple[int, dict, bytes]":
-    """Dispatch one request; pure -- no sockets, no clock unless given."""
+          now_fn=time.time, tenant=None) -> "tuple[int, dict, bytes]":
+    """Dispatch one request; pure -- no sockets, no clock unless given.
+
+    ``tenant`` (T-9.2): None = unscoped (legacy/operator); a string
+    scopes every storage call in this dispatch to that tenant.
+    """
     if len(body) > MAX_BODY_BYTES:
         return _err(413, "body_too_large", cap=MAX_BODY_BYTES)
     method = method.upper()
@@ -87,7 +99,8 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
                 row = json.loads(body)
             except (ValueError, UnicodeDecodeError):
                 return _err(400, "bad_json")
-            jobs, skips = enqueue_jobs(backend, [row], now=now_fn())
+            jobs, skips = enqueue_jobs(backend, [row], now=now_fn(),
+                                       tenant=tenant)
             if jobs:
                 return _ok(201, {"job": jobs[0]})
             reason = skips[0]["reason"] if skips else "job_rejected"
@@ -96,14 +109,17 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
             status_f = query.get("status")
             if status_f is not None and status_f not in JOB_STATUSES:
                 return _err(400, "bad_status", allowed=list(JOB_STATUSES))
-            return _ok(200, {"jobs": backend.list_jobs(status=status_f)})
+            return _ok(200, {"jobs": backend.list_jobs(status=status_f,
+                                                       tenant=tenant)})
         return _err(405, "method_not_allowed")
 
     if path.startswith("/v1/jobs/"):
         if method != "GET":
             return _err(405, "method_not_allowed")
-        job = backend.job(path[len("/v1/jobs/"):])
+        job = backend.job(path[len("/v1/jobs/"):], tenant=tenant)
         if job is None:
+            # cross-tenant id lands here too -- a 404, never a 403, so
+            # a scoped caller cannot probe other tenants' job ids
             return _err(404, "job_not_found")
         return _ok(200, {"job": job})
 
@@ -113,7 +129,8 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
                 row = json.loads(body)
             except (ValueError, UnicodeDecodeError):
                 return _err(400, "bad_json")
-            good, skips = add_schedule(backend, [row], now=now_fn())
+            good, skips = add_schedule(backend, [row], now=now_fn(),
+                                       tenant=tenant)
             if good:
                 return _ok(201, {"schedule": good[0]})
             reason = skips[0]["reason"] if skips else "schedule_rejected"
@@ -122,7 +139,7 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
                 return _err(400, reason, detail=detail)
             return _err(400, reason)
         if method == "GET":
-            return _ok(200, {"schedules": backend.schedules()})
+            return _ok(200, {"schedules": backend.schedules(tenant=tenant)})
         return _err(405, "method_not_allowed")
 
     if path == "/v1/webhooks":
@@ -135,12 +152,12 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
             if not url:
                 return _err(400, "url_missing")
             try:
-                wh_id = backend.register_webhook(url)
+                wh_id = backend.register_webhook(url, tenant=tenant)
             except WebhookInvalid as exc:
                 return _err(400, exc.reason)
             return _ok(201, {"webhook": {"id": wh_id, "url": url}})
         if method == "GET":
-            return _ok(200, {"webhooks": backend.webhooks()})
+            return _ok(200, {"webhooks": backend.webhooks(tenant=tenant)})
         return _err(405, "method_not_allowed")
 
     if path == "/v1/events":
@@ -151,7 +168,7 @@ def route(backend, method: str, path: str, query: dict, body: bytes,
             since = int(raw_since)
         except (TypeError, ValueError):
             return _err(400, "bad_since")
-        frames = sse_replay(backend, since=since)
+        frames = sse_replay(backend, since=since, tenant=tenant)
         return (200, _SSE, b"".join(frames))
 
     if (method, path) not in _ROUTES and path in {p for _, p in _ROUTES}:
@@ -227,6 +244,7 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
             # AUTH GATE first: headers only, health is open, nothing
             # else is looked at until the caller is entitled to it
             actor = role = None
+            tenant_scope = None     # T-9.2: None = unscoped view
             need = required_role(method, path)
             if auth is not None and need is not None:
                 principal, why = verify(auth,
@@ -243,6 +261,7 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
                     self._send(*_err(403, "forbidden", required=need))
                     self.close_connection = True
                     return
+                tenant_scope = principal.get("tenant")  # None = operator
 
             declared = int(self.headers.get("Content-Length") or 0)
             if declared > MAX_BODY_BYTES:
@@ -262,14 +281,15 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
                     follow = 0
                 if follow > 0:
                     _audit(200, "allowed", actor, role, None)
-                    self._stream_events(query)
+                    self._stream_events(query, tenant_scope)
                     return
             status, headers, payload = route(
-                backend, method, path, query, body, now_fn=_time.time)
+                backend, method, path, query, body, now_fn=_time.time,
+                tenant=tenant_scope)
             _audit(status, "allowed", actor, role, None)
             self._send(status, headers, payload)
 
-        def _stream_events(self, query: dict) -> None:
+        def _stream_events(self, query: dict, tenant=None) -> None:
             try:
                 since = int(query.get("since", "0"))
             except ValueError:
@@ -282,7 +302,8 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()          # no Content-Length: close-delimited
             cursor = since
-            for row in backend.events_since(since, limit=1000):
+            for row in backend.events_since(since, limit=1000,
+                                            tenant=tenant):
                 self.wfile.write(_row_frame(row))
                 self.wfile.flush()
                 cursor = row["seq"]     # follow starts AFTER the replay
@@ -290,7 +311,8 @@ def serve(backend, host="127.0.0.1", port=0, ready_file=None, runner=None,
             for row in follow_events(backend, since=cursor,
                                      deadline=deadline,
                                      now_fn=_time.time,
-                                     sleep_fn=_time.sleep):
+                                     sleep_fn=_time.sleep,
+                                     tenant=tenant):
                 self.wfile.write(_row_frame(row))
                 self.wfile.flush()
 

@@ -66,8 +66,14 @@ _CRON_FIELDS = (
 )
 
 
-def validate_job(row) -> "tuple[dict, str | None]":
-    """Normalise a job row, or explain in one machine-readable string."""
+def validate_job(row, tenant=None) -> "tuple[dict, str | None]":
+    """Normalise a job row, or explain in one machine-readable string.
+
+    T-9.2: ``tenant`` comes ONLY from the credential (the route layer
+    passes the principal's scope) -- a "tenant" key posted in the body
+    is ignored, because this function rebuilds the row from known keys
+    and stamps the parameter, never a client-supplied field.
+    """
     if not isinstance(row, dict):
         return {}, "job_not_object"
     if "target" not in row:
@@ -80,23 +86,36 @@ def validate_job(row) -> "tuple[dict, str | None]":
     out = row.get("out")
     if out is not None and not isinstance(out, str):
         return {}, "out_not_a_string"
+    id_row = {"target": target, "out": out}
+    if tenant:
+        id_row["tenant"] = tenant
     job = {
-        "id": job_id_for({"target": target, "out": out}),
+        "id": job_id_for(id_row),
         "target": target,
         "out": out,
         "status": "queued",
         "attempts": 0,
         "last_error": None,
     }
+    if tenant:
+        job["tenant"] = tenant          # absent for legacy/flag-off rows
     return job, None
 
 
 def job_id_for(row, occurrence=None) -> str:
-    """Content-addressed id; cron occurrences scope by scheduled minute."""
-    canon = json.dumps(
-        {"target": row.get("target"), "out": row.get("out"),
-         "occurrence": occurrence},
-        sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    """Content-addressed id; cron occurrences scope by scheduled minute.
+
+    T-9.2: a NON-EMPTY row["tenant"] joins the canon so two tenants can
+    enqueue the same target without colliding on the primary key; rows
+    without a tenant (or with "") keep the exact T-8.2 digest -- flag-off
+    discipline pinned by a recomputed-legacy-digest test.
+    """
+    canon_row = {"target": row.get("target"), "out": row.get("out"),
+                 "occurrence": occurrence}
+    if row.get("tenant"):
+        canon_row["tenant"] = row["tenant"]
+    canon = json.dumps(canon_row, sort_keys=True, ensure_ascii=True,
+                       separators=(",", ":"))
     return "job_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
 
 

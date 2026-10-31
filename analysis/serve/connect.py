@@ -24,6 +24,12 @@ deploy, not the first request).  --audit-log appends canonical JSONL
 creates NO file (zero-I/O default preserved).  --serve-host defaults to
 127.0.0.1; binding elsewhere without --auth-file is rc 2
 (auth_required_for_non_loopback, guard lives in api.serve before bind).
+
+Tenancy (T-9.2): NO new flags -- the tenant surface is the credential
+itself (a "tenant" key on a token entry, or a JWT tenant claim; see
+auth.py).  Scoped callers get a tenant-filtered API; unscoped
+credentials remain cross-tenant operators.  The CLI doc/schema is
+unchanged (zero-I/O default still emits no tenant key).
 """
 from __future__ import annotations
 

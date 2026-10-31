@@ -74,46 +74,69 @@ class SqliteBackend:
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY, target TEXT, out TEXT,
                     status TEXT, attempts INTEGER, last_error TEXT,
-                    created_at REAL, updated_at REAL);
+                    created_at REAL, updated_at REAL,
+                    tenant TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS schedules (
                     id TEXT PRIMARY KEY, cron TEXT, target TEXT, out TEXT,
-                    created_at REAL, last_tick REAL);
+                    created_at REAL, last_tick REAL,
+                    tenant TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS events (
                     seq INTEGER PRIMARY KEY AUTOINCREMENT,
-                    kind TEXT, payload TEXT, at REAL);
+                    kind TEXT, payload TEXT, at REAL,
+                    tenant TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS webhooks (
-                    id TEXT PRIMARY KEY, url TEXT, active INTEGER);
+                    id TEXT PRIMARY KEY, url TEXT, active INTEGER,
+                    tenant TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS deliveries (
                     event_seq INTEGER, webhook_id TEXT,
                     attempts INTEGER, status TEXT, at REAL,
                     PRIMARY KEY (event_seq, webhook_id));
                 """)
+            # T-9.2 migration: databases created before multi-tenancy
+            # gain the column with '' = the legacy/unscoped tenant, so
+            # pre-existing rows stay readable and stay unscoped
+            for table in ("jobs", "schedules", "events", "webhooks"):
+                cols = {row[1] for row in self._conn.execute(
+                    f"PRAGMA table_info({table})")}  # noqa: S608 - table
+                if "tenant" not in cols:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN tenant TEXT"
+                        f" NOT NULL DEFAULT ''")  # noqa: S608
 
     # -- jobs ------------------------------------------------------------
     def enqueue_job(self, job: dict, now: float) -> None:
         with self._lock, self._conn:
             self._conn.execute(
                 "INSERT INTO jobs (id, target, out, status, attempts,"
-                " last_error, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?)",
+                " last_error, created_at, updated_at, tenant)"
+                " VALUES (?,?,?,?,?,?,?,?,?)",
                 (job["id"], job["target"], job["out"], job["status"],
-                 job["attempts"], job["last_error"], now, now))
+                 job["attempts"], job["last_error"], now, now,
+                 job.get("tenant") or ""))
 
-    def job(self, job_id: str):
+    def job(self, job_id: str, tenant=None):
+        sql = "SELECT * FROM jobs WHERE id = ?"
+        params: list = [job_id]
+        if tenant is not None:
+            sql += " AND tenant = ?"      # cross-tenant id -> None -> 404
+            params.append(tenant)
         with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            row = self._conn.execute(sql, params).fetchone()
         return dict(row) if row is not None else None
 
-    def list_jobs(self, status=None) -> "list[dict]":
+    def list_jobs(self, status=None, tenant=None) -> "list[dict]":
+        conds, params = [], []
+        if status is not None:
+            conds.append("status = ?")
+            params.append(status)
+        if tenant is not None:
+            conds.append("tenant = ?")
+            params.append(tenant)
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
         with self._lock:
-            if status is None:
-                rows = self._conn.execute(
-                    "SELECT * FROM jobs ORDER BY id").fetchall()
-            else:
-                rows = self._conn.execute(
-                    "SELECT * FROM jobs WHERE status = ? ORDER BY id",
-                    (status,)).fetchall()
+            rows = self._conn.execute(
+                f"SELECT * FROM jobs{where} ORDER BY id",  # noqa: S608
+                params).fetchall()
         return [dict(r) for r in rows]
 
     def update_job(self, job_id, *, status=None, attempts=None,
@@ -136,25 +159,34 @@ class SqliteBackend:
                 f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", params)
 
     # -- events ----------------------------------------------------------
-    def append_event(self, kind: str, payload, at: float) -> int:
+    def append_event(self, kind: str, payload, at: float,
+                     tenant: str = "") -> int:
         with self._lock, self._conn:
             cur = self._conn.execute(
-                "INSERT INTO events (kind, payload, at) VALUES (?,?,?)",
+                "INSERT INTO events (kind, payload, at, tenant)"
+                " VALUES (?,?,?,?)",
                 (kind, json.dumps(payload, sort_keys=True,
                                   ensure_ascii=True, separators=(",", ":")),
-                 at))
+                 at, tenant or ""))
             return int(cur.lastrowid)
 
-    def events_since(self, since: int, limit: int = 1000) -> "list[dict]":
+    def events_since(self, since: int, limit: int = 1000,
+                     tenant=None) -> "list[dict]":
+        sql = ("SELECT seq, kind, payload, at, tenant FROM events"
+               " WHERE seq > ?")
+        params: list = [int(since)]
+        if tenant is not None:
+            sql += " AND tenant = ?"
+            params.append(tenant)
+        sql += " ORDER BY seq LIMIT ?"
+        params.append(int(limit))
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT seq, kind, payload, at FROM events"
-                " WHERE seq > ? ORDER BY seq LIMIT ?",
-                (int(since), int(limit))).fetchall()
+            rows = self._conn.execute(sql, params).fetchall()
         out = []
         for r in rows:
             out.append({"seq": r["seq"], "kind": r["kind"],
-                        "payload": json.loads(r["payload"]), "at": r["at"]})
+                        "payload": json.loads(r["payload"]),
+                        "at": r["at"], "tenant": r["tenant"]})
         return out
 
     # -- schedules -------------------------------------------------------
@@ -162,14 +194,19 @@ class SqliteBackend:
         with self._lock, self._conn:
             self._conn.execute(
                 "INSERT INTO schedules (id, cron, target, out,"
-                " created_at, last_tick) VALUES (?,?,?,?,?,?)",
+                " created_at, last_tick, tenant) VALUES (?,?,?,?,?,?,?)",
                 (sched["id"], sched["cron"], sched["target"], sched["out"],
-                 now, None))
+                 now, None, sched.get("tenant") or ""))
 
-    def schedules(self) -> "list[dict]":
+    def schedules(self, tenant=None) -> "list[dict]":
+        sql = "SELECT * FROM schedules"
+        params: list = []
+        if tenant is not None:
+            sql += " WHERE tenant = ?"
+            params.append(tenant)
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM schedules ORDER BY id").fetchall()
+                sql + " ORDER BY id", params).fetchall()
         return [dict(r) for r in rows]
 
     def set_last_tick(self, schedule_id: str, floor: int) -> None:
@@ -179,29 +216,40 @@ class SqliteBackend:
                 (float(floor), schedule_id))
 
     # -- webhooks + deliveries -------------------------------------------
-    def register_webhook(self, url: str) -> str:
+    def register_webhook(self, url: str, tenant=None) -> str:
         if not _webhook_scheme_ok(url):
             raise WebhookInvalid("webhook_url_invalid_scheme")
+        # id canon: bare url when unscoped (T-8.2 digest, frozen), else
+        # tenant+url so two tenants may register the SAME url without
+        # squatting on each other's primary key
+        canon = url if not tenant else f"{tenant}\n{url}"
         wh_id = "wh_" + hashlib.sha256(
-            url.encode("utf-8")).hexdigest()[:12]
+            canon.encode("utf-8")).hexdigest()[:12]
         with self._lock, self._conn:
             existing = self._conn.execute(
                 "SELECT id FROM webhooks WHERE id = ?", (wh_id,)).fetchone()
             if existing is None:
+                # cap is GLOBAL across tenants (disclosed: no per-tenant
+                # quotas yet -- pinned by test)
                 count = self._conn.execute(
                     "SELECT COUNT(*) AS n FROM webhooks").fetchone()["n"]
                 if count >= MAX_WEBHOOKS:
                     raise WebhookInvalid(f"cap_webhooks_{MAX_WEBHOOKS}")
                 self._conn.execute(
-                    "INSERT INTO webhooks (id, url, active) VALUES (?,?,1)",
-                    (wh_id, url))
+                    "INSERT INTO webhooks (id, url, active, tenant)"
+                    " VALUES (?,?,1,?)",
+                    (wh_id, url, tenant or ""))
         return wh_id
 
-    def webhooks(self) -> "list[dict]":
+    def webhooks(self, tenant=None) -> "list[dict]":
+        sql = "SELECT * FROM webhooks WHERE active = 1"
+        params: list = []
+        if tenant is not None:
+            sql += " AND tenant = ?"
+            params.append(tenant)
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM webhooks WHERE active = 1 ORDER BY id"
-            ).fetchall()
+                sql + " ORDER BY id", params).fetchall()
         return [dict(r) for r in rows]
 
     def delivery_recorded(self, event_seq: int, webhook_id: str):

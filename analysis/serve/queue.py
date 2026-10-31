@@ -26,8 +26,12 @@ from .model import (MAX_ATTEMPTS, MAX_CRON_OCCURRENCES, MAX_ENQUEUE_BATCH,
                     validate_job)
 
 
-def enqueue_jobs(backend, rows, now) -> "tuple[list, list]":
-    """Validate + insert a batch; annotate every skip."""
+def enqueue_jobs(backend, rows, now, tenant=None) -> "tuple[list, list]":
+    """Validate + insert a batch; annotate every skip.
+
+    ``tenant`` (T-9.2) comes from the credential, never from the row --
+    validate_job stamps it and rebuilds the id canon with it.
+    """
     if not isinstance(rows, list):
         rows = [rows]
     jobs, skips = [], []
@@ -35,7 +39,7 @@ def enqueue_jobs(backend, rows, now) -> "tuple[list, list]":
         if i >= MAX_ENQUEUE_BATCH:
             skips.append({"index": i, "reason": f"cap_enqueue_{MAX_ENQUEUE_BATCH}"})
             continue
-        job, err = validate_job(row)
+        job, err = validate_job(row, tenant=tenant)
         if err is not None:
             skips.append({"index": i, "reason": err})
             continue
@@ -45,7 +49,7 @@ def enqueue_jobs(backend, rows, now) -> "tuple[list, list]":
         backend.enqueue_job(job, now)
         backend.append_event("job.enqueued",
                              {"job_id": job["id"], "target": job["target"]},
-                             at=now)
+                             at=now, tenant=job.get("tenant") or "")
         jobs.append(job)
     return jobs, skips
 
@@ -53,9 +57,13 @@ def enqueue_jobs(backend, rows, now) -> "tuple[list, list]":
 def run_job(backend, job, runner, now) -> dict:
     """Run one job to a terminal state; attempts re-read from storage."""
     current = backend.job(job["id"]) or job
+    # T-9.2: the re-read row carries the tenant column; a fallback dict
+    # without one is unscoped ("")
+    scope = current.get("tenant") or ""
     attempts = int(current.get("attempts") or 0) + 1
     backend.update_job(job["id"], status="running", attempts=attempts, now=now)
-    backend.append_event("job.started", {"job_id": job["id"]}, at=now)
+    backend.append_event("job.started", {"job_id": job["id"]}, at=now,
+                         tenant=scope)
     try:
         result = runner(job)
         ok = bool(result.get("ok")) if isinstance(result, dict) else bool(result)
@@ -64,17 +72,20 @@ def run_job(backend, job, runner, now) -> dict:
         err = f"{type(exc).__name__}: {exc}"[:300]
         backend.update_job(job["id"], status="failed", last_error=err, now=now)
         backend.append_event("job.failed",
-                             {"job_id": job["id"], "error": err}, at=now)
+                             {"job_id": job["id"], "error": err}, at=now,
+                             tenant=scope)
         return backend.job(job["id"])
     if ok:
         backend.update_job(job["id"], status="done", now=now)
         backend.append_event("job.completed",
-                             {"job_id": job["id"], "detail": detail}, at=now)
+                             {"job_id": job["id"], "detail": detail}, at=now,
+                             tenant=scope)
     else:
         err = f"runner_not_ok: {detail}"[:300]
         backend.update_job(job["id"], status="failed", last_error=err, now=now)
         backend.append_event("job.failed",
-                             {"job_id": job["id"], "error": err}, at=now)
+                             {"job_id": job["id"], "error": err}, at=now,
+                             tenant=scope)
     return backend.job(job["id"])
 
 
@@ -103,13 +114,22 @@ def drain(backend, runner, now, limit=MAX_RUN_PER_DRAIN):
     return ran, {"ran": ran, "done": done, "failed": failed}, skips
 
 
-def _schedule_id(row) -> str:
+def _schedule_id(row, tenant=None) -> str:
+    # T-9.2: the T-8.2 canon (cron|target|out) is FROZEN for unscoped
+    # schedules; a tenant joins only when non-empty so two tenants may
+    # schedule the same cron+target without colliding on the primary key
     canon = f"{row.get('cron')}|{row.get('target')}|{row.get('out')}"
+    if tenant:
+        canon = f"{canon}|{tenant}"
     return "sch_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
 
 
-def add_schedule(backend, rows, now) -> "tuple[list, list]":
-    """Validate + insert cron schedules; annotate every skip."""
+def add_schedule(backend, rows, now, tenant=None) -> "tuple[list, list]":
+    """Validate + insert cron schedules; annotate every skip.
+
+    ``tenant`` (T-9.2) comes from the credential, never from the row --
+    the client cannot post its way into another tenant's schedule.
+    """
     if not isinstance(rows, list):
         rows = [rows]
     good, skips = [], []
@@ -134,9 +154,11 @@ def add_schedule(backend, rows, now) -> "tuple[list, list]":
         if not row.get("target"):
             skips.append({"index": i, "reason": "target_missing"})
             continue
-        sched = {"id": _schedule_id(row), "cron": row["cron"],
+        sched = {"id": _schedule_id(row, tenant), "cron": row["cron"],
                  "target": row["target"], "out": row.get("out"),
                  "created_at": now, "last_tick": None}
+        if tenant:
+            sched["tenant"] = tenant    # absent key for legacy/unscoped
         if sched["id"] in existing:
             skips.append({"index": i, "reason": f"schedule_exists:{sched['id']}"})
             continue
@@ -175,17 +197,25 @@ def cron_tick(backend, now) -> dict:
         overflow = len(occurrences) > MAX_CRON_OCCURRENCES
         take = occurrences[:MAX_CRON_OCCURRENCES]
         for occ in take:
+            # T-9.2: occurrence ids inherit the schedule's tenant so two
+            # tenants' crons never collide; the ticker itself still walks
+            # EVERY schedule (global by design -- disclosed)
             row = {"target": sched["target"], "out": sched.get("out")}
+            scope = sched.get("tenant") or ""
+            if scope:
+                row["tenant"] = scope
             jid = job_id_for(row, occurrence=occ)
             if backend.job(jid) is None:
-                backend.enqueue_job(
-                    {"id": jid, "target": sched["target"],
-                     "out": sched.get("out"), "status": "queued",
-                     "attempts": 0, "last_error": None}, float(occ))
+                job = {"id": jid, "target": sched["target"],
+                       "out": sched.get("out"), "status": "queued",
+                       "attempts": 0, "last_error": None}
+                if scope:
+                    job["tenant"] = scope
+                backend.enqueue_job(job, float(occ))
                 backend.append_event(
                     "job.cron_enqueued",
                     {"job_id": jid, "schedule_id": sched["id"],
-                     "occurrence": occ}, at=float(now))
+                     "occurrence": occ}, at=float(now), tenant=scope)
                 enqueued += 1
         if overflow:
             capped = True
