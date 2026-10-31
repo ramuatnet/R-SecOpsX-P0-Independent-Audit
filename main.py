@@ -3237,6 +3237,15 @@ def main():
         ),
     )
     parser.add_argument(
+        "--explain-verdict", dest="explain_verdict", action="store_true",
+        help=(
+            "write verdicts.json next to clean_report.json: every reported "
+            "finding's UFIB verdict (disposition + release eligibility) with "
+            "its gate results, category contract and rationale (task.md DoD; "
+            "ground rule 11 -- every verdict is explainable from the payload)."
+        ),
+    )
+    parser.add_argument(
         "--dast-base-url", dest="dast_base_url", default=None,
         help=(
             "T-5.5 opt-in: after the SAST pass, crawl+probe this live base "
@@ -6010,7 +6019,10 @@ def main():
     # late cleanup/noise/safety passes mutated it. Findings that somehow
     # arrive without a disposition are held as NEEDS_REVIEW, never released
     # silently (zero-silent-loss invariant).
-    from analysis.ufib_release import refresh_release_manifest
+    from analysis.ufib_release import (
+        build_verdicts_document,
+        refresh_release_manifest,
+    )
     refresh_release_manifest(payload)
     # T-0.1: with --explain-drops the drop ledger is serialized alongside
     # the report; the summary also rides inside clean_report.json so the
@@ -6019,6 +6031,15 @@ def main():
     if args.explain_drops:
         drops_doc = filter_trace.build_drops_document(payload)
         payload["filter_drops_summary"] = drops_doc["summary"]
+    # DoD --explain-verdict: per-finding verdict explanations serialized
+    # beside the report, built from the SAME final population the release
+    # manifest just classified (after refresh_release_manifest, so late
+    # pipeline mutations cannot skew it).  Flag-off adds nothing -- the
+    # report stays byte-identical to a non-flag scan.
+    verdicts_doc = None
+    if args.explain_verdict:
+        verdicts_doc = build_verdicts_document(payload)
+        payload["verdict_explanation_summary"] = verdicts_doc["summary"]
     # T-0.5: REGEX_TIMEOUT telemetry rides inside the report, but only
     # when a budget was actually breached -- a breach implies pathological
     # input (the old behaviour there was an unbounded hang), and adding
@@ -6048,6 +6069,19 @@ def main():
             f"       => {drops_path} "
             f"({drops_doc['summary']['total_findings_removed']} findings "
             "removed by filter passes, each with a machine-readable reason)"
+        )
+
+    if verdicts_doc is not None:
+        verdicts_path = output_dir / "verdicts.json"
+        with open(verdicts_path, "w", encoding="utf-8") as f:
+            json.dump(verdicts_doc, f, indent=2, default=str)
+        generated_files.append("verdicts.json")
+        _safe_print(
+            f"       => {verdicts_path} "
+            f"({verdicts_doc['summary']['total_findings']} findings, "
+            f"{verdicts_doc['summary']['released_count']} released / "
+            f"{verdicts_doc['summary']['held_count']} held, each with "
+            "gate results and rationale)"
         )
 
     if not args.no_pdf:

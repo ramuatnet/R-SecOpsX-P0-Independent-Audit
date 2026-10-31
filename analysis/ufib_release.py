@@ -35,6 +35,9 @@ from analysis.ufib_brain import (
 
 UFIB_RELEASE_SCHEMA = "UFIB-RELEASE-1"
 RELEASE_POLICY_VERSION = "1.0.0"
+# --explain-verdict document (DoD: ground rule 11 -- every verdict must be
+# explainable from the payload; this is the serialization surface).
+VERDICTS_SCHEMA = "UFIB-VERDICTS-1"
 
 
 def _gate0_engine_integrity(payload: dict) -> list[dict]:
@@ -113,6 +116,76 @@ def build_release_manifest(payload: dict) -> dict:
         "zero_silent_loss": len(findings) == sum(by_disposition.values()),
     }
     return manifest
+
+
+def build_verdicts_document(payload: dict) -> dict:
+    """Serialize per-finding verdict explanations for --explain-verdict
+    (verdicts.json).
+
+    One row per REPORTED finding: its disposition and release eligibility
+    plus the gate results, category contract and rationale that produced
+    them -- the WHY of the verdict, extractable without re-running the
+    brain.  Held-by-default is preserved: a finding with no recorded
+    verdict reads as NEEDS_REVIEW / not release-eligible, never silently
+    released (zero-silent-loss).  Rows are sorted (disposition, rule_id,
+    file, line, category) so the document is byte-identical across runs of
+    the same scan -- worker scheduling must not leak into the artifact.
+    """
+    rows: list[dict] = []
+    skipped_not_objects = 0
+    for f in (payload or {}).get("findings") or []:
+        if not isinstance(f, dict):
+            skipped_not_objects += 1
+            continue
+        ufib = f.get("ufib") if isinstance(f.get("ufib"), dict) else {}
+        disposition = str(f.get("disposition") or "NEEDS_REVIEW")
+        gates = [g for g in (ufib.get("gates") or []) if isinstance(g, dict)]
+        rows.append({
+            "rule_id": str(f.get("rule_id") or ""),
+            "file": str(f.get("file") or ""),
+            "line": f.get("line"),
+            "title": str(f.get("title") or ""),
+            "disposition": disposition,
+            "release_eligible": bool(f.get(
+                "release_eligible",
+                RELEASE_DISPOSITIONS.get(disposition, False))),
+            "category": str(ufib.get("category") or "_unevaluated"),
+            "claim": ufib.get("claim"),
+            "claim_strength": ufib.get("claim_strength"),
+            "confirmation_policy": ufib.get("confirmation_policy"),
+            "disposition_rationale": str(ufib.get("disposition_rationale")
+                                         or ("no verdict recorded on this "
+                                             "finding; held as NEEDS_REVIEW "
+                                             "(zero-silent-loss: an "
+                                             "unvalidated finding is never "
+                                             "released)")),
+            "gates": [{"gate": str(g.get("gate") or ""),
+                       "name": str(g.get("name") or ""),
+                       "result": str(g.get("result") or ""),
+                       "reason": str(g.get("reason") or "")}
+                      for g in gates],
+            "limitations": [str(x) for x in (ufib.get("limitations") or [])],
+        })
+    rows.sort(key=lambda r: (r["disposition"], r["rule_id"], r["file"],
+                             str(r["line"]), r["category"]))
+    by_disposition: dict[str, int] = {}
+    for r in rows:
+        by_disposition[r["disposition"]] = (
+            by_disposition.get(r["disposition"], 0) + 1)
+    released = sum(1 for r in rows if r["release_eligible"])
+    return {
+        "schema": VERDICTS_SCHEMA,
+        "summary": {
+            "total_findings": len(rows),
+            "released_count": released,
+            "held_count": len(rows) - released,
+            "by_disposition": dict(sorted(by_disposition.items())),
+            "scan_status": _scan_status(payload or {},
+                                        [r["disposition"] for r in rows]),
+            "rows_skipped_not_objects": skipped_not_objects,
+        },
+        "verdicts": rows,
+    }
 
 
 def apply_ufib_to_payload(payload: dict, target: str | None = None) -> dict:

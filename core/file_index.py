@@ -85,6 +85,10 @@ EXCLUDED_FILES = {
     # T-0.1: --explain-drops writes drops.json beside clean_report.json;
     # same self-scan hazard as every entry above.
     "drops.json",
+    # DoD --explain-verdict writes verdicts.json beside clean_report.json;
+    # same self-scan hazard (caught by test_v11_self_scan_exclusions when
+    # the artifact name landed without this entry).
+    "verdicts.json",
 }
 
 EXCLUDED_DIRS = {

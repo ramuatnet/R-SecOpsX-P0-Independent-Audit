@@ -1822,6 +1822,9 @@ ARTIFACT_FILE_NAMES = {
     "security_continuous.json",
     # T-0.1: --explain-drops writes drops.json beside clean_report.json.
     "drops.json",
+    # DoD --explain-verdict writes verdicts.json beside clean_report.json
+    # (kept in exact set-agreement with sast/file_index EXCLUDED_FILES).
+    "verdicts.json",
 }
 
 
