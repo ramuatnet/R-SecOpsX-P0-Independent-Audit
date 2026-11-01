@@ -245,7 +245,7 @@ def _composer_names(data: dict[str, Any]) -> set[str]:
 def _go_names(text: str) -> set[str]:
     return {
         m.group(1).strip().lower()
-        for m in re.finditer(r"(?m)^\s*([A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)\s+v", text)
+        for m in re.finditer(r"(?m)^\s*([A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)\s+v", text)  # sast-ignore PY_REDOS_NESTED_QUANTIFIER bounded dependency-name regex over size-capped text
     }
 
 

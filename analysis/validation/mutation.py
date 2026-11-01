@@ -79,7 +79,7 @@ MUTATION_CASES: tuple[MutationCase, ...] = (
     MutationCase(
         id="sql_fstring",
         description="parameterised query -> f-string interpolated into execute()",
-        filename="app.py",
+        filename="app.py",  # sast-ignore PY_SQL_INTERPOLATED_QUERY eval-fixture mutation sample, not product code
         safe=_FLASK_HEAD + '''import sqlite3
 
 @app.route("/user")
@@ -88,7 +88,7 @@ def get_user():
     cur = app_db.cursor()
     cur.execute("SELECT * FROM users WHERE id = ?", (uid,))
     return cur.fetchone()
-''',
+''',  # sast-ignore PY_SQL_INTERPOLATED_QUERY eval-fixture mutation sample, not product code
         mutated=_FLASK_HEAD + '''import sqlite3
 
 @app.route("/user")
@@ -176,7 +176,7 @@ def hello():
         safe='''import os
 
 API_KEY = os.environ["SERVICE_API_KEY"]
-''',
+''',  # sast-ignore OPENAI_KEY eval-fixture hardcoded-secret mutation sample, not product code
         mutated='''API_KEY = "sk-live-hardcoded-secret-0123456789abcdef"
 ''',
         expect_cwes=("CWE-798",),

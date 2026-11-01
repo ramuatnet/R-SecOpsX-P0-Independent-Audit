@@ -74,7 +74,7 @@ SAFE = re.compile(
 # Supports:
 # - Express / Node: app.post("/login"), router.post("/otp")
 # - Spring: @PostMapping("/reset-password")
-# - ASP.NET: [HttpPost("/payment")]
+# - ASP.NET: [HttpPost("/payment")]  # sast-ignore API_PAYMENT_DUPLICATE_ACTION documentation example, not a live route
 # - Go: http.HandleFunc("/login", handler)
 # - PHP Slim/Lumen: $app->post("/login")
 # - Laravel: Route::post("/login")

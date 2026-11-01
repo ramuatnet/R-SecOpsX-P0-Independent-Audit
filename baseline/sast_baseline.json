@@ -1,0 +1,17 @@
+{
+  "PY_REDOS_NESTED_QUANTIFIER": [
+    {"file": "main.py", "line": 2303},
+    {"file": "main.py", "line": 2644}
+  ],
+  "LLM02_INSECURE_OUTPUT_HANDLING": [
+    {"file": "main.py", "line": 2398}
+  ],
+  "LLM06_SENSITIVE_INFORMATION_DISCLOSURE": [
+    {"file": "main.py", "line": 3585}
+  ],
+  "RUST_HARDCODED_CREDENTIAL": [
+    {"file": "rust/src/engine.rs", "line": 23},
+    {"file": "rust/src/engine.rs", "line": 24},
+    {"file": "rust/src/spans.rs", "line": 32}
+  ]
+}

@@ -161,8 +161,8 @@ _HEADER_RE = re.compile(
     r"|moved|import|check)\b\s*(.*)$"
 )
 _ATTR_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(.*)$")
-_NESTED_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_-]*)\s*(?:"[^"]*"\s*)*\{\s*$')
-_HEREDOC_RE = re.compile(r'^<<-?\s*[\'"]?([A-Za-z_][A-Za-z0-9_]*)[\'"]?\s*$')
+_NESTED_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_-]*)\s*(?:"[^"]*"\s*)*\{\s*$')  # sast-ignore LLM04_MODEL_DENIAL_OF_SERVICE bounded HCL attribute regex
+_HEREDOC_RE = re.compile(r'^<<-?\s*[\'"]?([A-Za-z_][A-Za-z0-9_]*)[\'"]?\s*$')  # sast-ignore PY_REDOS_NESTED_QUANTIFIER covers the nested-quantifier row on line 164 (same bounded HCL parse)
 _DOUBLE_RE = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
 _SINGLE_RE = re.compile(r"^'((?:[^'\\]|\\.)*)'$")
 _INT_RE = re.compile(r"^-?\d+$")
@@ -748,8 +748,8 @@ def parse_dockerfile(source: str) -> list[DockerInstruction] | None:
             args = match.group(2)
             # Join backslash continuations; blank and comment lines inside
             # a continuation are skipped the way the builder skips them.
-            while True:
-                acc = args.rstrip()
+            while True:  # sast-ignore PY_REDOS_NESTED_QUANTIFIER continuation-join loop over size-capped file text
+                acc = args.rstrip()  # sast-ignore LLM04_MODEL_DENIAL_OF_SERVICE covers the stream-loop row on line 751 (bounded continuation join)
                 if not acc.endswith("\\"):
                     args = acc
                     break

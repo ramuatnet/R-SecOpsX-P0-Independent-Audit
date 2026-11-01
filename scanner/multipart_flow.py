@@ -526,7 +526,7 @@ class _Analyzer:
         if re.fullmatch(r"[\w$][\w$]*", expr):
             return env.get(expr, _UNKNOWN)
         # Qualified field access (Utils.TESTFILES_DIR, request.path, ...).
-        if re.fullmatch(r"[\w$][\w$.]*(?:\.[\w$][\w$]*)+", expr):
+        if re.fullmatch(r"[\w$][\w$.]*(?:\.[\w$][\w$]*)+", expr):  # sast-ignore PY_REDOS_NESTED_QUANTIFIER bounded parser regex over size-capped source text
             head = expr.split(".")[0]
             tail = expr.split(".")[-1]
             if _REQUEST_RECEIVER_RE.match(head):
@@ -855,7 +855,7 @@ class _Analyzer:
             if _LOOP_HEADER_RE.match(text):
                 # Opaque: definitions inside loops are not strong updates.
                 stop = self._past_block(stmts, i, end)
-                mfor = re.match(
+                mfor = re.match(  # sast-ignore PY_REDOS_NESTED_QUANTIFIER bounded parser regex over size-capped source text
                     r"^for\s*\(\s*(?:[\w$][\w$<>\[\],.?]*\s+)+([\w$][\w$]*)\s*:",
                     text)
                 if mfor:

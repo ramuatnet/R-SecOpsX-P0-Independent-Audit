@@ -52,7 +52,7 @@ def _nvd_query_budget() -> int:
     raw = os.environ.get("RSX_NVD_MAX_QUERIES", "").strip()
     if raw.isdigit():
         return int(raw)
-    return 25 if os.environ.get("NVD_API_KEY", "").strip() else 5
+    return 25 if os.environ.get("NVD_API_KEY", "").strip() else 5  # sast-ignore LLM06_SENSITIVE_INFORMATION_DISCLOSURE env-var read, no hardcoded secret
 
 
 def _nvd_headers() -> dict:

@@ -503,7 +503,7 @@ def scan_file(filepath):
                     # llama_index...ReActAgent(...).
                     if not react_imported:
                         line = evidence
-                        if not re.search(
+                        if not re.search(  # sast-ignore PY_REDOS_NESTED_QUANTIFIER bounded import-usage regex over size-capped source text
                             r"\bllama_index(?:\.[A-Za-z_][A-Za-z0-9_]*)*\s*\.\s*ReActAgent\s*\(",
                             line,
                             re.IGNORECASE,

@@ -56,7 +56,7 @@ def _valid_token(s: str) -> bool:
 def _token_from_host(host: str) -> Optional[str]:
     host = str(host or "").strip().lower().split(":", 1)[0]
     first = host.split(".", 1)[0]
-    return first if _valid_token(first) else None
+    return first if _valid_token(first) else None  # sast-ignore LLM06_SENSITIVE_INFORMATION_DISCLOSURE hostname tokeniser, no secret material
 
 
 def _token_from_path(path: str) -> Optional[str]:

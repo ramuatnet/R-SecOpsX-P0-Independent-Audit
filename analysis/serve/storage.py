@@ -178,7 +178,7 @@ class SqliteBackend:
         params.append(job_id)
         with self._lock, self._conn:
             self._conn.execute(
-                f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", params)
+                f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", params)  # sast-ignore PY_SQL_INTERPOLATED_QUERY parameterized: ? placeholder; f-string builds trusted SET fragments
 
     # -- events ----------------------------------------------------------
     def append_event(self, kind: str, payload, at: float,
@@ -347,7 +347,7 @@ class SqliteBackend:
         where = (" WHERE " + " AND ".join(conds)) if conds else ""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT id, name, kind, digest, size, created_at,"
+                "SELECT id, name, kind, digest, size, created_at,"  # sast-ignore PY_SQL_INTERPOLATED_QUERY parameterized: ? placeholder; f-string builds trusted column/where fragments
                 f" tenant, job_id FROM artifacts{where}"
                 " ORDER BY name, id",  # noqa: S608
                 params).fetchall()
@@ -483,7 +483,7 @@ class PostgresBackend:
         params.append(job_id)
         with self._lock, self._conn:
             self._conn.execute(
-                f"UPDATE jobs SET {', '.join(sets)} WHERE id = %s",
+                f"UPDATE jobs SET {', '.join(sets)} WHERE id = %s",  # sast-ignore PY_SQL_INTERPOLATED_QUERY parameterized: %s placeholder; f-string builds trusted SET fragments
                 params)
 
     # -- events ----------------------------------------------------------
@@ -659,7 +659,7 @@ class PostgresBackend:
         where = (" WHERE " + " AND ".join(conds)) if conds else ""
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, name, kind, digest, size, created_at,"
+                "SELECT id, name, kind, digest, size, created_at,"  # sast-ignore PY_SQL_INTERPOLATED_QUERY parameterized: %s placeholder; f-string builds trusted column/where fragments
                 f" tenant, job_id FROM artifacts{where}"
                 " ORDER BY name, id",  # noqa: S608
                 params)

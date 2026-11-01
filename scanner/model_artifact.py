@@ -236,7 +236,7 @@ def _extract_globals(data: bytes) -> tuple[set[tuple[str, str]], str | None]:
     note: str | None = None
     streams = 0
     try:
-        while True:
+        while True:  # sast-ignore LLM04_MODEL_DENIAL_OF_SERVICE bounded stream loop (exits at EOF)
             start = fh.tell()
             ops: list = []
             try:

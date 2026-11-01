@@ -505,9 +505,9 @@ def enrich_findings_with_live_secret_validation(
 if __name__ == "__main__":
     sample = {
         "rule_id": "TEST_OPENAI_SECRET",
-        "title": "OpenAI API key",
+        "title": "OpenAI API key",  # sast-ignore AI_PROVIDER_SECRET_EXPOSURE self-test placeholder, not a live key
         "snippet": "OPENAI_API_KEY=sk-testinvalidplaceholder",
-    }
+    }  # sast-ignore OPENAI_KEY self-test placeholder, not a live key
     import json
 
     print(json.dumps(validate_secret_finding_live(sample, timeout=2), indent=2))

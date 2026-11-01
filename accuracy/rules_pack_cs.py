@@ -48,7 +48,7 @@ CS_RULES = [
             r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----"),
         "source_rule": "SEC-014/SEC-005/SEC-006 (union of PEM variants)",
         "enabled": False,
-        "positive": [
+        "positive": [  # sast-ignore PEM_PRIVATE_KEY rule-data positive fixture example, not a real key
             'KEY = """-----BEGIN OPENSSH PRIVATE KEY-----"""',
             "pem = '-----BEGIN EC PRIVATE KEY-----'",
         ],

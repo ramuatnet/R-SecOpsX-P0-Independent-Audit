@@ -50,7 +50,7 @@ def root_key(f: dict) -> str:
     except (TypeError, ValueError):
         line_no = 0
 
-    return hashlib.md5(
+    return hashlib.md5(  # sast-ignore MD5_USAGE non-security dedup fingerprint over vuln_type|file|line
         f"{vuln_type}|{source_file}|{line_no}".encode()
     ).hexdigest()
 

@@ -146,7 +146,7 @@ def ssl_probe(host: str, port: int, timeout: float,
         ctx = ssl.create_default_context()
     else:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ctx.check_hostname = False
+        ctx.check_hostname = False  # sast-ignore PY_TLS_CERT_VALIDATION_DISABLED two-stage probe: verified handshake first, unverified retry for inventory only
         ctx.verify_mode = ssl.CERT_NONE
     with socket.create_connection((host, port), timeout=timeout) as raw:
         with ctx.wrap_socket(raw, server_hostname=host) as ssock:

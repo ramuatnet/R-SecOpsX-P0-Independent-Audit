@@ -1393,7 +1393,7 @@ _AIBOM_PROVIDER_ENVIRONMENT = {
 # A model version is only claimed when the name itself carries one:
 # dated snapshots ("gpt-4o-2024-05-13", "-20240613") or dotted versions
 # ("bert-base-uncased-v2.1"). "gpt-4o" is a NAME, not a version.
-_AIBOM_VERSION_RE = re.compile(
+_AIBOM_VERSION_RE = re.compile(  # sast-ignore PY_REDOS_NESTED_QUANTIFIER bounded model-version regex
     r"\d{4}-\d{2}-\d{2}|-\d{6,8}|\bv?\d+(?:\.\d+)+", re.IGNORECASE)
 
 # Strict charset for hub model ids coming out of scanned source -- the

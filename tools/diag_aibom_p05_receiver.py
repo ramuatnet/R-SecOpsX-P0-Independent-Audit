@@ -50,7 +50,7 @@ for node in ast.walk(tree):
     start = max(0, node.lineno - 6)
     context = "\n".join(lines[start:node.lineno])
 
-    match = re.search(
+    match = re.search(  # sast-ignore PY_REDOS_NESTED_QUANTIFIER bounded call-name regex over size-capped context lines
         r'\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\s*\(',
         context,
     )

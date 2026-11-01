@@ -1,0 +1,44 @@
+# T-9.12 self-scan policy (task.md section 13 "self-scan clean").
+# Loaded only when the scan TARGET ROOT is this repository; external
+# targets never read it.  Two kinds of entries, both first-class in the
+# accuracy layer and visible in the audit output:
+#   * path rules (contain "/" or end with "/")  -> walk-time exclusion
+#   * bare ids / bare filenames                 -> finding-level suppression
+# Reasons live on their own "#" lines: a rule line is taken verbatim
+# (the loader does not strip trailing comments).
+
+# --- scope: non-product content, excluded at walk time -------------------
+# generated caches, vendored corpora, downloaded artifacts
+data/
+# third-party downloads / scratch extracts (also holds stale copies of
+# core/ rule-mapping files that would double-count)
+dump/
+# prose documentation, not source
+docs/
+# intentional vulnerability fixtures + seeded sample strings by design
+tests/
+# local scratch workspace (csv/txt/py ad-hoc files, not product code)
+Working folder/
+# single-file LLM01 eval fixture
+integration_fixture_llm01/
+# intentional attack-payload fixtures by design
+payloads/
+# historical metrics snapshots (generated report data, not source;
+# distinct from baseline/sast_baseline.json which is read directly by
+# the suppression loader, never via the walk)
+baseline/
+
+# --- rule-data / eval-fixture self-matches (finding-level) ---------------
+# engine rule tables, CWE maps and governance mappings flag their own
+# pattern/prose content when the engine scans its source (rule-data
+# self-match: the detection patterns are literally present in these files)
+llm_security.py
+atlas_mappings.py
+owasp_mappings.py
+fix_patch_intelligence.py
+llm_context_precision.py
+# ground-truth / benchmark fixture tables: the vulnerable snippets ARE
+# the corpus by design (eval content, not product defects)
+benchmark_llm_precision_controlled.py
+benchmark_sast_corpus.py
+benchmark_evidence_validation_v1.py

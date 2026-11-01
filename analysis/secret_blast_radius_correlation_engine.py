@@ -144,11 +144,11 @@ def _risk_for(secret_risk: str, assets: List[str], secret_confirmed: bool = Fals
     # Offline findings remain potential/high-risk until the secret is validated and
     # its provider scope is established.
     if secret_confirmed and provider_scope_confirmed:
-        if secret_risk == "CRITICAL":
+        if secret_risk == "CRITICAL":  # sast-ignore HARDCODED_CREDENTIAL_COMPARISON risk-level label comparison, no credential material
             return "CRITICAL"
         if assets and secret_risk == "HIGH":
             return "HIGH"
-    if secret_risk == "CRITICAL":
+    if secret_risk == "CRITICAL":  # sast-ignore HARDCODED_CREDENTIAL_COMPARISON risk-level label comparison, no credential material
         return "HIGH"
     if assets and secret_risk == "HIGH":
         return "MEDIUM"

@@ -344,7 +344,7 @@ def _classify_data(item: dict) -> str:
         if any(x in joined for x in ["card", "pci", "cvv"]): return "PCI"
         if any(x in joined for x in ["health", "medical", "phi"]): return "PHI"
         return "PII"
-    if any(x in text for x in ["password", "secret", "token", "api key", "credential"]): return "Secrets"
+    if any(x in text for x in ["password", "secret", "token", "api key", "credential"]): return "Secrets"  # sast-ignore LLM06_SENSITIVE_INFORMATION_DISCLOSURE data-classification keyword table, not secret material
     if any(x in text for x in ["ssn", "aadhaar", "pan", "email", "phone", "address", "dob", "pii", "personal"]): return "PII"
     if any(x in text for x in ["card", "cvv", "stripe"]): return "PCI"
     if any(x in text for x in ["system prompt", "internal", "admin", "private"]): return "Internal"
