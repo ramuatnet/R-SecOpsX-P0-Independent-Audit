@@ -27,6 +27,23 @@ RISK_RANK = {
 }
 
 
+# Machine-generated clock text is not protocol evidence.  The Telnet
+# (`:23\b`) and FTP (`:21\b`) port heuristics fire on the seconds/minutes
+# fields of wall-clock timestamps embedded in the flattened
+# findings/cbom/apibom context: the T-9.15 deterministic-output gate
+# observed identical scans flipping global_legacy_indicators 1 <-> 0
+# because run1's clock hit `:23` inside
+# 2026-11-01T17:37:23.115774Z and run2's clock missed.  Strip ISO
+# timestamps, bare HH:MM:SS clocks and MM:SS.ss durations before
+# pattern matching; real evidence (the `telnet` keyword, host:23 ports)
+# has no clock shape and is unaffected.
+_MACHINE_CLOCK = re.compile(
+    r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?"
+    r"(?:Z|[+-]\d{2}:?\d{2})?"
+    r"|(?<!\d)\d{2}:\d{2}:\d{2}(?:[.,]\d+)?"
+    r"|(?<!\d)\d{2}:\d{2}\.\d+")
+
+
 def _collect_text(obj: Any) -> str:
     if obj is None:
         return ""
@@ -52,8 +69,14 @@ def _collect_text(obj: Any) -> str:
 def _detect_indicators(text: str) -> List[Dict[str, str]]:
     detected = []
 
+    # Machine-generated clock text is not protocol evidence (see
+    # _MACHINE_CLOCK): strip timestamp/duration shapes from the scanned
+    # context so the port heuristics only see genuine port-like text.
+    text = text or ""
+    text = _MACHINE_CLOCK.sub(" ", text)
+
     for name, pattern, risk in LEGACY_PATTERNS:
-        if re.search(pattern, text or "", flags=re.IGNORECASE):
+        if re.search(pattern, text, flags=re.IGNORECASE):
             detected.append({
                 "indicator": name,
                 "risk_level": risk,

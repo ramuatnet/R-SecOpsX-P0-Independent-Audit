@@ -82,6 +82,18 @@ RISK_RANK = {
     "CRITICAL": 4,
 }
 
+# Machine identifiers are not PII evidence.  Every scan mints fresh
+# uuid4s into the BOM payloads (CycloneDX serialNumber, VEX ids,
+# bom-refs), and uuid hex accidentally satisfies several patterns above
+# by chance (measured on 20k random uuids: PASSPORT 1.15%,
+# PHONE/AADHAAR/SWIFT ~0.3%, CREDIT_CARD 0.17% per token) -- which made
+# the indicator counts differ between two otherwise identical scans
+# (found by the T-9.15 deterministic-output gate).  Strip uuid-shaped
+# tokens from the scanned context; real PII text is unaffected.
+_MACHINE_UUID = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
 
 def _collect_text(obj: Any) -> str:
     if obj is None:
@@ -167,6 +179,8 @@ def enrich_data_flow_sensitivity(
         _collect_text(api_bom),
         _collect_text(abom),
     ])
+    # Machine identifiers are not PII evidence (see _MACHINE_UUID).
+    global_context = _MACHINE_UUID.sub(" ", global_context)
 
     indicators = _detect_indicators(global_context)
     highest_risk = _highest_risk(indicators)
