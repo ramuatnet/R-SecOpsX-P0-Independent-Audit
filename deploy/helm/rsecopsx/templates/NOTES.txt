@@ -1,0 +1,34 @@
+R-SecOpsX scanner API is being installed (task.md section 12).
+
+1. Authentication is an EXTERNAL Secret -- the chart materialises no
+   credential material (nothing here for `helm get values` to leak).
+   Create the Secret with auth.json (analysis.serve.auth schema):
+
+     kubectl create secret generic {{ printf "%s-auth" (include "rsecopsx.name" .) }} \
+       --from-file=auth.json=/path/to/auth.json
+
+   Copy deploy/auth.example.json and replace the PLACEHOLDER token:
+
+     {"tokens": [{"name": "operator", "token": "<long-random-token>",
+                  "role": "admin"}]}
+
+   Fail-closed twice: while the Secret is missing the pod cannot start
+   (volume mount failure), and serve refuses a non-loopback bind without
+   a readable auth file (exits rc2 auth_required_for_non_loopback /
+   auth_file_unreadable).
+
+2. Reach the API from your workstation:
+
+     kubectl -n <namespace> port-forward svc/{{ include "rsecopsx.name" . }} 8080:{{ .Values.service.port }}
+
+   then: curl http://127.0.0.1:8080/v1/health
+   Authenticated calls:  -H "Authorization: Bearer <token>"
+
+3. Persistence: SQLite lives on the {{ include "rsecopsx.name" . }}-data
+   PVC at /var/lib/rsecopsx (single writer -- replicaCount must stay 1
+   while the SQLite backend is in use).  For PostgreSQL, run with
+   --db postgres://... against an external instance (driver optional).
+
+4. Airgap: pre-load the pinned image before install
+   (docker save / docker load, or a registry mirror); pullPolicy is
+   IfNotPresent so a loaded image is never re-fetched.

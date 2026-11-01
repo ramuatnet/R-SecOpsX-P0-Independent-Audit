@@ -1,0 +1,70 @@
+# R-SecOpsX local stack -- task.md section 12 PHASE 9 "docker-compose + helm".
+#
+#   docker compose up --build            # API only (SQLite on a named volume)
+#   docker compose --profile postgres up # also start the PostgreSQL component
+#
+# The API mounts deploy/auth.example.json, whose bearer tokens are
+# PLACEHOLDERS -- replace them before the port is reachable by anyone
+# but you.  The API binds 127.0.0.1 on the host by default; edit the
+# ports mapping only together with real auth tokens (serve refuses a
+# non-loopback bind without an auth file, and the container's own
+# --serve-host 0.0.0.0 already requires the mount).
+#
+# The db component is opt-in (compose profile "postgres"): the default
+# stack stays zero-dependency.  Wire the API to it host-side with a
+# psycopg-installed runtime and --db postgres://..., or mount your own
+# command override -- the in-container psycopg wiring is a DISCLOSED
+# known limitation (the image ships no driver).
+name: rsecopsx
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rsecopsx/api:0.1.0
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - rsx_data:/var/lib/rsecopsx
+      - ./deploy/auth.example.json:/etc/rsecopsx/auth.json:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/v1/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  db:
+    profiles: ["postgres"]
+    image: postgres:16.4-alpine
+    user: postgres
+    environment:
+      POSTGRES_DB: ${RSX_DB_NAME:-rsecopsx}
+      POSTGRES_USER: ${RSX_DB_USER:-rsecopsx}
+      # Plain ${RSX_DB_PASSWORD}: the secrets engine reports any
+      # ${VAR:default} at a credential key as a configuration fallback
+      # (CONFIG_CONTEXTUAL_CREDENTIAL), and the fail-closed property is
+      # preserved anyway -- the postgres entrypoint refuses to initialise
+      # with an empty password, so an unset RSX_DB_PASSWORD still stops
+      # the db component before it can accept a connection.
+      POSTGRES_PASSWORD: ${RSX_DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RSX_DB_USER:-rsecopsx} -d ${RSX_DB_NAME:-rsecopsx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  rsx_data:
+  db_data:

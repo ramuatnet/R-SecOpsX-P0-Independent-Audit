@@ -1,0 +1,15 @@
+# Build-context hygiene for the task.md section 12 image: ship the code,
+# not the workspace.  Keep in mind that data/ may hold local caches and
+# reports that must never land in an image layer.
+.git
+**/__pycache__
+*.py[cod]
+data/
+docs/
+tests/
+*.md
+.venv/
+venv/
+env/
+.ruff_cache/
+.pytest_cache/

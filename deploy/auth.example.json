@@ -1,0 +1,9 @@
+{
+  "tokens": [
+    {
+      "name": "operator",
+      "token": "REPLACE_ME_BEFORE_DEPLOY",
+      "role": "admin"
+    }
+  ]
+}

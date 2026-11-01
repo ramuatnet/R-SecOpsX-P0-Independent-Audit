@@ -1,0 +1,6 @@
+apiVersion: v2
+name: rsecopsx
+description: R-SecOpsX scanner API -- offline SAST/SCA/BOM/IaC/secrets (task.md section 12 PHASE 9)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

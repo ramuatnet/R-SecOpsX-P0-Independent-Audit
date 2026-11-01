@@ -1,0 +1,35 @@
+# Default values for the rsecopsx chart (task.md section 12 PHASE 9).
+# Everything security-posture related is FIXED in the templates
+# (non-root, read-only rootfs, dropped capabilities, resource limits);
+# these values only tune image, scale, sizes, and the auth token.
+
+image:
+  repository: rsecopsx/api
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# SQLite lives on a single-writer PVC -- keep one replica.
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+persistence:
+  size: 8Gi
+  # Empty = the cluster's default StorageClass.
+  storageClass: ""
+
+# Auth carries NO values here by design: the chart mounts an EXTERNAL
+# Secret (<name>-auth) created out-of-band, so no credential-shaped
+# value ever sits in values.yaml or `helm get values` output.
+# See templates/NOTES.txt for the kubectl create secret command and
+# deploy/auth.example.json for the auth.json schema.

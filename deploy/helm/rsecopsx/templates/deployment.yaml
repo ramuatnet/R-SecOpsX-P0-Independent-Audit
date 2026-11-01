@@ -1,0 +1,110 @@
+# Security posture below is FIXED (non-root, read-only rootfs, dropped
+# capabilities, resource limits) and pinned by tests/test_t99_deploy.py.
+# Templated scalars are single-quoted and label blocks are inlined so the
+# raw template parses as YAML -- the scanner's structured Kubernetes path
+# evaluates the real containers; helm renders identical output either way.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: '{{ include "rsecopsx.name" . }}'
+  labels:
+    app.kubernetes.io/name: '{{ include "rsecopsx.name" . }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/version: '{{ .Chart.AppVersion }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ .Chart.Name }}-{{ .Chart.Version }}'
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: '{{ include "rsecopsx.name" . }}'
+      app.kubernetes.io/instance: '{{ .Release.Name }}'
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: '{{ include "rsecopsx.name" . }}'
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+        app.kubernetes.io/version: '{{ .Chart.AppVersion }}'
+        app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+        helm.sh/chart: '{{ .Chart.Name }}-{{ .Chart.Version }}'
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: api
+          image: '{{ .Values.image.repository }}:{{ .Values.image.tag }}'
+          imagePullPolicy: '{{ .Values.image.pullPolicy }}'
+          # Non-loopback bind requires --auth-file (serve guard); the
+          # EXTERNAL Secret mounted below always provides one -- the pod
+          # cannot start until it exists (mount failure), and serve itself
+          # exits rc2 if the file is ever unreadable: fail-closed twice.
+          args:
+            - --serve
+            - --serve-host
+            - 0.0.0.0
+            - --serve-port
+            - "8080"
+            - --auth-file
+            - /etc/rsecopsx/auth.json
+            - --db
+            - /var/lib/rsecopsx/rsecopsx.db
+            - --out
+            - /var/lib/rsecopsx/out/clean_report.json
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: TMPDIR
+              value: /tmp
+          resources:
+            requests:
+              cpu: '{{ .Values.resources.requests.cpu }}'
+              memory: '{{ .Values.resources.requests.memory }}'
+            limits:
+              cpu: '{{ .Values.resources.limits.cpu }}'
+              memory: '{{ .Values.resources.limits.memory }}'
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rsecopsx
+            - name: tmp
+              mountPath: /tmp
+            - name: auth
+              mountPath: /etc/rsecopsx
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: '{{ include "rsecopsx.name" . }}-data'
+        - name: tmp
+          emptyDir: {}
+        - name: auth
+          secret:
+            secretName: '{{ printf "%s-auth" (include "rsecopsx.name" .) }}'
