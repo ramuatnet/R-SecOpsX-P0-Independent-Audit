@@ -33,6 +33,8 @@ REDOS_SUITE = REPO / "tests" / "test_redos_budget.py"
 #: The registry run_ci_matrix must build, in append order.  A gate
 #: added later extends this tuple deliberately (one batch = one
 #: measurement); a gate silently dropped or reordered fails here.
+#: (T-9.18 added self_sbom as gate 12 in its own batch -- baseline
+#: updated in the same commit per ground rules.)
 EXPECTED_GATES = (
     "golden_corpus",
     "corpus_manifest",
@@ -45,6 +47,7 @@ EXPECTED_GATES = (
     "engine_parity",
     "variant_stability",
     "redos_suite",
+    "self_sbom",
 )
 
 

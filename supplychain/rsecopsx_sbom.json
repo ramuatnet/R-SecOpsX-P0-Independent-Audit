@@ -1,0 +1,1378 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "name": "PyYAML",
+      "properties": [
+        {
+          "name": "rsx:extras",
+          "value": "all,yaml"
+        },
+        {
+          "name": "rsx:image_pin",
+          "value": "6.0.3"
+        }
+      ],
+      "purl": "pkg:pypi/PyYAML",
+      "scope": "optional",
+      "type": "library",
+      "version": ">=6"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c982642fa9e8606056828ee9a8505737230110bb1099153c79efe865c59d12ba"
+        }
+      ],
+      "name": "aho-corasick",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "1"
+        }
+      ],
+      "purl": "pkg:cargo/aho-corasick",
+      "scope": "required",
+      "type": "library",
+      "version": "1.1.5"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
+        }
+      ],
+      "name": "autocfg",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/autocfg",
+      "scope": "required",
+      "type": "library",
+      "version": "1.5.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6bb31b46c14244e20ee9984b11bf5c992b91fb6939fea616e3512c8baecdbe5f"
+        }
+      ],
+      "name": "bstr",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/bstr",
+      "scope": "required",
+      "type": "library",
+      "version": "1.13.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
+        }
+      ],
+      "name": "cc",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/cc",
+      "scope": "required",
+      "type": "library",
+      "version": "1.10.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "622f3fc73690be383c7214310406f28a90e6edeadc3cea882f9d71e495b9711a"
+        }
+      ],
+      "name": "crossbeam-deque",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/crossbeam-deque",
+      "scope": "required",
+      "type": "library",
+      "version": "0.8.8"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "dc74980687109a3b14c72fd458107bf0baa1da1a1a805e178d15501ba9b86d9d"
+        }
+      ],
+      "name": "crossbeam-epoch",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/crossbeam-epoch",
+      "scope": "required",
+      "type": "library",
+      "version": "0.9.21"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
+        }
+      ],
+      "name": "crossbeam-utils",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/crossbeam-utils",
+      "scope": "required",
+      "type": "library",
+      "version": "0.8.23"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
+        }
+      ],
+      "name": "equivalent",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/equivalent",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.3"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
+        }
+      ],
+      "name": "find-msvc-tools",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/find-msvc-tools",
+      "scope": "required",
+      "type": "library",
+      "version": "0.1.15"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+        }
+      ],
+      "name": "foldhash",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/foldhash",
+      "scope": "required",
+      "type": "library",
+      "version": "0.2.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f98b0d85522dc0a824cfebbc9594ff4a9b289c568bea0370319dfbdf20ccdd2d"
+        }
+      ],
+      "name": "globset",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/globset",
+      "scope": "required",
+      "type": "library",
+      "version": "0.4.21"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+        }
+      ],
+      "name": "hashbrown",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/hashbrown",
+      "scope": "required",
+      "type": "library",
+      "version": "0.17.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+        }
+      ],
+      "name": "heck",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/heck",
+      "scope": "required",
+      "type": "library",
+      "version": "0.5.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "484be5657551d7868d67587df967fb4fcbe9d266a761cc855aaa148fda0b3cc7"
+        }
+      ],
+      "name": "ignore",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.4"
+        }
+      ],
+      "purl": "pkg:cargo/ignore",
+      "scope": "required",
+      "type": "library",
+      "version": "0.4.34"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
+        }
+      ],
+      "name": "indexmap",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/indexmap",
+      "scope": "required",
+      "type": "library",
+      "version": "2.14.2"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a37b2691796cffeb8a8cd305ac66e65841559f147f4e63231d0eafa4db5384d1"
+        }
+      ],
+      "name": "indoc",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/indoc",
+      "scope": "required",
+      "type": "library",
+      "version": "2.0.8"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+        }
+      ],
+      "name": "itoa",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/itoa",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.18"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
+        }
+      ],
+      "name": "libc",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/libc",
+      "scope": "required",
+      "type": "library",
+      "version": "0.2.191"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+        }
+      ],
+      "name": "log",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/log",
+      "scope": "required",
+      "type": "library",
+      "version": "0.4.34"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+        }
+      ],
+      "name": "memchr",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/memchr",
+      "scope": "required",
+      "type": "library",
+      "version": "2.8.3"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
+        }
+      ],
+      "name": "memoffset",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/memoffset",
+      "scope": "required",
+      "type": "library",
+      "version": "0.9.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+        }
+      ],
+      "name": "once_cell",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/once_cell",
+      "scope": "required",
+      "type": "library",
+      "version": "1.21.4"
+    },
+    {
+      "name": "openpyxl",
+      "properties": [
+        {
+          "name": "rsx:extras",
+          "value": "all,excel"
+        }
+      ],
+      "purl": "pkg:pypi/openpyxl",
+      "scope": "optional",
+      "type": "library",
+      "version": ">=3.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
+        }
+      ],
+      "name": "portable-atomic",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/portable-atomic",
+      "scope": "required",
+      "type": "library",
+      "version": "1.15.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
+        }
+      ],
+      "name": "proc-macro2",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/proc-macro2",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.107"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7ba0117f4212101ee6544044dae45abe1083d30ce7b29c4b5cbdfa2354e07383"
+        }
+      ],
+      "name": "pyo3",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.26"
+        }
+      ],
+      "purl": "pkg:cargo/pyo3",
+      "scope": "required",
+      "type": "library",
+      "version": "0.26.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4fc6ddaf24947d12a9aa31ac65431fb1b851b8f4365426e182901eabfb87df5f"
+        }
+      ],
+      "name": "pyo3-build-config",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/pyo3-build-config",
+      "scope": "required",
+      "type": "library",
+      "version": "0.26.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "025474d3928738efb38ac36d4744a74a400c901c7596199e20e45d98eb194105"
+        }
+      ],
+      "name": "pyo3-ffi",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/pyo3-ffi",
+      "scope": "required",
+      "type": "library",
+      "version": "0.26.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2e64eb489f22fe1c95911b77c44cc41e7c19f3082fc81cce90f657cdc42ffded"
+        }
+      ],
+      "name": "pyo3-macros",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/pyo3-macros",
+      "scope": "required",
+      "type": "library",
+      "version": "0.26.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "100246c0ecf400b475341b8455a9213344569af29a3c841d29270e53102e0fcf"
+        }
+      ],
+      "name": "pyo3-macros-backend",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/pyo3-macros-backend",
+      "scope": "required",
+      "type": "library",
+      "version": "0.26.0"
+    },
+    {
+      "name": "python",
+      "purl": "pkg:docker/python@3.14-slim-bookworm",
+      "scope": "required",
+      "type": "container",
+      "version": "3.14-slim-bookworm"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
+        }
+      ],
+      "name": "quote",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/quote",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.47"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d"
+        }
+      ],
+      "name": "regex",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "1"
+        }
+      ],
+      "purl": "pkg:cargo/regex",
+      "scope": "required",
+      "type": "library",
+      "version": "1.13.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ad8553b9b26413251cbf30e620595c7a41b3887f03da04579c0e6b0d6a06b4b2"
+        }
+      ],
+      "name": "regex-automata",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/regex-automata",
+      "scope": "required",
+      "type": "library",
+      "version": "0.4.18"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+        }
+      ],
+      "name": "regex-syntax",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/regex-syntax",
+      "scope": "required",
+      "type": "library",
+      "version": "0.8.11"
+    },
+    {
+      "name": "reportlab",
+      "properties": [
+        {
+          "name": "rsx:extras",
+          "value": "all,pdf"
+        }
+      ],
+      "purl": "pkg:pypi/reportlab",
+      "scope": "optional",
+      "type": "library",
+      "version": ">=4"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
+        }
+      ],
+      "name": "rustversion",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/rustversion",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.23"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+        }
+      ],
+      "name": "same-file",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/same-file",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.6"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
+        }
+      ],
+      "name": "serde",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "1"
+        }
+      ],
+      "purl": "pkg:cargo/serde",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.229"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
+        }
+      ],
+      "name": "serde_core",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/serde_core",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.229"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
+        }
+      ],
+      "name": "serde_derive",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/serde_derive",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.229"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
+        }
+      ],
+      "name": "serde_json",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "1"
+        }
+      ],
+      "purl": "pkg:cargo/serde_json",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.154"
+    },
+    {
+      "name": "setuptools",
+      "properties": [
+        {
+          "name": "rsx:role",
+          "value": "build-system"
+        }
+      ],
+      "purl": "pkg:pypi/setuptools",
+      "scope": "required",
+      "type": "library",
+      "version": ">=68"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
+        }
+      ],
+      "name": "shlex",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/shlex",
+      "scope": "required",
+      "type": "library",
+      "version": "2.0.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2b2231b7c3057d5e4ad0156fb3dc807d900806020c5ffa3ee6ff2c8c76fb8520"
+        }
+      ],
+      "name": "streaming-iterator",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/streaming-iterator",
+      "scope": "required",
+      "type": "library",
+      "version": "0.1.9"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297"
+        }
+      ],
+      "name": "syn",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/syn",
+      "scope": "required",
+      "type": "library",
+      "version": "2.0.119"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d78c8dee4c7bf0e14673097256fed6142ce9d3b85a408189d07482442145823b"
+        }
+      ],
+      "name": "syn",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/syn",
+      "scope": "required",
+      "type": "library",
+      "version": "3.0.9"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
+        }
+      ],
+      "name": "target-lexicon",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/target-lexicon",
+      "scope": "required",
+      "type": "library",
+      "version": "0.13.5"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "78f873475d258561b06f1c595d93308a7ed124d9977cb26b148c2084a4a3cc87"
+        }
+      ],
+      "name": "tree-sitter",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.25"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter",
+      "scope": "required",
+      "type": "library",
+      "version": "0.25.10"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "afd2b1bf1585dc2ef6d69e87d01db8adb059006649dd5f96f31aa789ee6e9c71"
+        }
+      ],
+      "name": "tree-sitter-c",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-c",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.4"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c1aac67f1ad71de1d6d39708d34811081c26dfa495658de6c14c34200849357c"
+        }
+      ],
+      "name": "tree-sitter-c-sharp",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-c-sharp",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.5"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "df2196ea9d47b4ab4a31b9297eaa5a5d19a0b121dceb9f118f6790ad0ab94743"
+        }
+      ],
+      "name": "tree-sitter-cpp",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-cpp",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.4"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b13d476345220dbe600147dd444165c5791bf85ef53e28acbedd46112ee18431"
+        }
+      ],
+      "name": "tree-sitter-go",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-go",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.4"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0aa6cbcdc8c679b214e616fd3300da67da0e492e066df01bcf5a5921a71e90d6"
+        }
+      ],
+      "name": "tree-sitter-java",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-java",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.5"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bf40bf599e0416c16c125c3cec10ee5ddc7d1bb8b0c60fa5c4de249ad34dc1b1"
+        }
+      ],
+      "name": "tree-sitter-javascript",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-javascript",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d0af592be68c579aa78a16846bd19422978c3c52e438523d45ff5d1bff1f9d4a"
+        }
+      ],
+      "name": "tree-sitter-language",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-language",
+      "scope": "required",
+      "type": "library",
+      "version": "0.1.9"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f066e94e9272cfe4f1dcb07a1c50c66097eca648f2d7233d299c8ae9ed8c130c"
+        }
+      ],
+      "name": "tree-sitter-php",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-php",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.11"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3d065aaa27f3aaceaf60c1f0e0ac09e1cb9eb8ed28e7bcdaa52129cffc7f4b04"
+        }
+      ],
+      "name": "tree-sitter-python",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-python",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.6"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "be0484ea4ef6bb9c575b4fdabde7e31340a8d2dbc7d52b321ac83da703249f95"
+        }
+      ],
+      "name": "tree-sitter-ruby",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-ruby",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ca8ccb3e3a3495c8a943f6c3fd24c3804c471fd7f4f16087623c7fa4c0068e8a"
+        }
+      ],
+      "name": "tree-sitter-rust",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-rust",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.3"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6c5f76ed8d947a75cc446d5fccd8b602ebf0cde64ccf2ffa434d873d7a575eff"
+        }
+      ],
+      "name": "tree-sitter-typescript",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "direct"
+        },
+        {
+          "name": "rsx:declared_req",
+          "value": "0.23"
+        }
+      ],
+      "purl": "pkg:cargo/tree-sitter-typescript",
+      "scope": "required",
+      "type": "library",
+      "version": "0.23.2"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
+        }
+      ],
+      "name": "unicode-ident",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/unicode-ident",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.27"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
+        }
+      ],
+      "name": "unindent",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/unindent",
+      "scope": "required",
+      "type": "library",
+      "version": "0.2.4"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
+        }
+      ],
+      "name": "walkdir",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/walkdir",
+      "scope": "required",
+      "type": "library",
+      "version": "2.5.0"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+        }
+      ],
+      "name": "winapi-util",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/winapi-util",
+      "scope": "required",
+      "type": "library",
+      "version": "0.1.11"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+        }
+      ],
+      "name": "windows-link",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/windows-link",
+      "scope": "required",
+      "type": "library",
+      "version": "0.2.1"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
+        }
+      ],
+      "name": "windows-sys",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/windows-sys",
+      "scope": "required",
+      "type": "library",
+      "version": "0.61.2"
+    },
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+        }
+      ],
+      "name": "zmij",
+      "properties": [
+        {
+          "name": "rsx:cargo_scope",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:cargo/zmij",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.23"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "name": "rsecopsx",
+      "properties": [
+        {
+          "name": "rsx:requires-python",
+          "value": ">=3.12"
+        }
+      ],
+      "purl": "pkg:pypi/rsecopsx",
+      "type": "application",
+      "version": "v2.1"
+    },
+    "tools": [
+      {
+        "name": "emit_self_sbom"
+      }
+    ]
+  },
+  "serialNumber": "urn:uuid:18ffe36e-377e-5d2e-9a65-8d0a0ff3c9ef",
+  "specVersion": "1.5",
+  "version": 1
+}

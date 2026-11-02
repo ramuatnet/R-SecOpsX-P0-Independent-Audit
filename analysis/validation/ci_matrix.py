@@ -169,6 +169,19 @@ def run_ci_matrix() -> dict:
         timeout=120,
     ))
 
+    # T-9.18 SBOM of the scanner itself (task.md section 13): the
+    # committed CycloneDX self-SBOM is re-generated from the repo
+    # sources (pyproject extras, Cargo.lock resolution, Dockerfile
+    # base) and byte-compared -- a dependency edit without a re-emit
+    # fails here (rc 0/1/2; drift is 1).  Offline, seconds-fast, tight
+    # 60s cap.
+    gates.append(_run(
+        "self_sbom",
+        [sys.executable, str(ROOT / "tools" / "emit_self_sbom.py"),
+         "--check"],
+        timeout=60,
+    ))
+
     passed = sum(1 for g in gates if g["passed"])
     failed = [g["name"] for g in gates if not g["passed"]]
 
