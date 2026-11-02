@@ -3292,6 +3292,18 @@ def main():
         ),
     )
     parser.add_argument(
+        "--telemetry", dest="telemetry", action="store_true",
+        help=(
+            "T-14.3 (task.md section 14 'Observability'): write telemetry.json "
+            "next to clean_report.json -- structured scan telemetry (stage "
+            "timings + drop counts + regex timeouts) as one machine-readable "
+            "artifact with schema rsecopsx.scan_telemetry/v1. Default off: "
+            "stage timings are wall-clock, so an unconditional write would add "
+            "a nondeterministic file to every output dir (drops/verdicts "
+            "precedent -- flag-off output stays byte-identical)."
+        ),
+    )
+    parser.add_argument(
         "--dast-base-url", dest="dast_base_url", default=None,
         help=(
             "T-5.5 opt-in: after the SAST pass, crawl+probe this live base "
@@ -6575,6 +6587,35 @@ def main():
         _safe_print(
             f"       => Scan performance artifact failed: {exc}"
         )
+    # ---------------------------------------------------------------
+    # T-14.3 (task.md section 14 "Observability"): structured scan
+    # telemetry -- stage timings (the just-finished _SCAN_TIMING table),
+    # drop counts (the per-scan filter_trace ledger summary) and regex
+    # timeouts (regex_budget metadata) assembled by core/telemetry.py
+    # into one machine-readable artifact beside clean_report.json.
+    # Flag-gated on purpose: the stage rows are wall-clock, so an
+    # unconditional write would put a nondeterministic file in every
+    # output dir (drops/verdicts precedent -- additive structured docs
+    # ride a flag; flag-off output stays byte-identical). The payload
+    # is NOT mutated even flag-on: telemetry.json carries everything.
+    # ---------------------------------------------------------------
+    if args.telemetry:
+        try:
+            from core.telemetry import build_document as _build_telemetry
+            telemetry_doc = _build_telemetry(
+                scan_timing,
+                filter_trace.build_drops_document(payload)["summary"],
+                regex_budget.current().as_metadata(),
+            )
+            telemetry_path = output_dir / "telemetry.json"
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                json.dump(telemetry_doc, f, indent=2, default=str)
+            generated_files.append(telemetry_path.name)
+            _safe_print(f"       => {telemetry_path}")
+        except Exception as exc:
+            _safe_print(
+                f"       => Scan telemetry artifact failed: {exc}"
+            )
     # ---------------------------------------------------------------
     # Final phase — Package generated security assessment reports
     # ---------------------------------------------------------------

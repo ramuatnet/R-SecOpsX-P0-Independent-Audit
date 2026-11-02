@@ -93,6 +93,10 @@ EXCLUDED_FILES = {
     # clean_report.json.  HTML IS a scannable extension (XSS rules), so a
     # re-scan of the output directory would read the SPA as input.
     "triage.html",
+    # T-14.3 (task.md section 14 "Observability"): --telemetry writes
+    # telemetry.json beside clean_report.json; same self-scan hazard as
+    # every entry above (JSON IS re-scannable input).
+    "telemetry.json",
 }
 
 EXCLUDED_DIRS = {

@@ -1828,6 +1828,10 @@ ARTIFACT_FILE_NAMES = {
     # T-9.6 / D-2: --html-embedded writes triage.html beside
     # clean_report.json (HTML is scannable -- XSS rules would read it).
     "triage.html",
+    # T-14.3 (task.md section 14 "Observability"): --telemetry writes
+    # telemetry.json beside clean_report.json (kept in exact set-
+    # agreement with sast/file_index EXCLUDED_FILES).
+    "telemetry.json",
 }
 
 
