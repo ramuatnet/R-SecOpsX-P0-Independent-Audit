@@ -85,6 +85,19 @@ measured on tests/vuln-test-corpus/sast)
   python/rust/cpp grammars are LOCAL-only wheels under the same honesty
   contract: absent → ``parse()`` is None → every finding keeps, and each
   grammar-dependent test skips itself.
+* T-14.1a — C/C++ real AST (task.md section 14, language coverage):
+  ``CPP_UNSAFE_STRING_FUNCTION`` / ``CPP_FORMAT_STRING`` /
+  ``CPP_SYSTEM_VARIABLE`` / ``CPP_SQLITE3_EXEC_VARIABLE`` /
+  ``CPP_USE_AFTER_FREE`` are line shapes that only a CALL SITE proves
+  true.  Measured firing before this validator: a function-declaration
+  prototype (``char *strcpy(char*, const char*);``), a name mention
+  inside a string literal (``"call strcpy(dst, src) later"``), and a
+  ``void printf(void);`` declaration the text gate reads as an
+  identifier-format argument.  Kill-on-proof: only those proven
+  non-call shapes (declarator of a ``function_declarator``, a
+  ``preproc_function_def`` macro header, string/comment content) kill;
+  a ``call_expression`` callee and every unrecognised shape keeps, and
+  grammar absent returns at the apply level before this layer runs.
 * Benchmark FP0 closure (2026-10-22). ``JAVA_XPATH_INJECTION`` and
   ``JAVA_JDBC_SQL_INTERMEDIATE_QUERY`` are window rules that proved shape
   plus file-level request evidence, never that the concatenated operand
@@ -160,6 +173,14 @@ VALIDATED_RULE_IDS = frozenset({
     "RUST_PATH_FORMAT",
     "CPP_HARDCODED_CREDENTIAL",
     "CPP_PATH_SNPRINTF_INTERP",
+    # T-14.1a C/C++ real AST (task.md section 14): callee-position kills
+    # via _cpp_call_shape -- declaration/string/macro-header matches are
+    # not calls (tests/test_t1401_cpp_ast.py).
+    "CPP_UNSAFE_STRING_FUNCTION",
+    "CPP_SYSTEM_VARIABLE",
+    "CPP_SQLITE3_EXEC_VARIABLE",
+    "CPP_FORMAT_STRING",
+    "CPP_USE_AFTER_FREE",
     # Bucket C pair dedup 2026-10-22 (see _PAIR_RULES: these carry a
     # per-finding "keep" and are decided by the post-guard pair pass).
     "JAVA_OBJECTINPUTSTREAM_DESERIALIZATION",
@@ -334,6 +355,9 @@ def _validate(finding: dict, rule_id: str, ctx: _FileContext):
         return _traversal_concat(finding, ctx, _php_concat_var)
     if rule_id == "CPP_HARDCODED_CREDENTIAL":
         return _cpp_credential(finding, ctx)
+    if rule_id in _CPP_CALL_RULES:
+        # T-14.1a C/C++ real AST: the line shape must be a real call.
+        return _cpp_call_shape(finding, rule_id, ctx)
     if rule_id == "TAINT_XSS":
         return _python_render_literal_kill(finding, ctx)
     if rule_id in ("JAVA_XPATH_INJECTION",
@@ -577,6 +601,90 @@ def _cpp_credential(finding: dict, ctx: _FileContext):
     snippet = str(finding.get("snippet") or "").strip()
     match = _CPP_CRED_ASSIGN.search(snippet)
     if match and not _CRED_NAME_RE.search(match.group(1)):
+        return "kill"
+    return "keep"
+
+
+# ---------------------------------------------------------------------------
+# T-14.1a C/C++ real AST: callee-position proof for the C/C++ window rules
+# ---------------------------------------------------------------------------
+#
+# The window rules (UNSAFE/FORMAT/SYSTEM/SQLITE3_EXEC/USE_AFTER_FREE) fire
+# on line shapes; only a CALL SITE proves the shape true.  Kill-on-proof:
+# a proven non-call (function-declarator name, preproc macro header,
+# string/comment content) kills; a call_expression callee and every
+# unrecognised shape keeps.
+
+#: rule id -> callee alternation (must mirror the sast pattern groups).
+_CPP_CALL_RULES: dict[str, tuple[str, ...]] = {
+    "CPP_UNSAFE_STRING_FUNCTION": ("strcpy", "strcat", "gets",
+                                   "sprintf", "vsprintf"),
+    "CPP_FORMAT_STRING": ("printf", "fprintf", "sprintf", "snprintf",
+                          "vprintf", "vfprintf", "vsprintf", "vsnprintf"),
+    "CPP_SYSTEM_VARIABLE": ("system", "_system"),
+    "CPP_SQLITE3_EXEC_VARIABLE": ("sqlite3_exec",),
+    "CPP_USE_AFTER_FREE": ("free",),
+}
+
+
+def _cpp_name_is_call(root, offset: int, name: str) -> bool | None:
+    """Is the identifier at ``offset`` used as a CALL callee?
+
+    ``True`` = proven call, ``False`` = proven non-call (declarator /
+    macro header / string or comment content), ``None`` = unrecognised
+    shape (conservative keep).  Node identity is ``==`` (tree-sitter
+    returns fresh wrappers, so ``is`` never matches).
+    """
+    node = root.descendant_for_byte_range(offset, offset + len(name))
+    while node is not None:
+        if node.type in ("string_content", "string_literal",
+                         "char_literal", "comment"):
+            return False
+        parent = node.parent
+        if parent is None:
+            return None
+        if parent.type == "call_expression" and \
+                parent.child_by_field_name("function") == node:
+            return True
+        if parent.type == "function_declarator" and \
+                parent.child_by_field_name("declarator") == node:
+            return False
+        if parent.type == "preproc_function_def" and \
+                parent.child_by_field_name("name") == node:
+            return False
+        node = parent
+    return None
+
+
+def _cpp_call_shape(finding: dict, rule_id: str, ctx: _FileContext):
+    """T-14.1a: the finding line must contain a real call of the family."""
+    if ctx.lang != "cpp" or ctx.tree is None:
+        return "keep"
+    row = int(finding.get("line") or 0)
+    lines = ctx.lines
+    if row < 1 or row > len(lines):
+        return "keep"
+    line = lines[row - 1]
+    names = _CPP_CALL_RULES.get(rule_id)
+    if not names:
+        return "keep"
+    pattern = r"\b(?:%s)\s*\(" % "|".join(names)
+    hits = list(re.finditer(pattern, line))
+    if not hits:
+        return "keep"
+    # Byte offset of the first match on this line (utf-8 source).
+    offset = sum(len(l.encode("utf-8")) + 1 for l in lines[:row - 1])
+    offset += len(line[: hits[0].start()].encode("utf-8"))
+    verdicts = []
+    for m in hits:
+        off = offset + (m.start() - hits[0].start())
+        callee = m.group(0).split("(", 1)[0].strip()
+        verdicts.append(_cpp_name_is_call(ctx.tree.root_node, off, callee))
+    if any(v is True for v in verdicts):
+        return "keep"
+    if any(v is None for v in verdicts):
+        return "keep"
+    if all(v is False for v in verdicts):
         return "kill"
     return "keep"
 

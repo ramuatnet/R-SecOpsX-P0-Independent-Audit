@@ -126,6 +126,14 @@ class TestHonestyContracts:
             "RUST_PATH_FORMAT",
             "CPP_HARDCODED_CREDENTIAL",
             "CPP_PATH_SNPRINTF_INTERP",
+            # T-14.1a C/C++ real AST: callee-position kills, each pinned
+            # by tests/test_t1401_cpp_ast.py (declaration/string/macro
+            # kills + real-call keeps).
+            "CPP_UNSAFE_STRING_FUNCTION",
+            "CPP_SYSTEM_VARIABLE",
+            "CPP_SQLITE3_EXEC_VARIABLE",
+            "CPP_FORMAT_STRING",
+            "CPP_USE_AFTER_FREE",
             # 2026-10-22 bucket C pair dedup: kill decided by the
             # post-guard _pair_dedupe pass (partner row + receiver
             # identity), not by a per-finding branch.
