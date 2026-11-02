@@ -30,6 +30,9 @@ from core import depth_guard
 # T-0.5 (task.md ground rule 12): per-regex wall-clock budget on every
 # rule-table finditer; breaches surface as REGEX_TIMEOUT telemetry.
 from core import regex_budget
+# T-9.16 (task.md section 13): process-level memory + CPU limits --
+# watchdog + cooperative stage check, exit 2 on breach via guard.
+from core import resource_limits
 # T-0.2 (task.md): the one filesystem walk + shared file index. Every
 # engine consumes file_index.index_for(root); walk count lands in
 # metadata.file_index and the gate asserts exactly 1 per scan.
@@ -432,6 +435,9 @@ def _timing_close_stage():
 
 
 def _timing_start_stage(label, heartbeat=True):
+    # T-9.16: every stage boundary (85 _step call sites funnel here)
+    # refuses to start once a memory/CPU budget is breached.
+    resource_limits.check()
     _timing_close_stage()
     stage = str(label)
     start_at = _timing_wall_now()
@@ -3122,6 +3128,7 @@ def _build_qbom_layers(payload):
     return docs
 
 
+@resource_limits.guard
 def main():
     parser = argparse.ArgumentParser(description=TOOL_FULL)
     parser.add_argument(
@@ -3163,6 +3170,16 @@ def main():
              "SARIF, VEX and Excel workbooks are still written. This flag was "
              "declared but never consulted, so it skipped nothing until G-138.")
     parser.add_argument("--no-excel", action="store_true")
+    parser.add_argument(
+        "--max-memory-mb", type=float,
+        default=resource_limits.DEFAULT_MAX_MEMORY_MB,
+        help="abort the scan if process memory exceeds this many MB "
+             "(default %(default)s; 0 disables). T-9.16 ground rule 12.")
+    parser.add_argument(
+        "--max-cpu-seconds", type=float,
+        default=resource_limits.DEFAULT_MAX_CPU_SECONDS,
+        help="abort the scan if process CPU exceeds this many seconds "
+             "(default %(default)s; 0 disables). T-9.16 ground rule 12.")
     parser.add_argument(
         "--html-embedded", dest="html_embedded", action="store_true",
         help="write triage.html beside clean_report.json: the D-2 airgap "
@@ -3341,6 +3358,8 @@ def main():
     # cache cleared with it.
     file_index.begin_scan()
     _banner()
+    # T-9.16: arm the process memory/CPU budget before any walking.
+    resource_limits.activate(args.max_memory_mb, args.max_cpu_seconds)
 
     # --sbom ingest mode replaces the directory target with the document:
     # there is no source tree, so the isdir guard below must not apply and
