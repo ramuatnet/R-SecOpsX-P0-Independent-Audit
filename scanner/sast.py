@@ -75,10 +75,16 @@ _HTTP_METHOD_VERBS = frozenset(
     {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE"}
 )
 
+# T-14.1b (task.md section 14 "Language coverage", long-tail remainder):
+# the eight extensions below (.swift/.dart/.ex/.exs/.lua/.r/.pl/.pm) were
+# absent here, so a directory walk never handed those files to the rule
+# loop even after LANG_BY_EXT gained their mappings. Both halves ship
+# together (see core/file_index.py) or the L1 orphan gate fails.
 SCANNABLE_EXT = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".java", ".kt", ".scala", ".go",
     ".rb", ".php", ".cs", ".vb", ".cpp", ".c", ".h", ".hpp", ".rs", ".sh",
     ".sol", ".erb",
+    ".swift", ".dart", ".ex", ".exs", ".lua", ".r", ".pl", ".pm",
     ".env", ".yml", ".yaml", ".properties", ".xml", ".json", ".graphql", ".gql",
     ".gradle", ".csproj", ".config", ".tf", ".Dockerfile", "Dockerfile",
 }
@@ -121,9 +127,9 @@ BASE_REMEDIATION = {
 def _priority(sev: str) -> str:
     return {"Critical": "P1", "High": "P2", "Medium": "P3", "Low": "P4"}.get(sev, "P3")
 
-# 160 declarative rules from rules/enterprise_v1.yaml (the BIG4
+# 174 declarative rules from rules/enterprise_v1.yaml (the BIG4
 # patch/extras layer folded into the YAML at migration; see
-# tools/emit_rule_yaml.py).
+# tools/emit_rule_yaml.py; +14 long-tail language rules from T-14.1b).
 ENTERPRISE_RULES: list[dict] = load_enterprise_rules()
 _existing_rule_ids = {r.get("id") for r in ENTERPRISE_RULES}
 
@@ -282,6 +288,18 @@ _LINE_COMMENT_PREFIXES = {
     "vbnet": ("'",),
     "xml": ("<!--",),
     "graphql": ("#",),
+    # T-14.1b long-tail languages: without these, a pattern mention in
+    # commentary for the eight new langs fired as a live finding.
+    # Lua limitation (disclosed): multi-line long-bracket comments
+    # (--[[ ... ]]) are NOT masked -- the "--" line prefix is checked
+    # first and shadows the block form, so only the opening line goes
+    # dark. Line-only masking was the measured trade-off.
+    "swift": ("//",),
+    "dart": ("//",),
+    "elixir": ("#",),
+    "lua": ("--",),
+    "r": ("#",),
+    "perl": ("#",),
 }
 
 _BLOCK_COMMENT_DELIMS = {
@@ -297,6 +315,9 @@ _BLOCK_COMMENT_DELIMS = {
     "solidity": ("/*", "*/"),
     "php": ("/*", "*/"),
     "xml": ("<!--", "-->"),
+    # T-14.1b long-tail: swift/dart use C-style block comments.
+    "swift": ("/*", "*/"),
+    "dart": ("/*", "*/"),
 }
 
 

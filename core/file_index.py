@@ -156,6 +156,16 @@ LANG_BY_EXT = {
     ".sol": "solidity",
     ".erb": "ruby",
     ".yml": "yaml", ".yaml": "yaml", ".json": "json", ".graphql": "graphql", ".gql": "graphql",
+    # T-14.1b long-tail languages (task.md section 14, item 1 remainder).
+    # .ex/.pl need the mapping most: the bare-ext fallback yields "ex"/"pl",
+    # which never satisfies an langs: ['elixir']/['perl'] gate, so the
+    # language rules would stay dead even once the files were scannable.
+    # .swift/.dart/.lua/.r map to their own names (fallback already matched,
+    # but the FileEntry.lang field and G7-style pairing want the map).
+    ".swift": "swift", ".dart": "dart",
+    ".ex": "elixir", ".exs": "elixir",
+    ".lua": "lua", ".r": "r",
+    ".pl": "perl", ".pm": "perl",
 }
 
 # ---------------------------------------------------------------------------
