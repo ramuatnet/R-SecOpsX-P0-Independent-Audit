@@ -152,6 +152,23 @@ def run_ci_matrix() -> dict:
         timeout=600,
     ))
 
+    # T-9.17 ReDoS suite in CI (task.md section 13): the T-0.5 ReDoS
+    # budget suite runs as its own matrix gate.  The suite has existed
+    # since the budget landed (static nested-quantifier audit over the
+    # rule tables, subprocess hard-guard interrupting a synthetic
+    # catastrophe with a REGEX_TIMEOUT row instead of a silent skip, the
+    # 5 MB minified-JS <250ms accept criterion) but only ever rode the
+    # generic pytest run, which no CI job invokes wholesale.  Tight
+    # 120s cap on purpose: ~7s standalone, and a default 300s cap would
+    # swallow hangs the way the v0 cap does.
+    gates.append(_run(
+        "redos_suite",
+        [sys.executable, "-m", "pytest",
+         str(ROOT / "tests" / "test_redos_budget.py"),
+         "-v", "--tb=short"],
+        timeout=120,
+    ))
+
     passed = sum(1 for g in gates if g["passed"])
     failed = [g["name"] for g in gates if not g["passed"]]
 

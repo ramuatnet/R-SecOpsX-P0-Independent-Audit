@@ -53,6 +53,23 @@ jobs:
       - name: Run Phase 0 security gate tests
         run: pytest tests/test_phase0_security_gate.py tests/test_phase0_gate_metadata.py -v --tb=short
 
+  # T-9.17 (task.md section 13 "ReDoS suite in CI"): the T-0.5 budget
+  # suite as its own check -- static nested-quantifier audit, subprocess
+  # hard-guard proof, 5 MB minified-JS <250ms accept criterion.  Also
+  # re-run inside the ci_matrix redos_suite gate (same double-run
+  # pattern as v0/phase0: direct signal here, aggregated there).
+  redos-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Run ReDoS budget suite
+        run: pytest tests/test_redos_budget.py -v --tb=short
+
   phase4-bom-conformance:
     runs-on: ubuntu-latest
     steps:
@@ -128,7 +145,7 @@ jobs:
 
   ci-matrix:
     runs-on: ubuntu-latest
-    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing, owasp-benchmark]
+    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing, owasp-benchmark, redos-suite]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
