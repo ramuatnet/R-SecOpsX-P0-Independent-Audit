@@ -453,7 +453,12 @@ CONTRACTS: dict[str, dict] = {
         "platform's own semantics treat as insecure or non-hardened.",
         vuln_types=_c("iac", "kubernetes", "terraform", "docker"),
         rule_ids=_c(),
-        rule_prefixes=_c("TF_", "K8S_", "DOCKER_", "IAC-"),
+        # IMAGE_ (T-9.19): saved/inspected image config is the same
+        # declarative posture as its Dockerfile twin -- DOCKER_SECRET_IN_ENV
+        # already resolves here; without the prefix the SECRET/KEY tokens
+        # routed IMAGE_* posture claims into the hardcoded_secret
+        # value-evidence contract they never made (rejected observations).
+        rule_prefixes=_c("TF_", "K8S_", "DOCKER_", "IAC-", "IMAGE_"),
         required=_c("config_declaration"),
         optional=_c(),
         counterevidence=[_ce("pod_level_inheritance",
@@ -893,7 +898,7 @@ def build_claim(category: str, finding: dict,
             and finding["evidence_validation_detail"].get("sink_valid") is True))
     cve = str(finding.get("cve") or "").strip()
     iac_declared = str(finding.get("rule_id") or "").upper().startswith(
-        ("TF_", "K8S_", "DOCKER_", "IAC-"))
+        ("TF_", "K8S_", "DOCKER_", "IAC-", "IMAGE_"))
 
     if category == "sca_vulnerability":
         strength = "STRONG" if cve else "WEAK"

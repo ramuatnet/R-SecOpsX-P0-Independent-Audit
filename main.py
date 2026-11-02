@@ -3181,6 +3181,17 @@ def main():
         help="abort the scan if process CPU exceeds this many seconds "
              "(default %(default)s; 0 disables). T-9.16 ground rule 12.")
     parser.add_argument(
+        "--image-ref", dest="image_ref", action="append",
+        default=None, metavar="REF",
+        help="also scan this LOCAL container image via docker image "
+             "inspect (never pulls -- T-9.19 container image scanning, "
+             "task.md section 13). Repeatable; default off, so a "
+             "default run does zero image work.")
+    parser.add_argument(
+        "--image-tar", default=None, metavar="PATH",
+        help="scan a saved image tarball (docker save output): config "
+             "posture plus layer content rules. T-9.19; default off.")
+    parser.add_argument(
         "--html-embedded", dest="html_embedded", action="store_true",
         help="write triage.html beside clean_report.json: the D-2 airgap "
              "triage SPA with the findings subset embedded, so it opens "
@@ -3696,6 +3707,23 @@ def main():
             _safe_print(f"       => docker-compose scan failed: {exc}")
 
         # --------------------------------------------------
+        # T-9.19 container image scanning (task.md section 13)
+        # Local images only -- `docker image inspect` against the local
+        # daemon, or a docker save tarball; never pulls (offline
+        # invariant).  Both flags default off, so a default run does
+        # zero image work and moves no artifact byte (A/B proves it).
+        # --------------------------------------------------
+        image_findings = []
+        if args.image_ref or args.image_tar:
+            try:
+                from scanner.image_scan import scan_images
+                image_findings = scan_images(refs=args.image_ref,
+                                             tar=args.image_tar)
+                _safe_print(f"       => {len(image_findings)} container image findings")
+            except Exception as exc:
+                _safe_print(f"       => container image scan failed: {exc}")
+
+        # --------------------------------------------------
         # Secret Intelligence Source Scan
         # V4 Phase 1 fix:
         # - V3 enrichment classified only existing findings.
@@ -3753,6 +3781,7 @@ def main():
         raw.extend(tf_findings)
         raw.extend(docker_findings)
         raw.extend(compose_findings)
+        raw.extend(image_findings)
         raw.extend(llm_findings)
         raw.extend(advanced_ai_findings)
         raw.extend(api_abuse_findings)
