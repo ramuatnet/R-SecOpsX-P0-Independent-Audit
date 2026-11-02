@@ -182,6 +182,19 @@ def run_ci_matrix() -> dict:
         timeout=60,
     ))
 
+    # T-14.2 (task.md section 14 "Dead code"): analysis/audit_dead_code.py
+    # is wired into CI as the 13th gate -- the G-060 reachability audit
+    # (no root reaches a live .py => dead, exit 1) had no CI surface
+    # before, so a quarantinable module could sit unnoticed. The audit
+    # is stdlib-only and walks the tree in seconds (677 files measured),
+    # hence the tight 60s cap (same rationale as redos 120 / sbom 60:
+    # a default 300s cap would swallow hangs the way the v0 cap does).
+    gates.append(_run(
+        "dead_code_audit",
+        [sys.executable, str(ROOT / "analysis" / "audit_dead_code.py")],
+        timeout=60,
+    ))
+
     passed = sum(1 for g in gates if g["passed"])
     failed = [g["name"] for g in gates if not g["passed"]]
 

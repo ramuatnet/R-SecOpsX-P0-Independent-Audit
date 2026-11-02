@@ -243,8 +243,12 @@ def test_ci_matrix_self_sbom_gate_wired(monkeypatch):
 
     names = [g["name"] for g in recorded]
     assert "self_sbom" in names, names
-    assert names[-1] == "self_sbom", names
-    assert len(names) == 12, names
+    # Still the 12th gate (0-based index 11). T-14.2 appended
+    # dead_code_audit as gate 13 in its own batch, so "last" moved --
+    # the append-order tuple pin lives in test_t117 EXPECTED_GATES
+    # (baseline updated in the same commit per ground rules).
+    assert names.index("self_sbom") == 11, names
+    assert len(names) == 13, names
     gate = next(g for g in recorded if g["name"] == "self_sbom")
     assert gate["cmd"] == [
         sys.executable, str(REPO / "tools" / "emit_self_sbom.py"),

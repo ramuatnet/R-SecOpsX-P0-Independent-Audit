@@ -70,6 +70,22 @@ jobs:
       - name: Run ReDoS budget suite
         run: pytest tests/test_redos_budget.py -v --tb=short
 
+  # T-14.2 (task.md section 14 "Dead code"): analysis/audit_dead_code.py
+  # as its own check -- the G-060 reachability audit (no root reaches a
+  # live .py => dead, exit 1) had no CI surface before. Also re-run
+  # inside the ci_matrix dead_code_audit gate (same double-run pattern
+  # as redos/v0/phase0: direct signal here, aggregated there). Stdlib
+  # only, so no pip install (pinned by test_t1402_dead_code_ci).
+  dead-code-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run dead-code reachability audit
+        run: python analysis/audit_dead_code.py
+
   phase4-bom-conformance:
     runs-on: ubuntu-latest
     steps:
@@ -145,7 +161,7 @@ jobs:
 
   ci-matrix:
     runs-on: ubuntu-latest
-    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing, owasp-benchmark, redos-suite]
+    needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing, owasp-benchmark, redos-suite, dead-code-audit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
