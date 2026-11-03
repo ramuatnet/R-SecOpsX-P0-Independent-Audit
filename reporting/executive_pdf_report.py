@@ -305,7 +305,8 @@ def _executive_ai_framework_summary(payload: dict) -> list:
               f"attributed across {contributing} AI finding(s)"
         meaning = ("The catalogue is wider than the implemented rule set by design; "
                    "unreferenced classes are recorded detection gaps in "
-                   "reports/gap_register.json (G-088), not findings.")
+                   "gap_register.json (G-088), copied alongside this report, "
+                   "not findings.")
 
     rows.append([
         Paragraph(dataset, S["TD"]),

@@ -6218,6 +6218,22 @@ def main():
     _step("Finding lifecycle intelligence")
     payload = enrich_report_payload_with_finding_lifecycle(payload)
 
+    # D4: the AML prose and the Excel AML sheet cite gap_register.json
+    # (G-088). The register is gitignored under reports/, so the citation
+    # pointed at a file the reader never received. Ship a copy beside the
+    # report artifacts -- outside the --no-pdf guard, because the Excel and
+    # JSON artifacts cite it too. A missing register is a no-op (ship_
+    # gap_register returns False), not an export failure.
+    try:
+        from reporting.companion_artifacts import ship_gap_register
+
+        if ship_gap_register(output_dir):
+            generated_files.append("gap_register.json")
+            _safe_print(f"       => {output_dir / 'gap_register.json'}")
+    except Exception as exc:
+        _REPORT_EXPORT_FAILURES.append(("gap_register.json", str(exc)))
+        _safe_print(f"       => gap_register.json failed: {exc}")
+
     # --no-pdf was declared but never consulted, so the flag skipped nothing:
     # a probe scan with --no-pdf still wrote both PDFs. --no-excel, declared on
     # the adjacent line, has always been honoured below. Both large AI-corpus

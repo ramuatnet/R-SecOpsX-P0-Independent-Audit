@@ -96,8 +96,13 @@ def test_no_pdf_and_no_excel_are_both_honoured():
 
 def test_the_guard_covers_the_executive_pdf_too():
     """Guarding only the main PDF would leave the same ambiguity, smaller."""
-    i = SRC.find("if not args.no_pdf:")
-    assert i != -1
+    # Anchor on the PDF-generation guard itself. A bare find() of
+    # "if not args.no_pdf:" hits an earlier guard that only wraps a console
+    # step label ("Git diff / change intelligence"), and the 2400-char window
+    # from there is an implicit, brittle distance budget -- adding any export
+    # step before the PDF block pushes generate_pdf_report() out of it.
+    i = SRC.find('if not args.no_pdf:\n        _step("Generating PDF report")')
+    assert i != -1, "could not locate the PDF-generation guard"
     guarded = SRC[i:i + 2400]
     assert "generate_pdf_report(" in guarded
     assert "generate_executive_pdf_report(" in guarded, (

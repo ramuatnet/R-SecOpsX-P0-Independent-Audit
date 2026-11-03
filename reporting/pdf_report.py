@@ -1619,7 +1619,9 @@ def _sca_remediation_priority_section(payload):
             "severity": severity,
             "name": name,
             "version": version,
-            "ids": ", ".join(str(x) for x in ids[:5]) or "See advisory",
+            # No truncation: the priority table's job is to name what to
+            # patch; ids[:5] silently dropped the rest with no ellipsis.
+            "ids": ", ".join(str(x) for x in ids) or "See advisory",
             "cvss": str(cvss),
             "epss": epss,
             "reachable": "Yes" if reachable else "No / Unknown",
@@ -2973,7 +2975,11 @@ def _asvs_section(payload):
 
     # --- mapping-mode table ------------------------------------------------
     if by_mode:
-        rows = [[Paragraph(h, S["TH"]) for h in ["Resolution Mode", "Findings", "Meaning"]]]
+        # The counts are ATTRIBUTION columns (one CWE edge + one vuln_type
+        # edge per finding), not distinct findings: DIRECT 56 + RELATED 6 +
+        # UNMAPPED 64 = 126 on a 63-finding report. The header used to say
+        # "Findings", which read as 126 findings over a 63-finding report.
+        rows = [[Paragraph(h, S["TH"]) for h in ["Resolution Mode", "Attributions", "Meaning"]]]
         meanings = {
             "DIRECT": "Reached through ASVS's OWN CWE cross-reference column. The "
                       "linkage is OWASP's, not this tool's.",
@@ -2990,7 +2996,12 @@ def _asvs_section(payload):
                     Paragraph(str(by_mode[mode]), S["TDSm"]),
                     Paragraph(meanings[mode], S["TDSm"]),
                 ])
-        t = Table(rows, colWidths=[2.6 * cm, 1.6 * cm, 13 * cm], repeatRows=1)
+        # Middle column widened 1.60 -> 2.10cm: "Attributions" at TH
+        # (Helvetica-Bold 8pt) measures 45.33pt + 12pt padding = 57.33pt =
+        # 2.02cm, so 1.60cm wrapped it mid-word ("Attributi/ons") and 1.90cm
+        # still wrapped the final "s". The 0.50cm comes out of Meaning, whose
+        # prose wraps over several lines anyway; total stays 17.20cm.
+        t = Table(rows, colWidths=[2.6 * cm, 2.1 * cm, 12.5 * cm], repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), DARK_BLUE),
             ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
@@ -3000,6 +3011,10 @@ def _asvs_section(payload):
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ("FONTSIZE", (0, 0), (-1, -1), 7)]))
         story.append(t)
+        story.append(Paragraph(
+            "Counts are attribution columns (CWE + vuln_type), up to 2 per "
+            "finding -- not distinct findings; the sum may exceed the report's "
+            "finding count.", S["BodySmall"]))
 
     # --- reachable requirements -------------------------------------------
     if reachable:
@@ -3238,11 +3253,19 @@ def _nistaml_section(payload):
         S["BodySmall"]))
 
     if NISTAML_DETECTION_GAPS:
+        # The count is the recorded gaps (len(NISTAML_DETECTION_GAPS)), NOT
+        # `catalogue - observed`: those are different sets. The old sentence
+        # claimed "The remaining 17 catalogue attack classes have no detection
+        # rule" directly above a 7-row gap table -- unobserved classes were
+        # presented as classes with no rule. The citation names the register
+        # shipped beside the report (main.py ship_gap_register), not the
+        # gitignored repo path the reader never receives.
         story.append(Spacer(1, 0.15 * cm))
         story.append(Paragraph(
-            f"The remaining {catalogue - len(observed_ids)} catalogue attack classes have "
-            f"no detection rule in this release. They are recorded gaps, not absent "
-            f"findings -- see reports/gap_register.json (G-088):", S["BodySmall"]))
+            f"{len(NISTAML_DETECTION_GAPS)} of the {catalogue} catalogue attack "
+            f"classes are recorded as detection gaps (no detection rule in this "
+            f"release) -- see gap_register.json (G-088), copied alongside this "
+            f"report. Gaps are recorded, not absent findings:", S["BodySmall"]))
         gap_rows = [[Paragraph(h, S["TH"]) for h in ["Attack Class", "Name", "Gap"]]]
         for gid in sorted(NISTAML_DETECTION_GAPS):
             gap = NISTAML_DETECTION_GAPS[gid]
@@ -3843,6 +3866,38 @@ def _evidence_valid_display(finding) -> str:
     return verdict
 
 
+def _accuracy_display(finding) -> str:
+    """Render this finding's accuracy-layer verdict, or NOT RECORDED.
+
+    The accuracy audit (``metadata.accuracy_summary`` / per-finding
+    ``accuracy``) decided which findings the pipeline itself doubts. It
+    reached clean_report.json but no PDF page, so a reader could not tell a
+    TRUE_POSITIVE from a LIKELY_FALSE_POSITIVE. Verdicts render verbatim
+    (the JSON token) so all three artifacts can be grepped for the same
+    string; absence is NOT RECORDED, never a pass.
+    """
+    acc = (finding or {}).get("accuracy")
+    if not isinstance(acc, dict):
+        return _NOT_RECORDED
+    verdict = str(acc.get("verdict") or "").strip()
+    return verdict or _NOT_RECORDED
+
+
+def _accuracy_confidence_display(finding) -> str:
+    """Render the accuracy verdict's own confidence, or NOT RECORDED."""
+    acc = (finding or {}).get("accuracy")
+    if not isinstance(acc, dict):
+        return _NOT_RECORDED
+    conf = acc.get("confidence")
+    if conf is None:
+        return _NOT_RECORDED
+    try:
+        return f"{float(conf):.2f}"
+    except (TypeError, ValueError):
+        text = str(conf).strip()
+        return text or _NOT_RECORDED
+
+
 def _findings_section(payload):
 
 
@@ -3857,6 +3912,20 @@ def _findings_section(payload):
 
         story.append(Paragraph("No findings detected.",S["Body"])); return story
 
+
+    # D3: disclose the accuracy layer before the cards. The per-card row
+    # shows this finding's verdict; this line shows what the audit decided
+    # across the whole report, so a filtered count can never hide behind a
+    # clean-looking card list.
+    _acc = (payload.get("metadata") or {}).get("accuracy_summary") or payload.get("accuracy") or {}
+    _acc_verdicts = _acc.get("verdicts") if isinstance(_acc, dict) else None
+    if isinstance(_acc_verdicts, dict) and _acc_verdicts:
+        _acc_parts = ", ".join(f"{k}: {v}" for k, v in sorted(_acc_verdicts.items()))
+        story.append(Paragraph(
+            f"Accuracy layer: {_acc.get('filtered', 0)} of {_acc.get('total', len(grouped))} "
+            f"findings filtered by the accuracy audit; verdicts — {_acc_parts}.",
+            S["BodySmall"]))
+        story.append(Spacer(1, 0.15 * cm))
 
 
 
@@ -4109,6 +4178,15 @@ def _findings_section(payload):
             ["Evidence Valid", _evidence_valid_display(f),
 
              "Evidence State", _pdf_text(f.get("evidence_state") or f.get("quality_state") or "")],
+
+
+            # D3: the accuracy layer's own verdict on this finding. Without
+            # it a reader cannot tell a finding the accuracy audit stands
+            # behind from one it flagged LIKELY_FALSE_POSITIVE or
+            # NEEDS_REVIEW. Absence renders as NOT RECORDED, never as a pass.
+            ["Accuracy", _accuracy_display(f),
+
+             "Accuracy Conf.", _accuracy_confidence_display(f)],
 
 
         ]
@@ -4747,7 +4825,10 @@ def _sbom_section(payload):
 
             cves = list(pkg.get("cve_list") or [])
             advisories = list(pkg.get("advisory_ids") or [])
-            vuln_ids = cves[:3] + [a for a in advisories if a not in cves][:2]
+            # Every id, no truncation: the caption beside this table states
+            # the full unique-CVE count, so a silent cves[:3]+advisories[:2]
+            # cut (5 of 16 ids on Juice Shop) read as the complete list.
+            vuln_ids = cves + [a for a in advisories if a not in cves]
             id_str = (", ".join(vuln_ids) if vuln_ids
                       else (pkg.get("cve") or pkg.get("advisory_id") or "--"))
 
@@ -5792,6 +5873,16 @@ def _conclusion(payload):
         ))
 
 
+        # D5: the blocking branch prints these two lines; this branch used
+        # not to, so executive_decision=DO_NOT_RELEASE over
+        # release_decision=REMEDIATE_BEFORE_RELEASE (the Juice Shop payload)
+        # reached zero pages. Both decision layers always render.
+        story.append(Paragraph(
+            f"Executive decision: <b>{executive_decision_value}</b>. "
+            f"Release readiness: <b>{release_decision}</b>.",
+            S["Body"]))
+
+
         story.append(Spacer(1, 0.2*cm))
 
 
@@ -5895,6 +5986,14 @@ def _conclusion(payload):
 
 
         ))
+
+
+        # D5: same rule as the remediation branch -- both decision layers
+        # always render, whichever branch the payload lands in.
+        story.append(Paragraph(
+            f"Executive decision: <b>{executive_decision_value}</b>. "
+            f"Release readiness: <b>{release_decision}</b>.",
+            S["Body"]))
 
 
         story.append(Spacer(1, 0.2*cm))
@@ -6105,6 +6204,14 @@ def _conclusion(payload):
 
 
         ))
+
+
+        # D5: both decision layers always render, whichever branch the
+        # payload lands in.
+        story.append(Paragraph(
+            f"Executive decision: <b>{executive_decision_value}</b>. "
+            f"Release readiness: <b>{release_decision}</b>.",
+            S["Body"]))
 
 
 

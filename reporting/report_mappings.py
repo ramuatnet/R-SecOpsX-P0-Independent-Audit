@@ -44,8 +44,24 @@ def normalize_report_insights(insights, severity_distribution=None):
             s = re.sub(r"(?i)(COMPLIANCE RISK:\s*)\d+(\s+Critical/High findings?)",
                        rf"\g<1>{critical_high}\g<2>", s)
         elif s.upper().startswith("CRITICAL:"):
-            s = re.sub(r"(?i)(CRITICAL:\s*)\d+(\s+critical (?:findings|vulnerabilities)\s+identified)",
-                       rf"\g<1>{critical}\g<2>", s)
+            # The producer (core/analyzer.py generate_insights) emits the
+            # singular "vulnerability" when n==1 and the plural otherwise,
+            # and can also say "findings". The old pattern accepted only
+            # the plural noun, so a stored "CRITICAL: 1 critical
+            # vulnerability" never matched -- and had it matched a plural
+            # rewrite against a singular distribution, it would have written
+            # "2 critical vulnerability". The noun is rewritten for
+            # agreement with the count; trailing sentence text is untouched.
+            def _crit_sub(m):
+                noun = m.group(3).lower()
+                if noun.startswith("vuln"):
+                    agreed = "vulnerability" if critical == 1 else "vulnerabilities"
+                else:
+                    agreed = "finding" if critical == 1 else "findings"
+                return f"{m.group(1)}{critical} critical {agreed} identified"
+            s = re.sub(
+                r"(?i)(CRITICAL:\s*)\d+(\s+critical (findings?|vulnerabilit(?:y|ies))\s+identified)",
+                _crit_sub, s)
         out.append(s)
     return out
 

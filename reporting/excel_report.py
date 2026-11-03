@@ -102,7 +102,11 @@ def _pkg_cve_list(pkg):
     values = []
     if pkg.get("cve"):
         values.append(str(pkg.get("cve")))
-    for key in ("cves", "additional_cves", "vulnerability_ids"):
+    # cve_list / advisory_ids are the keys the SCA enrichment actually
+    # writes (CVEs and GHSAs respectively). Without them the "CVE / Advisory"
+    # cells missed every GHSA the PDF rendered.
+    for key in ("cves", "additional_cves", "vulnerability_ids",
+                "cve_list", "advisory_ids"):
         val = pkg.get(key)
         if isinstance(val, list):
             values.extend(str(x) for x in val if x)
@@ -526,7 +530,26 @@ def _v17923_fixed_text(pkg):
     return ", ".join(vals)
 
 def _v17923_benchmark_note(f):
-    return str(f.get("benchmark_note") or "").strip()
+    """Benchmark disposition text, identical to the PDF renderer's helper.
+
+    Both artifacts previously had their own copy; only the PDF one fell
+    back to ``benchmark_ground_truth.status``, so all Excel rows read '--'
+    while the PDF said "unresolved"/"intentional" for the same findings.
+    """
+    note = str(f.get("benchmark_note") or "").strip()
+    if note:
+        return note
+    bg = f.get("benchmark_ground_truth")
+    if isinstance(bg, dict):
+        status = str(bg.get("status") or "").upper()
+        if status == "DECLARED_INTENTIONAL":
+            return ("Benchmark-intentional case; not a production waiver. "
+                    "Remediation remains developer-actionable unless separately "
+                    "risk-accepted.")
+        if status == "UNRESOLVED":
+            return ("Benchmark classification unresolved; production TP/FP "
+                    "status remains pending adjudication.")
+    return ""
 
 # Sheet 1: Summary 
 def _summary(ws, payload):
@@ -556,6 +579,20 @@ def _summary(ws, payload):
         ("Confidence Multipliers", "High=1.0—  Medium=0.85—  Low=0.70—"),
         ("Methodology Note", "Pattern-only Critical findings are severity-critical because the sink is dangerous; exploitability/confidence may remain Medium/Low until taint or runtime validation confirms reachability."),
     ]
+    # D3: the accuracy layer's report-level verdicts, so the workbook states
+    # how many findings the pipeline itself doubts -- not only the per-row
+    # verdict on the Findings sheet. Only present when the audit ran.
+    _acc = meta.get("accuracy_summary") or payload.get("accuracy") or {}
+    if isinstance(_acc, dict) and _acc:
+        _verdicts = _acc.get("verdicts") if isinstance(_acc.get("verdicts"), dict) else {}
+        rows.append((
+            "Accuracy Layer Filtered",
+            f"{_acc.get('filtered', 0)} of {_acc.get('total', meta.get('total_findings', 0))}",
+        ))
+        rows.append((
+            "Accuracy Layer Verdicts",
+            ", ".join(f"{k}={v}" for k, v in sorted(_verdicts.items())) or "--",
+        ))
     for i, (lbl, val) in enumerate(rows, 2):
         ws.cell(row=i, column=1, value=_sanitize_excel_value(lbl)).font  = _font(True, color=C_BLK)
         ws.cell(row=i, column=1).fill              = _fill(C_GRY)
@@ -668,6 +705,21 @@ def _excel_evidence_valid(finding: dict) -> str:
     return verdict
 
 
+def _excel_accuracy_verdict(finding: dict) -> str:
+    """accuracy.verdict verbatim, or NOT_RECORDED when absent.
+
+    The verdict token is the JSON token (LIKELY_FALSE_POSITIVE, ...) so a
+    reader can grep clean_report.json, the PDF and this sheet for the same
+    string. Absence is never rendered as a pass.
+    """
+    acc = (finding or {}).get("accuracy")
+    if isinstance(acc, dict):
+        verdict = str(acc.get("verdict") or "").strip()
+        if verdict:
+            return verdict
+    return _NOT_RECORDED
+
+
 def _display_file(raw) -> str:
     """Relative path for the Findings sheet, matching Technical Evidence.
 
@@ -698,6 +750,7 @@ def _findings(ws, payload):
         "Primary Root Cause", "Secondary Chained Risk", "Instances", "Score Rationale", "Fix Summary",
         "Benchmark Disposition", "Evidence Qualification",
         "Decision State", "Reportable", "Evidence Valid",
+        "Accuracy Verdict",
     ]
     widths = [
         4,   28,   30,   32,   12,   10,   10,
@@ -771,6 +824,9 @@ def _findings(ws, payload):
             _excel_decision_state(f),
             _excel_reportable(f),
             _excel_evidence_valid(f),
+            # D3: the accuracy layer's verdict, same NOT_RECORDED rule as
+            # the other disposition columns -- absence is never a pass.
+            _excel_accuracy_verdict(f),
         ]
         for j, val in enumerate(row_vals, 1):
             cell = ws.cell(row=i, column=j, value=_sanitize_excel_value(val))
@@ -1382,7 +1438,9 @@ def _exploitable_cves(ws, payload):
             pkg.get("name", ""),
             pkg.get("version", ""),
             pkg.get("dependency_type") or pkg.get("type", ""),
-            ", ".join(_pkg_cve_list(pkg)[:6]),
+            # No truncation: the cell is labelled "CVE / Advisory" and the
+            # reader patches from this list; [:6] dropped the rest silently.
+            ", ".join(_pkg_cve_list(pkg)),
             _cvss_cell(pkg),
             _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3),
             "Yes" if pkg.get("kev_status") else "No",
@@ -1880,7 +1938,7 @@ def _nistaml_sheet(ws, payload):
         f"Attack classes attributed in this scan: {observed} (ratio {ratio:.3f})",
         f"Findings carrying an attribution decision: {contributing} of {total_findings} in this report",
         f"  ...of which resolved UNMAPPED: {unmapped}",
-        f"Recorded detection gaps (no rule in this release): {len(NISTAML_DETECTION_GAPS)} -- see reports/gap_register.json G-088",
+        f"Recorded detection gaps (no rule in this release): {len(NISTAML_DETECTION_GAPS)} -- see gap_register.json (G-088), copied alongside this report",
         "Attribution is per-finding evidence metadata, not a detection claim and not an attestation.",
         "A catalogue entry marked 'NO' is an unimplemented detection, NOT a finding in this codebase.",
     ]
