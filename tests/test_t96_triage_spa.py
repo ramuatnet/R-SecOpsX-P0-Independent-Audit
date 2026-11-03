@@ -372,7 +372,9 @@ def test_browser_embedded_file_url_renders_all_rows(browser, report,
                                                      tmp_path):
     page = _goto_embedded(browser, tmp_path, report)
     assert _row_count(page) == 5
-    assert _counts_text(page) == "5 / 5 findings"
+    # taskf T-4.3: the counter names its population (SAST records), not an
+    # unlabelled "findings" total.
+    assert _counts_text(page) == "5 / 5 SAST records"
     assert "R-SecOpsX SAST v2.1" in page.locator("#provenance").inner_text()
     page.close()
 
@@ -382,7 +384,7 @@ def test_browser_filters_narrow_and_reset(browser, report, tmp_path):
     # severity: High -> 2, reset -> 5
     page.select_option("#f-severity", "High")
     assert _row_count(page) == 2
-    assert _counts_text(page) == "2 / 5 findings"
+    assert _counts_text(page) == "2 / 5 SAST records"
     page.click("#reset")
     assert _row_count(page) == 5
     # rule: TAINT_SQL_INJECTION -> 1

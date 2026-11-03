@@ -31,6 +31,7 @@ BIG4_REPORT_COMPLIANCE_FALLBACKS = {
 import os
 import re
 from pathlib import Path
+from core import report_aggregates, value_state
 from reporting.report_mappings import (
     BUSINESS_IMPACT_BY_RULE,
     REMEDIATION_BY_RULE,
@@ -38,7 +39,6 @@ from reporting.report_mappings import (
     needs_business_impact_replacement as _needs_bi_replace,
     needs_remediation_replacement as _needs_rem_replace,
     clean_mojibake,
-    normalize_fixed_versions,
     format_attack_path_label,
     format_cvss_assessment,
     normalize_report_insights,
@@ -175,7 +175,14 @@ def _sbom_component(pkg):
 
 
 def _sbom_current_version(pkg):
-    return str(pkg.get("version") or pkg.get("current_version") or "--")
+    """Version cell through the one formatter (taskf T-4.2 / Gate 3).
+
+    The old ``str(pkg.get("version") or "--")`` passed the producer's bare
+    "unknown" straight into the sheet; value_state now names the absence
+    (``unknown (reason)``) or dashes it, on the same alias chain
+    (version -> current_version) the ``or`` chain used.
+    """
+    return value_state.cell(pkg, "version")
 
 
 def _sbom_vulnerability_records(pkg):
@@ -204,7 +211,15 @@ def _sbom_description(pkg):
 
 
 def _sbom_fixed_versions(pkg):
-    """Preserve all known fixed versions from package and vulnerability records."""
+    """Preserve all known fixed versions from package and vulnerability records.
+
+    The merged list then goes through value_state (taskf Gate 3): the two
+    renderers used to disagree here -- this helper printed the producer's
+    bare "Unknown" seed while the PDF's fixed text said "unknown (not
+    published)" for the same row.  Placeholder elements are filtered
+    inside value_state, an unpublished fix names its gap, and a row with
+    no advisory dashes.
+    """
     values = []
     raw = pkg.get("fixed_in") or pkg.get("fixed_versions")
     if isinstance(raw, (list, tuple, set)):
@@ -226,7 +241,9 @@ def _sbom_fixed_versions(pkg):
         if value not in seen:
             seen.add(value)
             out.append(value)
-    return ", ".join(out) if out else "--"
+    return value_state.cell({**pkg, "fixed_versions": out},
+                            "fixed_versions",
+                            has_advisory=pkg_has_advisory(pkg))
 
 
 def _sbom_reference_links(pkg):
@@ -324,10 +341,18 @@ def _static_intel_note(ws, cols, row, payload=None):
     which is the honest description of data that never consulted a feed.
     """
     epss_prov, kev_prov = provenance_pair(payload)
+    _agg_warn = ""
+    if isinstance(payload, dict) and (
+            payload.get("metadata") or {}).get("aggregates_inconsistent"):
+        # T-1.3: a broken aggregate must surface in every artifact's
+        # provenance line, not only in the ERROR log.
+        _agg_warn = (" | WARNING: report aggregates failed their consistency "
+                     "checks (metadata.aggregates_inconsistent); treat the "
+                     "totals as unreliable.")
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=cols)
     c = ws.cell(row=row, column=1, value=_sanitize_excel_value(
         f"EPSS provenance: {epss_prov} / KEV provenance: {kev_prov} - "
-        + note_from_payload(payload)
+        + note_from_payload(payload) + _agg_warn
     ))
     c.fill = _fill(C_YEL); c.font = _font(True, size=9, color=C_BLK)
     c.alignment = _lft(); c.border = _bdr()
@@ -512,22 +537,17 @@ def _engine_name(item: dict) -> str:
 
 
 def _v17923_fixed_text(pkg):
-    raw = pkg.get("fixed_in") or pkg.get("fixed_versions")
-    has_advisory = bool(
-        pkg.get("cve") or pkg.get("advisory_id") or pkg.get("cve_list") or
-        pkg.get("advisory_ids") or pkg.get("vulnerabilities") or
-        pkg.get("vulnerability_intelligence")
-    )
-    if not raw:
-        return ("No fixed version identified in current advisory dataset."
-                if pkg.get("cve") or pkg.get("advisory_id") else "--")
-    vals = normalize_fixed_versions(raw)
-    if all(str(v).strip().lower() in {"", "unknown", "none", "null", "n/a", "na", "--"} for v in vals):
-        return ("No fixed version identified in current advisory dataset."
-                if has_advisory else "--")
-    if vals == ["No fixed version identified in current advisory dataset."]:
-        return "No fixed version identified in current advisory dataset."
-    return ", ".join(vals)
+    """Fixed-version cell through the one formatter (taskf T-2.1/T-4.1).
+
+    Why: this helper used to hand-code both absence forms -- a long
+    fixed-version-absence sentence when an advisory existed, a dash when it
+    did not -- while ``_sbom_fixed_versions`` returned a dash for the same
+    case, so two sheets in THIS workbook disagreed by design.  ``value_state``
+    resolves one ladder from provenance + has_advisory and never prints the
+    old sentence (ground rules 5 and 6).
+    """
+    return value_state.cell(pkg, "fixed_versions",
+                            has_advisory=pkg_has_advisory(pkg))
 
 def _v17923_benchmark_note(f):
     """Benchmark disposition text, identical to the PDF renderer's helper.
@@ -551,26 +571,54 @@ def _v17923_benchmark_note(f):
                     "status remains pending adjudication.")
     return ""
 
-# Sheet 1: Summary 
+
+def _agg(payload):
+    """The canonical counts for this payload (taskf T-4.2).
+
+    Renderers read ``payload["aggregates"]`` -- computed once in
+    ``build_report_payload`` -- and only rebuild when handed a payload that
+    never went through it (unit tests, ingest).  A workbook row must never
+    re-derive its number from ``metadata`` or ``len(...)``: that is the
+    DEF-A divergence this helper exists to end.
+    """
+    agg = payload.get("aggregates") if isinstance(payload, dict) else None
+    if not isinstance(agg, dict) or not agg:
+        agg = report_aggregates.build(payload if isinstance(payload, dict) else {})
+    return agg
+
+
+# Sheet 1: Summary
 def _summary(ws, payload):
     ws.title = "Summary"
     for col, w in zip("ABCDE", [28, 20, 16, 30, 30]):
         ws.column_dimensions[col].width = w
 
-    meta  = payload.get("metadata", {})
-    dist  = meta.get("severity_distribution", {})
-    model = meta.get("risk_score_model", {})
+    meta   = payload.get("metadata", {})
+    agg    = _agg(payload)
+    counts = agg["counts"]
+    units  = agg.get("units") or report_aggregates.COUNT_UNITS
+    # DEF-A: the severity table reads the combined (SAST + SCA) distribution
+    # so it sums to the headline it sits under -- never the metadata value,
+    # which describes a different population.
+    dist   = agg["severity"]["combined"]
+    model  = meta.get("risk_score_model", {})
 
     _title_row(ws, "SECURITY ASSESSMENT EXECUTIVE SUMMARY", 5)
 
-    # FIX #5: include scoring model rows so auditors can understand the score
+    # FIX #5 + taskf T-4.2: every count row takes its label AND its value
+    # from the canonical aggregate (labels via COUNT_UNITS), so no bare
+    # "Total Findings" survives and each number names its population
+    # (ground rule 4).
     rows = [
         ("Tool",                meta.get("tool", "")),
         ("Target",              meta.get("target", "")),
         ("Scan Date",           meta.get("scan_date", "")[:10]),
-        ("SAST Findings",       meta.get("sast_findings", meta.get("total_findings", 0))),
-        ("SCA Findings",        meta.get("sca_findings", 0)),
-        ("Total Findings",      meta.get("total_findings", 0)),
+        (units["counts.sast_records"]["label"],
+         counts["sast_records"]),
+        (units["counts.sca_vulnerable_packages"]["label"],
+         counts["sca_vulnerable_packages"]),
+        (units["counts.total_reported"]["label"],
+         counts["total_reported"]),
         ("Supplemental Privacy Indicators", _supplemental_counts(payload)[0]),
         ("Supplemental IOC / Backdoor Indicators", _supplemental_counts(payload)[1]),
         ("Portfolio Risk Score", f"{meta.get('risk_score', 0)}/100"),
@@ -587,7 +635,7 @@ def _summary(ws, payload):
         _verdicts = _acc.get("verdicts") if isinstance(_acc.get("verdicts"), dict) else {}
         rows.append((
             "Accuracy Layer Filtered",
-            f"{_acc.get('filtered', 0)} of {_acc.get('total', meta.get('total_findings', 0))}",
+            f"{_acc.get('filtered', 0)} of {_acc.get('total', counts['total_reported'])}",
         ))
         rows.append((
             "Accuracy Layer Verdicts",
@@ -600,7 +648,29 @@ def _summary(ws, payload):
         ws.cell(row=i, column=2, value=_sanitize_excel_value(val)).font   = _font(color=C_BLK)
         ws.cell(row=i, column=2).alignment         = _lft()
 
-    sr = len(rows) + 3
+    # Count Basis (taskf T-4.2): every aggregate field with its unit and
+    # value, so a reader can reconcile the Summary by arithmetic instead of
+    # trusting a headline.  Insertion order = COUNT_UNITS order (stable,
+    # deterministic).
+    cb = len(rows) + 3
+    ws.merge_cells(f"A{cb}:E{cb}")
+    cbh = ws[f"A{cb}"]
+    cbh.value = _sanitize_excel_value("COUNT BASIS (CANONICAL AGGREGATE)")
+    cbh.fill = _fill(C_BLUE); cbh.font = _font(True, size=11); cbh.alignment = _ctr()
+    ws.row_dimensions[cb].height = 22
+    _hdr(ws, cb + 1, ["Aggregate field", "Label", "Unit", "Value"])
+    for k, (path, spec) in enumerate(units.items()):
+        r = cb + 2 + k
+        val = report_aggregates.value_at(agg, path)
+        for cidx, cellv in enumerate(
+                [path, spec.get("label", ""), spec.get("unit", ""), val], 1):
+            c = ws.cell(row=r, column=cidx, value=_sanitize_excel_value(cellv))
+            c.border = _bdr()
+            c.fill = _fill(C_LBLUE if k % 2 == 0 else C_WHT)
+            c.font = Font(name="Calibri", size=9, color=C_BLK)
+            c.alignment = _lft() if cidx < 4 else _ctr()
+
+    sr = cb + 3 + len(units)
     ws.merge_cells(f"A{sr}:E{sr}")
     h = ws[f"A{sr}"]; h.value = _sanitize_excel_value("SEVERITY DISTRIBUTION")
     h.fill = _fill(C_BLUE); h.font = _font(True, size=11); h.alignment = _ctr()
@@ -763,7 +833,7 @@ def _findings(ws, payload):
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
-    _title_row(ws, "DETAILED SECURITY FINDINGS ALL COMPLIANCE FIELDS", len(headers))
+    _title_row(ws, "DETAILED SECURITY FINDINGS SAST FINDINGS (GROUPED RECORDS) ALL COMPLIANCE FIELDS", len(headers))
     _hdr(ws, 2, headers)
     ws.row_dimensions[2].height = 22
     ws.freeze_panes = "A3"
@@ -882,19 +952,12 @@ def _sbom(ws, payload):
         has_vulnerability = pkg_has_advisory(pkg)
         # No vulnerability means there is no severity to report, so '--' beside
         # the '--' in the CVE column rather than a placeholder word.  With a
-        # vulnerability but no severity recorded, say 'Unknown'.  The legacy
-        # literal-'None' sentinel is filtered so already-generated payloads
-        # still render correctly.  Keep this set in step with
-        # `scanner.package_intelligence._ABSENT_SEVERITY_VALUES` -- `"None"` is a
-        # truthy *string*, so `pkg.get("severity") or "Unknown"` cannot catch it.
-        if has_vulnerability:
-            _raw_sev = str(pkg.get("severity")
-                           or pkg.get("highest_vulnerability_severity") or "").strip()
-            sev = (_raw_sev
-                   if _raw_sev.lower() not in {"", "none", "unknown", "n/a", "na"}
-                   else "Unknown")
-        else:
-            sev = "--"
+        # vulnerability but no severity recorded, value_state says
+        # 'unknown (...)' in words.  The legacy literal-'None' sentinel is
+        # filtered inside value_state so already-generated payloads still
+        # render correctly -- "None" is a truthy *string*, so a bare `or`
+        # fallback cannot catch it.
+        sev = value_state.cell(pkg, "severity", has_advisory=has_vulnerability)
         bg = C_LBLUE if i % 2 == 0 else C_WHT
         # Advisory-derived columns dash out on a component with no advisory
         # (the same rule as the PDF table): KEV, exploitability, patch
@@ -923,10 +986,8 @@ def _sbom(ws, payload):
             epss_s,
             "--" if not has_vulnerability else ("Yes" if pkg.get("kev_status") else "No"),
             reachable_vulnerable,
-            ("--" if not has_vulnerability else _first_value(
-                pkg, "exploitability_decision", "exploitability_action",
-                default="Review"
-            )),
+            value_state.cell(pkg, "exploitability_decision",
+                             has_advisory=has_vulnerability),
             ("--" if not has_vulnerability
              else _first_value(pkg, "patch_urgency", "epss_priority", default="--")),
             sev,
@@ -973,7 +1034,10 @@ def _sbom(ws, payload):
     _lc = ws.cell(row=_legend_at, column=1, value=_sanitize_excel_value(
         "Legend: Type - Direct = declared in a manifest; Transitive = pulled in "
         "by another dependency. Reachable Vulnerable - Yes = advisory present AND "
-        "imports observed; No = advisory present, imports not observed; "
+        "the offline table marks the package reachable; No = advisory present, "
+        "the table does not. Yes/No on a table-sourced row is a curated guess "
+        "from that offline table, not observed imports, until a computed "
+        "reachability engine replaces it. "
         "-- = no advisory recorded, so severity, age, reachability, KEV, "
         "exploitability and patch urgency do not apply. Rows are ordered: "
         "components with known vulnerabilities first by severity (Critical, High, "
@@ -1003,14 +1067,17 @@ def _sca_findings(ws, payload):
     rows = sorted((p for p in (payload.get("sbom", []) or []) if _pkg_cve_list(p)),
                   key=sbom_display_sort_key)
     for idx, pkg in enumerate(rows, 1):
-        cves = _pkg_cve_list(pkg); sev = pkg.get("severity") or pkg.get("highest_vulnerability_severity") or "Unknown"
+        cves = _pkg_cve_list(pkg)
+        # Vulnerable-only sheet: every row has an advisory, so an
+        # unpublished severity names its gap instead of a placeholder word.
+        sev = value_state.cell(pkg, "severity", has_advisory=True)
         dep_type = pkg.get("dependency_type") or pkg.get("type", "Direct")
         dep_path = pkg.get("dependency_path") or pkg.get("path") or pkg.get("introduced_by") or "--"
         vals = [idx, _sbom_component(pkg), _sbom_current_version(pkg), _sbom_purl(pkg), dep_type, dep_path,
                 ", ".join(cves) or "--", _cvss_cell(pkg, bool(cves)),
                 _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3), "Yes" if pkg.get("kev_status") else "No",
                 "Yes" if _is_reachable_vulnerable(pkg) else "No",
-                _first_value(pkg, "exploitability_decision", "exploitability_action", default="Review"),
+                value_state.cell(pkg, "exploitability_decision", has_advisory=True),
                 _first_value(pkg, "patch_urgency", "epss_priority", default="--"), sev, _sbom_fixed_versions(pkg),
                 _sbom_description(pkg), _sbom_reference_links(pkg)]
         bg = C_LBLUE if idx % 2 == 0 else C_WHT
@@ -1116,18 +1183,18 @@ def _licensing_details(ws, payload):
         vals=[
             pkg.get("name") or pkg.get("component") or "",
             pkg.get("version") or pkg.get("current_version") or "",
-            pkg.get("license_declared") or pkg.get("declared_license") or pkg.get("license") or "UNKNOWN",
-            pkg.get("license_resolved") or pkg.get("normalized_license") or pkg.get("license") or "UNKNOWN",
-            pkg.get("license_category") or "Unknown",
-            pkg.get("license_resolution_status") or "UNKNOWN",
+            value_state.cell(pkg, "license_declared", has_advisory=False),
+            value_state.cell(pkg, "license_resolved", has_advisory=False),
+            value_state.cell(pkg, "license_category", has_advisory=False),
+            value_state.cell(pkg, "license_resolution_status", has_advisory=False),
             pkg.get("license_evidence_source") or "--",
             pkg.get("license_evidence") or pkg.get("license_evidence_raw") or "--",
-            "Review" if pkg.get("license_review_required") else "No",
+            "Review required" if pkg.get("license_review_required") else "No",
             provenance_text,
-            pkg.get("normalized_license") or pkg.get("license") or "UNKNOWN",
-            pkg.get("license_risk","UNKNOWN"),
-            pkg.get("license_issue","UNKNOWN"),
-            pkg.get("license_policy_decision","UNKNOWN"),
+            value_state.cell(pkg, "normalized_license", has_advisory=False),
+            value_state.cell(pkg, "license_risk", has_advisory=False),
+            value_state.cell(pkg, "license_issue", has_advisory=False),
+            value_state.cell(pkg, "license_policy_decision", has_advisory=False),
             "Yes" if pkg.get("license_notice_required") else "No",
             pkg.get("license_reason") or "--",
             pkg.get("license_policy_method") or "--",
@@ -1311,7 +1378,9 @@ def _executive_kpis(ws, payload):
     _title_row(ws, "EXECUTIVE RISK KPIS BUSINESS AND REGULATORY EXPOSURE", 3)
     _hdr(ws, 2, ["KPI", "Value", "Interpretation"])
     grouped = payload.get("grouped", []) or []
-    total = max(len(grouped), 1)
+    # taskf T-4.2: the denominator is the canonical SAST population
+    # (aggregates.counts.sast_records), never a re-derived len(...).
+    total = max(_agg(payload)["counts"]["sast_records"], 1)
     def pct(n): return f"{round((n/total)*100, 1)}%"
     exploitable = sum(1 for f in grouped if str(f.get("exploitability", "")).lower() == "high" or f.get("taint_path"))
     cred = sum(1 for f in grouped if any(x in str(f.get("title","")).lower()+str(f.get("vuln_type","")).lower() for x in ["secret", "credential", "password", "token", "api key"]))
@@ -1365,7 +1434,7 @@ def _technical_evidence(ws, payload):
     widths = [5, 26, 12, 38, 8, 70, 70, 24, 24, 18, 18, 28]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    _title_row(ws, "TECHNICAL EVIDENCE LATEST RAW FINDINGS", len(headers))
+    _title_row(ws, "TECHNICAL EVIDENCE RAW DETECTIONS (PRE-GROUPING)", len(headers))
     _hdr(ws, 2, headers)
     ws.freeze_panes = "A3"
     findings = payload.get("findings") or payload.get("grouped") or []
@@ -1445,7 +1514,7 @@ def _exploitable_cves(ws, payload):
             _fmt_float(_first_value(pkg, "epss_score", "epss", default="--"), 3),
             "Yes" if pkg.get("kev_status") else "No",
             "Yes" if _is_reachable_vulnerable(pkg) else "No",
-            _first_value(pkg, "exploitability_decision", "exploitability_action", default="Review"),
+            value_state.cell(pkg, "exploitability_decision", has_advisory=True),
             _first_value(pkg, "patch_urgency", "epss_priority", default="--"),
             _first_value(pkg, "published_date", "published", default="--"),
             _first_value(pkg, "vulnerability_age_days", default="--"),
@@ -1794,7 +1863,10 @@ def _qbom_pq(ws, payload):
     row += 1
 
     for i, a in enumerate(assets, start=row):
-        status = str(a.get("quantum_status") or "UNKNOWN")
+        # quantum_status is a classifier OUTPUT: "UNKNOWN" is a real enum
+        # answer (the prose above tells the reader so); only a missing
+        # field dashes -- value_state keeps that distinction.
+        status = value_state.cell(a, "quantum_status")
         bg = C_LBLUE if (i - row) % 2 == 0 else C_WHT
         row_vals = [
             a.get("algorithm"),
@@ -1899,7 +1971,7 @@ def _nistaml_sheet(ws, payload):
     ws.freeze_panes = "A3"
 
     row = 3
-    total_findings = len(payload.get("findings") or [])
+    sast_records = _agg(payload)["counts"]["sast_records"]
     for aid in sorted(NISTAML_ATTACKS):
         spec = NISTAML_ATTACKS[aid] or {}
         rec = seen.get(aid)
@@ -1936,7 +2008,7 @@ def _nistaml_sheet(ws, payload):
     notes = [
         f"Catalogue attack classes: {catalogue}",
         f"Attack classes attributed in this scan: {observed} (ratio {ratio:.3f})",
-        f"Findings carrying an attribution decision: {contributing} of {total_findings} in this report",
+        f"Findings carrying an attribution decision: {contributing} of {sast_records} SAST findings in this report",
         f"  ...of which resolved UNMAPPED: {unmapped}",
         f"Recorded detection gaps (no rule in this release): {len(NISTAML_DETECTION_GAPS)} -- see gap_register.json (G-088), copied alongside this report",
         "Attribution is per-finding evidence metadata, not a detection claim and not an attestation.",

@@ -57,9 +57,17 @@ def _pkg(name: str, version: str, ecosystem: str = "PyPI") -> dict:
 
 
 @pytest.fixture(autouse=True)
-def _isolated_cache(tmp_path):
+def _isolated_cache(tmp_path, monkeypatch):
     """Never touch the real advisory cache from a test."""
     with mock.patch.object(vi, "CACHE_FILE", tmp_path / "cache.json"):
+        # These tests exercise the LIVE query path, so they declare that
+        # precondition instead of inheriting the session's environment: with
+        # RSECOPSX_LIVE_FEEDS=0 a leaked offline pin (test ordering) routes
+        # every mock through query_osv_batch's offline branch -- no transport,
+        # no failures recorded, no batches answered -- and three tests go red
+        # for an ordering reason rather than a defect.  Suite-order
+        # independence is asserted here, not assumed.
+        monkeypatch.delenv("RSECOPSX_LIVE_FEEDS", raising=False)
         yield
 
 

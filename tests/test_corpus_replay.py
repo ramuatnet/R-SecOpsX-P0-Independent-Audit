@@ -37,6 +37,7 @@ artifacts for structural checks that need no engine time.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import sys
 
@@ -47,6 +48,31 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 REPLAY_DIR = REPO / "tests" / "replay"
+
+
+@pytest.fixture(autouse=True)
+def _live_feeds_env_restored_after_each_test():
+    """replay.replay() must not leak its offline pin into later tests.
+
+    ``analysis.validation.replay._pin_advisory_state`` sets
+    ``RSECOPSX_LIVE_FEEDS=0`` through ``os.environ`` directly -- correct for
+    the CLI, wrong for an in-process test session: the write outlives the
+    test and flips every later live-path test (e.g.
+    tests/test_v11_advisory_fail_open.py) onto the offline branch, where the
+    batch query never reaches transport and the coverage/failure asserts go
+    red for an ordering reason (observed: 3 failures in a single-process
+    ``pytest tests/`` run, all green in isolation).
+
+    Save/restore by hand: ``monkeypatch.delenv`` only records a key that
+    already exists, so it cannot clean up a key this test itself created.
+    """
+    _MISSING = object()
+    saved = os.environ.get("RSECOPSX_LIVE_FEEDS", _MISSING)
+    yield
+    if saved is _MISSING:
+        os.environ.pop("RSECOPSX_LIVE_FEEDS", None)
+    else:
+        os.environ["RSECOPSX_LIVE_FEEDS"] = str(saved)
 
 
 # ---------------------------------------------------------------------------

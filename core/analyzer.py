@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.mapper import get_owasp_summary, get_mitre_summary
+from core import report_aggregates
 from core.rule_contract_adapter import adapt_findings
 # T-0.1 (task.md ground rule 3): every filter pass annotates, never silently
 # deletes.  filter_trace is dependency-free, so no import cycle is possible.
@@ -1196,7 +1197,7 @@ def build_report_payload(findings: list[dict], sbom: list[dict],
     attack_paths = get_attack_paths(enriched)
     insights     = generate_insights(enriched, scored_sbom, attack_paths)
 
-    return {
+    payload = {
         "metadata": {
             "tool":                  TOOL_FULL,
             "target":                target_path,
@@ -1222,6 +1223,14 @@ def build_report_payload(findings: list[dict], sbom: list[dict],
         "insights":     insights,
         "top_root_causes": _top_root_causes(grouped),
     }
+    # taskf T-1.2: the canonical aggregate is computed ONCE, here, so every
+    # consumer -- renderers, --sbom ingest (raw == [] still builds), tests --
+    # reads payload["aggregates"] instead of re-deriving counts.  Late
+    # pipeline filters (evidex, accuracy, integrity) can still move the
+    # population; main.py rebuilds at the serialization boundary before any
+    # renderer runs.
+    payload["aggregates"] = report_aggregates.build(payload)
+    return payload
 
 
 # ---- final dedupe/executive merge patch ----

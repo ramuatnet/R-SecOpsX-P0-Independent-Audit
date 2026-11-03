@@ -13,8 +13,9 @@ This file pins the replacement contract, on both renderers, from one fixture:
 
   * a component with no advisory dashes every advisory-derived cell
     (severity, age, reachable, KEV, patch urgency, age bucket) -- the dash
-    already shown in CVE / CVSS / EPSS -- while "Unknown"/"score
-    unavailable" remain words for values an advisory genuinely lacks;
+    already shown in CVE / CVSS / EPSS -- while ``unknown (reason)``
+    / "score unavailable" remain words for values an advisory genuinely
+    lacks (taskf T-2.1: one formatter, no bare placeholder word);
   * both renderers order rows with sbom_display_sort_key: vulnerable first
     by severity (Critical > High > Medium > Low), then clean components
     alphabetically, name then version;
@@ -181,11 +182,13 @@ def test_pdf_vulnerable_row_keeps_its_real_values_and_words():
     assert pkg_sev == ["High"]
     assert pkg_age[0].startswith("30d")          # real age, not a dash
     assert pkg_reach == ["No"]                   # Yes/No only WITH an advisory
-    # a genuinely unpublished value stays a word, never a dash
+    # a genuinely unpublished value stays a word, never a dash -- and the
+    # word names the absence instead of a bare placeholder (taskf T-2.1)
     unknown = _vuln("pkg-unknown", "Unknown", "CVE-2024-0002",
                     vulnerability_age_days=None, vulnerability_age=None)
     sev, age, _ = _pdf_columns(_sbom_section(_payload(unknown)))[1:]
-    assert sev == ["Unknown"] and age == ["Unknown"]
+    assert sev == ["unknown (not published)"]
+    assert age == ["unknown (not published)"]
 
 
 def test_pdf_orders_rows_vulnerable_by_severity_then_clean_alphabetically():

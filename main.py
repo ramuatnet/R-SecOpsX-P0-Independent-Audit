@@ -6131,6 +6131,15 @@ def main():
     # byte-identical blocks (ground rule 10).
     payload.setdefault("metadata", {})["file_index"] = (
         file_index.report_metadata(file_index.current()))
+    # taskf T-1.2/T-1.3: rebuild the canonical aggregate at the LAST stage
+    # before any renderer, because every filter above (evidex refresh,
+    # accuracy layer, integrity pass) can move the population after
+    # build_report_payload() first computed it.  One build, one source:
+    # clean_report.json, triage.html, the PDF and the XLSX all read this
+    # same dict; a failed consistency check logs ERROR and sets
+    # metadata.aggregates_inconsistent instead of aborting the export.
+    from core import report_aggregates as _report_aggregates
+    payload["aggregates"] = _report_aggregates.build(payload)
     json_path = output_dir / "clean_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)

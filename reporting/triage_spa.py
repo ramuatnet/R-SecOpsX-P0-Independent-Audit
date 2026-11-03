@@ -108,22 +108,47 @@ def _row(finding: dict) -> dict:
 
 
 def triage_subset(report: dict) -> dict:
-    """Deterministic embeddable subset of a clean_report payload."""
+    """Deterministic embeddable subset of a clean_report payload.
+
+    taskf T-4.3: the canonical aggregate travels with the subset so the
+    page's headline, provenance bar and counter all read ONE count source
+    (``payload["aggregates"]``) instead of re-deriving from metadata.
+    ``report.total_findings`` is kept for backward readers but is sourced
+    from ``counts.total_reported`` whenever the aggregate is present.
+    """
     meta = report.get("metadata")
     if not isinstance(meta, dict):
         meta = {}
     findings = report.get("findings")
     if not isinstance(findings, list):
         findings = []
+    agg = report.get("aggregates")
+    if not isinstance(agg, dict):
+        agg = {}
+    counts = agg.get("counts")
+    if not isinstance(counts, dict):
+        counts = {}
+
+    def _count(key, legacy):
+        """Aggregate count first; metadata only when no aggregate exists."""
+        val = counts.get(key)
+        return val if val is not None else legacy
+
     return {
         "schema": SCHEMA,
         "report": {
             "tool": _text(meta.get("tool")),
             "scan_date": _text(meta.get("scan_date")),
-            "total_findings": _text(meta.get("total_findings")),
-            "sast_findings": _text(meta.get("sast_findings")),
-            "sca_findings": _text(meta.get("sca_findings")),
+            "total_findings": _text(_count(
+                "total_reported", meta.get("total_findings"))),
+            "sast_findings": _text(_count(
+                "sast_records", meta.get("sast_findings"))),
+            "sca_findings": _text(_count(
+                "sca_vulnerable_packages", meta.get("sca_findings"))),
+            "aggregates_inconsistent": bool(
+                meta.get("aggregates_inconsistent")),
         },
+        "aggregates": agg,
         "findings": [_row(f) for f in findings if isinstance(f, dict)],
     }
 
@@ -244,14 +269,20 @@ function rowFromFull(f) {
 }
 function normalize(doc) {
   if (doc && doc.schema === SCHEMA) {
-    return { report: doc.report || {}, rows: (doc.findings || []).map(normRow) };
+    return { report: doc.report || {},
+             agg: (doc && doc.aggregates) || {},
+             rows: (doc.findings || []).map(normRow) };
   }
   var meta = (doc && doc.metadata) ? doc.metadata : {};
   var fs = (doc && Array.isArray(doc.findings)) ? doc.findings : [];
-  return { report: meta, rows: fs.map(rowFromFull) };
+  // clean_report.json carries the canonical aggregate at the top level
+  // (payload["aggregates"]); older files do not, and boot() falls back.
+  return { report: meta, agg: (doc && doc.aggregates) || {},
+           rows: fs.map(rowFromFull) };
 }
 var DATA = [], selected = {}, filters =
   { q: "", severity: "", rule: "", cwe: "", owasp: "", verdict: "" };
+var SAST_N = null;   // aggregates.counts.sast_records once boot() runs
 function text(v) { return (v === null || v === undefined || v === "") ? "\u2014" : String(v); }
 function distinct(key) {
   var seen = {}, out = [];
@@ -392,19 +423,44 @@ function render() {
     })(detail, r);
   }
   el("empty").hidden = shown !== 0;
-  el("counts").textContent = shown + " / " + DATA.length + " findings";
+  // Counter names its population (taskf T-4.3): the denominator is the
+  // artifact's SAST record count, not an unlabelled "findings" total that
+  // readers would confuse with the reported items figure.
+  var denom = (SAST_N != null) ? SAST_N : DATA.length;
+  el("counts").textContent = shown + " / " + denom + " SAST records";
 }
 function boot(doc) {
   var model = normalize(doc);
   DATA = model.rows;
   var rep = model.report || {};
+  var counts = (model.agg && typeof model.agg === "object")
+    ? (model.agg.counts || {}) : {};
+  // Fail loud (taskf T-4.3 / ground rule 12): the artifact's own SAST
+  // record count must equal the list it embeds; a mismatch is shown in the
+  // error banner, never silently reconciled.
+  if (counts.sast_records != null && counts.sast_records !== DATA.length) {
+    showErr("count parity broken: artifact says " + counts.sast_records +
+            ", list has " + DATA.length);
+  }
+  SAST_N = (counts.sast_records != null) ? counts.sast_records : DATA.length;
   var bits = [];
   if (rep.tool) bits.push("tool: " + rep.tool);
   if (rep.scan_date) bits.push("scanned: " + rep.scan_date);
-  bits.push("findings in artifact: " + text(rep.total_findings != null
-    ? rep.total_findings : DATA.length));
-  if (rep.sast_findings != null) bits.push("sast: " + rep.sast_findings);
-  if (rep.sca_findings != null) bits.push("sca: " + rep.sca_findings);
+  if (counts.total_reported != null) {
+    bits.push(counts.total_reported + " reported items (" +
+              counts.sast_records + " SAST records + " +
+              counts.sca_vulnerable_packages + " vulnerable packages)");
+  } else {
+    // Payload without an aggregate (older clean_report.json): honest
+    // fallback to the metadata it does carry.
+    bits.push("findings in artifact: " + text(rep.total_findings != null
+      ? rep.total_findings : DATA.length));
+    if (rep.sast_findings != null) bits.push("sast: " + rep.sast_findings);
+    if (rep.sca_findings != null) bits.push("sca: " + rep.sca_findings);
+  }
+  if (rep.aggregates_inconsistent) {
+    bits.push("WARNING: aggregates inconsistent -- treat totals as unreliable");
+  }
   el("provenance").textContent = bits.join(" | ");
   fillSelect("f-severity", "severity", "severity");
   fillSelect("f-rule", "rule_id", "rule");

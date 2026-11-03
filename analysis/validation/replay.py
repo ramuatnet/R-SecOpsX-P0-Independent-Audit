@@ -72,21 +72,68 @@ _FINDING_FIELDS = ("rule_id", "class", "basename", "line", "severity",
                    "cwe", "evidence", "cve", "package", "version")
 
 
-def _pin_advisory_state(pin_path: Path) -> None:
+# Sentinel: the env var / module global was NOT set before the pin, so the
+# restore must remove it rather than write a value back.
+_STATE_MISSING = object()
+
+
+def _pin_advisory_state(pin_path: Path) -> dict:
     """Force offline mode and repoint the advisory cache at the commit pin.
 
     Must run before any engine call. Sets the env var the product reads
     (``live_feeds_enabled``) and the module global ``query_osv_batch``
     loads its cache from. Also clears the module's cache memo so a
     previously imported tree cannot leak its state into the replay.
+
+    Returns the previous state for `_restore_advisory_state`. The pin is
+    process-wide mutation: without the restore, an in-process caller that
+    runs anything AFTER the replay inherits it -- observed as a later
+    live-capable corpus run querying through the pin (one labelled SCA
+    true positive missed, recall 57/58) and writing live refreshes back
+    into the committed ``tests/replay/vuln_cache_pinned.json`` (a 4100-line
+    diff against HEAD).  Pin and restore are a pair; callers must not
+    split them.
     """
-    os.environ["RSECOPSX_LIVE_FEEDS"] = "0"
     from scanner import vulnerability_intel
+    saved = {
+        "env": os.environ.get("RSECOPSX_LIVE_FEEDS", _STATE_MISSING),
+        "cache_file": getattr(vulnerability_intel, "CACHE_FILE",
+                              _STATE_MISSING),
+        "cache_load_failed": getattr(vulnerability_intel,
+                                     "_CACHE_LOAD_FAILED", _STATE_MISSING),
+    }
+    os.environ["RSECOPSX_LIVE_FEEDS"] = "0"
     vulnerability_intel.CACHE_FILE = Path(pin_path)
     if hasattr(vulnerability_intel, "_CACHE_FETCHED"):
         vulnerability_intel._CACHE_FETCHED.clear()
     if hasattr(vulnerability_intel, "_CACHE_LOAD_FAILED"):
         vulnerability_intel._CACHE_LOAD_FAILED = False
+    return saved
+
+
+def _restore_advisory_state(saved: dict) -> None:
+    """Undo `_pin_advisory_state` exactly; the other half of the pair.
+
+    The cache memo is cleared again on the way out (the pin cleared it on
+    the way in, and queries during the replay filled it with pin-derived
+    data): the next query must reload from the restored file, not serve
+    the pin's entries from memory.
+    """
+    from scanner import vulnerability_intel
+    env = saved.get("env", _STATE_MISSING)
+    if env is _STATE_MISSING:
+        os.environ.pop("RSECOPSX_LIVE_FEEDS", None)
+    else:
+        os.environ["RSECOPSX_LIVE_FEEDS"] = str(env)
+    cache_file = saved.get("cache_file", _STATE_MISSING)
+    if cache_file is not _STATE_MISSING:
+        vulnerability_intel.CACHE_FILE = cache_file
+    if hasattr(vulnerability_intel, "_CACHE_FETCHED"):
+        vulnerability_intel._CACHE_FETCHED.clear()
+    load_failed = saved.get("cache_load_failed", _STATE_MISSING)
+    if (load_failed is not _STATE_MISSING
+            and hasattr(vulnerability_intel, "_CACHE_LOAD_FAILED")):
+        vulnerability_intel._CACHE_LOAD_FAILED = load_failed
 
 
 def _scan_all(corpus_root: Path) -> dict:
@@ -290,73 +337,78 @@ def replay(corpus: Path | str = DEFAULT_CORPUS,
             % manifest_path)
         return result
 
-    _pin_advisory_state(pin_path)
-
-    manifest_bytes = manifest_path.read_bytes()
-    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
-    import json
-    manifest_doc = json.loads(manifest_bytes.decode("utf-8"))
-
+    # Pin, run, restore -- always.  Every return below travels through the
+    # finally, so no early exit can leave the process pinned to the commit
+    # cache (see _pin_advisory_state for what that leak cost).
+    saved_state = _pin_advisory_state(pin_path)
     try:
-        scan_a = _scan_all(corpus)
-        scan_b = _scan_all(corpus)
-    except ValueError as exc:
-        result["exit_code"] = 1
-        result["problems"].append(str(exc))
-        return result
+        manifest_bytes = manifest_path.read_bytes()
+        manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+        import json
+        manifest_doc = json.loads(manifest_bytes.decode("utf-8"))
 
-    if not scan_a:
-        result["exit_code"] = 2
-        result["problems"].append(
-            "NOTHING REPLAYED -- no labelled fixtures under %s."
-            " This is not a pass." % corpus)
-        return result
+        try:
+            scan_a = _scan_all(corpus)
+            scan_b = _scan_all(corpus)
+        except ValueError as exc:
+            result["exit_code"] = 1
+            result["problems"].append(str(exc))
+            return result
 
-    dump_a = _dump(scan_a, manifest_sha256)
-    dump_b = _dump(scan_b, manifest_sha256)
-    result["deterministic"] = dump_a == dump_b
-    if dump_a != dump_b:
-        result["exit_code"] = 1
-        result["problems"].append(
-            "replay is not deterministic: two in-process runs produced"
-            " different bytes")
-        result["problems"].extend(_first_diff(dump_a, dump_b))
-        return result
-
-    result["counts"] = {
-        "fixtures": len(scan_a),
-        "findings": sum(len(f["findings"]) for f in scan_a.values()),
-    }
-
-    # 3. manifest assertions (independent of the golden, so a stale golden
-    # cannot mask a TP the engines stopped finding).
-    result["problems"].extend(_manifest_assertions(scan_a, manifest_doc))
-
-    # 2. golden byte-diff.
-    if update:
-        golden_path.parent.mkdir(parents=True, exist_ok=True)
-        golden_path.write_bytes(dump_a)
-        _LOG.info("updated golden: %s (%d fixtures, %d findings)",
-                  golden_path, result["counts"]["fixtures"],
-                  result["counts"]["findings"])
-    elif not golden_path.is_file():
-        result["problems"].append(
-            "golden missing: %s -- run"
-            " `python -m analysis.validation.replay --update` and commit"
-            " the result" % golden_path)
-    else:
-        want = golden_path.read_bytes()
-        if want != dump_a:
+        if not scan_a:
+            result["exit_code"] = 2
             result["problems"].append(
-                "golden drift: %s differs from the replayed corpus (%d"
-                " committed bytes vs %d replayed) -- if the change is"
-                " intended, run --update and commit the golden with the"
-                " change" % (golden_path, len(want), len(dump_a)))
-            result["problems"].extend(_first_diff(want, dump_a))
+                "NOTHING REPLAYED -- no labelled fixtures under %s."
+                " This is not a pass." % corpus)
+            return result
 
-    if result["problems"]:
-        result["exit_code"] = 1
-    return result
+        dump_a = _dump(scan_a, manifest_sha256)
+        dump_b = _dump(scan_b, manifest_sha256)
+        result["deterministic"] = dump_a == dump_b
+        if dump_a != dump_b:
+            result["exit_code"] = 1
+            result["problems"].append(
+                "replay is not deterministic: two in-process runs produced"
+                " different bytes")
+            result["problems"].extend(_first_diff(dump_a, dump_b))
+            return result
+
+        result["counts"] = {
+            "fixtures": len(scan_a),
+            "findings": sum(len(f["findings"]) for f in scan_a.values()),
+        }
+
+        # 3. manifest assertions (independent of the golden, so a stale golden
+        # cannot mask a TP the engines stopped finding).
+        result["problems"].extend(_manifest_assertions(scan_a, manifest_doc))
+
+        # 2. golden byte-diff.
+        if update:
+            golden_path.parent.mkdir(parents=True, exist_ok=True)
+            golden_path.write_bytes(dump_a)
+            _LOG.info("updated golden: %s (%d fixtures, %d findings)",
+                      golden_path, result["counts"]["fixtures"],
+                      result["counts"]["findings"])
+        elif not golden_path.is_file():
+            result["problems"].append(
+                "golden missing: %s -- run"
+                " `python -m analysis.validation.replay --update` and commit"
+                " the result" % golden_path)
+        else:
+            want = golden_path.read_bytes()
+            if want != dump_a:
+                result["problems"].append(
+                    "golden drift: %s differs from the replayed corpus (%d"
+                    " committed bytes vs %d replayed) -- if the change is"
+                    " intended, run --update and commit the golden with the"
+                    " change" % (golden_path, len(want), len(dump_a)))
+                result["problems"].extend(_first_diff(want, dump_a))
+
+        if result["problems"]:
+            result["exit_code"] = 1
+        return result
+    finally:
+        _restore_advisory_state(saved_state)
 
 
 def main(argv: list[str] | None = None) -> int:

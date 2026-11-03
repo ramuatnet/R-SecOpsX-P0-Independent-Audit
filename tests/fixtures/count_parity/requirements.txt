@@ -1,0 +1,4 @@
+flask==1.0.2
+six==1.16.0
+colorama==0.4.6
+certifi==2024.2.2

@@ -13,6 +13,18 @@ CHANGES (v4 †’ v5):
 from __future__ import annotations
 # T-0.2 (task.md): the one walk's index replaces ~22 rglob passes here.
 from core import file_index
+# taskf Phase 3: one value vocabulary for producer-side classification
+# (the version/licence reason ladder) and the offline purl builder.
+from core.value_state import (
+    LOCAL_REFERENCE,
+    MANIFEST_RANGE,
+    NO_LOCKFILE,
+    PROPERTY_UNRESOLVED,
+    TRANSITIVE_GUESS,
+    UNKNOWN,
+    resolve,
+)
+from scanner.purl import purl as build_purl
 from scanner.vulnerability_overrides import VULNERABILITY_OVERRIDES
 from scanner.vulnerability_intel import (
     ADVISORY_SERVICE_STATUS,
@@ -524,7 +536,7 @@ def _parse_requirements(filepath: str) -> list[dict]:
                 line_clean
             )
             if m:
-                pkgs.append({
+                entry = {
                     "name": m.group(1),
                     "version": _resolve_pinned_version(m.group(2)),
                     "ecosystem": "PyPI",
@@ -532,7 +544,14 @@ def _parse_requirements(filepath: str) -> list[dict]:
                     "direct": True,
                     "manifest_file": filepath,
                     "manifest_line": line_no,
-                })
+                }
+                # Raw specifier (markers/comments stripped the same way
+                # _resolve_pinned_version strips them) so finalize can
+                # name MANIFEST_RANGE vs NO_LOCKFILE (taskf T-3.2).
+                spec = m.group(2).split(";", 1)[0].split("#", 1)[0].strip()
+                if spec:
+                    entry["requested_version"] = spec
+                pkgs.append(entry)
                 continue
 
             local = _LOCAL_REQUIREMENT_RE.match(line_clean)
@@ -629,7 +648,12 @@ def _parse_package_json(filepath: str) -> list[dict]:
     for section in ("dependencies", "devDependencies"):
         for name, ver in data.get(section, {}).items():
 
+            requested = None
             if isinstance(ver, str):
+                # Keep the RAW range: _resolve_npm_version discards it on
+                # failure, and finalize needs it to name MANIFEST_RANGE
+                # (taskf T-3.2) instead of a generic absence.
+                requested = ver
                 version = _resolve_npm_version(ver)
             elif isinstance(ver, dict):
                 version = str(
@@ -641,7 +665,7 @@ def _parse_package_json(filepath: str) -> list[dict]:
             else:
                 version = str(ver)
 
-            pkgs.append({
+            entry = {
                 "name": name,
                 "version": version,
                 "ecosystem": "npm",
@@ -649,7 +673,10 @@ def _parse_package_json(filepath: str) -> list[dict]:
                 "direct": True,
                 "manifest_file": filepath,
                 "manifest_line": _find_line(filepath, name),
-            })
+            }
+            if requested:
+                entry["requested_version"] = requested
+            pkgs.append(entry)
 
     return pkgs
 
@@ -1066,6 +1093,10 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
                 if version is not None and version.text
                 else "unknown"
             )
+            # Raw declaration captured BEFORE ${...} resolution and the
+            # managed-version fallbacks below: taskf T-3.2's ladder reads
+            # requested_version when the final version stays unknown.
+            raw_ver = ver_str
 
             # ${...} is a Maven property reference, usually declared in this
             # same pom (<lombok.version>1.18.48</lombok.version> referenced as
@@ -1103,7 +1134,7 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
                 except Exception:
                     ver_str = "unknown"
 
-            pkgs.append({
+            entry = {
                 "name": f"{group_id}:{artifact_id}",
                 "version": ver_str,
                 "ecosystem": "Maven",
@@ -1114,7 +1145,10 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
                 "direct": True,
                 "manifest_file": filepath,
                 "manifest_line": _find_line(filepath, artifact_id),
-            })
+            }
+            if raw_ver and raw_ver.lower() != "unknown":
+                entry["requested_version"] = raw_ver
+            pkgs.append(entry)
 
     except Exception:
         pass
@@ -1136,6 +1170,11 @@ def _add_transitive(packages: list[dict]) -> list[dict]:
                     "ecosystem": pkg.get("ecosystem", "unknown"),
                     "license": "unknown",
                     "direct": False,
+                    # taskf T-3.3: this component was fabricated from the
+                    # 4-entry table, not read from a manifest -- say so
+                    # where the renderers and the version ladder look.
+                    "transitive_guess": True,
+                    "dependency_type": "Transitive",
                     "manifest_file": pkg.get("manifest_file"),
                     "manifest_line": pkg.get("manifest_line"),
                 })
@@ -1411,6 +1450,122 @@ def generate_sbom(target_path: str) -> list[dict]:
     return finalize_sbom_packages(unique)
 
 
+#: Specifier prefixes that mark a version request as a local/VCS
+#: reference rather than a range (taskf T-3.2 ladder step 2).
+_LOCAL_SPEC_PREFIXES = (
+    "git+", "git:", "http://", "https://", "file:", "./", "../",
+    "link:", "workspace:", "/",
+)
+
+
+def _version_absence_reason(pkg: dict) -> str:
+    """Why ``pkg``'s version stayed a placeholder (taskf T-3.2 ladder).
+
+    Binding order: TRANSITIVE_GUESS -> LOCAL_REFERENCE ->
+    PROPERTY_UNRESOLVED (Maven) -> MANIFEST_RANGE; a version the manifest
+    never declared at all lands on NO_LOCKFILE.  Reads only the record --
+    no network, no guessing, no mutation.
+    """
+    requested = str(pkg.get("requested_version") or "").strip()
+    if not pkg.get("direct", True):
+        return TRANSITIVE_GUESS
+    if (pkg.get("local_reference")
+            or str(pkg.get("ecosystem") or "").strip().casefold() == "local"
+            or requested.startswith(_LOCAL_SPEC_PREFIXES)
+            or "://" in requested):
+        return LOCAL_REFERENCE
+    if str(pkg.get("ecosystem") or "").strip().casefold() == "maven":
+        return PROPERTY_UNRESOLVED
+    if requested:
+        return MANIFEST_RANGE
+    return NO_LOCKFILE
+
+
+def _stamp_version_provenance(pkg: dict) -> None:
+    """Record WHY the version cell will print ``unknown (...)`` (T-3.2).
+
+    Only placeholder versions are stamped -- a resolved pin needs no
+    excuse, and an existing entry (an ingest adapter's) is authoritative.
+    Pure dict bookkeeping; refuses to touch any other field.
+    """
+    prov = pkg.get("field_provenance")
+    if isinstance(prov, dict) and "version" in prov:
+        return
+    state, _, _ = resolve(pkg, "version")
+    if state == "VALUE":
+        return
+    if not isinstance(prov, dict):
+        prov = {}
+        pkg["field_provenance"] = prov
+    prov["version"] = {
+        "state": UNKNOWN,
+        "reason": _version_absence_reason(pkg),
+    }
+
+
+def _stamp_license_provenance(pkg: dict) -> None:
+    """Name WHY the licence cell is empty -- after catalogue inference.
+
+    finalize calls this only once infer_package_license has had its
+    chance: a reason recorded earlier would outlive a catalogue hit,
+    because value_state consults provenance before the field.  Reason
+    only (no ``state``) so a filled licence still resolves VALUE.
+    Fabricated transitives (taskf T-3.3) admit the guess; every other
+    gap is a manifest property the producers documented as undeclared.
+    """
+    prov = pkg.get("field_provenance")
+    if isinstance(prov, dict) and "license" in prov:
+        return
+    state, _, _ = resolve(pkg, "license")
+    if state == "VALUE":
+        return
+    if not isinstance(prov, dict):
+        prov = {}
+        pkg["field_provenance"] = prov
+    prov["license"] = {
+        "reason": (TRANSITIVE_GUESS if pkg.get("transitive_guess")
+                   else PROPERTY_UNRESOLVED),
+    }
+
+
+def _stamp_report_fields(pkg: dict) -> None:
+    """Populate the report fields no parser ever wrote (taskf T-3.2).
+
+    component / dependency_type / purl / cvss_version /
+    reachability_source, plus the version reason-ladder provenance.
+    Pure, offline, additive: an existing value (an ingested purl, a
+    parser's dependency_type) is never overwritten.  Refuses to guess:
+    build_purl() returns None for anything unresolvable, and
+    cvss_version is stamped only where enrich_with_cve marked the
+    offline table's score.
+    """
+    if not pkg.get("component") and pkg.get("name"):
+        pkg["component"] = pkg["name"]
+    if not pkg.get("dependency_type"):
+        pkg["dependency_type"] = (
+            "Direct" if pkg.get("direct", True) else "Transitive"
+        )
+    if not pkg.get("purl"):
+        built = build_purl(pkg.get("name"), pkg.get("version"),
+                           pkg.get("ecosystem"))
+        if built:
+            pkg["purl"] = built
+    if (pkg.get("cvss_method") == "STATIC_OFFLINE_CVSS_V1"
+            and not pkg.get("cvss_version")):
+        # enrich_with_cve stamps cvss_method only on KNOWN_VULNS hits, and
+        # those scores are CVSS 3.1 numbers.  Typosquat confidence scores
+        # and external-advisory scores are deliberately NOT stamped: they
+        # did not come from that table, and guessing their standard is
+        # the placeholder habit this batch removes.
+        pkg["cvss_version"] = "3.1"
+    if pkg.get("reachable") is not None:
+        # taskf T-3.4: `reachable` is the offline table's curated value,
+        # never an observed import -- carry the source so the legend can
+        # say so.  A computed engine that already stamped a source wins.
+        pkg.setdefault("reachability_source", "STATIC_TABLE")
+    _stamp_version_provenance(pkg)
+
+
 def finalize_sbom_packages(packages: list[dict],
                            add_transitive: bool = True) -> list[dict]:
     """Shared post-inventory enrichment tail.
@@ -1471,6 +1626,12 @@ def finalize_sbom_packages(packages: list[dict],
             if cpe:
                 pkg["cpe"] = cpe
 
+    # taskf T-3.2 (Phase 3): populate the report fields no parser ever
+    # wrote, BEFORE the sort so the stamped rows travel with it.  See
+    # _stamp_report_fields for the additive / no-guess contract.
+    for pkg in enriched:
+        _stamp_report_fields(pkg)
+
     # ENH #4: sort direct first, then transitive, each alphabetically
     enriched.sort(key=lambda p: (0 if p.get("direct", True) else 1,
                                   p.get("name", "").lower()))
@@ -1480,6 +1641,11 @@ def finalize_sbom_packages(packages: list[dict],
             pkg.get("name", ""),
             pkg.get("license", "unknown")
         )
+    # taskf T-3.2: name WHY a licence cell is empty -- but only now,
+    # after the catalogue above had its chance to fill it (see
+    # _stamp_license_provenance for why the order is load-bearing).
+    for pkg in enriched:
+        _stamp_license_provenance(pkg)
     return enriched
 
 
