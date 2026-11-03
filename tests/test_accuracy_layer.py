@@ -21,7 +21,7 @@ import sys
 
 import pytest
 
-sys.path.insert(0, r"D:\Data\Code test\R-SecOpsX_V11")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from accuracy.layer import apply_accuracy_layer  # noqa: E402
 from accuracy import validators as V  # noqa: E402

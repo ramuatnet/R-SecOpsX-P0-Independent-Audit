@@ -25,7 +25,7 @@ import sys
 
 import pytest
 
-sys.path.insert(0, r"D:\Data\Code test\R-SecOpsX_V11")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from analysis.validation import compare, run as vrun  # noqa: E402
 from analysis.validation.normalize import (  # noqa: E402

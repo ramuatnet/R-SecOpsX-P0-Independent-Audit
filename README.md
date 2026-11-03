@@ -104,14 +104,27 @@ functional (task.md Definition of Done).
 
 ## Offline and airgap invariant
 
-A default scan performs **zero network I/O**: no telemetry, no package
-installs, no lookups. Every stage that could touch the network is
-opt-in behind an explicit flag (`--dast-*`, `--asm-*`, `--cloud-*`,
-`--live-secrets`, image pulls, intel feeds) and is injectable for
-tests. Credentials are read in exactly one place
-(`analysis/cloud/connect.py::resolve_credentials`); DSNs and secrets
-are never echoed in errors. The same invariant makes the tool usable
-in an airgapped environment straight from a checkout.
+Heavy network stages are opt-in behind explicit flags (`--dast-*`,
+`--asm-*`, `--cloud-*`, `--live-secrets`, image pulls) and injectable
+for tests. Advisory/intel feeds are a separate class with per-stage
+switches: EPSS/KEV/OSV enrichment and the Maven Central POM lookup
+honour `RSECOPSX_LIVE_FEEDS` (default ON per the G-001 design),
+HuggingFace hub metadata honours `RSX_HF_ENRICH` (default ON), and NVD
+secondary enrichment honours `RSX_NVD_ENRICH` (default OFF). For a
+zero-I/O run — the airgap mode — set:
+
+```bash
+export RSECOPSX_LIVE_FEEDS=0   # EPSS/KEV/OSV + Maven POM fetch
+export RSX_HF_ENRICH=0         # HuggingFace hub metadata
+unset RSX_NVD_ENRICH           # NVD secondary (already off by default)
+```
+
+With those set, a default scan performs **zero network I/O**: no
+telemetry, no package installs, no lookups — the invariant is pinned
+behaviourally by `tests/test_t15_dod.py`. Credentials are read in
+exactly one place (`analysis/cloud/connect.py::resolve_credentials`);
+DSNs and secrets are never echoed in errors. The same invariant makes
+the tool usable in an airgapped environment straight from a checkout.
 
 ## Validation
 

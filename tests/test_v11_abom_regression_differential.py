@@ -4,7 +4,7 @@ import tempfile
 import json
 import sys
 
-ROOT = Path(r"D:\Data\Code test\R-SecOpsX_V11")
+ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "scanner" / "abom.py"
 
 # Use the pre-canonical-contract source as the differential baseline.

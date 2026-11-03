@@ -45,7 +45,10 @@ from __future__ import annotations
 
 WSTG_DOCUMENT = "OWASP Web Security Testing Guide"
 WSTG_VERSION = "v4.2"
-WSTG_SOURCE_PATH = "D:/Data/Code test/prodtest/web-security-testing-guide-master"
+# T-15 (section 15, repo convention): relative to the checkout root --
+# the machine-local absolute path stayed only in the PROVENANCE
+# docstring above (prose, not an executable constant).
+WSTG_SOURCE_PATH = "prodtest/web-security-testing-guide-master"
 WSTG_CATALOGUE_SHA256 = "29E453B1EE9C2CE5256A78EC60E375A3982C9B8569B6034E262DF50F94033841"
 WSTG_LICENSE = "UNVERIFIED - no LICENSE file at the checkout root; not asserted"
 WSTG_DATASET_LABEL = f"{WSTG_DOCUMENT} {WSTG_VERSION}"

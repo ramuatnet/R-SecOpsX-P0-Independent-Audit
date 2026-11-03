@@ -14,8 +14,9 @@ from __future__ import annotations
 import io
 import sys
 import urllib.error
+from pathlib import Path
 
-sys.path.insert(0, r"D:\Data\Code test\R-SecOpsX_V11")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scanner import nvd_client as nc
 

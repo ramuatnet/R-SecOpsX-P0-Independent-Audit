@@ -2,7 +2,7 @@
 import tempfile
 import sys
 
-ROOT = Path(r"D:\Data\Code test\R-SecOpsX_V11")
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scanner import abom

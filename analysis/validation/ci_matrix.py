@@ -95,14 +95,20 @@ def run_ci_matrix() -> dict:
         [sys.executable, "-m", "analysis.validation.fuzz_versions", "--count", "1000"]
     ))
 
-    # V0: V0 unit tests
+    # V0: V0 unit tests. T-15 (section 15): calibrated timeout, not the
+    # 300s _run default -- the healthy gate measured 374.2s (173 passed,
+    # rc=0, 2026-11-03) and had been chronically false-red under the
+    # default for 6+ matrix runs. 600s = measured + hang headroom (the
+    # same class engine_parity/variant_stability already use); a real
+    # hang still fails the gate.
     gates.append(_run(
         "v0_unit_tests",
         [sys.executable, "-m", "pytest",
          str(ROOT / "tests" / "test_v01_golden_corpus.py"),
          str(ROOT / "tests" / "test_v02_normalizer_comparator.py"),
          str(ROOT / "tests" / "test_v03_differential.py"),
-         "-v", "--tb=short"]
+         "-v", "--tb=short"],
+        timeout=600,
     ))
 
     # Phase 0: security gate tests

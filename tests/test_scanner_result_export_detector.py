@@ -12,7 +12,7 @@ from __future__ import annotations
 import pathlib
 import sys
 
-sys.path.insert(0, r"D:\Data\Code test\R-SecOpsX_V11")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from scanner.sast import _is_scanner_result_json as sast_is
 from scanner.secret_intelligence import _is_scanner_result_json as sec_is

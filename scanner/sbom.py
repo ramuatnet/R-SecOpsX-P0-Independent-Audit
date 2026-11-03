@@ -783,6 +783,17 @@ def _fetch_maven_pom(group_id: str, artifact_id: str, version: str):
     except Exception:
         cache = {}
     if text is None:
+        # T-15 (section 15): this fetch is a live feed like every other
+        # client in the tree -- honour the master air-gap switch instead
+        # of ignoring it. Cache reads above stay local; with
+        # RSECOPSX_LIVE_FEEDS=0 the transport is never touched and the
+        # caller degrades to "unknown" (as the A2 call-site comment
+        # already promised). The disabled path does NOT memoize: a
+        # policy decision is not a fetch outcome, so a later enabled
+        # call can still fetch.
+        from analysis.live_intel_feeds import live_feeds_enabled
+        if not live_feeds_enabled():
+            return None
         try:
             import urllib.request
             req = urllib.request.Request(
