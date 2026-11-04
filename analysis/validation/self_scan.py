@@ -51,6 +51,13 @@ EXIT CODES:
     2  could-not-run (main.py missing, no clean_report.json, bad JSON)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M400
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M400
 
 import argparse
 import json
@@ -171,7 +178,7 @@ def run_self_scan(target: "str | os.PathLike | None" = None,
             return {"rc": 2,
                     "error": "no clean_report.json (subprocess rc=%s)"
                              % proc.returncode,
-                    "stderr_tail": (proc.stderr or "")[-400:],
+                    "stderr_tail": (proc.stderr or "")[WINDOW_M400:],
                     "filtered_count": None}
         try:
             parsed = _parse_report(report_path)

@@ -41,6 +41,13 @@ Detection notes (disclosed, per no-silent-drops):
   exercised by the offline suite.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200, WINDOW_80, WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200, WINDOW_80, WINDOW_SNIPPET
 
 import base64
 import json
@@ -634,7 +641,7 @@ def _detect_sqli(resp, ctx, target, payload):
     m = SQLI_RE.search(resp.body or "")
     if not m:
         return None
-    return ("likely", {"signature": m.group(0)[:120],
+    return ("likely", {"signature": m.group(0)[:WINDOW_SNIPPET],
                        "response_excerpt": _excerpt(resp.body, m.start())})
 
 
@@ -686,7 +693,7 @@ def _detect_ssti(resp, ctx, target, payload):
     # boundaries.  The payload itself must NOT be echoed -- a page
     # printing {{987*654}} as text rendered nothing.
     if _SSTI_MARKER_RE.search(body) and str(payload) not in body:
-        return ("likely", {"payload": str(payload)[:80],
+        return ("likely", {"payload": str(payload)[:WINDOW_80],
                            "marker": "645498"})
     return None
 
@@ -699,7 +706,7 @@ def _detect_redirect(resp, ctx, target, payload):
     host = (urlsplit(absloc).hostname or "").lower()
     base_host = (urlsplit(ctx.base_url).hostname or "").lower()
     if host and host != base_host:
-        return ("likely", {"location": loc[:200], "status": resp.status})
+        return ("likely", {"location": loc[:WINDOW_200], "status": resp.status})
     return None
 
 
@@ -717,7 +724,7 @@ def _detect_deser(resp, ctx, target, payload):
     m = DESER_RE.search(resp.body or "")
     if not m:
         return None
-    return ("likely", {"signature": m.group(0)[:120],
+    return ("likely", {"signature": m.group(0)[:WINDOW_SNIPPET],
                        "response_excerpt": _excerpt(resp.body, m.start())})
 
 

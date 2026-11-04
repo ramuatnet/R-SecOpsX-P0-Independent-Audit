@@ -5,6 +5,13 @@ SBOM Full Inventory Engine.
 Stdlib-only. Converts existing R-SecOpsX SBOM rows into an auditable package inventory.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_32
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_32
 
 from typing import Any, Dict, List
 import hashlib
@@ -44,7 +51,7 @@ def _fingerprint(pkg: Dict[str, Any]) -> str:
         _clean(_first(pkg, "version", default="")),
         _clean(_first(pkg, "purl", "Purl", default="")),
     ])
-    return hashlib.sha256(raw.encode("utf-8", errors="ignore")).hexdigest()[:32]
+    return hashlib.sha256(raw.encode("utf-8", errors="ignore")).hexdigest()[:WINDOW_32]
 
 
 def _vuln_ids(pkg: Dict[str, Any]) -> List[str]:

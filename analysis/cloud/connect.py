@@ -21,6 +21,13 @@ sources[], inventory{resources[]}, findings[], posture{}, skips[],
 stats{}}.  Never raises on provider failure -- failures are skips.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200, WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200, WINDOW_SNIPPET
 
 import argparse
 import json
@@ -267,7 +274,7 @@ def _fetch_aws(send, creds, now, sleep=0.0):
                               "reason": f"page_cap_{MAX_PAGES}"})
         except (ApiError, ResponseTooLarge, OSError, ValueError) as exc:
             skips.append({"stage": "aws", "target": op,
-                          "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                          "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
 
     # ---- bounded detail polls (attempt-count at the call site: one
     # detail_cap row per op, then stop -- no silent pre-slice drops) ----
@@ -283,7 +290,7 @@ def _fetch_aws(send, creds, now, sleep=0.0):
                               "reason": f"ApiError: http_{exc.status}"})
         except (ResponseTooLarge, OSError, ValueError) as exc:
             skips.append({"stage": "aws", "target": key,
-                          "reason": f"{type(exc).__name__}"[:120]})
+                          "reason": f"{type(exc).__name__}"[:WINDOW_SNIPPET]})
 
     def _cap_reached(i: int, op: str) -> bool:
         if i < MAX_DETAIL_CALLS:
@@ -319,7 +326,7 @@ def _fetch_aws(send, creds, now, sleep=0.0):
         except (ApiError, ValueError) as exc:
             skips.append({"stage": "aws",
                           "target": "s3:GetPublicAccessBlock",
-                          "reason": f"{type(exc).__name__}"[:120]})
+                          "reason": f"{type(exc).__name__}"[:WINDOW_SNIPPET]})
 
     if "kms:ListKeys" in raws:
         try:
@@ -347,7 +354,7 @@ def _fetch_aws(send, creds, now, sleep=0.0):
         except (ApiError, ValueError) as exc:
             skips.append({"stage": "aws",
                           "target": "kms:GetKeyRotationStatus",
-                          "reason": f"{type(exc).__name__}"[:120]})
+                          "reason": f"{type(exc).__name__}"[:WINDOW_SNIPPET]})
 
     if "cloudtrail:DescribeTrails" in raws:
         try:
@@ -376,7 +383,7 @@ def _fetch_aws(send, creds, now, sleep=0.0):
         except (ApiError, ValueError) as exc:
             skips.append({"stage": "aws",
                           "target": "cloudtrail:GetTrailStatus",
-                          "reason": f"{type(exc).__name__}"[:120]})
+                          "reason": f"{type(exc).__name__}"[:WINDOW_SNIPPET]})
 
     return raws, sources, skips
 
@@ -409,7 +416,7 @@ def _fetch_gcp(send, creds, now, sleep=0.0):
                               "reason": f"page_cap_{MAX_PAGES}"})
         except (ApiError, ResponseTooLarge, OSError, ValueError) as exc:
             skips.append({"stage": "gcp", "target": op,
-                          "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                          "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
 
     if "gcs:buckets" in raws:
         try:
@@ -436,7 +443,7 @@ def _fetch_gcp(send, creds, now, sleep=0.0):
                                   "reason": f"ApiError: http_{exc.status}"})
         except (ApiError, ValueError) as exc:
             skips.append({"stage": "gcp", "target": "gcs:getIamPolicy",
-                          "reason": f"{type(exc).__name__}"[:120]})
+                          "reason": f"{type(exc).__name__}"[:WINDOW_SNIPPET]})
 
     return raws, sources, skips
 
@@ -472,7 +479,7 @@ def _fetch_azure(send, creds, now, sleep=0.0):
                               "reason": f"page_cap_{MAX_PAGES}"})
         except (ApiError, ResponseTooLarge, OSError, ValueError) as exc:
             skips.append({"stage": "azure", "target": op,
-                          "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                          "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
 
     return raws, sources, skips
 
@@ -528,7 +535,7 @@ def collect_posture(requested: tuple[str, ...] = (),
             except (OSError, ValueError) as exc:
                 skips.append({"stage": provider,
                               "target": files[provider],
-                              "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                              "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
             continue
         got = creds.get(provider) or resolve_credentials(provider)
         if not got:
@@ -543,7 +550,7 @@ def collect_posture(requested: tuple[str, ...] = (),
             skips.extend(sk)
         except Exception as exc:       # noqa: BLE001 - disclose, never raise
             skips.append({"stage": provider, "target": provider,
-                          "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                          "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
 
     # normalize + checks per obtained provider
     findings: list[dict] = []

@@ -1,4 +1,11 @@
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_50
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_50
 
 from collections import Counter
 
@@ -216,7 +223,7 @@ def enrich_business_logic_correlation(
             "Multiple business-logic weakness classes observed",
             "High",
             "Medium",
-            combined[:50],
+            combined[:WINDOW_50],
             "Four or more business-logic weakness classes are present across the scan.",
             "Perform focused business-logic abuse testing for authorization, workflow, payment, replay, and tenant boundaries.",
         ))

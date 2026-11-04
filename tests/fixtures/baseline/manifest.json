@@ -1,0 +1,22 @@
+{
+  "schema": "rsecopsx.baseline/v1",
+  "artifacts": [
+    "Security_Report.pdf",
+    "clean_report.json",
+    "Security_Report.xlsx"
+  ],
+  "files": {
+    "Security_Report.pdf": {
+      "sha256": "11e8e78509611e679aac06bc6c47738b41d5346ebe8c08f0b11aa059abf8ea19",
+      "bytes": 624611
+    },
+    "clean_report.json": {
+      "sha256": "ff5bf06f0bc506f33da0d1b62ebf29c592c6539518e56c1d2d0ac9c12875d653",
+      "bytes": 8835753
+    },
+    "Security_Report.xlsx": {
+      "sha256": "e31d97508836943ba6590a98be34a0def7f83c74e30902d5ba39f6718d299545",
+      "bytes": 160065
+    }
+  }
+}

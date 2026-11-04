@@ -45,7 +45,7 @@ NEW_EXTS = {
     ".pm": "perl",
 }
 
-#: The 14 rule ids this batch adds to rules/enterprise_v1.yaml.
+#: The 14 rule ids this batch adds to scanner/rules/enterprise_v1.yaml.
 NEW_RULE_IDS = frozenset({
     "KOTLIN_CMD_INJECTION",
     "KOTLIN_INSECURE_DESER",

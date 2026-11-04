@@ -31,6 +31,13 @@ Usage:
     python -m analysis.validation.variant_hunter --reverse
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M3
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M3
 
 import argparse
 import json
@@ -153,7 +160,7 @@ def _t_move_across_module(files, anchor_file, anchor_line, evidence):
         return None
     helper_src = "def run_moved():\n    " + line.strip() + "\n"
     new_lines = list(lines)
-    new_lines.insert(0, f"from {helper_name[:-3]} import run_moved")
+    new_lines.insert(0, f"from {helper_name[:WINDOW_M3]} import run_moved")
     shifted = anchor_line - 1 + 1
     new_lines[shifted] = "run_moved()"
     out = dict(files)

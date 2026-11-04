@@ -249,18 +249,12 @@ RULES = [
 _RULE_BY_ID = {rule["rule_id"]: rule for rule in RULES}
 
 
-def _iter_files(target: Path):
-    if target.is_file():
-        yield target
-        return
-
-    # T-0.2: index query replaces target.rglob. This engine used to apply
-    # NO directory skip at all; the shared union policy now covers it.
-    def _docker_candidate(path: Path) -> bool:
-        return (path.suffix.lower() in DOCKER_EXTENSIONS
-                or _is_dockerfile_name(path.name.lower()))
-
-    yield from file_index.index_for(target).files(pred=_docker_candidate)
+def _docker_candidate(path: Path) -> bool:
+    """Files the Docker engine enumerates: a .dockerfile suffix or a
+    Docker Hub role name (``Dockerfile.<role>``, legacy special names).
+    """
+    return (path.suffix.lower() in DOCKER_EXTENSIONS
+            or _is_dockerfile_name(path.name.lower()))
 
 
 def _is_dockerfile(text: str, path: Path) -> bool:
@@ -370,7 +364,15 @@ def scan_docker(target_path: str) -> list[dict[str, Any]]:
     target_root = target if target.is_dir() else target.parent
     findings: list[dict[str, Any]] = []
 
-    for file_path in _iter_files(target):
+    # FND-02: single-file targets are yielded unconditionally (the
+    # content fallback below can still accept a non-Dockerfile name);
+    # directory targets are the one index query, pred-filtered.
+    if target.is_file():
+        _docker_files: list[Path] = [target]
+    else:
+        _docker_files = file_index.index_for(target).files(
+            pred=_docker_candidate)
+    for file_path in _docker_files:
         try:
             text = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception:

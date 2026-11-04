@@ -63,7 +63,12 @@ def test_disclosure_needles_gate():
 def test_gate_imports_are_stdlib_only():
     tree = ast.parse(GATE_SRC.read_text(encoding="utf-8"))
     allowed = {"__future__", "argparse", "json", "os", "pathlib", "subprocess",
-               "sys", "tempfile", "textwrap", "time"}
+               "sys", "tempfile", "textwrap", "time",
+               # in-repo, not third-party — ftasks Phase 0 FND-03 forces
+               # this gate's slice windows to read analysis.spans (a
+               # stdlib-free constant table importing nothing from the
+               # project), so the no-third-party property still holds.
+               "analysis"}
     found = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

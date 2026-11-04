@@ -163,7 +163,7 @@ CI runs the same gates through `.github/workflows/validation.yml`.
 | `scanner/` | detection engines (regex, taint, AST, secrets, IaC, BOM) |
 | `analysis/` | verdicts, validation harnesses, DAST/ASM/cloud/IAM/graph, serve |
 | `reporting/` | renderers (PDF, Excel, HTML, export formats) |
-| `rules/` | rule tables + schema (`enterprise_v1.yaml`, `regex_v1.yaml`) |
+| `scanner/rules/` | rule tables + schema + loader (`enterprise_v1.yaml`, `regex_v1.yaml`, `schema_v1.json`) |
 | `tests/` | unit, gate, mutation and oracle tests |
 | `tools/` | offline maintenance tools (manifest, SBOM, rule emitters) |
 | `rust/` | optional native engine (walk + prefilter + regex crate) |

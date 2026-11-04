@@ -25,6 +25,13 @@ Design rules (same family as the DAST package):
     than pretending to have looked.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_2, WINDOW_200, WINDOW_4, WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_2, WINDOW_200, WINDOW_4, WINDOW_SNIPPET
 
 import argparse
 import json
@@ -202,7 +209,7 @@ def build_inventory(
                             "detail": dict(result["stats"])})
         except Exception as exc:           # noqa: BLE001 - stage-local
             skips.append(_skip("dns_brute", domain,
-                               f"{type(exc).__name__}: {exc}"[:200]))
+                               f"{type(exc).__name__}: {exc}"[:WINDOW_200]))
             sources.append({"kind": "dns_brute", "status": "error",
                             "detail": f"{type(exc).__name__}"})
     else:
@@ -222,7 +229,7 @@ def build_inventory(
             sources.append({"kind": "ct_logs", "status": "ok", "detail": detail})
         except Exception as exc:           # noqa: BLE001 - stage-local
             skips.append(_skip("ct_logs", domain,
-                               f"{type(exc).__name__}: {exc}"[:200]))
+                               f"{type(exc).__name__}: {exc}"[:WINDOW_200]))
             sources.append({"kind": "ct_logs", "status": "error",
                             "detail": f"{type(exc).__name__}"})
     else:
@@ -279,7 +286,7 @@ def build_inventory(
                 probed += 1
             except Exception as exc:       # noqa: BLE001 - per-host skip
                 skips.append(_skip("tls", name,
-                                   f"{type(exc).__name__}: {exc}"[:200]))
+                                   f"{type(exc).__name__}: {exc}"[:WINDOW_200]))
         sources.append({"kind": "tls", "status": "ok",
                         "detail": {"hosts": probed}})
     else:
@@ -301,7 +308,7 @@ def build_inventory(
                             "detail": {"status": status}})
         except Exception as exc:           # noqa: BLE001 - stage-local
             skips.append(_skip("http_root", base_url,
-                               f"{type(exc).__name__}: {exc}"[:200]))
+                               f"{type(exc).__name__}: {exc}"[:WINDOW_200]))
         # admin panel probes on the seed origin
         if not root_ok:
             skips.append(_skip("admin_probe", base_url, "root_fetch_failed"))
@@ -347,7 +354,7 @@ def build_inventory(
                     bd = b""
             except Exception as exc:                 # noqa: BLE001
                 skips.append(_skip("storage", cand["url"],
-                                   f"{type(exc).__name__}"[:120]))
+                                   f"{type(exc).__name__}"[:WINDOW_SNIPPET]))
                 continue
             verdict = storage.classify_storage_response(
                 cand["provider"], st, _text(bd))
@@ -423,7 +430,7 @@ def _storage_tokens(domain: str) -> tuple[str, ...]:
     public_suffixes = {"com", "net", "org", "io", "co", "gov", "edu", "app",
                        "dev", "cloud", "sh", "ai", "xyz", "info", "biz"}
     base = [l for l in labels if l not in public_suffixes]
-    picked = tuple(dict.fromkeys(base[:4])) if base else tuple(labels[:2])
+    picked = tuple(dict.fromkeys(base[:WINDOW_4])) if base else tuple(labels[:WINDOW_2])
     return picked
 
 

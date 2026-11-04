@@ -16,6 +16,13 @@ Geometry (locked by tests/test_t83_policy.py):
   --as-of yields byte-identical documents.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M1
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M1
 
 import argparse
 import json
@@ -33,7 +40,7 @@ def _parse_as_of(text):
         return time.time()
     value = text.strip()
     if value.endswith("Z"):
-        value = value[:-1] + "+00:00"
+        value = value[:WINDOW_M1] + "+00:00"
     try:
         parsed = datetime.fromisoformat(value)
     except ValueError:

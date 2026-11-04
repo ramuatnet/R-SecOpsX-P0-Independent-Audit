@@ -26,6 +26,13 @@ Usage:
     python -m analysis.validation.mutation [--json] [--case ID]
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_3
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_3
 
 import argparse
 import json
@@ -372,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
                 detail = "  (no matching finding in mutated source)"
             elif r.status == "baseline_noisy":
                 detail = "  (baseline already matches: %s)" % [
-                    f.get("rule_id") for f in r.baseline_hits][:3]
+                    f.get("rule_id") for f in r.baseline_hits][:WINDOW_3]
             else:
                 detail = "  (%d hit(s))" % len(r.mutant_hits)
             print("  [%s] %-20s %s%s" % (mark, r.case_id, r.description, detail))

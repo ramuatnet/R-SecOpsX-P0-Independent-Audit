@@ -196,7 +196,10 @@ def iter_fixtures(root: Path | None = None):
     if not root.is_dir():
         return
 
-    for path in sorted(root.rglob("*")):
+    from scanner.walk import walk
+
+    for path in sorted(x for x, _s, _m in walk(
+            root, exts=None, ignore=frozenset(), max_bytes=None)):
         if not path.is_file():
             continue
         if "__pycache__" in path.parts:

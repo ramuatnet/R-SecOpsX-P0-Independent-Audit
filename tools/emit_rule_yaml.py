@@ -1,24 +1,33 @@
 """Emit the normalized T-0.6 rule files from the live rule tables.
 
 One-shot migration plus an idempotence tool: ``python
-tools/emit_rule_yaml.py`` rewrites ``rules/enterprise_v1.yaml`` and
-``rules/regex_v1.yaml`` in the strict subset core.mini_yaml understands
-(also valid for yaml.safe_load).  Field mapping to the v1 schema:
+tools/emit_rule_yaml.py`` rewrites ``scanner/rules/enterprise_v1.yaml``
+and ``scanner/rules/regex_v1.yaml`` in the strict subset core.mini_yaml
+understands (also valid for yaml.safe_load).  Field mapping to the
+v1 schema (FND-06 canonical names):
 
-    ENTERPRISE_RULES  pat->pattern, plus optional remediation/evidence_pat
-    REGEX_RULES       name->title, severity->sev, pattern->pattern,
-                      languages->langs, note kept as optional v1 field
+    ENTERPRISE_RULES  pat->pattern, vuln->family, sev->severity,
+                      plus optional remediation/evidence_pat
+    REGEX_RULES       name->title, vuln_type->family, severity->severity,
+                      pattern->pattern, languages->langs,
+                      note kept as optional v1 field
 
 Derived fields (declarative now, generated lookups later):
+    span        -- "evidence" (analysis.spans WINDOW_EVIDENCE window;
+                   carried as data, no consumer yet)
+    exts        -- LANG_BY_EXT inverse over the rule's langs
+    negative    -- the rule's anti-pattern when it declares one
+                   (null when none; no rule declares one today)
     contract_ref  -- the ufib family contract whose key equals the rule's
-                     vuln value, when one exists (no fabricated links)
+                     family value, when one exists (no fabricated links)
     sink_category -- sast's batch-10 php sink map, moved into the rule
     disabled      -- DISABLED_CONTEXT_ONLY_RULES membership
 
 After this migration the YAML is the source of truth; sast.py loads the
-tables through core.rule_loader.  Re-running this tool post-migration
-normalizes hand edits (it loads through the loader, not through sast's
-inline tables -- the tables no longer exist there).
+tables through core.rule_loader (a shim over scanner.rules.loader).
+Re-running this tool post-migration normalizes hand edits (it loads
+through the loader, not through sast's inline tables -- the tables no
+longer exist there).
 """
 from __future__ import annotations
 
@@ -31,15 +40,34 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from core import mini_yaml  # noqa: E402
+from core.file_index import LANG_BY_EXT  # noqa: E402
 
 SCHEMA_ID = "rsecopsx.rules/v1"
 
-# Canonical key order for emission (stable diffs).
+# Canonical key order for emission (stable diffs; FND-06 field set).
 _FIELD_ORDER = (
-    "id", "title", "vuln", "sev", "langs", "cwe", "owasp", "pattern",
-    "flags", "evidence_pat", "sink_category", "contract_ref", "sanitizers",
-    "barriers", "remediation", "note", "disabled",
+    "id", "title", "family", "severity", "langs", "exts", "cwe", "owasp",
+    "pattern", "span", "negative", "flags", "evidence_pat", "sink_category",
+    "contract_ref", "sanitizers", "barriers", "remediation", "note",
+    "disabled",
 )
+
+# inverse: language -> sorted known extensions (declarative derivation,
+# no behaviour change -- langs remains the gate)
+EXTS_BY_LANG: dict[str, list[str]] = {}
+for _ext, _lang in LANG_BY_EXT.items():
+    EXTS_BY_LANG.setdefault(_lang, []).append(_ext)
+for _lang in EXTS_BY_LANG:
+    EXTS_BY_LANG[_lang] = sorted(EXTS_BY_LANG[_lang])
+
+
+def _exts_of(langs) -> list[str]:
+    exts: list[str] = []
+    for lang in langs or []:
+        for ext in EXTS_BY_LANG.get(lang, []):
+            if ext not in exts:
+                exts.append(ext)
+    return sorted(exts)
 
 _FLAG_LETTERS = ((re.I, "i"), (re.M, "m"), (re.S, "s"))
 
@@ -81,12 +109,15 @@ def _enterprise_v1() -> list[dict]:
         row = {
             "id": rule["id"],
             "title": rule["title"],
-            "vuln": rule["vuln"],
-            "sev": rule["sev"],
+            "family": rule["vuln"],
+            "severity": rule["sev"],
             "langs": list(rule["langs"]),
+            "exts": _exts_of(rule["langs"]),
             "cwe": rule["cwe"],
             "owasp": rule["owasp"],
             "pattern": rule["pat"],
+            "span": "evidence",
+            "negative": None,
         }
         if rule.get("evidence_pat"):
             row["evidence_pat"] = rule["evidence_pat"]
@@ -117,17 +148,20 @@ def _regex_v1() -> list[dict]:
         row = {
             "id": rule["id"],
             "title": rule["name"],
-            "vuln": rule["vuln_type"],
-            "sev": rule["severity"],
+            "family": rule["vuln_type"],
+            "severity": rule["severity"],
             "pattern": row_pat,
             "flags": flags,
             "cwe": rule["cwe"],
             "owasp": rule["owasp"],
+            "span": "evidence",
+            "negative": None,
         }
         if rule.get("languages"):
             # Legacy stores this as a set; sort so emission is deterministic
             # (the loader converts back to a set, so order is not semantic).
             row["langs"] = sorted(rule["languages"])
+        row["exts"] = _exts_of(row.get("langs"))
         if rule.get("note"):
             row["note"] = rule["note"]
         ref = _contract_ref(rule["vuln_type"])
@@ -138,13 +172,13 @@ def _regex_v1() -> list[dict]:
 
 
 def main() -> int:
-    rules_dir = REPO / "rules"
+    rules_dir = REPO / "scanner" / "rules"
     rules_dir.mkdir(exist_ok=True)
     for name, rows in (("enterprise_v1.yaml", _enterprise_v1()),
                        ("regex_v1.yaml", _regex_v1())):
         text = mini_yaml.dump({"schema": SCHEMA_ID, "rules": rows})
         (rules_dir / name).write_text(text, encoding="utf-8")
-        print(f"wrote rules/{name}: {len(rows)} rules")
+        print(f"wrote scanner/rules/{name}: {len(rows)} rules")
     return 0
 
 

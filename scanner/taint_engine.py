@@ -9,6 +9,7 @@ Public API preserved:
 from __future__ import annotations
 
 import ast
+import fnmatch
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +25,10 @@ except Exception:
 # the same file once in _analyze_base and once more in EVERY java-semantics
 # pass; the scan's index serves one disk read for all of them.
 from core import file_index
+# FND-02: the one walk -- used only on the no-active-index fallback path
+# below (the indexed path above stays a file_index query, never a second
+# walk).
+from scanner.walk import walk
 
 TAINT_SOURCES = {
     # Flask / FastAPI / Werkzeug request surfaces
@@ -3898,9 +3903,19 @@ def _java_find_properties_file(filepath: str, name: str) -> str | None:
                                 result = str(found)
                                 break
                     else:
-                        for found in srcdir.rglob(name):
-                            result = str(found)
-                            break
+                        # FND-02: the former by-name glob becomes the one
+                        # walk plus a name match (fnmatch keeps the glob
+                        # form working).
+                        # walk yields files in deterministic sorted order,
+                        # so a duplicate name resolves the same way every
+                        # run instead of in OS readdir order.
+                        for found, _size, _mtime in walk(
+                            srcdir, exts=None, ignore=frozenset(),
+                            max_bytes=None,
+                        ):
+                            if fnmatch.fnmatch(found.name, name):
+                                result = str(found)
+                                break
             except OSError:
                 continue
             if result:

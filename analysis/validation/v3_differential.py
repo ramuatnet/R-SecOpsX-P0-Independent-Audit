@@ -103,6 +103,15 @@ SCOPE BOUNDARIES (documented, not accidental)
     in only_in_peer -- a scope difference the report makes visible.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_2, WINDOW_20, WINDOW_200, WINDOW_300, WINDOW_400, WINDOW_M400)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import (
+    WINDOW_2, WINDOW_20, WINDOW_200, WINDOW_300, WINDOW_400, WINDOW_M400)
 
 import argparse
 import json
@@ -159,7 +168,7 @@ def _rel_file(raw, root: Path) -> str:
         return Path(rel).as_posix()
     s = s.lstrip("/")
     while s.startswith("./"):
-        s = s[2:]
+        s = s[WINDOW_2:]
     return s
 
 
@@ -357,7 +366,7 @@ def _run_gitleaks(argv: list[str], copy_root: Path, work: Path, timeout: int) ->
         work, timeout,
     )
     if not report.exists():
-        raise ToolError("gitleaks produced no report: %s" % (proc.stderr or proc.stdout)[:400])
+        raise ToolError("gitleaks produced no report: %s" % (proc.stderr or proc.stdout)[:WINDOW_400])
     try:
         data = json.loads(report.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
@@ -400,7 +409,7 @@ def _run_checkov(argv: list[str], copy_root: Path, work: Path, timeout: int) -> 
     try:
         return _parse_checkov_json(text, copy_root)
     except ValueError as exc:
-        raise ToolError("checkov output not JSON: %s" % text[:200]) from exc
+        raise ToolError("checkov output not JSON: %s" % text[:WINDOW_200]) from exc
 
 
 def _parse_kics_json(text: str, copy_root: Path, base_dir: Path | None = None) -> list[dict]:
@@ -436,7 +445,7 @@ def _run_kics(argv: list[str], copy_root: Path, work: Path, timeout: int) -> lis
         work, timeout,
     )
     if not report.exists():
-        tail = (proc.stderr or proc.stdout or "")[-400:]
+        tail = (proc.stderr or proc.stdout or "")[WINDOW_M400:]
         raise ToolError("kics produced no results.json (release binary ships "
                         "without assets/queries?): %s" % tail)
     try:
@@ -471,11 +480,11 @@ def _run_trivy_config(argv: list[str], copy_root: Path, work: Path, timeout: int
     )
     text = _strip_ansi(proc.stdout or "")
     if not text.strip():
-        raise ToolError("trivy config produced no output: %s" % (proc.stderr or "")[:300])
+        raise ToolError("trivy config produced no output: %s" % (proc.stderr or "")[:WINDOW_300])
     try:
         return _parse_trivy_config(text, copy_root)
     except ValueError as exc:
-        raise ToolError("trivy config output not JSON: %s" % text[:200]) from exc
+        raise ToolError("trivy config output not JSON: %s" % text[:WINDOW_200]) from exc
 
 
 def _parse_trivy_license(text: str, copy_root: Path) -> list[dict]:
@@ -504,11 +513,11 @@ def _run_trivy_license(argv: list[str], copy_root: Path, work: Path, timeout: in
     )
     text = _strip_ansi(proc.stdout or "")
     if not text.strip():
-        raise ToolError("trivy license produced no output: %s" % (proc.stderr or "")[:300])
+        raise ToolError("trivy license produced no output: %s" % (proc.stderr or "")[:WINDOW_300])
     try:
         return _parse_trivy_license(text, copy_root)
     except ValueError as exc:
-        raise ToolError("trivy license output not JSON: %s" % text[:200]) from exc
+        raise ToolError("trivy license output not JSON: %s" % text[:WINDOW_200]) from exc
 
 
 def _run_scancode(argv: list[str], copy_root: Path, work: Path, timeout: int) -> list[dict]:
@@ -524,7 +533,7 @@ def _run_scancode(argv: list[str], copy_root: Path, work: Path, timeout: int) ->
         work, timeout,
     )
     if not out_file.exists():
-        raise ToolError("scancode produced no report: %s" % (proc.stderr or proc.stdout)[:400])
+        raise ToolError("scancode produced no report: %s" % (proc.stderr or proc.stdout)[:WINDOW_400])
     try:
         data = json.loads(out_file.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
@@ -801,7 +810,7 @@ def _print_result(result: dict) -> None:
     for section, key in (("  only_in_rsecopsx", "only_in_rsecopsx"),
                          ("  only_in_peer", "only_in_peer"),
                          ("  conflicts", "conflicts")):
-        for entry in result.get(key, [])[:20]:
+        for entry in result.get(key, [])[:WINDOW_20]:
             print("%s: %s" % (section, json.dumps(entry, sort_keys=True)))
         if len(result.get(key, [])) > 20:
             print("%s: ... %d more" % (section, len(result[key]) - 20))

@@ -37,6 +37,7 @@ DECISIONS = frozenset({
     "drop_occurrence",  # occurrence removed from a finding that survives
     "merged",           # finding folded into a surviving twin (dedup)
     "kept_after_path_repair",  # judgement: kept, but its anchor was rewritten
+    "regex_budget_exceeded",   # FND-05: scan-integrity notice, not a discard
 })
 
 
@@ -139,6 +140,31 @@ def record_finding_drop(finding: Any, pass_name: str, reason: str,
     return current_ledger().record(finding, pass_name, reason, decision)
 
 
+def record_scan_violation(stage: str, reason: str, *, rule_id: Any = None,
+                          path: Any = None, line: Any = None) -> dict:
+    """FND-05: a scan-integrity notice on the canonical ledger view.
+
+    Not a population discard: no candidate left the report because of it,
+    so ``attach_to_payload`` partitions these rows out of the FND-01
+    arithmetic while still putting them on ``payload["filter_trace"]``
+    (canonical ``{stage, rule, path, line, reason}``).  A regex budget
+    breach that yields zero matches would otherwise be the exact silent
+    loss ground rule 3 forbids -- the finding is never even seen.
+    """
+    row = {
+        "pass": stage,
+        "decision": stage,
+        "reason": reason,
+        "rule_id": rule_id,
+        "file": path,
+        "line": line,
+    }
+    ledger = current_ledger()
+    with ledger._lock:
+        ledger.entries.append(row)
+    return row
+
+
 def _count_occurrence_drops(payload: dict) -> int:
     total = 0
     for finding in (payload or {}).get("findings") or []:
@@ -157,6 +183,11 @@ def build_drops_document(payload: dict) -> dict:
     Rows are sorted (pass, rule_id, file, line, title) so the document is
     byte-identical across runs of the same input -- drop *order* depends on
     worker-thread scheduling and must not leak into the artifact.
+
+    FND-05: scan-integrity notices (``decision == stage`` rows such as
+    ``regex_budget_exceeded``) are NOT findings removed -- they get their
+    own sorted ``violations`` section so the summary counts stay honest
+    and the artifact stays deterministic either way.
     """
     ledger = current_ledger()
 
@@ -170,9 +201,15 @@ def build_drops_document(payload: dict) -> dict:
         )
 
     with ledger._lock:
-        rows = sorted((dict(r) for r in ledger.entries), key=_key)
+        all_rows = sorted((dict(r) for r in ledger.entries), key=_key)
 
-    return {
+    def _is_violation(row: dict) -> bool:
+        return row.get("decision") == "regex_budget_exceeded"
+
+    rows = [r for r in all_rows if not _is_violation(r)]
+    violations = [r for r in all_rows if _is_violation(r)]
+
+    doc = {
         "schema": DROPS_SCHEMA,
         "summary": {
             "total_findings_removed": len(rows),
@@ -183,6 +220,10 @@ def build_drops_document(payload: dict) -> dict:
         },
         "drops": rows,
     }
+    if violations:
+        # additive (ftasks non-goal: schema changes are additive only)
+        doc["violations"] = violations
+    return doc
 
 
 def _count_by(rows: list[dict], field: str) -> dict:
@@ -191,3 +232,78 @@ def _count_by(rows: list[dict], field: str) -> dict:
         key = str(row.get(field) or "")
         out[key] = out.get(key, 0) + 1
     return dict(sorted(out.items()))
+
+
+def attach_to_payload(payload: dict, raw_candidates: int) -> list[dict]:
+    """FND-01: materialise the population-level drop ledger onto the payload.
+
+    ``payload["filter_trace"]`` is the always-on canonical view of every
+    candidate that left the report population: one flat entry per discard
+    carrying exactly ``{stage, rule, path, line, reason}``.  It is built
+    from the per-scan ledger, so it costs no second bookkeeping path.
+
+    Occurrence-level drops stay where T-0.1 put them -- on each surviving
+    finding's own ``filter_trace`` and in ``drops.json`` -- because an
+    occurrence drop does not consume a raw candidate; only population
+    discards (drop_finding / merged) do.
+
+    FND-05: scan-integrity notices (``regex_budget_exceeded`` rows from
+    ``record_scan_violation``) ride along on the same canonical list --
+    they are breaches a reader must see -- but they never consumed a raw
+    candidate, so the arithmetic below counts drops only.
+
+    Sets ``metadata.raw_candidates`` and asserts the accounting identity::
+
+        len(drops) + len(findings) == raw_candidates
+        # where drops = [e for e in filter_trace
+        #               if e["stage"] != "regex_budget_exceeded"]
+
+    A breach means some pass removed a candidate without going through
+    ``record_finding_drop`` -- a silent drop, which ftasks ground rule 3
+    forbids.  The assertion is the kill switch: the scan fails loudly
+    instead of shipping a report whose counts cannot be reconciled.
+    """
+    if not isinstance(payload.get("metadata"), dict):
+        payload["metadata"] = {}
+    meta = payload["metadata"]
+
+    ledger = current_ledger()
+    with ledger._lock:
+        rows = [dict(r) for r in ledger.entries]
+
+    trace: list[dict] = []
+    for row in rows:
+        path = (row.get("file") or row.get("file_path")
+                or row.get("full_path"))
+        trace.append({
+            "stage": row.get("pass"),
+            "rule": row.get("rule_id"),
+            "path": path,
+            "line": row.get("line"),
+            "reason": row.get("reason"),
+        })
+
+    # FND-05 partition: violations are notices, not discards.  Drops keep
+    # ledger order (FND-01 behaviour); violations sort by (rule, path,
+    # line) so their arrival order (thread timing) never leaks into the
+    # artifact.
+    violations = [e for e in trace if e["stage"] == "regex_budget_exceeded"]
+    drops = [e for e in trace if e["stage"] != "regex_budget_exceeded"]
+    violations.sort(key=lambda e: (str(e.get("rule") or ""),
+                                   str(e.get("path") or ""),
+                                   str(e.get("line") or "")))
+
+    findings = payload.get("findings")
+    n_findings = len(findings) if isinstance(findings, list) else 0
+
+    payload["filter_trace"] = drops + violations
+    meta["raw_candidates"] = int(raw_candidates)
+
+    total = len(drops) + n_findings
+    if total != int(raw_candidates):
+        raise AssertionError(
+            "FND-01 silent-drop breach: len(drops)=%d + "
+            "len(findings)=%d = %d != raw_candidates=%d"
+            % (len(drops), n_findings, total, int(raw_candidates))
+        )
+    return payload["filter_trace"]

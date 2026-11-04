@@ -35,6 +35,13 @@ EXIT CODES:
     2  could-not-run (missing pyproject/README/source, child failed)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_16, WINDOW_6, WINDOW_M400
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_16, WINDOW_6, WINDOW_M400
 
 import argparse
 import base64
@@ -80,7 +87,7 @@ def _epoch_from_env(env: "dict | None" = None) -> int:
 
 
 def _epoch_date_time(epoch: int) -> "tuple[int, int, int, int, int, int]":
-    return time.gmtime(epoch)[:6]
+    return time.gmtime(epoch)[:WINDOW_6]
 
 
 def wheel_filename(name: str, version: str) -> str:
@@ -148,11 +155,15 @@ def collect_entries(source_root: Path, project: dict, resolved: dict
     (setuptools package discovery without package-data would include
     no data files either).
     """
+    from scanner.walk import walk
+
     version = resolved["version"]
     entries: "dict[str, bytes]" = {}
     for pkg in resolved["package_dirs"]:
         pkg_root = source_root / pkg
-        for f in sorted(pkg_root.rglob("*.py")):
+        for f in sorted(x for x, _s, _m in walk(
+                pkg_root, exts={".py"}, ignore=frozenset(),
+                max_bytes=None)):
             if "__pycache__" in f.parts:
                 continue
             rel = f.relative_to(source_root).as_posix()
@@ -334,7 +345,7 @@ def _build_child(source_root: Path, out_path: Path, epoch: int) -> str:
     if proc.returncode != 0:
         raise RuntimeError("build child failed rc=%d: %s"
                            % (proc.returncode,
-                              (proc.stderr or proc.stdout).strip()[-400:]))
+                              (proc.stderr or proc.stdout).strip()[WINDOW_M400:]))
     return hashlib.sha256(out_path.read_bytes()).hexdigest()
 
 
@@ -443,8 +454,8 @@ def main(argv: "list[str] | None" = None) -> int:
             verdict = "REPRODUCIBLE"
         print("[REPRO] %s %s sha1=%s sha2=%s (verified=%s, epoch=%d, "
               "setuptools NOT adopted)"
-              % (verdict, info["wheel"], info["sha256_build1"][:16],
-                 info["sha256_build2"][:16], info["verified"],
+              % (verdict, info["wheel"], info["sha256_build1"][:WINDOW_16],
+                 info["sha256_build2"][:WINDOW_16], info["verified"],
                  info["epoch"]))
         if not info["identical"]:
             print("[REPRO] builds differ: %s vs %s"

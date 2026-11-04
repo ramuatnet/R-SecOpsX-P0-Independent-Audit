@@ -41,6 +41,15 @@ EXIT CODES
     2   could not run (native extension missing, import error)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_16, WINDOW_200, WINDOW_M1, WINDOW_M3, WINDOW_SNIPPET)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import (
+    WINDOW_16, WINDOW_200, WINDOW_M1, WINDOW_M3, WINDOW_SNIPPET)
 
 import copy
 import hashlib
@@ -69,8 +78,8 @@ def _failures_append(failures: list, label: str, err: BaseException) -> None:
     if len(failures) < FAILURE_CAP:
         failures.append(
             {"where": label, "error": type(err).__name__,
-             "detail": str(err)[:200],
-             "trace": traceback.format_exc(limit=3).splitlines()[-3:]}
+             "detail": str(err)[:WINDOW_200],
+             "trace": traceback.format_exc(limit=3).splitlines()[WINDOW_M3:]}
         )
 
 
@@ -80,7 +89,7 @@ def _rng_fingerprint(rng: random.Random) -> str:
     a target that drops its seed (system-entropy rng) diverges here,
     which is exactly what the same-seed test must be able to see."""
     state = repr([rng.random() for _ in range(8)]).encode("utf-8")
-    return hashlib.sha256(state).hexdigest()[:16]
+    return hashlib.sha256(state).hexdigest()[:WINDOW_16]
 
 
 def _rand_text(rng: random.Random, cap: int = 400) -> str:
@@ -245,7 +254,7 @@ def fuzz_program_parser(iterations: int = 300, seed: int = 112) -> dict:
             elif op == 4:
                 text = program.replace('"schema":', '"schema": ', 1)
             else:
-                text = program[:-1] if program else program
+                text = program[:WINDOW_M1] if program else program
             try:
                 ext.scan(str(root), text)
                 accepted += 1
@@ -548,7 +557,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"{row['elapsed_ms']}ms")
             print(head)
             for f in row["failures"]:
-                print("  FAIL", f["where"], f["error"], f["detail"][:120])
+                print("  FAIL", f["where"], f["error"], f["detail"][:WINDOW_SNIPPET])
         print(f"total_failures={report['total_failures']} "
               f"elapsed_ms={report['elapsed_ms']}")
     return 1 if report["total_failures"] else 0

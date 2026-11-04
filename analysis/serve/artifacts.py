@@ -21,6 +21,13 @@ Contracts:
 The store never touches the network (AST-pinned banned imports).
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_12
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_12
 
 import base64
 import hashlib
@@ -49,7 +56,7 @@ def artifact_id_for(name: str, tenant=None) -> str:
     store the SAME name without squatting on each other's primary key.
     """
     canon = name if not tenant else f"{tenant}\n{name}"
-    return "art_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+    return "art_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:WINDOW_12]
 
 
 def _normalize_content(content) -> bytes:

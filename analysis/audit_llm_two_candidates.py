@@ -9,11 +9,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import scanner.llm_security_optimized as llm
 from scanner.llm_context_precision import classify_findings
+from scanner.walk import walk
 
 TARGET = Path(r"D:\Data\Code test\juice-shop-20.2.0_node22_win32_x64")
 
 files = {}
-for p in TARGET.rglob("*"):
+for p, _s, _m in walk(TARGET, exts=None, ignore=frozenset(), max_bytes=None):
     if not p.is_file():
         continue
     if hasattr(llm, "_should_scan") and not llm._should_scan(p):

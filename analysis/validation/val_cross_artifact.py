@@ -5,6 +5,13 @@
 # counts, and severity/risk agreement.
 #
 # Usage: python val_cross_artifact.py <report_dir> [<report_dir> ...]
+try:
+    from analysis.spans import WINDOW_1, WINDOW_8
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_1, WINDOW_8
 import json, os, sys
 from collections import Counter
 
@@ -36,9 +43,9 @@ def validate(report_dir):
         missing = set(ids) - set(sarif_rules)
         extra = set(sarif_rules) - set(ids)
         if missing:
-            errs.append(f"SARIF missing rules: {sorted(missing)[:8]}")
+            errs.append(f"SARIF missing rules: {sorted(missing)[:WINDOW_8]}")
         if extra:
-            errs.append(f"SARIF extra rules: {sorted(extra)[:8]}")
+            errs.append(f"SARIF extra rules: {sorted(extra)[:WINDOW_8]}")
         notes.append(f"SARIF: {len(results)} results, {len(sarif_rules)} rules")
     else:
         errs.append("missing Security_Report.sarif")
@@ -70,9 +77,9 @@ def validate(report_dir):
                 missing = set(ids) - set(emb_rules)
                 extra = set(emb_rules) - set(ids)
                 if missing:
-                    errs.append(f"DefectDojo embedded SARIF missing rules: {sorted(missing)[:8]}")
+                    errs.append(f"DefectDojo embedded SARIF missing rules: {sorted(missing)[:WINDOW_8]}")
                 if extra:
-                    errs.append(f"DefectDojo embedded SARIF extra rules: {sorted(extra)[:8]}")
+                    errs.append(f"DefectDojo embedded SARIF extra rules: {sorted(extra)[:WINDOW_8]}")
                 notes.append(f"DefectDojo blueprint: embedded SARIF {len(emb_results)} results, "
                              f"{len(emb_rules)} rules")
             ff = dd.get("form_fields") or {}
@@ -133,7 +140,7 @@ def validate(report_dir):
     return errs, notes
 
 def main():
-    dirs = sys.argv[1:]
+    dirs = sys.argv[WINDOW_1:]
     if not dirs:
         base = r"D:\Data\Code test\prodtest\AI Benchmarks\reports"
         dirs = [os.path.join(base, d) for d in ("peft-main", "Open-Assistant-main", "llama_index-main")]

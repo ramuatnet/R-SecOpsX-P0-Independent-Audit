@@ -60,6 +60,13 @@ def test_imports_are_stdlib_only():
         "tempfile", "time", "tomllib", "zipfile",
         # in-repo, not third-party: the TOOL_VERSION single-source
         "core",
+        # in-repo, not third-party — ftasks Phase 0 mandates both roots:
+        # FND-02 replaces this module's rglob with scanner.walk (the one
+        # file walk) and FND-03 names its slice windows via
+        # analysis.spans.  Both are stdlib-only leaf modules that import
+        # nothing from the project, so the property this test protects —
+        # no third-party dependency in the wheel build — still holds.
+        "scanner", "analysis",
     }
     found = set()
     for node in ast.walk(tree):

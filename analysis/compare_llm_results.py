@@ -1,4 +1,11 @@
-﻿import sys
+﻿try:
+    from analysis.spans import WINDOW_220
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_220
+import sys
 from pathlib import Path
 import importlib.util
 
@@ -16,9 +23,11 @@ def load(name, path):
 original = load("llm_original", ROOT / "scanner" / "llm_security.py")
 optimized = load("llm_optimized", ROOT / "scanner" / "llm_security_optimized.py")
 
+from scanner.walk import walk
+
 files = []
 
-for p in target.rglob("*"):
+for p, _s, _m in walk(target, exts=None, ignore=frozenset(), max_bytes=None):
     if not p.is_file():
         continue
 
@@ -68,5 +77,5 @@ for x in missing:
         ":",
         x.get("line"),
         "|",
-        str(x.get("evidence", ""))[:220]
+        str(x.get("evidence", ""))[:WINDOW_220]
     )

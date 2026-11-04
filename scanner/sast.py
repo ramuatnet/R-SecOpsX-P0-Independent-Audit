@@ -42,10 +42,12 @@ from core import regex_budget
 # walk live in core.file_index; the historical names below are re-exported
 # so every existing `from scanner.sast import _skip` keeps working.
 from core import file_index
-# T-0.6: the rule tables are declarative (rules/*_v1.yaml,
-# schema-validated by core.rule_loader); the loader adapts them to the
-# legacy shapes below. The PHP webshell pack stays code-side and is
-# appended after load (its env switch removes it at registration).
+# T-0.6 / FND-06: the rule tables are declarative (scanner/rules/*_v1.yaml,
+# schema-validated by scanner.rules.loader, re-exported through
+# core.rule_loader); the loader adapts them to the legacy shapes below.
+# The PHP webshell pack stays code-side and is appended after load (its
+# env switch removes it at registration). No rule count is pinned --
+# tests/test_report_parity.py computes loaded == YAML + shim.
 from core.rule_loader import (load_disabled_ids as _load_disabled_ids,
                              load_enterprise_rules,
                              load_regex_rules,
@@ -127,15 +129,16 @@ BASE_REMEDIATION = {
 def _priority(sev: str) -> str:
     return {"Critical": "P1", "High": "P2", "Medium": "P3", "Low": "P4"}.get(sev, "P3")
 
-# 174 declarative rules from rules/enterprise_v1.yaml (the BIG4
+# Declarative rules from scanner/rules/enterprise_v1.yaml (the BIG4
 # patch/extras layer folded into the YAML at migration; see
 # tools/emit_rule_yaml.py; +14 long-tail language rules from T-14.1b).
+# Count is computed, never pinned (FND-06).
 ENTERPRISE_RULES: list[dict] = load_enterprise_rules()
 _existing_rule_ids = {r.get("id") for r in ENTERPRISE_RULES}
 
 # Backward-compatible existing rules retained. These are intentionally simple.
-# 18 rules from rules/regex_v1.yaml; patterns compiled at load
-# (core.regex_budget.timed_finditer takes a re.Pattern).
+# Declarative rules from scanner/rules/regex_v1.yaml; patterns compiled at
+# load (core.regex_budget.rule_finditer takes a re.Pattern).
 REGEX_RULES: list[dict] = load_regex_rules()
 
 
@@ -163,7 +166,7 @@ BIG4_CONTROL_FALLBACKS = {
 
 # ---- Big4 enterprise gap patch ----
 # T-0.6: BIG4_RULE_PATCHES / BIG4_REMEDIATION_BY_RULE /
-# _EXTRA_BIG4_RULES moved into rules/enterprise_v1.yaml at
+# _EXTRA_BIG4_RULES moved into scanner/rules/enterprise_v1.yaml at
 # migration (the emitter read the post-patch tables, so the YAML
 # holds the final patterns/remediation verbatim). What remains is
 # BIG4_CONTROL_FALLBACKS, the runtime compliance-text lookup.
@@ -1201,7 +1204,7 @@ def _php_tainted_in(text: str, tainted: set) -> bool:
 # validator's own window analysis (which variable, fed from which request
 # source, reaches which sink), so downstream taint-evidence gates treat the
 # finding as the source-to-sink evidence it actually is.
-# T-0.6: 7 categories declarative (rules/enterprise_v1.yaml
+# T-0.6: 7 categories declarative (scanner/rules/enterprise_v1.yaml
 # sink_category) + 8 from the webshell pack's own map; EVIDEX
 # deletes a regex finding with no sink category at intake, so the
 # pack's entries travel with the pack.
@@ -2337,6 +2340,9 @@ def scan_file(filepath: str) -> list[dict]:
     if source is None:
         return []
     lines = source.splitlines()
+    # FND-05: keepends view shared by both rule loops -- the per-line
+    # budget needs absolute offsets back into ``source``.
+    lines_ke = source.splitlines(keepends=True)
     language = _language(path)
     findings: list[dict] = []
 
@@ -2359,10 +2365,10 @@ def scan_file(filepath: str) -> list[dict]:
             # C1: eval()/exec() semantics cannot occur in a data file;
             # see NON_EXECUTABLE_DATA_LANGUAGES above.
             continue
-        for match in regex_budget.timed_finditer(
+        for match in regex_budget.rule_finditer(
                 rule["pattern"], source,
                 rule_id=rule.get("id") or "?",
-                file_path=str(filepath)):
+                file_path=str(filepath), lines=lines_ke):
             if (
                 _match_starts_in_comment(source, match.start(), language)
                 or _match_starts_in_python_string(source, match.start(), language)
@@ -2410,10 +2416,10 @@ def scan_file(filepath: str) -> list[dict]:
             # config files sometimes have language yaml/properties/json but path matters
             if not (language in {"yaml", "properties", "json", "xml", "graphql"} and any(l in langs for l in [language])):
                 continue
-        for match in regex_budget.timed_finditer(
+        for match in regex_budget.rule_finditer(
                 rule["pattern"], source,
                 rule_id=rule.get("id") or "?",
-                file_path=str(filepath)):
+                file_path=str(filepath), lines=lines_ke):
             if rule.get("id") == "NPM_SUPPLY_CHAIN_SCRIPT" and package_lock:
                 continue
             if str(rule.get("vuln") or rule.get("vuln_type") or "").lower() == "ssrf":

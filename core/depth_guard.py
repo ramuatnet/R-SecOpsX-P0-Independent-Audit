@@ -1,7 +1,8 @@
-"""T-0.4: iterative traversal with depth cap and cycle detection.
+"""T-0.4 / FND-04: iterative traversal with depth cap and cycle detection.
 
-task.md section 3, T-0.4; ground rule 12 (resource bounds are mandatory
-for anything parsing untrusted input: depth cap, size cap, time cap).
+task.md section 3, T-0.4; ftasks Phase 0, FND-04 (tightens the cap);
+ground rule 12 (resource bounds are mandatory for anything parsing
+untrusted input: depth cap, size cap, time cap).
 
 The three legacy report walkers -- ``_clean_node``,
 ``_redact_secret_evidence`` and ``_normalize_record`` -- were recursive.
@@ -16,7 +17,8 @@ This module supplies the shared bounds:
   * explicit-stack (iterative) traversal -- nesting depth never touches
     the Python call stack;
   * ``MAX_DEPTH`` cap -- structures nested deeper than the cap are not
-    descended and the truncation is COUNTED, never silent;
+    descended and the truncation is COUNTED, never silent, and marked
+    ``truncated`` on the report;
   * cycle detection -- a container already on the active path is not
     re-entered; the cycle is COUNTED and surfaced to the payload.
 
@@ -29,10 +31,13 @@ from __future__ import annotations
 import threading
 from typing import Any, Callable, Iterable, Optional
 
-#: T-0.4 acceptance walks 10,000-deep structures; the cap sits exactly at
-#: that depth so the acceptance case completes and only beyond-cap input
-#: is truncated.
-MAX_DEPTH = 10_000
+#: FND-04 (ftasks Phase 0): the cap is 64.  Report, SBOM and advisory
+#: structures nest a handful of levels; anything past 64 is an untrusted
+#: nesting bomb, so the walk stops descending, the overflow is COUNTED
+#: and the report carries ``truncated=True``.  T-0.4's original cap was
+#: 10_000 (its acceptance depth); FND-04 supersedes that with a bound
+#: real structures never reach and bombs always hit.
+MAX_DEPTH = 64
 
 # Only dict/list are descended. The legacy _clean_node never entered
 # tuples (they fall through its isinstance chain), so the shared walker
@@ -54,6 +59,9 @@ class TraversalReport:
 
     def as_dict(self) -> dict:
         return {
+            # FND-04: the marker on overflow -- one truthy flag any
+            # consumer can read without interpreting the counts.
+            "truncated": bool(self.depth_truncated),
             "depth_truncated": self.depth_truncated,
             "cycles_detected": self.cycles_detected,
             "max_depth": MAX_DEPTH,

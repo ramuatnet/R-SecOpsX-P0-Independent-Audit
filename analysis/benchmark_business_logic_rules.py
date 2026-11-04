@@ -26,6 +26,13 @@ Output (distinct names, nothing else overwritten):
     reports/benchmark_reconciliation_business_logic.md
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_2, WINDOW_80, WINDOW_M5, WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_2, WINDOW_80, WINDOW_M5, WINDOW_SNIPPET
 
 import argparse
 import importlib.util
@@ -36,6 +43,11 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scanner.walk import walk
+
 CANDIDATES = [
     REPO / "scanner" / "business_logic_patterns.py",
     REPO / "quarantine" / "scanner" / "business_logic_patterns.py",
@@ -69,7 +81,7 @@ def load_rules(path: Path):
 
 
 def iter_source(root: Path):
-    for p in root.rglob("*"):
+    for p, _s, _m in walk(root, exts=None, ignore=frozenset(), max_bytes=None):
         if not p.is_file() or p.suffix.lower() not in SOURCE_EXT:
             continue
         parts = set(p.parts)
@@ -145,8 +157,8 @@ def main() -> int:
                     if len(acc["samples"]) < 3:
                         acc["samples"].append({
                             "file": str(p), "line": lineno,
-                            "matched": m.group(0)[:80],
-                            "snippet": line.strip()[:120],
+                            "matched": m.group(0)[:WINDOW_80],
+                            "snippet": line.strip()[:WINDOW_SNIPPET],
                         })
 
     exercised = sorted(k for k, v in per_rule.items() if v["matches"] > 0)
@@ -188,7 +200,7 @@ def main() -> int:
     }
 
     out_json = args.out if args.out.endswith(".json") else args.out + ".json"
-    out_md = out_json[:-5] + ".md"
+    out_md = out_json[:WINDOW_M5] + ".md"
     Path(out_json).parent.mkdir(parents=True, exist_ok=True)
     Path(out_json).write_text(json.dumps(payload, indent=2, ensure_ascii=False),
                               encoding="utf-8")
@@ -212,7 +224,7 @@ def main() -> int:
         if not v["samples"]:
             continue
         lines.append(f"**{k}**")
-        for s in v["samples"][:2]:
+        for s in v["samples"][:WINDOW_2]:
             lines.append(f"- `{Path(s['file']).name}:{s['line']}` "
                          f"`{s['matched']}`")
         lines.append("")

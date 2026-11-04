@@ -13,6 +13,13 @@ posture, all testable without sockets via the injected ``fetch``:
 * deterministic BFS (sorted frontier) -- same site, same model bytes.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_1, WINDOW_TOP_5
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_1, WINDOW_TOP_5
 
 import time
 import urllib.error
@@ -184,7 +191,7 @@ def crawl(config: CrawlConfig,
                     resp.body, robots_url)
         except Exception as exc:               # noqa: BLE001
             errors.append({"url": robots_url, "reason": type(exc).__name__})
-        for sm in robots_sitemaps[:5]:
+        for sm in robots_sitemaps[:WINDOW_TOP_5]:
             _try_sitemap(sm)
 
     # --- page frontier ----------------------------------------------------
@@ -224,7 +231,7 @@ def crawl(config: CrawlConfig,
         is_js = ("javascript" in ctype
                  or url.lower().endswith((".js", ".mjs")))
         is_html = "html" in ctype or (
-            not is_js and resp.body.lstrip()[:1] == "<")
+            not is_js and resp.body.lstrip()[:WINDOW_1] == "<")
 
         if is_js:
             for e in parse_js(resp.body, url, kind="crawl"):

@@ -55,6 +55,13 @@ generator. The output is compiled, imported, and count-checked before this scrip
 claims to have succeeded.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_16, WINDOW_TOP_5
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_16, WINDOW_TOP_5
 
 import argparse
 import hashlib
@@ -363,7 +370,7 @@ def main() -> int:
 
     data = fetch_source(pathlib.Path(args.source))
     sha = hashlib.sha256(data).hexdigest()
-    print(f"  source  : {len(data):,} bytes  sha256 {sha[:16]}...")
+    print(f"  source  : {len(data):,} bytes  sha256 {sha[:WINDOW_16]}...")
 
     cat = parse_atlas(data.decode("utf-8"))
     n_t, n_tac, n_m = (len(cat["techniques"]), len(cat["tactics"]),
@@ -434,7 +441,7 @@ def main() -> int:
     bad_t = [k for k, v in gen.ATLAS_TECHNIQUES.items()
              if any(t not in gen.ATLAS_TACTICS for t in (v.get("tactics") or ()))]
     if bad_t:
-        problems.append(f"techniques referencing unknown tactics: {bad_t[:5]}")
+        problems.append(f"techniques referencing unknown tactics: {bad_t[:WINDOW_TOP_5]}")
     if problems:
         raise SystemExit("generated module failed verification:\n  "
                          + "\n  ".join(problems))

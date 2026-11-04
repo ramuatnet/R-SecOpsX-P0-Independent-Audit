@@ -8,6 +8,13 @@ Exit codes:
     1   at least one gate failed
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200, WINDOW_M1000, WINDOW_M2000
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200, WINDOW_M1000, WINDOW_M2000
 
 import json
 import logging
@@ -39,8 +46,8 @@ def _run(name: str, cmd: list[str], timeout: int = 300) -> dict:
             "command": cmd,
             "exit_code": result.returncode,
             "passed": result.returncode == 0,
-            "stdout_tail": result.stdout[-2000:] if result.stdout else "",
-            "stderr_tail": result.stderr[-1000:] if result.stderr else "",
+            "stdout_tail": result.stdout[WINDOW_M2000:] if result.stdout else "",
+            "stderr_tail": result.stderr[WINDOW_M1000:] if result.stderr else "",
         }
     except subprocess.TimeoutExpired:
         return {
@@ -233,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
             if not gate["passed"]:
                 stderr = gate.get("stderr_tail", "")
                 if stderr:
-                    print("    stderr: %s" % stderr[:200])
+                    print("    stderr: %s" % stderr[:WINDOW_200])
         print()
         print("Result: %d/%d passed" % (result["passed"], result["total"]))
         if result["failed"]:

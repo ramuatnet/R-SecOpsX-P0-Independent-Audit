@@ -11,6 +11,13 @@ Design goals:
 - Fail closed to inconclusive/error without breaking the scan.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_4, WINDOW_M4
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_4, WINDOW_M4
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import base64
@@ -63,7 +70,7 @@ def _mask_secret(value: str) -> str:
         return ""
     if len(value) <= 8:
         return "***"
-    return f"{value[:4]}...{value[-4:]}"
+    return f"{value[:WINDOW_4]}...{value[WINDOW_M4:]}"
 
 
 def _candidate_values_from_text(text: str) -> List[str]:

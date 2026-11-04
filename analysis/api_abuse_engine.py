@@ -13,6 +13,13 @@ Purpose:
   summarize_api_abuse(findings) -> dict
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_1, WINDOW_800
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_1, WINDOW_800
 
 import re
 from pathlib import Path
@@ -205,16 +212,6 @@ def _lang(path: Path) -> str:
     }.get(path.suffix.lower(), "unknown")
 
 
-def _iter_files(target: Path) -> list[Path]:
-    if target.is_file():
-        return [target]
-
-    # T-0.2 (task.md): the one walk's index; SKIP_DIRS is walk policy now.
-    from core import file_index
-    return file_index.index_for(target).files(
-        exts={e.lower() for e in SCANNABLE_EXTENSIONS})
-
-
 def _extract_route(match: re.Match) -> str:
     return next((group for group in match.groups() if group), "") or ""
 
@@ -297,9 +294,9 @@ def _route_has_protection(text: str, route: str, start: int, window: str) -> boo
     # a broad character window that can accidentally inherit middleware from
     # the preceding endpoint.
     tail = text[start:]
-    next_route = re.search(r"\n\s*(?:app|router)\.(?:get|post|put|patch|delete)\s*\(", tail[1:], re.I)
+    next_route = re.search(r"\n\s*(?:app|router)\.(?:get|post|put|patch|delete)\s*\(", tail[WINDOW_1:], re.I)
     declaration = tail if not next_route else tail[: next_route.start() + 1]
-    return bool(SAFE.search(declaration[:800]))
+    return bool(SAFE.search(declaration[:WINDOW_800]))
 
 def scan_file(filepath: str) -> list[dict]:
     path = Path(filepath)
@@ -411,7 +408,15 @@ def analyze_api_abuse(target_path: str) -> dict:
     target = Path(target_path)
     findings: list[dict] = []
 
-    for file_path in _iter_files(target):
+    # FND-02: single-file targets are yielded unconditionally; directory
+    # targets are the one index query (ext allow-list = walk policy).
+    if target.is_file():
+        _api_files: list[Path] = [target]
+    else:
+        from core import file_index
+        _api_files = file_index.index_for(target).files(
+            exts={e.lower() for e in SCANNABLE_EXTENSIONS})
+    for file_path in _api_files:
         findings.extend(scan_file(str(file_path)))
 
     return {

@@ -29,6 +29,13 @@ Semantics locked by tests/test_t83_policy.py:
   never raised and never blocking.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M1
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M1
 
 import datetime as _dt
 import re
@@ -393,7 +400,7 @@ def _age_days(row, as_of):
     elif isinstance(raw, str):
         text = raw.strip()
         if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
+            text = text[:WINDOW_M1] + "+00:00"
         try:
             parsed = _dt.datetime.fromisoformat(text)
         except ValueError:

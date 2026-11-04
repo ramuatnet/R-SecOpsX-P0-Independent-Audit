@@ -30,6 +30,13 @@ Iron laws (asserted by tests):
     must never abort the scan (fail-soft, loud).
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_8192
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_8192
 
 import re
 from pathlib import Path
@@ -250,7 +257,7 @@ def _value_evidence_in_file(finding: dict, target: str | None) -> bool | None:
     if file_text is None:
         return None
     probe = dict(finding)
-    probe["snippet"] = file_text[:8192]
+    probe["snippet"] = file_text[:WINDOW_8192]
     probe["evidence"] = ""
     return _has_value_evidence(probe)
 

@@ -856,31 +856,6 @@ def _evaluate_posture_rules(
     return out
 
 
-def _iter_files(target: Path):
-    """Yield only Terraform files physically contained by target root.
-
-    Resolve both the target and every candidate before yielding. This prevents
-    junction/symlink/path-escape traversal from feeding external IaC files into
-    the scanner.
-    """
-    try:
-        root = target.resolve()
-    except Exception:
-        return
-
-    if root.is_file():
-        if root.suffix.lower() in TF_EXTENSIONS:
-            yield root
-        return
-
-    # T-0.2: the one walk replaces this per-engine os.walk. Its Windows
-    # junction containment pruning (reparse points do not present as
-    # symlinks) is now walk-time policy for EVERY engine -- see
-    # core/file_index.py (dirs_outside_root / files_outside_root counters).
-    yield from file_index.index_for(target).files(
-        exts={e.lower() for e in TF_EXTENSIONS})
-
-
 def _is_terraform_file(text: str, path: Path) -> bool:
     if path.suffix.lower() in TF_EXTENSIONS:
         return True
@@ -1217,7 +1192,23 @@ def scan_terraform(target_path: str) -> list[dict[str, Any]]:
     target = Path(target_path)
     findings: list[dict[str, Any]] = []
 
-    for file_path in _iter_files(target):
+    # FND-02: resolve the target first so a junction/path-escape cannot
+    # feed external IaC files in (single-file branch suffix-gated on the
+    # resolved path; directory branch is the one index query -- Windows
+    # junction containment lives in core/file_index.py).
+    try:
+        _tf_root = target.resolve()
+    except Exception:
+        _tf_root = None
+    if _tf_root is None:
+        _tf_files: list[Path] = []
+    elif _tf_root.is_file():
+        _tf_files = (
+            [_tf_root] if _tf_root.suffix.lower() in TF_EXTENSIONS else [])
+    else:
+        _tf_files = file_index.index_for(target).files(
+            exts={e.lower() for e in TF_EXTENSIONS})
+    for file_path in _tf_files:
         try:
             text = file_path.read_text(
                 encoding="utf-8",

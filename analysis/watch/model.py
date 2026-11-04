@@ -12,6 +12,13 @@ milliseconds because that is the conventional knob unit for watch
 delegates; the conversion happens once, here.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200, WINDOW_80
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200, WINDOW_80
 
 import time
 from typing import Any, Callable
@@ -101,14 +108,14 @@ class ChangeBuffer:
         if not isinstance(event, dict):
             self._skips.append({
                 "reason": "event_not_object",
-                "event": repr(event)[:200],
+                "event": repr(event)[:WINDOW_200],
             })
             return
         path = event.get("path")
         if not isinstance(path, str) or not path:
             self._skips.append({
                 "reason": "event_missing_path",
-                "event": repr(event)[:200],
+                "event": repr(event)[:WINDOW_200],
             })
             return
         kind = event.get("kind")
@@ -116,7 +123,7 @@ class ChangeBuffer:
             self._skips.append({
                 "reason": "event_kind_unknown",
                 "path": path,
-                "kind": repr(kind)[:80],
+                "kind": repr(kind)[:WINDOW_80],
             })
             return
         at = event.get("at")

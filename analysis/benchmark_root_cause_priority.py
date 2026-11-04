@@ -42,6 +42,17 @@ Exits non-zero while any row is open, per the project's rule that a benchmark
 reporting open gaps must not exit clean.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_10, WINDOW_12, WINDOW_15, WINDOW_20, WINDOW_3, WINDOW_55,
+    WINDOW_60, WINDOW_63, WINDOW_82, WINDOW_TOP_5)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import (
+    WINDOW_10, WINDOW_12, WINDOW_15, WINDOW_20, WINDOW_3, WINDOW_55,
+    WINDOW_60, WINDOW_63, WINDOW_82, WINDOW_TOP_5)
 
 import json
 import pathlib
@@ -262,10 +273,10 @@ def render_md(payload: dict) -> str:
         "| # | ID | P | impact | days | density | class | what |",
         "|---:|---|---|---:|---:|---:|---|---|",
     ]
-    for i, r in enumerate(payload["ranking"][:20], 1):
+    for i, r in enumerate(payload["ranking"][:WINDOW_20], 1):
         title = r["title"]
         if len(title) > 58:
-            title = title[:55] + "..."
+            title = title[:WINDOW_55] + "..."
         lines.append(
             f"| {i} | `{r['id']}` | {r['priority']} | {r['impact']} | "
             f"{r['effort_days']:g} | {r['value_density']} | "
@@ -281,10 +292,10 @@ def render_md(payload: dict) -> str:
         "| # | ID | P | days | density | what |",
         "|---:|---|---|---:|---:|---|",
     ]
-    for i, r in enumerate(payload["ranking_by_density"][:12], 1):
+    for i, r in enumerate(payload["ranking_by_density"][:WINDOW_12], 1):
         title = r["title"]
         if len(title) > 66:
-            title = title[:63] + "..."
+            title = title[:WINDOW_63] + "..."
         lines.append(
             f"| {i} | `{r['id']}` | {r['priority']} | {r['effort_days']:g} | "
             f"**{r['value_density']}** | {title} |")
@@ -299,11 +310,11 @@ def render_md(payload: dict) -> str:
         "| # | root-cause class | rows | days | best density | lead row | domains |",
         "|---:|---|---:|---:|---:|---|---|",
     ]
-    for i, b in enumerate(payload["batches"][:15], 1):
+    for i, b in enumerate(payload["batches"][:WINDOW_15], 1):
         lines.append(
             f"| {i} | `{b['root_cause_class']}` | {b['open_rows']} | "
             f"{b['total_effort_days']:g} | **{b['best_value_density']}** | "
-            f"`{b['lead_row']}` | {', '.join(b['domains'][:3])} |")
+            f"`{b['lead_row']}` | {', '.join(b['domains'][:WINDOW_3])} |")
 
     lines += [
         "",
@@ -375,19 +386,19 @@ def main() -> int:
     print()
     print("  programme order — priority band is a hard constraint, density")
     print("  orders within a band:")
-    for r in banded[:10]:
+    for r in banded[:WINDOW_10]:
         print(f"    {r['id']}  {r['priority']}  density {r['value_density']:>6}  "
               f"impact {r['impact']:>3} / {r['effort_days']:>4g}d  "
               f"{r['root_cause_class']}")
-        print(f"           {r['title'][:82]}")
+        print(f"           {r['title'][:WINDOW_82]}")
     print()
     print("  quick wins (density only, NOT programme order):")
-    for r in scored[:5]:
+    for r in scored[:WINDOW_TOP_5]:
         print(f"    {r['id']}  {r['priority']}  density {r['value_density']:>6}  "
-              f"{r['effort_days']:>4g}d  {r['title'][:60]}")
+              f"{r['effort_days']:>4g}d  {r['title'][:WINDOW_60]}")
     print()
     print("  attack order, batched by root-cause class:")
-    for b in batches[:10]:
+    for b in batches[:WINDOW_10]:
         print(f"    {b['root_cause_class']:26s} {b['open_rows']:>2} rows "
               f"{b['total_effort_days']:>5g}d  lead {b['lead_row']}")
     print()

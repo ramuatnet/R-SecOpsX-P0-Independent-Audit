@@ -19,6 +19,13 @@ EXIT CODES
     2   could not run (e.g., packaging not installed)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_20, WINDOW_50
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_20, WINDOW_50
 
 import logging
 import random
@@ -257,7 +264,7 @@ def fuzz_versions(pairs_count: int = 1000, seed: int = 42) -> dict:
     return {
         "total": len(pairs),
         "disagreements": len(disagreements),
-        "details": disagreements[:50],  # cap at 50 to avoid huge output
+        "details": disagreements[:WINDOW_50],  # cap at 50 to avoid huge output
     }
 
 
@@ -278,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2))
     else:
         print("Version fuzzing: %d pairs, %d disagreements" % (result["total"], result["disagreements"]))
-        for d in result["details"][:20]:
+        for d in result["details"][:WINDOW_20]:
             print("  %s: %s vs %s  expected=%d actual=%d" % (d["ecosystem"], d["a"], d["b"], d["expected"], d["actual"]))
 
     return 1 if result["disagreements"] else 0

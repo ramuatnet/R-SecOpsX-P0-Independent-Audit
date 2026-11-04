@@ -18,6 +18,13 @@ silent drop.  Determinism rules the tests pin:
   same window is a no-op because the id already exists).
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_12, WINDOW_300
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_12, WINDOW_300
 
 import hashlib
 
@@ -69,7 +76,7 @@ def run_job(backend, job, runner, now) -> dict:
         ok = bool(result.get("ok")) if isinstance(result, dict) else bool(result)
         detail = (result.get("detail") if isinstance(result, dict) else None)
     except Exception as exc:  # noqa: BLE001 -- terminal state, annotated
-        err = f"{type(exc).__name__}: {exc}"[:300]
+        err = f"{type(exc).__name__}: {exc}"[:WINDOW_300]
         backend.update_job(job["id"], status="failed", last_error=err, now=now)
         backend.append_event("job.failed",
                              {"job_id": job["id"], "error": err}, at=now,
@@ -81,7 +88,7 @@ def run_job(backend, job, runner, now) -> dict:
                              {"job_id": job["id"], "detail": detail}, at=now,
                              tenant=scope)
     else:
-        err = f"runner_not_ok: {detail}"[:300]
+        err = f"runner_not_ok: {detail}"[:WINDOW_300]
         backend.update_job(job["id"], status="failed", last_error=err, now=now)
         backend.append_event("job.failed",
                              {"job_id": job["id"], "error": err}, at=now,
@@ -121,7 +128,7 @@ def _schedule_id(row, tenant=None) -> str:
     canon = f"{row.get('cron')}|{row.get('target')}|{row.get('out')}"
     if tenant:
         canon = f"{canon}|{tenant}"
-    return "sch_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+    return "sch_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:WINDOW_12]
 
 
 def add_schedule(backend, rows, now, tenant=None) -> "tuple[list, list]":

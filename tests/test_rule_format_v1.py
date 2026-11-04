@@ -11,11 +11,13 @@ task.md section 3, T-0.6:
 
 The contract asserted here:
 
-  * rules/enterprise_v1.yaml + rules/regex_v1.yaml are the source of
-    truth; scanner/sast.py contains no inline rule dicts (structural
+  * scanner/rules/enterprise_v1.yaml + scanner/rules/regex_v1.yaml are
+    the source of truth (FND-06 moved them beside their loader);
+    scanner/sast.py contains no inline rule dicts (structural
     check -- the <=2-file gate);
-  * the loader validates against rules/schema_v1.json and every pattern
-    compiles with its declared flags before a table is handed out;
+  * the loader validates against scanner/rules/schema_v1.json and every
+    pattern compiles with its declared flags before a table is handed
+    out;
   * core.mini_yaml (the offline fallback) and PyYAML parse the same
     files to equal structures, so the two parsers cannot drift;
   * the legacy table shapes are exact (compiled patterns for
@@ -79,7 +81,7 @@ def test_yaml_is_normalized_and_idempotent():
     """tools/emit_rule_yaml.py output round-trips byte-identically."""
     from core import mini_yaml
     for name in ("enterprise_v1.yaml", "regex_v1.yaml"):
-        text = (REPO / "rules" / name).read_text(encoding="utf-8")
+        text = (REPO / "scanner" / "rules" / name).read_text(encoding="utf-8")
         doc = mini_yaml.loads(text)
         assert mini_yaml.dump(doc) == text, f"{name} is not normalized"
 
@@ -91,7 +93,7 @@ def test_yaml_is_normalized_and_idempotent():
 def test_mini_yaml_matches_pyyaml(name):
     yaml = pytest.importorskip("yaml")
     from core import mini_yaml
-    text = (REPO / "rules" / name).read_text(encoding="utf-8")
+    text = (REPO / "scanner" / "rules" / name).read_text(encoding="utf-8")
     assert mini_yaml.loads(text) == yaml.safe_load(text)
 
 
@@ -123,15 +125,19 @@ def _doc_with(rule: dict) -> dict:
 
 
 def _good_rule(**over) -> dict:
+    # FND-06 canonical field set (schema-required on every entry).
     rule = {
         "id": "TEST_SAMPLE_RULE",
         "title": "Sample",
-        "vuln": "sql_injection",
-        "sev": "High",
+        "family": "sql_injection",
+        "severity": "High",
         "langs": ["python"],
+        "exts": [".py"],
         "cwe": "CWE-89",
         "owasp": "A03:2021 - Injection",
         "pattern": "execute\\s*\\(",
+        "span": "evidence",
+        "negative": None,
     }
     rule.update(over)
     return rule
@@ -144,7 +150,7 @@ def test_schema_accepts_a_good_rule():
 
 @pytest.mark.parametrize("over,error_part", [
     ({"id": "lowercase_id"}, "id"),
-    ({"sev": "Catastrophic"}, "enum"),
+    ({"severity": "Catastrophic"}, "enum"),
     ({"langs": []}, "minItems"),
     ({"pattern": ""}, "minLength"),
     ({"unknown_field": 1}, "unknown"),

@@ -55,6 +55,11 @@ def test_imports_are_stdlib_only():
     allowed = {
         "__future__", "argparse", "io", "json", "os", "pathlib", "re",
         "shutil", "subprocess", "sys", "tempfile",
+        # in-repo, not third-party — ftasks Phase 0 FND-03 forces this
+        # module's slice windows to read analysis.spans (a stdlib-free
+        # constant table importing nothing from the project), so the
+        # no-third-party property this test protects still holds.
+        "analysis",
     }
     found = set()
     for node in ast.walk(tree):

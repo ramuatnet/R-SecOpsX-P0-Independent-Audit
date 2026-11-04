@@ -30,6 +30,15 @@ TARGET can reach (self-hosted listener on a public address, or a
 tunnel) and binds accordingly.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_0, WINDOW_12, WINDOW_2, WINDOW_4, WINDOW_6)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import (
+    WINDOW_0, WINDOW_12, WINDOW_2, WINDOW_4, WINDOW_6)
 
 import binascii
 import json
@@ -155,7 +164,7 @@ def handle_dns_query(store: InteractionStore, *, qname: str,
 def parse_dns_qname(query: bytes) -> str:
     """Extract the QNAME from a DNS query datagram (empty if malformed)."""
     try:
-        if len(query) < 12 or query[4:6] != b"\x00\x01":
+        if len(query) < 12 or query[WINDOW_4:WINDOW_6] != b"\x00\x01":
             return ""
         labels: list[str] = []
         i = 12
@@ -186,8 +195,8 @@ def build_dns_response(query: bytes) -> bytes:
         question_end = i + 1 + 4            # null + qtype + qclass
         if question_end > len(query):
             return b""
-        question = query[12:question_end]
-        header = (query[0:2]                 # transaction id
+        question = query[WINDOW_12:question_end]
+        header = (query[WINDOW_0:WINDOW_2]                 # transaction id
                   + b"\x81\x80"              # QR + RD + RA + NOERROR
                   + b"\x00\x01\x00\x01\x00\x00\x00\x00")
         answer = (b"\xc0\x0c"                # pointer to QNAME

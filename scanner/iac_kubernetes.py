@@ -234,18 +234,6 @@ def _is_kubernetes_file(text: str) -> bool:
     return any(marker in text for marker in markers)
 
 
-def _iter_files(target: Path):
-    if target.is_file():
-        if target.suffix.lower() in K8S_EXTENSIONS:
-            yield target
-        return
-
-    # T-0.2: index query replaces target.rglob. This engine used to apply
-    # NO directory skip at all; the shared union policy now covers it.
-    yield from file_index.index_for(target).files(
-        exts={e.lower() for e in K8S_EXTENSIONS})
-
-
 def _line_number(index: int) -> int:
     return index + 1
 
@@ -589,7 +577,15 @@ def scan_kubernetes(target_path: str) -> list[dict[str, Any]]:
 
     target_root = target if target.is_dir() else target.parent
 
-    for file_path in _iter_files(target):
+    # FND-02: single-file targets are suffix-gated; directory targets
+    # are the one index query (ext allow-list = the same gate).
+    if target.is_file():
+        _k8s_files: list[Path] = (
+            [target] if target.suffix.lower() in K8S_EXTENSIONS else [])
+    else:
+        _k8s_files = file_index.index_for(target).files(
+            exts={e.lower() for e in K8S_EXTENSIONS})
+    for file_path in _k8s_files:
         try:
             text = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception:

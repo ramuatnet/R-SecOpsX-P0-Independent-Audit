@@ -61,6 +61,13 @@ EXIT CODES:
        artifacts written, bad --target)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M400
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M400
 
 import argparse
 import io
@@ -183,7 +190,7 @@ def run_once(target: pathlib.Path, out_dir: pathlib.Path,
     if proc.returncode != 0:
         return {"rc": 2,
                 "error": "scan failed rc=%s" % proc.returncode,
-                "stderr_tail": (proc.stderr or "")[-400:]}
+                "stderr_tail": (proc.stderr or "")[WINDOW_M400:]}
     if not (out_dir / "clean_report.json").is_file():
         return {"rc": 2, "error": "no clean_report.json written"}
     return {"rc": 0}

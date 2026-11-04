@@ -32,6 +32,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scanner.walk import walk
+
 GT_PATH = REPO / "reports" / "ground_truth_genai.json"
 OUT_JSON = REPO / "reports" / "benchmark_reconciliation_genai.json"
 OUT_MD = REPO / "reports" / "benchmark_reconciliation_genai.md"
@@ -401,7 +406,8 @@ def _mechanically_real_credential(f: dict, root: Path) -> bool:
 def enumerate_credential_positives(root: Path) -> list[tuple[str, int, str]]:
     """Mechanically list credential sites so recall has no hand-authoring bias."""
     out: list[tuple[str, int, str]] = []
-    for p in sorted(root.rglob("*")):
+    for p in sorted(x for x, _s, _m in walk(
+            root, exts=None, ignore=frozenset(), max_bytes=None)):
         if not p.is_file() or p.suffix.lower() not in (CODE_EXTS | CONFIG_EXTS):
             continue
         if p.name in LOCKFILE_NAMES:

@@ -10,9 +10,9 @@ task.md section 3, T-2.3:
 
 The contract asserted here:
 
-  * the rule schema (rules/schema_v1.json) gains two OPTIONAL fields --
-    `sanitizers` (dotted-name taint purifiers) and `barriers` (regex
-    counterevidence) -- so every pre-existing rule still validates
+  * the rule schema (scanner/rules/schema_v1.json) gains two OPTIONAL
+    fields -- `sanitizers` (dotted-name taint purifiers) and `barriers`
+    (regex counterevidence) -- so every pre-existing rule still validates
     byte-identically (back-compat; task.md:374 risk table);
   * core.rule_loader exposes dedicated accessors
     (load_sanitizer_overrides / load_barrier_overrides); neither is leaked
@@ -48,15 +48,19 @@ def _doc_with(rule: dict) -> dict:
 
 
 def _good_rule(**over) -> dict:
+    # FND-06 canonical field set (schema-required on every entry).
     rule = {
         "id": "TEST_T23_RULE",
         "title": "Sample",
-        "vuln": "xss",
-        "sev": "High",
+        "family": "xss",
+        "severity": "High",
         "langs": ["python"],
+        "exts": [".py"],
         "cwe": "CWE-79",
         "owasp": "A03:2021 - Injection",
         "pattern": "render_template\\s*\\(",
+        "span": "evidence",
+        "negative": None,
     }
     rule.update(over)
     return rule
@@ -107,8 +111,10 @@ def test_schema_rejects_uncompilable_barrier():
 def test_loader_accessors_surface_declarations(tmp_path, monkeypatch):
     from core import rule_loader
     import core.mini_yaml as mini_yaml
-    # The accessors read _RULES_DIR / <name>; point that at a temp dir.
-    monkeypatch.setattr(rule_loader, "_RULES_DIR", tmp_path)
+    from scanner.rules import loader
+    # The accessors read _RULES_DIR / <name> on the FND-06 loader home;
+    # point that at a temp dir.
+    monkeypatch.setattr(loader, "_RULES_DIR", tmp_path)
     (tmp_path / "enterprise_v1.yaml").write_text(mini_yaml.dump(
         _doc_with(_good_rule(
             id="T23_SANITIZED_RULE",
@@ -117,7 +123,7 @@ def test_loader_accessors_surface_declarations(tmp_path, monkeypatch):
         ))), encoding="utf-8")
     (tmp_path / "regex_v1.yaml").write_text(mini_yaml.dump(
         {"schema": "rsecopsx.rules/v1", "rules": [_good_rule(
-            id="T23_BARRIER_ONLY", vuln="sql_injection",
+            id="T23_BARRIER_ONLY", family="sql_injection",
             pattern="execute\\s*\\(",
             barriers=[r"params\s*=\s*\["],
         )]}), encoding="utf-8")
@@ -218,8 +224,8 @@ def test_no_rule_barriers_is_a_noop_on_g6(monkeypatch):
 def test_barrier_loader_compiles_patterns(monkeypatch, tmp_path):
     from analysis import ufib_brain
     import core.mini_yaml as mini_yaml
-    from core import rule_loader
-    monkeypatch.setattr(rule_loader, "_RULES_DIR", tmp_path)
+    from scanner.rules import loader
+    monkeypatch.setattr(loader, "_RULES_DIR", tmp_path)
     (tmp_path / "enterprise_v1.yaml").write_text(mini_yaml.dump(
         _doc_with(_good_rule(
             id="T23_COMPILE_RULE",
@@ -285,15 +291,15 @@ def test_no_rule_sanitizers_is_identity(monkeypatch):
 def test_rule_sanitizer_load_filters_to_known_classes(monkeypatch, tmp_path):
     from scanner import taint_engine as te
     import core.mini_yaml as mini_yaml
-    from core import rule_loader
-    monkeypatch.setattr(rule_loader, "_RULES_DIR", tmp_path)
+    from scanner.rules import loader
+    monkeypatch.setattr(loader, "_RULES_DIR", tmp_path)
     (tmp_path / "enterprise_v1.yaml").write_text(mini_yaml.dump(
         {"schema": "rsecopsx.rules/v1", "rules": [
-            _good_rule(id="T23_XSS_SAN", vuln="xss",
+            _good_rule(id="T23_XSS_SAN", family="xss",
                        sanitizers=["mycorp.escape_html"]),
-            _good_rule(id="T23_CMD_SAN", vuln="command_injection",
+            _good_rule(id="T23_CMD_SAN", family="command_injection",
                        pattern="subprocess", sanitizers=["mycorp.quote_arg"]),
-            _good_rule(id="T23_UNKNOWN_SAN", vuln="prototype_pollution",
+            _good_rule(id="T23_UNKNOWN_SAN", family="prototype_pollution",
                        pattern="__proto__", sanitizers=["mycorp.freeze"]),
         ]}), encoding="utf-8")
     (tmp_path / "regex_v1.yaml").write_text(mini_yaml.dump(

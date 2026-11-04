@@ -1,4 +1,11 @@
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_500
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_500
 
 from collections import Counter
 
@@ -508,7 +515,7 @@ def enrich_identity_access_correlation(
                 confidence="Low",
                 file_path=agent.get("file") or agent.get("file_path") or "",
                 line=_line_of(agent),
-                evidence=text[:500],
+                evidence=text[:WINDOW_500],
                 business_impact=(
                     "Autonomous agent/tool identity may execute privileged operations without clear "
                     "approval or least-privilege boundaries."

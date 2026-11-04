@@ -1,4 +1,11 @@
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_300, WINDOW_EVIDENCE
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_300, WINDOW_EVIDENCE
 
 import json
 import re
@@ -206,13 +213,13 @@ def analyze_copyright_ip_compliance(project_path: str) -> Dict[str, Any]:
                     "priority": _priority_for(severity),
                     "file": str(path),
                     "line": line_no,
-                    "snippet": line.strip()[:300],
+                    "snippet": line.strip()[:WINDOW_300],
                     "description": (
                         "Potential copyright, license, proprietary-code, "
                         "or IP-origin compliance indicator detected."
                     ),
                     "evidence_type": "SOURCE_TEXT_PATTERN",
-                    "evidence_match": match.group(0)[:160],
+                    "evidence_match": match.group(0)[:WINDOW_EVIDENCE],
                     "engine": "COPYRIGHT_IP_COMPLIANCE_V1",
                     "confidence": "Medium",
                     "recommended_action": _review_action_for(rule_id, severity),

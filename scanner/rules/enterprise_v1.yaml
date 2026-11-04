@@ -2,1526 +2,2048 @@ schema: 'rsecopsx.rules/v1'
 rules:
   - id: 'NODE_CHILD_PROCESS_EXEC'
     title: 'Node.js child_process.exec Command Execution'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '\bchild_process\.(?:exec|execSync|execFile|execFileSync)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'NODE_IMPORTED_CHILD_PROCESS_EXEC'
     title: 'Node.js imported child_process.exec Command Execution'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '(?<![.\w])(?:exec|execSync|execFile|execFileSync)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'PY_TLS_CERT_VALIDATION_DISABLED'
     title: 'Python TLS Certificate Validation Disabled'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: '\bverify\s*=\s*False\b|\bcheck_hostname\s*=\s*False\b|ssl\._create_unverified_context\s*\(|verify_mode\s*=\s*ssl\.CERT_NONE'
+    span: 'evidence'
+    negative: null
   - id: 'PY_COOKIE_MISSING_SECURE'
     title: 'Cookie Missing Secure Flag'
-    vuln: 'insecure_cookie_secure_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_secure_flag'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-614'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\.set_cookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'PY_COOKIE_MISSING_HTTPONLY'
     title: 'Cookie Missing HttpOnly Flag'
-    vuln: 'insecure_cookie_httponly_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_httponly_flag'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-1004'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '\.set_cookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'PY_COOKIE_MISSING_SAMESITE'
     title: 'Cookie Missing SameSite Restriction'
-    vuln: 'insecure_cookie_samesite_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_samesite_flag'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-1275'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\.set_cookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'DJANGO_CSRF_EXEMPT'
     title: 'Django View Exempted from CSRF Protection'
-    vuln: 'auth_misconfiguration'
-    sev: 'Medium'
+    family: 'auth_misconfiguration'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-352'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '@(?:method_decorator\s*\(\s*)?csrf_exempt\b'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_OBJECTINPUTSTREAM_DESERIALIZATION'
     title: 'Java ObjectInputStream Insecure Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'new\s+ObjectInputStream\s*\(|\.readObject\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'JAVA_JACKSON_DEFAULT_TYPING'
     title: 'Jackson Unsafe Default Typing'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'enableDefaultTyping\s*\(|activateDefaultTyping\s*\(|DefaultTyping\.|@JsonTypeInfo|ObjectMapper[\s\S]{0,200}enableDefaultTyping'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'JAVA_SNAKEYAML_UNSAFE_LOAD'
     title: 'SnakeYAML Unsafe Load'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: '(?:new\s+Yaml\s*\([^)]*\)|Yaml\s+\w+\s*=\s*new\s+Yaml\s*\([^)]*\))[\s\S]{0,240}\.load\s*\(|\.load\s*\([^)]*(?:request|getParameter|input|payload|body)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'JAVA_XSTREAM_DESERIALIZATION'
     title: 'XStream Insecure Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'new\s+XStream\s*\(|\.fromXML\s*\([^)]*(?:request|getParameter|input|payload|body)?'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'JAVA_JNDI_LOG4SHELL_LOOKUP'
     title: 'JNDI / Log4Shell-style Lookup Pattern'
-    vuln: 'jndi_injection'
-    sev: 'Critical'
+    family: 'jndi_injection'
+    severity: 'Critical'
     langs: ['java', 'properties', 'xml', 'yaml']
+    exts: ['.java', '.properties', '.xml', '.yaml', '.yml']
     cwe: 'CWE-917'
     owasp: 'A03:2021 - Injection'
     pattern: '\$\{\s*jndi\s*:\s*(?:ldap|rmi|dns|iiop)://|InitialContext\s*\(|\.lookup\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_JDBC_SQL_CONCAT'
     title: 'JDBC SQL Concatenation'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:createStatement\s*\(\s*\)|prepareStatement\s*\(\s*\"[^\"]*\"\s*\+|executeQuery\s*\(\s*\"[^\"]*\"\s*\+)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'JAVA_HQL_JPQL_INJECTION'
     title: 'Hibernate HQL / JPQL Injection'
-    vuln: 'orm_injection'
-    sev: 'High'
+    family: 'orm_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'createQuery\s*\(\s*\"[^\"]*(?:from|select|where)[^\"]*\"\s*\+|@Query\s*\(\s*\"[^\"]*\"\s*\+'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_JOOQ_RAW_SQL'
     title: 'jOOQ Raw SQL Injection Indicator'
-    vuln: 'orm_injection'
-    sev: 'High'
+    family: 'orm_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'DSL\.query\s*\(\s*\"[^\"]*\"\s*\+|fetch\s*\(\s*\"[^\"]*\"\s*\+'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_XPATH_INJECTION'
     title: 'Java XPath Query Built by Concatenation'
-    vuln: 'xpath_injection'
-    sev: 'High'
+    family: 'xpath_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-643'
     owasp: 'A03:2021 - Injection'
     pattern: '\"[^\"]*(?:\[@|//|text\(\)|contains\(|starts-with\()[^\"]*\"\s*\+\s*\w+'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_XXE_PARSER'
     title: 'Java XML Parser XXE Risk'
-    vuln: 'xxe'
-    sev: 'High'
+    family: 'xxe'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-611'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'DocumentBuilderFactory\.newInstance\s*\(|SAXParserFactory\.newInstance\s*\(|XMLInputFactory\.newInstance\s*\(|SAXReader\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'xxe'
   - id: 'JAVA_REFLECTION_SETACCESSIBLE'
     title: 'Dangerous Reflection setAccessible(true)'
-    vuln: 'dangerous_reflection'
-    sev: 'High'
+    family: 'dangerous_reflection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-470'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\.setAccessible\s*\(\s*true\s*\)'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_PATH_TRAVERSAL_FILE'
     title: 'Java Path Traversal File Access'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'new\s+File\s*\([^)]*(?:request|getParameter|path|filename)|Paths\.get\s*\([^)]*(?:request|getParameter|path|filename)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'JAVA_TLS_TRUST_BYPASS'
     title: 'Java TLS TrustManager / HostnameVerifier Bypass'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'X509TrustManager|HostnameVerifier|verify\s*\([^)]*\)\s*\{\s*return\s+true|checkServerTrusted\s*\([^)]*\)\s*\{\s*\}'
+    span: 'evidence'
+    negative: null
     remediation: ['Remove permissive TrustManager and HostnameVerifier implementations.', 'Use the default JVM trust store or managed certificate pinning.', 'Fail closed on certificate and hostname validation errors.']
   - id: 'SPRING_SPEL_INJECTION'
     title: 'Spring SpEL Injection Indicator'
-    vuln: 'spel_injection'
-    sev: 'Critical'
+    family: 'spel_injection'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: 'parseExpression\s*\([^)]*(?:request|getParameter|@RequestParam|@PathVariable|param|input)|SpelExpressionParser[\s\S]{0,240}parseExpression\s*\('
+    span: 'evidence'
+    negative: null
     evidence_pat: 'parseExpression\s*\('
     remediation: ['Never evaluate user-controlled input with SpEL parseExpression().', 'Replace dynamic expressions with allow-listed operations or server-side enum choices.', 'Use SimpleEvaluationContext where expression evaluation is unavoidable.', 'Reject expressions containing type references, method calls, constructors or bean references.']
   - id: 'SPRING_MASS_ASSIGNMENT_ENTITY_BINDING'
     title: 'Spring MVC Mass Assignment Entity Binding'
-    vuln: 'mass_assignment'
-    sev: 'High'
+    family: 'mass_assignment'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-915'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '@(RequestBody|ModelAttribute)\s+(?:User|Account|Admin|Role|Customer|Order|.*Entity)\b'
+    span: 'evidence'
+    negative: null
     remediation: ['Bind requests to explicit DTOs rather than JPA/domain entities.', 'Use allow-listed fields and ignore role, tenantId, isAdmin, status, balance and permission fields.', 'Validate with @Valid/@Validated and enforce server-side authorization after binding.']
   - id: 'SPRING_SECURITY_CSRF_DISABLED'
     title: 'Spring Security CSRF Disabled'
-    vuln: 'auth_misconfiguration'
-    sev: 'Critical'
+    family: 'auth_misconfiguration'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-352'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'csrf\s*\(\s*\)\s*\.disable\s*\(|csrf\s*\(\s*csrf\s*->\s*csrf\.disable\s*\('
+    span: 'evidence'
+    negative: null
     remediation: ['Do not globally disable CSRF protection for browser-based sessions.', 'Enable CSRF for state-changing endpoints or use stateless token-based APIs with explicit compensating controls.', 'Avoid broad anyRequest().permitAll() and require authenticated authorization rules by default.', 'Add security tests for unauthenticated state-changing requests.']
   - id: 'SPRING_PERMITALL_BROAD_MATCHER'
     title: 'Spring Security Broad permitAll Exposure'
-    vuln: 'auth_misconfiguration'
-    sev: 'Critical'
+    family: 'auth_misconfiguration'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-284'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?:antMatchers|requestMatchers)\s*\([^)]*(?:/\*\*|\*)[^)]*\)\s*\.permitAll\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'SPRING_ACTUATOR_EXPOSE_ALL'
     title: 'Spring Actuator All Endpoints Exposed'
-    vuln: 'actuator_exposure'
-    sev: 'Critical'
+    family: 'actuator_exposure'
+    severity: 'Critical'
     langs: ['properties', 'yaml', 'java']
+    exts: ['.java', '.properties', '.yaml', '.yml']
     cwe: 'CWE-200'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'management\.endpoints\.web\.exposure\.include\s*[:=]\s*[\"'']?\*[\"'']?|exposure:\s*\n\s*include:\s*[\"'']?\*[\"'']?'
+    span: 'evidence'
+    negative: null
     evidence_pat: 'include\s*[:=]\s*[\"'']?\*[\"'']?'
     remediation: ['Do not expose all actuator endpoints in production.', 'Set management.endpoints.web.exposure.include to a minimal allow-list such as health/info only.', 'Protect actuator endpoints with Spring Security and network ACLs.', 'Disable sensitive endpoints such as env, beans, heapdump, threaddump, mappings and configprops.']
   - id: 'SPRING_MULTIPART_TRAVERSAL'
     title: 'Spring MultipartFile Unsafe Upload Path'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'MultipartFile|getOriginalFilename\s*\(\s*\)|transferTo\s*\(\s*new\s+File'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'SPRING_ASYNC_CONTEXT_LOSS'
     title: 'Spring @Async Security Context Loss Indicator'
-    vuln: 'async_security_context_loss'
-    sev: 'High'
+    family: 'async_security_context_loss'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-362'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '@Async(?![\s\S]{0,250}(DelegatingSecurityContext|SecurityContextHolder))'
+    span: 'evidence'
+    negative: null
   - id: 'SPRING_CACHEABLE_USER_KEY'
     title: 'Spring @Cacheable User-Controlled Key'
-    vuln: 'cache_key_injection'
-    sev: 'Medium'
+    family: 'cache_key_injection'
+    severity: 'Medium'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-20'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '@Cacheable\s*\([^)]*key\s*=\s*[\"''][^\"'']*#(?:user|request|param|id)'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_TEMPLATE_INJECTION'
     title: 'Java Template Injection Indicator'
-    vuln: 'template_injection'
-    sev: 'High'
+    family: 'template_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: 'TemplateEngine\.process\s*\([^)]*(?:request|getParameter)|Freemarker|VelocityEngine|StringTemplateResolver'
+    span: 'evidence'
+    negative: null
     remediation: ['Do not treat user input as template source or template name.', 'Use fixed server-side template names and pass user input only as escaped model data.', 'Disable unrestricted template resolvers and expression utilities.']
   - id: 'SPRING_WEBFLUX_AUTH_GAP'
     title: 'Spring WebFlux Authorization Propagation Gap'
-    vuln: 'auth_misconfiguration'
-    sev: 'High'
+    family: 'auth_misconfiguration'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-284'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'RouterFunctions\.route\s*\(|SecurityWebFilterChain|authorizeExchange\s*\(\s*\)\s*\.anyExchange\s*\(\s*\)\s*\.permitAll'
+    span: 'evidence'
+    negative: null
   - id: 'SPRING_MISSING_VALIDATION'
     title: 'Spring Missing @Valid / @Validated Indicator'
-    vuln: 'missing_validation'
-    sev: 'Medium'
+    family: 'missing_validation'
+    severity: 'Medium'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-20'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '@(PostMapping|PutMapping|PatchMapping)(?:(?!@(?:Valid|Validated))[\s\S]){0,250}@(RequestBody|ModelAttribute)(?![\s\S]{0,80}@(?:Valid|Validated))'
+    span: 'evidence'
+    negative: null
   - id: 'DOTNET_BINARYFORMATTER'
     title: '.NET BinaryFormatter Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'BinaryFormatter\s*\(|\.Deserialize\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'DOTNET_TYPENAMEHANDLING'
     title: 'Json.NET TypeNameHandling Unsafe'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'TypeNameHandling\s*=\s*TypeNameHandling\.(?:All|Auto|Objects|Arrays)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'DOTNET_DATACONTRACT_DESERIALIZER'
     title: 'DataContractSerializer Unsafe Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'High'
+    family: 'insecure_deserialization'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: '(?:DataContractSerializer|NetDataContractSerializer)\s*\(|\.ReadObject\s*\([^)]*(?:Request|Body|Stream|input|payload)?'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'DOTNET_ADO_SQL_CONCAT'
     title: 'ADO.NET SQL Concatenation'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'SqlCommand\s*\(\s*\"[^\"]*\"\s*\+|CommandText\s*=\s*\"[^\"]*\"\s*\+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'DOTNET_EF_FROMSQLRAW_INTERPOLATION'
     title: 'Entity Framework FromSqlRaw Interpolation'
-    vuln: 'orm_injection'
-    sev: 'High'
+    family: 'orm_injection'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'FromSqlRaw\s*\(\s*\$\"|FromSqlRaw\s*\([^)]*\+'
+    span: 'evidence'
+    negative: null
   - id: 'DOTNET_XXE_DTD_PROCESSING'
     title: '.NET XML DTD Processing / XXE'
-    vuln: 'xxe'
-    sev: 'High'
+    family: 'xxe'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-611'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'DtdProcessing\s*=\s*DtdProcessing\.Parse|XmlResolver\s*=\s*new\s+XmlUrlResolver|XmlDocument\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'xxe'
   - id: 'DOTNET_PATH_COMBINE_TRAVERSAL'
     title: '.NET Path.Combine Traversal Indicator'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'Path\.Combine\s*\([^)]*(?:Request|Query|Form|Route|file|path|name)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'DOTNET_ZIPSLIP_EXTRACT'
     title: '.NET ZipSlip Extraction Risk'
-    vuln: 'zipslip'
-    sev: 'High'
+    family: 'zipslip'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'ZipFile\.ExtractToDirectory\s*\(|ZipArchive[\s\S]{0,300}(?:ExtractToFile|FullName)'
+    span: 'evidence'
+    negative: null
   - id: 'DOTNET_OVERPOSTING'
     title: 'ASP.NET Mass Assignment / Overposting'
-    vuln: 'mass_assignment'
-    sev: 'High'
+    family: 'mass_assignment'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-915'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'public\s+(?:IActionResult|Task<[^>]+>)\s+\w+\s*\([^)]*(?:User|Account|Role|Admin|.*Entity)\s+\w+'
+    span: 'evidence'
+    negative: null
   - id: 'DOTNET_OPEN_REDIRECT'
     title: 'ASP.NET Open Redirect'
-    vuln: 'open_redirect'
-    sev: 'High'
+    family: 'open_redirect'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-601'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'Redirect\s*\(\s*(?:returnUrl|url|Request\.)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'open_redirect'
   - id: 'DOTNET_CERT_VALIDATION_BYPASS'
     title: 'HttpClient Certificate Validation Bypass'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'ServerCertificateCustomValidationCallback\s*=\s*.*=>\s*true|DangerousAcceptAnyServerCertificateValidator'
+    span: 'evidence'
+    negative: null
     remediation: ['Remove DangerousAcceptAnyServerCertificateValidator and callbacks returning true.', 'Use default HttpClient certificate validation and trusted roots.', 'Pin certificates only with explicit rotation procedures.']
   - id: 'DOTNET_LOG_INJECTION'
     title: 'ILogger Raw User Input Log Injection'
-    vuln: 'log_injection'
-    sev: 'High'
+    family: 'log_injection'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-117'
     owasp: 'A09:2021 - Security Logging and Monitoring Failures'
     pattern: '(?:ILogger|_logger)\.(?:Information|Error|Warning|Debug|LogInformation|LogError|LogWarning)\s*\([^)]*(?:Request|Query|Form|Headers|userInput|returnUrl|User\.Identity)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'log_injection'
     remediation: ['Use structured logging placeholders instead of concatenating raw user input.', 'Normalize CR/LF and control characters before logging.', 'Do not log secrets, tokens, cookies or raw request bodies.']
   - id: 'DOTNET_HARDCODED_CREDENTIAL'
     title: '.NET Hardcoded Credential in String Declaration'
-    vuln: 'hardcoded_secret'
-    sev: 'High'
+    family: 'hardcoded_secret'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-798'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '(?:string|var|const\s+string)\s+(?P<ident>\w+)\s*=\s*\"[^\"]{8,}\"'
+    span: 'evidence'
+    negative: null
     contract_ref: 'hardcoded_secret'
   - id: 'DOTNET_PROCESS_START_INFO'
     title: '.NET ProcessStartInfo with User-Controlled Arguments'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'ProcessStartInfo\s*\([^)]*\w+|\.Start\s*\(\s*\)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'DOTNET_COMMAND_CONCAT'
     title: '.NET Command Arguments String Concatenation'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'Arguments\s*=\s*\"[^\"]*(?:/c |/k |cmd\.exe|powershell|bash)[^\"]*\"\s*\+\s*\w+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'DOTNET_SQL_INTERPOLATED'
     title: '.NET SqlCommand with Interpolated SQL String'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'SqlCommand\s*\(\s*\$\"|\.ExecuteReader\s*\(\s*\)|\.ExecuteScalar\s*\(\s*\)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'NODE_PROTOTYPE_POLLUTION_MERGE'
     title: 'Node Prototype Pollution Merge'
-    vuln: 'prototype_pollution'
-    sev: 'High'
+    family: 'prototype_pollution'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-1321'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'Object\.assign\s*\([^)]*(?:req\.|body|query)|(?:lodash|_|deepmerge|merge)\.merge\s*\([^)]*(?:req\.|body|query)|qs\.parse\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'prototype_pollution'
   - id: 'NODE_CHILD_PROCESS_EXEC'
     title: 'Node child_process.exec Command Injection'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'child_process\.(?:exec|execSync|execFile|execFileSync)\s*\(|(?:\bexec|execSync)\s*\([^)]*(?:req\.|query|body)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'NODE_UNSAFE_EVAL_VM_FUNCTION'
     title: 'Node Unsafe eval/vm/new Function'
-    vuln: 'code_injection'
-    sev: 'Critical'
+    family: 'code_injection'
+    severity: 'Critical'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: '\beval\s*\([^)]*(?:req\.|request|body|query|params)?|new\s+Function\s*\([^)]*(?:req\.|request|body|query|params)?|vm\.runIn(?:This|New)Context\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'code_injection'
     remediation: ['Remove eval(), vm execution and new Function() for untrusted input.', 'Use schema-validated data, safe interpreters or fixed allow-listed commands.', 'Apply CSP and runtime sandboxing where dynamic execution cannot be avoided.']
   - id: 'NODE_FS_TRAVERSAL'
     title: 'Node fs Path Traversal Indicator'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'fs\.(?:readFile|writeFile|createReadStream|unlink)\s*\([^)]*(?:req\.|query|body|params)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'NODE_SERIALIZE_UNSERIALIZE'
     title: 'node-serialize Unsafe Unserialize'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'node-serialize|\.unserialize\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
     remediation: ['Do not unserialize untrusted node-serialize payloads.', 'Use JSON.parse for data-only payloads and reject functions/prototypes.', 'Apply integrity checks and strict type allow-lists.']
   - id: 'NODE_JSYAML_UNSAFE_LOAD'
     title: 'js-yaml Unsafe load'
-    vuln: 'insecure_deserialization'
-    sev: 'High'
+    family: 'insecure_deserialization'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: '(?:jsyaml|js_yaml|yaml)\.load\s*\([^)]*(?:req\.|request|body|query|payload)?'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
     remediation: ['Use safe schema loading for YAML and reject custom tags/types.', 'Do not parse untrusted YAML with unsafe constructors.', 'Prefer JSON for external data interchange.']
   - id: 'NODE_SSRF_DYNAMIC_URL'
     title: 'Node SSRF Dynamic URL'
-    vuln: 'ssrf'
-    sev: 'High'
+    family: 'ssrf'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-918'
     owasp: 'A10:2021 - Server-Side Request Forgery'
     pattern: '(?:fetch|axios\.(?:get|post|request)|http\.request|https\.request)\s*\([^)]*(?:req\.|query|body|params|url)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'ssrf'
   - id: 'NODE_REDOS_REGEX'
     title: 'Node ReDoS Catastrophic Regex'
-    vuln: 'redos'
-    sev: 'High'
+    family: 'redos'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-1333'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'new\s+RegExp\s*\([^)]*(?:req\.|query|body)|/\([^/]*\+\)[+*]|/\([^/]*\*\)[+*]'
+    span: 'evidence'
+    negative: null
     contract_ref: 'redos'
   - id: 'NPM_SUPPLY_CHAIN_SCRIPT'
     title: 'NPM Supply Chain Lifecycle Script / Unpinned Dependency'
-    vuln: 'supply_chain_script'
-    sev: 'Medium'
+    family: 'supply_chain_script'
+    severity: 'Medium'
     langs: ['json']
+    exts: ['.json']
     cwe: 'CWE-829'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: '\"(?:preinstall|postinstall|prepare)\"\s*:|\"(?:dependencies|devDependencies)\"\s*:\s*\{[\s\S]*\"[^\"]+\"\s*:\s*\"(?:\*|latest|http|git\+)'
+    span: 'evidence'
+    negative: null
   - id: 'NODE_SQL_TEMPLATE_INTERPOLATION'
     title: 'JavaScript/TypeScript SQL Built via Template-Literal Interpolation'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '(?is)\.\s*(?:query|raw|rawQuery|execute)\s*\(\s*`[^`]*\b(?:SELECT|INSERT|UPDATE|DELETE|REPLACE|WITH)\b[^`]*\$\{'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'EXPRESS_CSRF_MISSING'
     title: 'Express App Missing CSRF Protection'
-    vuln: 'auth_misconfiguration'
-    sev: 'Medium'
+    family: 'auth_misconfiguration'
+    severity: 'Medium'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-352'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\bexpress\s*\(\s*\)'
+    span: 'evidence'
+    negative: null
   - id: 'EXPRESS_OPEN_REDIRECT'
     title: 'Express Open Redirect from Request Input'
-    vuln: 'open_redirect'
-    sev: 'High'
+    family: 'open_redirect'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-601'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'res\.redirect\s*\(\s*[^)\n]*(?:req(?:uest)?\.(?:query|body|params|headers))'
+    span: 'evidence'
+    negative: null
     contract_ref: 'open_redirect'
   - id: 'EXPRESS_SESSION_COOKIE_NO_EXPIRY'
     title: 'Session Cookie Without Expiration'
-    vuln: 'auth_misconfiguration'
-    sev: 'Medium'
+    family: 'auth_misconfiguration'
+    severity: 'Medium'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-613'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '\bsession\s*\(\s*\{'
+    span: 'evidence'
+    negative: null
   - id: 'NODE_JWT_DECODE_NO_VERIFY'
     title: 'JWT Decoded Without Signature Verification'
-    vuln: 'auth_misconfiguration'
-    sev: 'High'
+    family: 'auth_misconfiguration'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-347'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: '\b(?:jwt\s*\.\s*)?decode\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'GO_EXEC_SH_C'
     title: 'Go exec.Command sh -c / User-Controlled Args'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'exec\.Command\s*\(\s*\"(?:sh|bash|cmd)\"\s*,\s*\"-c\"|exec\.Command\s*\([^)]*(?:r\.URL|r\.Form|Query\()'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'GO_FILEPATH_JOIN_TRAVERSAL'
     title: 'Go filepath.Join Traversal'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'filepath\.Join\s*\([^)]*(?:r\.URL|FormValue|Query\(|filename|path)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'GO_SQL_FMT_SPRINTF'
     title: 'Go fmt.Sprintf SQL Injection'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'fmt\.Sprintf\s*\(\s*\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"|db\.Query\s*\([^)]*\+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'GO_GOB_DECODE'
     title: 'Go gob Decode Untrusted Data'
-    vuln: 'insecure_deserialization'
-    sev: 'High'
+    family: 'insecure_deserialization'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'gob\.NewDecoder\s*\([^)]*(?:r\.Body|conn|msg|payload|reader)?[\s\S]{0,200}\.Decode\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
     remediation: ['Do not gob-decode untrusted network or message-bus payloads.', 'Use JSON/protobuf with explicit schemas and validation.', 'Authenticate and integrity-protect serialized messages.']
   - id: 'GO_JSON_UNMARSHAL_INTERFACE'
     title: 'Go json.Unmarshal into interface{} / any'
-    vuln: 'insecure_deserialization'
-    sev: 'Medium'
+    family: 'insecure_deserialization'
+    severity: 'Medium'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-20'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'var\s+\w+\s+(?:interface\{\}|any)|json\.Unmarshal\s*\([^)]*,\s*&\w+\s*\)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'GO_SSRF_HTTP_GET'
     title: 'Go SSRF Dynamic HTTP Request'
-    vuln: 'ssrf'
-    sev: 'High'
+    family: 'ssrf'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-918'
     owasp: 'A10:2021 - Server-Side Request Forgery'
     pattern: 'http\.(?:Get|Post)\s*\([^)]*(?:r\.URL|FormValue|Query\(|url)|http\.NewRequest\s*\([^)]*(?:r\.URL|Query\()'
+    span: 'evidence'
+    negative: null
     contract_ref: 'ssrf'
   - id: 'GO_OPEN_REDIRECT'
     title: 'Go Open Redirect'
-    vuln: 'open_redirect'
-    sev: 'High'
+    family: 'open_redirect'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-601'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'http\.Redirect\s*\([^)]*(?:r\.URL|FormValue|Query\()'
+    span: 'evidence'
+    negative: null
     contract_ref: 'open_redirect'
   - id: 'GO_SHARED_MAP_RACE'
     title: 'Go Shared Map/Slice Race Indicator'
-    vuln: 'race_condition'
-    sev: 'High'
+    family: 'race_condition'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-362'
     owasp: 'A04:2021 - Insecure Design'
     pattern: 'var\s+\w+\s*=\s*map\[|var\s+\w+\s+map\[|go\s+func\s*\([\s\S]{0,300}\w+\s*\[[^\]]+\]\s*='
+    span: 'evidence'
+    negative: null
     remediation: ['Protect shared maps/slices using sync.Mutex, sync.RWMutex, channels or sync.Map.', 'Run go test -race in CI.', 'Make check-and-act workflows atomic with transactions or locks.']
   - id: 'GO_UNBOUNDED_READALL'
     title: 'Go Unbounded io.ReadAll / ioutil.ReadAll'
-    vuln: 'resource_exhaustion'
-    sev: 'High'
+    family: 'resource_exhaustion'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-400'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '(?:io|ioutil)\.ReadAll\s*\(\s*r\.Body\s*\)(?![\s\S]{0,200}MaxBytesReader)'
+    span: 'evidence'
+    negative: null
   - id: 'GO_TLS_INSECURE_SKIP_VERIFY'
     title: 'Go TLS InsecureSkipVerify true'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'InsecureSkipVerify\s*:\s*true'
+    span: 'evidence'
+    negative: null
   - id: 'GO_MD5_USAGE'
     title: 'Go MD5 Usage'
-    vuln: 'weak_crypto'
-    sev: 'High'
+    family: 'weak_crypto'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-327'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: '[\"'']crypto/md5[\"'']|\bmd5\.(?:New|Sum)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'weak_crypto'
   - id: 'GO_SHA1_USAGE'
     title: 'Go SHA-1 Usage'
-    vuln: 'weak_crypto'
-    sev: 'High'
+    family: 'weak_crypto'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-327'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: '[\"'']crypto/sha1[\"'']|\bsha1\.(?:New|Sum)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'weak_crypto'
   - id: 'GENERIC_CORS_WILDCARD_ORIGIN'
     title: 'CORS Wildcard Origin'
-    vuln: 'insecure_cors_configuration'
-    sev: 'Medium'
+    family: 'insecure_cors_configuration'
+    severity: 'Medium'
     langs: ['python', 'javascript', 'typescript', 'php', 'java']
+    exts: ['.cjs', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-942'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '(?:header|setHeader|add[_]?Header)\s*\(\s*[\"''][^\"'']*Access-Control-Allow-Origin\s*:\s*\*[\"'']|(?:setHeader|add[_]?Header)\s*\(\s*[\"'']Access-Control-Allow-Origin[\"'']\s*,\s*[\"'']\*[\"'']|headers\s*\[\s*[\"'']Access-Control-Allow-Origin[\"'']\s*\]\s*=\s*[\"'']\*[\"'']'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_CIPHER_CBC_STATIC_IV'
     title: 'Java AES/CBC Cipher with Static IV'
-    vuln: 'weak_crypto'
-    sev: 'High'
+    family: 'weak_crypto'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-329'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'Cipher\.getInstance\s*\(\s*[\"''][^\"'']*(?:AES|DES)/CBC'
+    span: 'evidence'
+    negative: null
     contract_ref: 'weak_crypto'
   - id: 'PHP_COOKIE_MISSING_SECURE'
     title: 'PHP Cookie Missing Secure Flag'
-    vuln: 'insecure_cookie_secure_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_secure_flag'
+    severity: 'Medium'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-614'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'setcookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'PHP_COOKIE_MISSING_HTTPONLY'
     title: 'PHP Cookie Missing HttpOnly Flag'
-    vuln: 'insecure_cookie_httponly_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_httponly_flag'
+    severity: 'Medium'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-1004'
     owasp: 'A04:2021 - Insecure Design'
     pattern: 'setcookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_JDBC_SQL_INTERMEDIATE_QUERY'
     title: 'JDBC SQL via Intermediate Variable'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '\b(?:executeQuery|executeUpdate|execute)\s*\(\s*(?P<jvar>[A-Za-z_]\w*)\s*\)|prepareStatement\s*\(\s*(?P<pvar>[A-Za-z_]\w*)\s*[,)]'
+    span: 'evidence'
+    negative: null
     sink_category: 'sql'
     contract_ref: 'sql_injection'
   - id: 'JAVA_JDBC_SQL_PREPARED_CONCAT'
     title: 'PreparedStatement Built by Concatenation'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '(?i)prepareStatement\s*\(\s*[\"''][^\"'']*(?:select|insert|update|delete|where)'
+    span: 'evidence'
+    negative: null
     sink_category: 'sql'
     contract_ref: 'sql_injection'
   - id: 'PHP_SQL_INTERMEDIATE_QUERY'
     title: 'PHP SQL via Intermediate Variable'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:mysql_query|mysqli_query|->query|PDO::query)\s*\('
+    span: 'evidence'
+    negative: null
     sink_category: 'sql'
     contract_ref: 'sql_injection'
   - id: 'PHP_XSS_TAINTED_ECHO'
     title: 'PHP echo/print of Request-Derived Value'
-    vuln: 'xss'
-    sev: 'High'
+    family: 'xss'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-79'
     owasp: 'A03:2021 - Injection'
     pattern: '(?<![\w$])(?:echo|print)\s+'
+    span: 'evidence'
+    negative: null
     sink_category: 'xss'
     contract_ref: 'xss'
   - id: 'PHP_PATH_USER_INPUT_VAR'
     title: 'PHP File Read via Request-Derived Variable'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?<![\w$])(?:file_get_contents|fopen|readfile|include|require|include_once|require_once)\s*\(?\s*'
+    span: 'evidence'
+    negative: null
     sink_category: 'file'
     contract_ref: 'path_traversal'
   - id: 'PHP_SESSION_ID_PREDICTABLE'
     title: 'PHP Predictable Session Identifier'
-    vuln: 'weak_session_identifier'
-    sev: 'Medium'
+    family: 'weak_session_identifier'
+    severity: 'Medium'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-330'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '(?<![\w$])setcookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'PHP_OPEN_REDIRECT_HEADER'
     title: 'PHP Open Redirect via Location Header'
-    vuln: 'open_redirect'
-    sev: 'Medium'
+    family: 'open_redirect'
+    severity: 'Medium'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-601'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?i)(?<![\w$])header\s*\(\s*[\"''][^\"'']*location\s*:'
+    span: 'evidence'
+    negative: null
     sink_category: 'redirect'
     contract_ref: 'open_redirect'
   - id: 'PHP_CMD_INJECTION_INTERMEDIATE'
     title: 'PHP Command Injection via Intermediate Variable'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '(?<![\w$])(?:shell_exec|exec|system|passthru|popen|proc_open)\s*\('
+    span: 'evidence'
+    negative: null
     sink_category: 'command'
     contract_ref: 'command_injection'
   - id: 'RUBY_RAILS_SECRET_TOKEN'
     title: 'Rails Hardcoded Secret Key Base'
-    vuln: 'hardcoded_secret'
-    sev: 'High'
+    family: 'hardcoded_secret'
+    severity: 'High'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-798'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '(?:secret_key_base|secret_token)\s*=\s*[\"''][0-9A-Fa-f]{32,}[\"'']'
+    span: 'evidence'
+    negative: null
     contract_ref: 'hardcoded_secret'
   - id: 'RUBY_CMD_INJECTION'
     title: 'Ruby Command Execution with Request-Derived Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '\b(?:system|exec|spawn|popen)\s*\(\s*(?:params\b|request\b)|\b(?:system|exec|spawn|popen)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)|`[^`\n]*#\{[^}]*\b(?:params|request)|%x[!\(\{][^)\}\n]*#\{[^}]*\b(?:params|request)|open\s*\(\s*\"\|[^\"\n]*?#\{[^}]*\b(?:params|request)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'RUBY_CODE_INJECTION'
     title: 'Ruby eval of Request-Derived Input'
-    vuln: 'code_injection'
-    sev: 'Critical'
+    family: 'code_injection'
+    severity: 'Critical'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: '\b(?:eval|instance_eval|class_eval|module_eval)\s*\(\s*(?:params\b|request\b)|\b(?:eval|instance_eval|class_eval|module_eval)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'code_injection'
   - id: 'RUBY_SQL_INJECTION'
     title: 'Ruby SQL Built by String Interpolation of Request Data'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '\.(?:where|find_by_sql|order|select_all)\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request|session\b)|\.connection\s*\.\s*execute\s*\(\s*\"[^\"\n]*?#\{[^}]*\b(?:params|request)|\bfind_by_sql\s*\(\s*(?:params\b|request\b)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'RUBY_PATH_TRAVERSAL'
     title: 'Ruby File API Fed Request Data Verbatim'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\bsend_file\s*\(\s*(?:params\b|request\b)|\bFile\.(?:read|open|foreach|readlines)\s*\(\s*(?:params\b|request\b)|\brender\s+file:\s*(?:params\b|request\b)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'RUBY_XSS_ERB'
     title: 'ERB Output Escaping Disabled on Request-Derived Value'
-    vuln: 'xss'
-    sev: 'High'
+    family: 'xss'
+    severity: 'High'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-79'
     owasp: 'A03:2021 - Injection'
     pattern: '<%=[^\n]*\b(?:params|request)\b[^\n]*(?:\.html_safe\b|\braw\b)|<%=[^\n]*\braw\s*\(?\s*[^\n]*\b(?:params|request)\b'
+    span: 'evidence'
+    negative: null
     contract_ref: 'xss'
   - id: 'RUBY_INSECURE_DESER'
     title: 'Ruby Marshal/YAML Deserialization of Request or Cookie Data'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['ruby']
+    exts: ['.erb', '.rb']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: '\bMarshal\.load\s*\(\s*(?:params\b|request\b|cookies\b)|\bYAML\.(?:unsafe_load|load)\s*\(\s*(?:params\b|request\b|cookies\b)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'SOL_TX_ORIGIN_AUTH'
     title: 'Solidity tx.origin Used for Authorization'
-    vuln: 'origin_confusion'
-    sev: 'High'
+    family: 'origin_confusion'
+    severity: 'High'
     langs: ['solidity']
+    exts: ['.sol']
     cwe: 'CWE-346'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\brequire\s*\([^;\n]*\btx\.origin\b|\bif\s*\(\s*[^;\n]*\btx\.origin\b|\btx\.origin\s*=='
+    span: 'evidence'
+    negative: null
   - id: 'SOL_WEAK_RANDOMNESS'
     title: 'Solidity Randomness Derived from Block Attributes'
-    vuln: 'weak_randomness'
-    sev: 'High'
+    family: 'weak_randomness'
+    severity: 'High'
     langs: ['solidity']
+    exts: ['.sol']
     cwe: 'CWE-330'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: '(?i)(?:rand\w*|nonce\w*|lottery\w*|winner\w*|shuffle\w*|jackpot\w*|raffle\w*)[^\n]{0,160}\b(?:block\.(?:timestamp|number|difficulty|prevrandao)|blockhash\s*\()|(?:block\.(?:timestamp|number|difficulty|prevrandao)|blockhash\s*\()[^\n]{0,160}(?:rand\w*|nonce\w*|lottery\w*|winner\w*|shuffle\w*|jackpot\w*|raffle\w*)'
+    span: 'evidence'
+    negative: null
   - id: 'SOL_UNCHECKED_CALL'
     title: 'Solidity Low-Level Call Result Ignored'
-    vuln: 'unchecked_call_result'
-    sev: 'Medium'
+    family: 'unchecked_call_result'
+    severity: 'Medium'
     langs: ['solidity']
+    exts: ['.sol']
     cwe: 'CWE-252'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '(?m)^\s*[A-Za-z_$][\w$]*\s*\.\s*(?:call|staticcall|delegatecall)\s*(?:\{[^}\n]*\})?\s*\([^;\n]*\)\s*;'
+    span: 'evidence'
+    negative: null
   - id: 'CLIENT_ASSIGNED_AMOUNT'
     title: 'Client-Controlled Price or Amount Assignment'
-    vuln: 'client_controlled_amount'
-    sev: 'High'
+    family: 'client_controlled_amount'
+    severity: 'High'
     langs: ['python', 'javascript', 'typescript', 'php']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-471'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '\b(?:amount|price|discount|order_total|unit_price)\s*=\s*(?:request\.(?:json|form|data)|request\.get_json\(\)|request\.body|req\.body|\$_POST)'
+    span: 'evidence'
+    negative: null
   - id: 'CLIENT_ASSIGNED_PRIVILEGE'
     title: 'Client-Controlled Privilege Field Assignment'
-    vuln: 'mass_assignment'
-    sev: 'High'
+    family: 'mass_assignment'
+    severity: 'High'
     langs: ['python', 'javascript', 'typescript', 'php']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-915'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\b(?:role|is_admin|permissions|account_status)\s*=\s*(?:request\.(?:json|form|data)|request\.get_json\(\)|request\.body|req\.body|\$_POST)'
+    span: 'evidence'
+    negative: null
   - id: 'GO_HARDCODED_CREDENTIAL'
     title: 'Go Hardcoded Credential in Connection String'
-    vuln: 'hardcoded_secret'
-    sev: 'High'
+    family: 'hardcoded_secret'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-798'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '\w+:\w+@tcp\(|\w+:\w+@\(|\w+:\w+@/'
+    span: 'evidence'
+    negative: null
     contract_ref: 'hardcoded_secret'
   - id: 'GO_SQL_CONCAT_INTERMEDIATE'
     title: 'Go SQL Concatenation via Intermediate Variable'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'GO_PATH_CONCAT'
     title: 'Go Path String Concatenation with Absolute Prefix'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'PHP_LFI_RFI_INCLUDE'
     title: 'PHP LFI/RFI include/require'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-98'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:include|require)(?:_once)?\s*\(?\s*\$_(?:GET|POST|REQUEST|COOKIE)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'PHP_COMMAND_INJECTION'
     title: 'PHP Command Injection Sink'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:shell_exec|system|exec|passthru|popen|proc_open)\s*\([^)]*\$_(?:GET|POST|REQUEST)|`[^`]*\$_(?:GET|POST|REQUEST)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'PHP_SQL_CONCAT'
     title: 'PHP SQL Concatenation'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:mysqli_query|->query|PDO::query)\s*\([^)]*\$_(?:GET|POST|REQUEST)|\"\s*\.\s*\$_(?:GET|POST|REQUEST)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'PHP_UNSERIALIZE'
     title: 'PHP unserialize Object Injection'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'unserialize\s*\([^)]*\$_(?:GET|POST|REQUEST|COOKIE)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'PHP_SSRF_CURL_FILEGET'
     title: 'PHP SSRF Dynamic URL'
-    vuln: 'ssrf'
-    sev: 'High'
+    family: 'ssrf'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-918'
     owasp: 'A10:2021 - Server-Side Request Forgery'
     pattern: '(?:curl_exec|file_get_contents|fopen)\s*\([^)]*\$_(?:GET|POST|REQUEST)|CURLOPT_URL\s*,\s*\$_'
+    span: 'evidence'
+    negative: null
     contract_ref: 'ssrf'
   - id: 'PHP_FILE_TRAVERSAL'
     title: 'PHP File Path Traversal'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?:fopen|unlink|file_get_contents|readfile)\s*\([^)]*\$_(?:GET|POST|REQUEST)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'PHP_PHAR_DESERIALIZATION'
     title: 'PHP PHAR Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'phar://|Phar\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'PHP_RAW_ECHO_XSS'
     title: 'PHP Raw echo/print XSS'
-    vuln: 'xss'
-    sev: 'High'
+    family: 'xss'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-79'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:echo|print)\s+\$_(?:GET|POST|REQUEST)(?![\s\S]{0,80}htmlspecialchars)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'xss'
   - id: 'PHP_CURL_SSL_VERIFY_DISABLED'
     title: 'PHP curl TLS Verification Disabled'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'CURLOPT_SSL_VERIFYPEER\s*,\s*(?:false|0)|CURLOPT_SSL_VERIFYHOST\s*,\s*0'
+    span: 'evidence'
+    negative: null
   - id: 'PHP_HARDCODED_CREDENTIAL'
     title: 'PHP Hardcoded Credential Assignment'
-    vuln: 'hardcoded_secret'
-    sev: 'High'
+    family: 'hardcoded_secret'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-798'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '\$\w+\s*=\s*\"[^\"]{8,}\"|\$\w+\s*=\s*''[^'']{8,}'''
+    span: 'evidence'
+    negative: null
     contract_ref: 'hardcoded_secret'
   - id: 'PHP_INCLUDE_CONCAT_PATH'
     title: 'PHP Include/Require with Concatenated Path'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?:include|require)(?:_once)?\s*\(?\s*\"(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\.\s*[\w$]+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'CPP_HARDCODED_CREDENTIAL'
     title: 'C/C++ Hardcoded Credential in String Declaration'
-    vuln: 'hardcoded_secret'
-    sev: 'High'
+    family: 'hardcoded_secret'
+    severity: 'High'
     langs: ['cpp', 'c']
+    exts: []
     cwe: 'CWE-798'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: 'const\s+char\s*\*?\s*\w+\s*=\s*\"[^\"]{8,}\"|char\s+\w+\[\]\s*=\s*\"[^\"]{8,}\"'
+    span: 'evidence'
+    negative: null
     contract_ref: 'hardcoded_secret'
   - id: 'CPP_SQLITE3_EXEC_VARIABLE'
     title: 'C/C++ sqlite3_exec with Variable SQL'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['cpp', 'c']
+    exts: []
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'sqlite3_exec\s*\([^,]+,\s*\w+\s*,'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'CPP_SYSTEM_VARIABLE'
     title: 'C/C++ std::system with Variable'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['cpp']
+    exts: []
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'std::system\s*\(\s*\w+\s*\)|std::system\s*\(\s*\w+\s*\+|\b_system\s*\(\s*\w+\s*\)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'CPP_PATH_SNPRINTF_INTERP'
     title: 'C/C++ Path Interpolation via snprintf/sprintf'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['cpp', 'c']
+    exts: []
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?:snprintf|sprintf)\s*\([^,]+,\s*[^,]+,\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*%s[^\"]*\"\s*,\s*\w+\s*\)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'RUST_HARDCODED_CREDENTIAL'
     title: 'Rust Hardcoded Credential in String Binding'
-    vuln: 'hardcoded_secret'
-    sev: 'High'
+    family: 'hardcoded_secret'
+    severity: 'High'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-798'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '(?:let|const|static)\s+\w+\s*:\s*&str\s*=\s*\"[^\"]{8,}\"|let\s+mut\s+\w+\s*=\s*\"[^\"]{8,}\"'
+    span: 'evidence'
+    negative: null
     contract_ref: 'hardcoded_secret'
   - id: 'RUST_SQL_CONCAT'
     title: 'Rust SQL String Concatenation'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"\s*\+\s*\w+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'RUST_COMMAND_EXEC'
     title: 'Rust Command Execution with Variable'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:std::process::Command|Command::new)\s*\([^)]*\w+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'RUST_PATH_CONCAT'
     title: 'Rust Path String Concatenation'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"\s*\+\s*\w+'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'RUST_SQL_FORMAT'
     title: 'Rust SQL via format! Macro'
-    vuln: 'sql_injection'
-    sev: 'High'
+    family: 'sql_injection'
+    severity: 'High'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: 'format!\s*\(\s*\"[^\"]*(?:SELECT|UPDATE|DELETE|INSERT)[^\"]*\"'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'RUST_PATH_FORMAT'
     title: 'Rust Path via format! Macro'
-    vuln: 'path_traversal'
-    sev: 'High'
+    family: 'path_traversal'
+    severity: 'High'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'format!\s*\(\s*\"[^\"]*(?:/var/|/home/|/tmp/|/usr/|/etc/)[^\"]*\"'
+    span: 'evidence'
+    negative: null
     contract_ref: 'path_traversal'
   - id: 'RUST_SQL_SINK'
     title: 'Rust SQL Execution of a Built Query String'
-    vuln: 'sql_injection'
-    sev: 'Critical'
+    family: 'sql_injection'
+    severity: 'Critical'
     langs: ['rust']
+    exts: ['.rs']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '\.\s*(?:prepare|execute|query)\s*\(\s*&(?P<rsx_sql_var>[A-Za-z_]\w*)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'sql_injection'
   - id: 'GENERIC_NOSQL_INJECTION'
     title: 'NoSQL Injection Indicator'
-    vuln: 'nosql_injection'
-    sev: 'High'
+    family: 'nosql_injection'
+    severity: 'High'
     langs: ['javascript', 'typescript', 'python', 'java', 'php']
+    exts: ['.cjs', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-943'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:\b(?:db|database|collection|collections|mongo|mongodb|mongoose)\b[^\n;]{0,120}\.(?:find|findOne|findOneAnd(?:Update|Delete)|updateOne|updateMany|deleteOne|deleteMany)\s*\(|\$(?:where|regex)\b)'
+    span: 'evidence'
+    negative: null
   - id: 'GRAPHQL_INTROSPECTION_ENABLED'
     title: 'GraphQL Introspection Exposure'
-    vuln: 'graphql_exposure'
-    sev: 'High'
+    family: 'graphql_exposure'
+    severity: 'High'
     langs: ['graphql', 'javascript', 'typescript', 'java', 'python', 'csharp']
+    exts: ['.cjs', '.cs', '.gql', '.graphql', '.java', '.js', '.jsx', '.mjs', '.py', '.ts', '.tsx']
     cwe: 'CWE-200'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'introspection\s*:\s*true|GraphQLPlayground|graphiql\s*:\s*true|__schema|__type'
+    span: 'evidence'
+    negative: null
   - id: 'GRAPHQL_QUERY_DEPTH_MISSING'
     title: 'GraphQL Query Depth / Complexity Limit Missing'
-    vuln: 'resource_exhaustion'
-    sev: 'High'
+    family: 'resource_exhaustion'
+    severity: 'High'
     langs: ['javascript', 'typescript', 'java', 'python', 'csharp']
+    exts: ['.cjs', '.cs', '.java', '.js', '.jsx', '.mjs', '.py', '.ts', '.tsx']
     cwe: 'CWE-400'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: 'new\s+ApolloServer\s*\((?![\s\S]{0,400}(depthLimit|queryComplexity|complexity|validationRules))|GraphQLServer\s*\((?![\s\S]{0,400}(depthLimit|queryComplexity|complexity|validationRules))'
+    span: 'evidence'
+    negative: null
   - id: 'GRAPHQL_RESOLVER_BOLA'
     title: 'GraphQL Resolver BOLA / IDOR Indicator'
-    vuln: 'idor'
-    sev: 'High'
+    family: 'idor'
+    severity: 'High'
     langs: ['javascript', 'typescript', 'java', 'python', 'csharp']
+    exts: ['.cjs', '.cs', '.java', '.js', '.jsx', '.mjs', '.py', '.ts', '.tsx']
     cwe: 'CWE-639'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: 'resolver|Query:\s*\{|Mutation:\s*\{|findById\s*\([^)]*(?:args\.id|id)'
+    span: 'evidence'
+    negative: null
     disabled: true
   - id: 'KAFKA_RABBITMQ_UNSAFE_DESERIALIZATION'
     title: 'Kafka/RabbitMQ Unsafe Message Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'Critical'
+    family: 'insecure_deserialization'
+    severity: 'Critical'
     langs: ['java', 'python', 'javascript', 'typescript', 'csharp']
+    exts: ['.cjs', '.cs', '.java', '.js', '.jsx', '.mjs', '.py', '.ts', '.tsx']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'KafkaConsumer|@KafkaListener|RabbitListener|BasicConsume|JSON\.parse\s*\([^)]*message|ObjectMapper\s*\.readValue\s*\([^)]*(?:record|message|payload)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'TENANT_ISOLATION_MISSING'
     title: 'Tenant Isolation Failure Indicator'
-    vuln: 'tenant_isolation_failure'
-    sev: 'High'
+    family: 'tenant_isolation_failure'
+    severity: 'High'
     langs: ['python', 'javascript', 'typescript', 'java', 'csharp', 'go', 'php']
+    exts: ['.cjs', '.cs', '.go', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-639'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\b(?:tenantId|tenant_id|organizationId|org_id)\b'
+    span: 'evidence'
+    negative: null
   - id: 'PRIVILEGE_ESCALATION_FIELD_BINDING'
     title: 'Privilege Escalation Field Binding'
-    vuln: 'privilege_escalation'
-    sev: 'Critical'
+    family: 'privilege_escalation'
+    severity: 'Critical'
     langs: ['python', 'javascript', 'typescript', 'java', 'csharp', 'go', 'php']
+    exts: ['.cjs', '.cs', '.go', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-269'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?:isAdmin|role|roles|permission|permissions|privilege|is_superuser)\s*[:=]\s*(?:req\.|request\.|body|params|\$_)'
+    span: 'evidence'
+    negative: null
   - id: 'WORKFLOW_APPROVAL_BYPASS'
     title: 'Workflow / Approval Bypass Indicator'
-    vuln: 'workflow_bypass'
-    sev: 'High'
+    family: 'workflow_bypass'
+    severity: 'High'
     langs: ['python', 'javascript', 'typescript', 'java', 'csharp', 'go', 'php']
+    exts: ['.cjs', '.cs', '.go', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-840'
     owasp: 'A04:2021 - Insecure Design'
     pattern: 'approval_required\s*[:=]\s*false|skip_approval|auto_approve|approved\s*[:=]\s*true'
+    span: 'evidence'
+    negative: null
   - id: 'DUPLICATE_ACTION_RACE'
     title: 'Duplicate Action Race Indicator'
-    vuln: 'race_condition'
-    sev: 'High'
+    family: 'race_condition'
+    severity: 'High'
     langs: ['python', 'javascript', 'typescript', 'java', 'csharp', 'go', 'php']
+    exts: ['.cjs', '.cs', '.go', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-362'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '(?:payment|transfer|coupon|redeem|invite|otp|reset)[\s\S]{0,120}(?:save|insert|update|create)(?![\s\S]{0,160}(transaction|lock|idempotency|unique))'
+    span: 'evidence'
+    negative: null
     disabled: true
   - id: 'MISSING_RATE_LIMIT_ENDPOINT'
     title: 'Abuse-Prone Endpoint Missing Rate-Limit Control'
-    vuln: 'api_rate_limit'
-    sev: 'High'
+    family: 'api_rate_limit'
+    severity: 'High'
     langs: ['python', 'javascript', 'typescript', 'java', 'csharp', 'go', 'php']
+    exts: ['.cjs', '.cs', '.go', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-770'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '(?i)(?:login|sign[-_]?in|otp|password[-_]?reset|reset|invite|coupon|refresh|payment|checkout|transfer(?![-_]?encod)|redeem)'
+    span: 'evidence'
+    negative: null
     remediation: ['Add server-side per-account/per-IP/per-tenant limits appropriate to the endpoint.', 'Add progressive backoff for login/OTP/reset and idempotency keys for payment or other duplicate-sensitive actions.', 'Return 429 on throttling, emit abuse metrics, and add burst/replay regression tests.']
   - id: 'NODE_DOM_XSS'
     title: 'JavaScript DOM XSS via innerHTML/outerHTML/insertAdjacentHTML/document.write'
-    vuln: 'xss'
-    sev: 'High'
+    family: 'xss'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-79'
     owasp: 'A03:2021 - Injection'
     pattern: '\.\s*(?:innerHTML|outerHTML)\s*=|insertAdjacentHTML\s*\(|document\.write(?:ln)?\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'xss'
   - id: 'EXPRESS_REFLECTED_XSS'
     title: 'Express Reflected XSS via res.send/end/write'
-    vuln: 'xss'
-    sev: 'High'
+    family: 'xss'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-79'
     owasp: 'A03:2021 - Injection'
     pattern: '\bres\.(?:send|end|write)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'xss'
   - id: 'CPP_UNSAFE_STRING_FUNCTION'
     title: 'C/C++ Unbounded String Function'
-    vuln: 'buffer_overflow'
-    sev: 'High'
+    family: 'buffer_overflow'
+    severity: 'High'
     langs: ['cpp', 'c']
+    exts: []
     cwe: 'CWE-120'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '\b(?:strcpy|strcat|gets|sprintf|vsprintf)\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'CPP_FORMAT_STRING'
     title: 'C/C++ Format String Built from a Variable'
-    vuln: 'format_string'
-    sev: 'High'
+    family: 'format_string'
+    severity: 'High'
     langs: ['cpp', 'c']
+    exts: []
     cwe: 'CWE-134'
     owasp: 'A03:2021 - Injection'
     pattern: '(?P<cfunc>\b(?:printf|fprintf|sprintf|snprintf|vprintf|vfprintf|vsprintf|vsnprintf))\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'CPP_USE_AFTER_FREE'
     title: 'C/C++ Use After Free'
-    vuln: 'use_after_free'
-    sev: 'High'
+    family: 'use_after_free'
+    severity: 'High'
     langs: ['cpp', 'c']
+    exts: []
     cwe: 'CWE-416'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '\bfree\s*\(\s*(?P<uaf_ptr>\w+)\s*\)'
+    span: 'evidence'
+    negative: null
   - id: 'NODE_IDOR_OBJECT_FETCH'
     title: 'Node.js Object Fetch by Request-Supplied ID Without Ownership Check'
-    vuln: 'idor'
-    sev: 'High'
+    family: 'idor'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-639'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\.\s*(?:findByPk|findById|getById|getByPk|findByPkOr404)\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'PY_IDOR_OBJECT_FETCH'
     title: 'Python ORM Object Fetch by Request-Supplied ID Without Ownership Check'
-    vuln: 'idor'
-    sev: 'High'
+    family: 'idor'
+    severity: 'High'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-639'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\.\s*objects\s*\.\s*(?:get|filter)\s*\(|(?<![A-Za-z0-9_])get_object_or_404\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'FLASK_SESSION_FIXATION'
     title: 'Flask-Login login_user Without Session Key Rotation'
-    vuln: 'session_fixation'
-    sev: 'Medium'
+    family: 'session_fixation'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-384'
     owasp: 'A07:2021 - Identification and Authentication Failures'
     pattern: '(?<![A-Za-z0-9_])login_user\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'DJANGO_SESSION_COOKIE_INSECURE'
     title: 'Django Session Cookie Security Flag Disabled'
-    vuln: 'insecure_cookie_secure_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_secure_flag'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-614'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\bSESSION_COOKIE_(?:SECURE|HTTPONLY)\s*=\s*False\b'
+    span: 'evidence'
+    negative: null
   - id: 'EXPRESS_COOKIE_MISSING_SECURE'
     title: 'Express Cookie Missing secure Flag'
-    vuln: 'insecure_cookie_secure_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_secure_flag'
+    severity: 'Medium'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-614'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\bres\.cookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'GO_COOKIE_MISSING_SECURE'
     title: 'Go Cookie Missing Secure Flag'
-    vuln: 'insecure_cookie_secure_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_secure_flag'
+    severity: 'Medium'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-614'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\bhttp\.SetCookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'GO_COOKIE_MISSING_HTTPONLY'
     title: 'Go Cookie Missing HttpOnly Flag'
-    vuln: 'insecure_cookie_httponly_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_httponly_flag'
+    severity: 'Medium'
     langs: ['go']
+    exts: ['.go']
     cwe: 'CWE-1004'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '\bhttp\.SetCookie\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'DOTNET_COOKIE_MISSING_SECURE'
     title: '.NET Cookie Missing Secure Flag'
-    vuln: 'insecure_cookie_secure_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_secure_flag'
+    severity: 'Medium'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-614'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\bResponse\s*\.\s*Cookies\s*\.\s*(?:Append|Add)\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'DOTNET_COOKIE_MISSING_HTTPONLY'
     title: '.NET Cookie Missing HttpOnly Flag'
-    vuln: 'insecure_cookie_httponly_flag'
-    sev: 'Medium'
+    family: 'insecure_cookie_httponly_flag'
+    severity: 'Medium'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-1004'
     owasp: 'A04:2021 - Insecure Design'
     pattern: '\bResponse\s*\.\s*Cookies\s*\.\s*(?:Append|Add)\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'PY_XML_ENTITIES'
     title: 'Python lxml XML External Entity Risk'
-    vuln: 'xxe'
-    sev: 'High'
+    family: 'xxe'
+    severity: 'High'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-611'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '\betree\.(?:parse|fromstring|XML)\s*\(|\bXMLParser\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'xxe'
   - id: 'PHP_XXE_LIBXML'
     title: 'PHP libxml XML External Entity Risk'
-    vuln: 'xxe'
-    sev: 'High'
+    family: 'xxe'
+    severity: 'High'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-611'
     owasp: 'A05:2021 - Security Misconfiguration'
     pattern: '(?<![A-Za-z0-9_])(?:simplexml_load_(?:string|file)|loadXML|libxml_disable_entity_loader)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'xxe'
   - id: 'PY_REDOS_NESTED_QUANTIFIER'
     title: 'Python ReDoS Nested Quantifier Regex'
-    vuln: 'redos'
-    sev: 'Medium'
+    family: 'redos'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-1333'
     owasp: 'A03:2021 - Injection'
     pattern: '\bre\.(?:compile|match|search|fullmatch|findall|finditer|sub|subn)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'redos'
   - id: 'PHP_REDOS_NESTED_QUANTIFIER'
     title: 'PHP preg ReDoS Nested Quantifier Regex'
-    vuln: 'redos'
-    sev: 'Medium'
+    family: 'redos'
+    severity: 'Medium'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-1333'
     owasp: 'A03:2021 - Injection'
     pattern: '(?<![A-Za-z0-9_])preg_(?:match|match_all|replace|split|grep)\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'redos'
   - id: 'PY_LOG_INJECTION'
     title: 'Python Logging of Untrusted Request Data'
-    vuln: 'log_injection'
-    sev: 'Medium'
+    family: 'log_injection'
+    severity: 'Medium'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-117'
     owasp: 'A09:2021 - Security Logging and Monitoring Failures'
     pattern: '(?i)(?:\blog(?:ging)?|\blogger|app\.logger|_logger)\s*\.\s*(?:info|warning|error|debug|exception|critical|log)\s*\([^)]*(?<![A-Za-z0-9_])(?:request|req)\.'
+    span: 'evidence'
+    negative: null
     contract_ref: 'log_injection'
   - id: 'PHP_LOG_INJECTION'
     title: 'PHP Logging of Untrusted Request Data'
-    vuln: 'log_injection'
-    sev: 'Medium'
+    family: 'log_injection'
+    severity: 'Medium'
     langs: ['php']
+    exts: ['.php']
     cwe: 'CWE-117'
     owasp: 'A09:2021 - Security Logging and Monitoring Failures'
     pattern: '(?<![A-Za-z0-9_])(?:error_log|syslog|trigger_error)\s*\([^)]*\$_(?:GET|POST|REQUEST|COOKIE)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'log_injection'
   - id: 'HOST_HEADER_INJECTION'
     title: 'Host Header Used to Construct URL or Email'
-    vuln: 'host_header_injection'
-    sev: 'Medium'
+    family: 'host_header_injection'
+    severity: 'Medium'
     langs: ['php', 'python']
+    exts: ['.php', '.py']
     cwe: 'CWE-644'
     owasp: 'A03:2021 - Injection'
     pattern: '\$_SERVER\s*\[\s*[\"'']HTTP_HOST[\"'']\s*\]|request\.headers\s*\[\s*[\"'']Host[\"'']\s*\]|request\.headers\.get\s*\(\s*[\"'']Host[\"'']'
+    span: 'evidence'
+    negative: null
   - id: 'NODE_WEBSOCKET_SINK'
     title: 'Node.js WebSocket Message Flowing to Dangerous Sink'
-    vuln: 'code_injection'
-    sev: 'High'
+    family: 'code_injection'
+    severity: 'High'
     langs: ['javascript', 'typescript']
+    exts: ['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: '\.\s*on\s*\(\s*[\"''](?:message|data)[\"'']'
+    span: 'evidence'
+    negative: null
     contract_ref: 'code_injection'
   - id: 'PY_TAR_EXTRACTALL'
     title: 'Python tarfile Extract Without Member Validation'
-    vuln: 'zipslip'
-    sev: 'High'
+    family: 'zipslip'
+    severity: 'High'
     langs: ['python']
+    exts: ['.py']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '\.extractall\s*\('
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_TRUSTMANAGER_EMPTY_METHOD'
     title: 'Java TrustManager Empty Certificate Validation'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'checkServerTrusted\s*\([^)]*\)\s*\{\s*\}|verify\s*\([^)]*\)\s*\{\s*return\s+true\s*;?\s*\}'
+    span: 'evidence'
+    negative: null
     remediation: ['Remove permissive TrustManager and HostnameVerifier implementations.', 'Use the default JVM trust store or managed certificate pinning.', 'Fail closed on certificate and hostname validation errors.']
   - id: 'JAVA_SPRING_QUERY_ANNOTATION_CONCAT'
     title: 'Spring Data @Query Concatenation Injection'
-    vuln: 'orm_injection'
-    sev: 'High'
+    family: 'orm_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-89'
     owasp: 'A03:2021 - Injection'
     pattern: '@Query\s*\(\s*(?:value\s*=\s*)?[\"''][^\"'']*[\"'']\s*\+|@Query[\s\S]{0,160}(?:nativeQuery\s*=\s*true)[\s\S]{0,160}\+'
+    span: 'evidence'
+    negative: null
   - id: 'JAVA_THYMELEAF_FREEMARKER_VELOCITY_INJECTION'
     title: 'Spring Template Injection: Thymeleaf/Freemarker/Velocity'
-    vuln: 'template_injection'
-    sev: 'High'
+    family: 'template_injection'
+    severity: 'High'
     langs: ['java']
+    exts: ['.java']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:TemplateEngine|SpringTemplateEngine|FreeMarkerTemplateUtils|VelocityEngine|StringTemplateResolver)[\s\S]{0,240}(?:process|evaluate|mergeTemplate|setTemplateMode|setTemplateResolver)\s*\([^)]*(?:request|getParameter|param|input|body)?'
+    span: 'evidence'
+    negative: null
     remediation: ['Do not treat user input as template source or template name.', 'Use fixed server-side template names and pass user input only as escaped model data.', 'Disable unrestricted template resolvers and expression utilities.']
   - id: 'DOTNET_HTTPCLIENT_CERT_CALLBACK_TRUE'
     title: '.NET HttpClient Certificate Validation Bypass'
-    vuln: 'tls_bypass'
-    sev: 'Critical'
+    family: 'tls_bypass'
+    severity: 'Critical'
     langs: ['csharp']
+    exts: ['.cs']
     cwe: 'CWE-295'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'ServerCertificateCustomValidationCallback\s*=\s*(?:HttpClientHandler\.)?DangerousAcceptAnyServerCertificateValidator|ServerCertificateCustomValidationCallback\s*=\s*[^;]*=>\s*true'
+    span: 'evidence'
+    negative: null
     remediation: ['Remove DangerousAcceptAnyServerCertificateValidator and callbacks returning true.', 'Use default HttpClient certificate validation and trusted roots.', 'Pin certificates only with explicit rotation procedures.']
   - id: 'GENERIC_ZIPSLIP'
     title: 'Generic ZipSlip Archive Extraction'
-    vuln: 'zipslip'
-    sev: 'High'
+    family: 'zipslip'
+    severity: 'High'
     langs: ['java', 'csharp', 'javascript', 'typescript', 'python', 'go', 'php']
+    exts: ['.cjs', '.cs', '.go', '.java', '.js', '.jsx', '.mjs', '.php', '.py', '.ts', '.tsx']
     cwe: 'CWE-22'
     owasp: 'A01:2021 - Broken Access Control'
     pattern: '(?:ZipEntry|getNextEntry|ZipArchive|adm-zip|unzipper|zipfile|archive/zip)[\s\S]{0,180}(?:extractToDirectory|extractToFile|extractAll|extract\s*\(|writeFile(?:Sync)?\s*\(|createWriteStream\s*\(|FileOutputStream\s*\(|OpenFile\s*\()'
+    span: 'evidence'
+    negative: null
     remediation: ['Canonicalize archive entry paths before extraction.', 'Reject absolute paths and entries containing .. segments.', 'Verify the resolved destination remains under the intended extraction directory.']
   - id: 'KOTLIN_CMD_INJECTION'
     title: 'Kotlin Command Execution with Dynamic Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['kotlin']
+    exts: ['.kt']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'Runtime\.getRuntime\(\)\.exec\s*\(\s*(?![\"''])'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'KOTLIN_INSECURE_DESER'
     title: 'Kotlin Java Native Deserialization Sink'
-    vuln: 'insecure_deserialization'
-    sev: 'High'
+    family: 'insecure_deserialization'
+    severity: 'High'
     langs: ['kotlin']
+    exts: ['.kt']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'ObjectInputStream\s*\(|\.readObject\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'SCALA_CMD_INJECTION'
     title: 'Scala Command Execution with Dynamic Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['scala']
+    exts: ['.scala']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'Runtime\.getRuntime(?:\(\))?\.\s*exec\s*\(\s*(?![\"''])'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'SCALA_INSECURE_DESER'
     title: 'Scala Java Native Deserialization Sink'
-    vuln: 'insecure_deserialization'
-    sev: 'High'
+    family: 'insecure_deserialization'
+    severity: 'High'
     langs: ['scala']
+    exts: ['.scala']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'ObjectInputStream\s*\(|\.readObject\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'SWIFT_MD5_SHA1_USAGE'
     title: 'Swift Insecure MD5/SHA1 Hash Usage'
-    vuln: 'weak_crypto'
-    sev: 'High'
+    family: 'weak_crypto'
+    severity: 'High'
     langs: ['swift']
+    exts: ['.swift']
     cwe: 'CWE-327'
     owasp: 'A02:2021 - Cryptographic Failures'
     pattern: 'Insecure\.(?:MD5|SHA1)\b'
+    span: 'evidence'
+    negative: null
     contract_ref: 'weak_crypto'
   - id: 'SWIFT_INSECURE_DESER'
     title: 'Swift NSKeyedUnarchiver Deserialization'
-    vuln: 'insecure_deserialization'
-    sev: 'High'
+    family: 'insecure_deserialization'
+    severity: 'High'
     langs: ['swift']
+    exts: ['.swift']
     cwe: 'CWE-502'
     owasp: 'A08:2021 - Software and Data Integrity Failures'
     pattern: 'NSKeyedUnarchiver\.unarchive\w*\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'insecure_deserialization'
   - id: 'DART_CMD_INJECTION'
     title: 'Dart Process.run/start with Dynamic Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['dart']
+    exts: ['.dart']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'Process\.(?:run|start)\s*\(\s*(?![\"''])'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'ELIXIR_CMD_INJECTION'
     title: 'Elixir System.cmd/os.cmd with Dynamic Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['elixir']
+    exts: ['.ex', '.exs']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: 'System\.cmd\s*\(\s*(?![\"''])|System\.cmd\s*\([^)\n]*(?:<>|#\{)|:os\.cmd\s*\([^)\n]*(?:<>|\+\+)'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'ELIXIR_ATOM_UNBOUNDED'
     title: 'Elixir Unbounded Atom Creation'
-    vuln: 'resource_exhaustion'
-    sev: 'Medium'
+    family: 'resource_exhaustion'
+    severity: 'Medium'
     langs: ['elixir']
+    exts: ['.ex', '.exs']
     cwe: 'CWE-770'
     owasp: 'A04:2021 - Insecure Design'
     pattern: 'String\.to_atom\s*\(\s*(?![\"''])'
+    span: 'evidence'
+    negative: null
     contract_ref: 'control_gap'
   - id: 'LUA_CMD_INJECTION'
     title: 'Lua os.execute/io.popen with Dynamic Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['lua']
+    exts: ['.lua']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '(?:os\.execute|io\.popen)\s*\(\s*[a-z_][\w]*\s*\)|(?:os\.execute|io\.popen)\s*\([^)\n]*\.\.'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'LUA_CODE_INJECTION'
     title: 'Lua load/loadstring of Dynamic Source'
-    vuln: 'code_injection'
-    sev: 'Critical'
+    family: 'code_injection'
+    severity: 'Critical'
     langs: ['lua']
+    exts: ['.lua']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: 'loadstring\s*\(\s*(?![\"''])|\bload\s*\(\s*(?![\"''])'
+    span: 'evidence'
+    negative: null
     contract_ref: 'code_injection'
   - id: 'R_CMD_INJECTION'
     title: 'R system/system2 with Dynamic Input'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['r']
+    exts: ['.r']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '\bsystem2?\s*\(\s*(?![\"''])'
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'PERL_CMD_INJECTION'
     title: 'Perl system/exec/open Fed by CGI param'
-    vuln: 'command_injection'
-    sev: 'Critical'
+    family: 'command_injection'
+    severity: 'Critical'
     langs: ['perl']
+    exts: ['.pl', '.pm']
     cwe: 'CWE-78'
     owasp: 'A03:2021 - Injection'
     pattern: '\b(?:system|exec)\s*\(\s*[^)\n]*\bparam\s*\(|\bopen\s*\(\s*[^,\n]+,\s*[^)\n]*\bparam\s*\('
+    span: 'evidence'
+    negative: null
     contract_ref: 'command_injection'
   - id: 'PERL_CODE_INJECTION'
     title: 'Perl eval of Dynamic Expression'
-    vuln: 'code_injection'
-    sev: 'Critical'
+    family: 'code_injection'
+    severity: 'Critical'
     langs: ['perl']
+    exts: ['.pl', '.pm']
     cwe: 'CWE-94'
     owasp: 'A03:2021 - Injection'
     pattern: '\beval\s+\$|\beval\s*\(\s*\$'
+    span: 'evidence'
+    negative: null
     contract_ref: 'code_injection'

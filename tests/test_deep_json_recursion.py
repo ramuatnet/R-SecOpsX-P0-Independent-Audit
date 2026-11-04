@@ -23,6 +23,15 @@ mid-report from inside a formatting pass. The contract after the fix:
     forever and never crashed on;
   * depth truncation beyond the cap is *reported*, not silent (ground
     rule 3).
+
+ftasks Phase 0, FND-04 tightened the contract T-0.4 shipped with: the
+cap is now ``MAX_DEPTH=64`` (not 10_000) and an overflowing walk sets
+the ``truncated`` marker on ``metadata['depth_guard']``.  Deep walks
+still complete without error; content past the cap is the explicit
+fail-closed placeholder (redact) or untouched-but-counted (clean /
+normalise) -- never silent.  The 10k cases below stay as the
+any-depth-no-error proof; ``test_redact_walks_10k_deep_dicts`` pins the
+new boundary.
 """
 from __future__ import annotations
 
@@ -89,11 +98,27 @@ def test_redact_walks_10k_deep_json(main_module):
 def test_redact_walks_10k_deep_dicts(main_module):
     out = main_module._redact_secret_evidence(_deep_dicts(10_000))
     assert isinstance(out, dict)
-    # The walk must not silently replace the deep structure with garbage.
+    # FND-04 (cap 64): the chain survives intact to MAX_DEPTH; past the
+    # cap the remainder is the explicit fail-closed placeholder -- never
+    # silent garbage -- and the truncation is counted, not swallowed.
+    from core import depth_guard
+
     node = out
+    hops = 0
     while isinstance(node, dict) and "n" in node:
         node = node["n"]
-    assert node == {"leaf": "value"} or node.get("leaf") == "value"
+        hops += 1
+        assert hops <= depth_guard.MAX_DEPTH + 1, (
+            "chain walked past the FND-04 cap without truncating"
+        )
+    assert node == "<depth_guard: depth limit reached; subtree omitted>", node
+    # root (depth 0) .. dict at MAX_DEPTH, whose child is the placeholder
+    assert hops == depth_guard.MAX_DEPTH + 1, hops
+    report = _last_depth_report()
+    assert report and report.get("depth_truncated"), (
+        "FND-04: an overflowing redact must count the truncation"
+    )
+    assert report.get("truncated") is True
 
 
 def _deep_advisory_chain(depth: int) -> dict:

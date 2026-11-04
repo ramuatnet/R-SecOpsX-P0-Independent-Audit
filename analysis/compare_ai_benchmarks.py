@@ -34,6 +34,17 @@ version of the prodtest harness overwrote its own results file and destroyed 15
 entries; this one cannot.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_180, WINDOW_200, WINDOW_56, WINDOW_6, WINDOW_64, WINDOW_M1500,
+    WINDOW_M400, WINDOW_M600, WINDOW_SNIPPET, WINDOW_TOP_5)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import (
+    WINDOW_180, WINDOW_200, WINDOW_56, WINDOW_6, WINDOW_64, WINDOW_M1500,
+    WINDOW_M400, WINDOW_M600, WINDOW_SNIPPET, WINDOW_TOP_5)
 
 import argparse
 import json
@@ -54,6 +65,11 @@ SWEEP_MD = OUT / "ai_benchmarks_sweep.md"
 
 SKIP_NAMES = {"reports", "__pycache__", ".git", "node_modules"}
 
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scanner.walk import walk
+
 
 def projects() -> list[pathlib.Path]:
     if not ROOT.exists():
@@ -70,7 +86,7 @@ def kloc(root: pathlib.Path) -> tuple[int, int]:
     exts = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rb", ".cs",
             ".php", ".c", ".h", ".cpp", ".rs", ".sh"}
     files = lines = 0
-    for p in root.rglob("*"):
+    for p, _s, _m in walk(root, exts=None, ignore=frozenset(), max_bytes=None):
         if not p.is_file() or p.suffix.lower() not in exts:
             continue
         if any(seg in {".git", "node_modules", "__pycache__", "venv", ".venv",
@@ -236,7 +252,8 @@ def newest_production_source_mtime() -> tuple[float, list[str]]:
         d = REPO / sub
         if not d.is_dir():
             continue
-        for p in d.rglob("*.py"):
+        for p, _s, _m in walk(d, exts={".py"}, ignore=frozenset(),
+                              max_bytes=None):
             try:
                 m = p.stat().st_mtime
             except OSError:
@@ -311,7 +328,8 @@ def _modules_newer_than(when: float, limit: int = 8) -> list[str]:
         d = REPO / sub
         if not d.is_dir():
             continue
-        for p in sorted(d.rglob("*.py")):
+        for p in sorted(x for x, _s, _m in walk(
+                d, exts={".py"}, ignore=frozenset(), max_bytes=None)):
             try:
                 if p.stat().st_mtime > when:
                     newer.append(str(p.relative_to(REPO)).replace("\\", "/"))
@@ -400,28 +418,28 @@ def scan_one(root: pathlib.Path, workers: int, timeout: int) -> dict:
                           + (f"; last phase started: {hung_in}" if hung_in
                              else "; no phase had started")
                           )
-        entry["stdout_tail"] = (stdout or "")[-1500:]
-        entry["stderr_tail"] = (stderr or "")[-600:]
+        entry["stdout_tail"] = (stdout or "")[WINDOW_M1500:]
+        entry["stderr_tail"] = (stderr or "")[WINDOW_M600:]
         print(f"    rc={rc} after {dur:.0f}s  {entry['error']}")
         if phases:
             print("      phase breakdown (longest first):")
-            for ph in phases[:6]:
-                print(f"        {ph['seconds']:9.1f}s  {ph['phase'][:64]}")
+            for ph in phases[:WINDOW_6]:
+                print(f"        {ph['seconds']:9.1f}s  {ph['phase'][:WINDOW_64]}")
         if hung_in:
             print(f"      STALLED IN: {hung_in}")
         return entry
 
     if rc != 0:
-        entry["error"] = (stderr or stdout)[-400:]
-        entry["stdout_tail"] = (stdout or "")[-1500:]
-        print(f"    rc={rc} after {dur:.0f}s  {entry['error'][:120]}")
+        entry["error"] = (stderr or stdout)[WINDOW_M400:]
+        entry["stdout_tail"] = (stdout or "")[WINDOW_M1500:]
+        print(f"    rc={rc} after {dur:.0f}s  {entry['error'][:WINDOW_SNIPPET]}")
         if phases:
             print(f"      completed {len(phases)} phases; longest: "
                   f"{phases[0]['phase']} {phases[0]['seconds']}s")
         return entry
     if not art.exists():
         entry["error"] = "returncode 0 but no clean_report.json was written"
-        entry["stdout_tail"] = (stdout or "")[-1500:]
+        entry["stdout_tail"] = (stdout or "")[WINDOW_M1500:]
         print(f"    rc=0 but NO ARTIFACT after {dur:.0f}s")
         return entry
 
@@ -432,7 +450,7 @@ def scan_one(root: pathlib.Path, workers: int, timeout: int) -> dict:
           f"kloc={kl:6d} per_kloc={entry['findings_per_kloc']} "
           f"paths={entry['attack_paths']:4d} {dur:.0f}s")
     if phases:
-        print(f"      slowest phase: {phases[0]['phase'][:56]} "
+        print(f"      slowest phase: {phases[0]['phase'][:WINDOW_56]} "
               f"{phases[0]['seconds']}s")
     return entry
 
@@ -615,7 +633,7 @@ def write_reports(results: list[dict]) -> None:
         if stale_rows:
             lines += ["### Stale (artifact older than the current build)", ""]
             for r in sorted(stale_rows, key=lambda x: x["project"]):
-                _why = str((r.get("staleness") or {}).get("reason", ""))[:180]
+                _why = str((r.get("staleness") or {}).get("reason", ""))[:WINDOW_180]
                 lines.append(f"- **{r['project']}** — {_why}")
             lines.append("")
         if unverified:
@@ -623,7 +641,7 @@ def write_reports(results: list[dict]) -> None:
                       "Not known to be current, and not known to be stale "
                       "either. Excluded rather than assumed fresh.", ""]
             for r in sorted(unverified, key=lambda x: x["project"]):
-                _why = str((r.get("staleness") or {}).get("reason", ""))[:180]
+                _why = str((r.get("staleness") or {}).get("reason", ""))[:WINDOW_180]
                 lines.append(f"- **{r['project']}** — {_why}")
             lines.append("")
 
@@ -631,7 +649,7 @@ def write_reports(results: list[dict]) -> None:
         lines += ["", "## Projects that did not complete cleanly", ""]
         for r in bad:
             lines.append(f"- **{r['project']}** rc={r.get('returncode')}: "
-                         f"{str(r.get('error',''))[:200]}")
+                         f"{str(r.get('error',''))[:WINDOW_200]}")
 
     lines += ["", "## Reading a LOW finding count",
               "",
@@ -732,7 +750,7 @@ def main() -> int:
                 # a rescan and the numbers may still be the best available -- but it
                 # is counted as STALE and never as "scanned cleanly".
                 print(f"    existing artifact is STALE: {stale['reason']}")
-                for mod in stale.get("newer_modules", [])[:5]:
+                for mod in stale.get("newer_modules", [])[:WINDOW_TOP_5]:
                     print(f"      changed since: {mod}")
                 print("    re-deriving summary from the stale artifact; "
                       "these numbers describe the older build and are "

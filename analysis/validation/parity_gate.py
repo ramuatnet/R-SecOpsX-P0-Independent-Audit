@@ -44,6 +44,13 @@ Usage:
     python -m analysis.validation.parity_gate --update-annotations
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_16, WINDOW_2, WINDOW_M2000
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_16, WINDOW_2, WINDOW_M2000
 
 import argparse
 import hashlib
@@ -110,7 +117,7 @@ def _row_json(row: dict) -> str:
 
 
 def _hash(row_json: str) -> str:
-    return hashlib.sha256(row_json.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(row_json.encode("utf-8")).hexdigest()[:WINDOW_16]
 
 
 def _key(row: dict) -> tuple:
@@ -173,7 +180,7 @@ def _classify(
             "elsewhere (commonly snippet: Python's focus-pattern evidence "
             "vs the Rust engine's stripped matched line -- status.limits)",
         )
-    same_rf = [r for r in other_rows if _key(r)[:2] == _key(row)[:2]]
+    same_rf = [r for r in other_rows if _key(r)[:WINDOW_2] == _key(row)[:WINDOW_2]]
     if same_rf:
         return (
             "focus_reanchor",
@@ -352,7 +359,7 @@ print(json.dumps({"p50": pct(ts, 0.5), "p95": pct(ts, 0.95),
         )
         if out.returncode != 0:
             raise SystemExit(
-                f"perf worker ({engine}) failed:\n{out.stderr[-2000:]}"
+                f"perf worker ({engine}) failed:\n{out.stderr[WINDOW_M2000:]}"
             )
         return json.loads(out.stdout.strip().splitlines()[-1])
 

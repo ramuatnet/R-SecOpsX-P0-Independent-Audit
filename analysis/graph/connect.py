@@ -9,6 +9,13 @@ the join still runs over whatever was obtained.  Default run (no
 inputs) is zero-I/O and byte-identical.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200
 
 import argparse
 import json
@@ -94,7 +101,7 @@ def _load(path: str, stage: str):
             text = fh.read()
     except OSError as exc:
         return None, {"stage": stage, "target": str(path),
-                      "reason": f"{type(exc).__name__}: {exc}"[:200]}
+                      "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]}
     if len(text) > MAX_INPUT_BYTES:
         return None, {"stage": stage, "target": str(path),
                       "reason": f"input_too_large_{MAX_INPUT_BYTES}",
@@ -103,7 +110,7 @@ def _load(path: str, stage: str):
         doc = json.loads(text)
     except ValueError as exc:
         return None, {"stage": stage, "target": str(path),
-                      "reason": f"JSONDecodeError: {exc}"[:200]}
+                      "reason": f"JSONDecodeError: {exc}"[:WINDOW_200]}
     return doc, None
 
 

@@ -56,6 +56,13 @@ Determinism: no randomness, no clock-dependent comparisons, same tree ->
 same verdict and same evidence ordering.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_28, WINDOW_3, WINDOW_4, WINDOW_EVIDENCE
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_28, WINDOW_3, WINDOW_4, WINDOW_EVIDENCE
 
 import hashlib
 import io
@@ -74,6 +81,8 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 ROOT = Path(__file__).resolve().parents[2]
+
+from scanner.walk import walk
 
 SEVERITIES = {"Critical", "High", "Medium", "Low", "Info"}
 
@@ -211,7 +220,8 @@ def _chk_L0_live_tree_compiles() -> str:
     bad, scanned = [], 0
     for root in roots:
         base = ROOT / root
-        for p in base.rglob("*.py"):
+        for p, _s, _m in walk(base, exts={".py"}, ignore=frozenset(),
+                              max_bytes=None):
             parts = {x.lower() for x in p.parts}
             if parts.intersection(skipped_roots):
                 continue
@@ -220,9 +230,9 @@ def _chk_L0_live_tree_compiles() -> str:
             try:
                 py_compile.compile(str(p), doraise=True, cfile=str(cfile))
             except py_compile.PyCompileError as exc:
-                bad.append("%s: %s" % (p.relative_to(ROOT), str(exc)[:160]))
+                bad.append("%s: %s" % (p.relative_to(ROOT), str(exc)[:WINDOW_EVIDENCE]))
     assert not bad, "%d of %d modules fail to compile: %s" % (
-        len(bad), scanned, "; ".join(bad[:3]))
+        len(bad), scanned, "; ".join(bad[:WINDOW_3]))
     return "compiled %d modules across %s" % (scanned, ", ".join(roots))
 
 
@@ -300,7 +310,7 @@ def _chk_L1_multipart_sink_word_boundary() -> str:
     for text, want, label in probes:
         got = bool(_re.search(sink, text))
         if got != want:
-            bad.append("%s(%s) -> %s" % (label, text[:28], got))
+            bad.append("%s(%s) -> %s" % (label, text[:WINDOW_28], got))
     assert not bad, "; ".join(bad)
     return "boundary kills identifier tails, keeps 2/2 constructors"
 
@@ -525,7 +535,7 @@ def _chk_L3_taint_rule_tables_wellformed() -> str:
             bad.append("%s illegal sev %r" % (r["id"], r.get("sev")))
         if not cwe_re.match(str(r.get("cwe") or "")):
             bad.append("%s malformed cwe %r" % (r["id"], r.get("cwe")))
-    assert not bad, "%d rule-table defects: %s" % (len(bad), "; ".join(bad[:4]))
+    assert not bad, "%d rule-table defects: %s" % (len(bad), "; ".join(bad[:WINDOW_4]))
     return "%d taint rules well-formed" % len(ENTERPRISE_TAINT_RULES)
 
 
@@ -640,7 +650,7 @@ def _chk_L3_all_engine_rule_tables_wellformed() -> str:
              + len(llm_security.LLM_RULES) + len(CRYPTO_RULES)
              + len(PII_ROWS) + len(PII_EXPOSURE))
     assert not bad, "%d defects across %d rules: %s" % (
-        len(bad), total, "; ".join(bad[:4]))
+        len(bad), total, "; ".join(bad[:WINDOW_4]))
     return "%d rules across 12 tables well-formed (identity, severity/risk, cwe, pattern)" % total
 
 
@@ -665,7 +675,7 @@ def _chk_L3_findings_carry_legal_shape() -> str:
             bad.append("%s illegal severity %r" % (rid or "?", sev))
         if not snip.strip():
             bad.append("%s empty snippet" % rid)
-    assert not bad, "%d shape defects: %s" % (len(bad), "; ".join(bad[:4]))
+    assert not bad, "%d shape defects: %s" % (len(bad), "; ".join(bad[:WINDOW_4]))
 
     # Layer 2 -- the analyzer owns evidence_valid. Raw scanner output has no
     # such key yet (grep: the only writers live in core/analyzer.py), so the

@@ -37,6 +37,13 @@ Exit 2 exists so an empty corpus cannot read as a passing run. A gate that
 returns success because it found nothing to check is worse than no gate.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_20, WINDOW_6, WINDOW_TOP_5
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_20, WINDOW_6, WINDOW_TOP_5
 
 import argparse
 import json
@@ -136,10 +143,12 @@ def _scan_sast(case_dir: Path, fixture_name: str) -> list[dict]:
     so this filter is load-bearing, not cosmetic.
     """
     from scanner.sast import scan_directory
+    from scanner.walk import walk
 
     tmp = Path(tempfile.mkdtemp(prefix="rsx_val_"))
     try:
-        for p in case_dir.rglob("*"):
+        for p, _s, _m in walk(case_dir, exts=None, ignore=frozenset(),
+                              max_bytes=None):
             if not p.is_file() or p.name.endswith(".ground_truth.json"):
                 continue
             # Copy only the fixture under test. Scanning the whole directory
@@ -574,7 +583,7 @@ def main(argv: list[str] | None = None) -> int:
     if result["problems"]:
         print("\n%d INVALID LABELS -- these are corpus defects, not detection"
               " gaps:" % len(result["problems"]))
-        for p in result["problems"][:20]:
+        for p in result["problems"][:WINDOW_20]:
             print("  %s" % p)
 
     print()
@@ -607,11 +616,11 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             print()
             print("  %s" % d["fixture"])
-            for dup in d.get("duplicates", [])[:5]:
+            for dup in d.get("duplicates", [])[:WINDOW_TOP_5]:
                 print("    duplicate L%-4s %-42s same as L%s (%s apart)"
                       % (dup.get("line"), dup.get("rule_id"),
                          dup.get("duplicates_line"), dup.get("line_delta")))
-            for spur in d.get("spurious", [])[:5]:
+            for spur in d.get("spurious", [])[:WINDOW_TOP_5]:
                 print("    spurious  L%-4s %-42s %s"
                       % (spur.get("line"), spur.get("rule_id"), spur.get("cwe")))
 
@@ -623,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
             for d in missed:
                 print("  %-30s %d of %d missed" % (d["fixture"], d["fn"],
                                                    d["expected"]))
-                for m in d["missed"][:6]:
+                for m in d["missed"][:WINDOW_6]:
                     if m.get("package"):
                         print("      %-30s %s" % (m["package"], m.get("cve")))
                     else:

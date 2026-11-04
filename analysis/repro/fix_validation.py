@@ -37,6 +37,17 @@ Safety and honesty design:
     a local subprocess).
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_1, WINDOW_2, WINDOW_200, WINDOW_4, WINDOW_M2, WINDOW_M3,
+    WINDOW_TOP_5)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import (
+    WINDOW_1, WINDOW_2, WINDOW_200, WINDOW_4, WINDOW_M2, WINDOW_M3,
+    WINDOW_TOP_5)
 
 import argparse
 import hashlib
@@ -100,7 +111,7 @@ def _safe_relpath(header_path: str) -> str:
     """Normalize a diff header path; reject anything that could escape."""
     p = header_path.strip().split("\t")[0].strip()
     if p.startswith(("a/", "b/")):
-        p = p[2:]
+        p = p[WINDOW_2:]
     if not p or p == "/dev/null":
         return p
     if p.startswith("/") or p.startswith("\\") or ":" in p.split("/")[0]:
@@ -119,8 +130,8 @@ def _parse_hunk_header(line: str) -> tuple[tuple[int, int], tuple[int, int]]:
         end = line.index("@@", at + 2)
         spec = line[at + 2:end].strip()
         old, new = spec.split(" ")
-        o = old[1:].split(",")
-        n = new[1:].split(",")
+        o = old[WINDOW_1:].split(",")
+        n = new[WINDOW_1:].split(",")
         return ((int(o[0]), int(o[1]) if len(o) > 1 else 1),
                 (int(n[0]), int(n[1]) if len(n) > 1 else 1))
     except (ValueError, IndexError) as exc:
@@ -149,10 +160,10 @@ def parse_unified_diff(diff_text: str) -> list[dict]:
     while i < n:
         raw = lines[i]
         if raw.startswith("--- "):
-            old_path = _safe_relpath(raw[4:])
+            old_path = _safe_relpath(raw[WINDOW_4:])
             if i + 1 >= n or not lines[i + 1].startswith("+++ "):
                 raise FixApplyError("HEADER_PAIR", raw)
-            new_path = _safe_relpath(lines[i + 1][4:])
+            new_path = _safe_relpath(lines[i + 1][WINDOW_4:])
             i += 2
             if old_path == "/dev/null" and new_path == "/dev/null":
                 raise FixApplyError("HEADER_PAIR", raw)
@@ -177,8 +188,8 @@ def parse_unified_diff(diff_text: str) -> list[dict]:
                 i += 1
                 if src.startswith("\\"):
                     continue  # "\ No newline at end of file"
-                tag = src[:1] if src else " "
-                text = src[1:] if src else ""
+                tag = src[:WINDOW_1] if src else " "
+                text = src[WINDOW_1:] if src else ""
                 if tag == " ":
                     if need_old == 0 or need_new == 0:
                         raise FixApplyError("HUNK_BODY", raw)
@@ -394,8 +405,8 @@ def _file_signatures(rel_file: str) -> list[str]:
         return []
     sigs = ["/".join(parts)]
     if len(parts) > 3:
-        sigs.append("/".join(parts[-3:]))
-        sigs.append("/".join(parts[-2:]))
+        sigs.append("/".join(parts[WINDOW_M3:]))
+        sigs.append("/".join(parts[WINDOW_M2:]))
     return sigs
 
 
@@ -460,9 +471,16 @@ def _detect_test_cmd(workdir: Path) -> Optional[list[str]]:
     if pyproject.exists() and "pytest" in pyproject.read_text(
             encoding="utf-8", errors="replace"):
         return _pytest_cmd()
+    import fnmatch
+
+    from scanner.walk import walk
+
     for tests_dir in ("tests", "test"):
         d = workdir / tests_dir
-        if d.is_dir() and any(d.rglob("test_*.py")):
+        if d.is_dir() and any(
+                fnmatch.fnmatch(p.name, "test_*.py")
+                for p, _s, _m in walk(d, exts=None, ignore=frozenset(),
+                                      max_bytes=None)):
             return _pytest_cmd()
     if any(workdir.glob("test_*.py")):
         return _pytest_cmd()
@@ -608,8 +626,8 @@ def validate_fix(target, patch_text: str, finding: dict,
         report["before"] = {
             "present": bool(before_hits),
             "matches": [{"line": r.get("line"),
-                         "evidence": str(r.get("evidence") or "")[:200]}
-                        for r in before_hits[:5]],
+                         "evidence": str(r.get("evidence") or "")[:WINDOW_200]}
+                        for r in before_hits[:WINDOW_TOP_5]],
             "total_findings": len(before_rows),
         }
         if not before_hits:
@@ -648,8 +666,8 @@ def validate_fix(target, patch_text: str, finding: dict,
         report["after"] = {
             "present": bool(after_hits),
             "matches": [{"line": r.get("line"),
-                         "evidence": str(r.get("evidence") or "")[:200]}
-                        for r in after_hits[:5]],
+                         "evidence": str(r.get("evidence") or "")[:WINDOW_200]}
+                        for r in after_hits[:WINDOW_TOP_5]],
             "total_findings": len(after_rows),
         }
         report["finding_cleared"] = not after_hits
@@ -657,7 +675,7 @@ def validate_fix(target, patch_text: str, finding: dict,
             report["reasons"].append(
                 "FINDING_STILL_PRESENT: a matching row survives the patch")
         new = _new_findings(before_rows, after_rows)
-        report["new_findings"] = {"count": len(new), "samples": new[:5]}
+        report["new_findings"] = {"count": len(new), "samples": new[:WINDOW_TOP_5]}
         if new:
             report["reasons"].append(
                 f"NEW_FINDINGS: {len(new)} row(s) not in the baseline "

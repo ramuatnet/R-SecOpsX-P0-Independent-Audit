@@ -14,6 +14,13 @@ Usage:
     python analysis/benchmark_sca_corpus.py --fixture <dir>
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200, WINDOW_4
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_200, WINDOW_4
 
 import argparse
 import json
@@ -189,7 +196,7 @@ def run_grype(fixture: Path) -> dict:
     if not vuln_out.exists():
         err = proc.stderr.decode("utf-8", "replace") if isinstance(proc.stderr, bytes) else str(proc.stderr or "")
         return {"name": "Grype", "available": False,
-                "reason": (err[:200] or "no output")}
+                "reason": (err[:WINDOW_200] or "no output")}
 
     found: dict[str, dict] = {}
     if sbom_out.exists():
@@ -286,8 +293,8 @@ def reconcile(gt: dict, tool: dict) -> dict:
                 "reported_cves": len(tool_cves),
                 "correct": len(hit), "missed": len(miss),
                 "invented": len(invent),
-                "sample_missed": sorted(miss)[:4],
-                "sample_invented": sorted(invent)[:4],
+                "sample_missed": sorted(miss)[:WINDOW_4],
+                "sample_invented": sorted(invent)[:WINDOW_4],
             })
 
     return {

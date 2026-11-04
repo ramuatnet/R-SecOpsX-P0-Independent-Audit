@@ -23,6 +23,13 @@ Caps (MAX_FINDINGS) surface as skip rows, never silent drops.
 Pure stdlib + scanner.cvss4; no I/O in this module.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M1
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M1
 
 from datetime import datetime, timezone
 
@@ -66,7 +73,7 @@ def _as_dt(value, default_now: bool = True) -> datetime:
     elif isinstance(value, str):
         text = value.strip()
         if text.endswith(("Z", "z")):
-            text = text[:-1] + "+00:00"
+            text = text[:WINDOW_M1] + "+00:00"
         dt = datetime.fromisoformat(text)
     elif value is None and default_now:
         dt = datetime.now(timezone.utc)
@@ -87,7 +94,7 @@ def _parse_when(value) -> tuple[datetime | None, str | None]:
     if isinstance(value, str) and value.strip():
         text = value.strip()
         if text.endswith(("Z", "z")):
-            text = text[:-1] + "+00:00"
+            text = text[:WINDOW_M1] + "+00:00"
         try:
             dt = datetime.fromisoformat(text)
         except ValueError:

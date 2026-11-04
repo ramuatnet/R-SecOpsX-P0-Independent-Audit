@@ -33,6 +33,13 @@ Output (distinct names, nothing else is overwritten):
     reports/benchmark_reconciliation_language_granularity.md
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M5
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_M5
 
 import argparse
 import importlib.util
@@ -297,7 +304,7 @@ def main() -> int:
     }
 
     out_json = args.out if args.out.endswith(".json") else args.out + ".json"
-    out_md = out_json[:-5] + ".md"
+    out_md = out_json[:WINDOW_M5] + ".md"
     Path(out_json).parent.mkdir(parents=True, exist_ok=True)
     Path(out_json).write_text(json.dumps(payload, indent=2, ensure_ascii=False),
                               encoding="utf-8")

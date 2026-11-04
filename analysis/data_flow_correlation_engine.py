@@ -6,6 +6,13 @@ Backward-compatible APIs:
 - correlate_data_flow(findings)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_4
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_4
 from collections import Counter, defaultdict
 from pathlib import Path
 import re
@@ -93,7 +100,7 @@ def _mk(kind,title,findings,evidence_note):
     confirmed = False
     underlying_sev = str(base.get("severity") or "Medium")
     sev=_severity(kind) if confirmed else underlying_sev
-    return {"rule_id":f"CORR_{kind.upper()}","title":title,"vuln_type":kind,"severity":sev,"priority":_priority(sev),"confidence":"High" if len(findings)>1 else "Medium","language":base.get("language","unknown"),"file":_norm_file(base),"line":base.get("line",0),"snippet":base.get("snippet",""),"description":evidence_note,"remediation":["Enforce object-level authorization before repository/database access.","Validate tenant ownership in every data access path.","Use centralized authorization guards and regression tests.","Make workflow state transitions atomic and server-side enforced."],"owasp":"A01:2021 - Broken Access Control","cwe":"CWE-639","evidence":" | ".join(f"{_norm_file(f)}:{f.get('line')}:{f.get('title')}" for f in findings[:4]),"detection":"Data Flow Correlation","engine":"analysis.data_flow_correlation_engine","correlation_type":kind,"correlated_findings":findings,"group_key":f"CORR_{kind.upper()}|{_norm_file(base)}|{base.get('line',0)}","enterprise_control":True,
+    return {"rule_id":f"CORR_{kind.upper()}","title":title,"vuln_type":kind,"severity":sev,"priority":_priority(sev),"confidence":"High" if len(findings)>1 else "Medium","language":base.get("language","unknown"),"file":_norm_file(base),"line":base.get("line",0),"snippet":base.get("snippet",""),"description":evidence_note,"remediation":["Enforce object-level authorization before repository/database access.","Validate tenant ownership in every data access path.","Use centralized authorization guards and regression tests.","Make workflow state transitions atomic and server-side enforced."],"owasp":"A01:2021 - Broken Access Control","cwe":"CWE-639","evidence":" | ".join(f"{_norm_file(f)}:{f.get('line')}:{f.get('title')}" for f in findings[:WINDOW_4]),"detection":"Data Flow Correlation","engine":"analysis.data_flow_correlation_engine","correlation_type":kind,"correlated_findings":findings,"group_key":f"CORR_{kind.upper()}|{_norm_file(base)}|{base.get('line',0)}","enterprise_control":True,
             "confirmed": confirmed,
             "evidence_status": "CONTEXTUAL_NOT_CONFIRMED",
             "requires_manual_verification": True}

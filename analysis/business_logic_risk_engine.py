@@ -1,4 +1,11 @@
-﻿import re
+﻿try:
+    from analysis.spans import WINDOW_200
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_200
+import re
 from collections import defaultdict
 from typing import Any, Dict, List
 
@@ -137,7 +144,7 @@ def _detect_indicators(
         detected.append({
             "indicator": name,
             "risk_level": risk,
-            "evidence_match": match.group(0)[:200],
+            "evidence_match": match.group(0)[:WINDOW_200],
             "executive_relevant": risk in {"CRITICAL", "HIGH"},
             "business_logic_risk": True,
             "workflow_confirmed": False,

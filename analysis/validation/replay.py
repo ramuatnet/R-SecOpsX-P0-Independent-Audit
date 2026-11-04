@@ -44,6 +44,13 @@ EXIT CODES (mirror analysis.validation.run)
     2   nothing replayed (no labelled fixtures) -- never a pass
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_EVIDENCE
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_EVIDENCE
 
 import argparse
 import logging
@@ -298,7 +305,7 @@ def _first_diff(a: bytes, b: bytes, limit: int = 12) -> list[str]:
         lb = lines_b[i] if i < len(lines_b) else "<EOF>"
         if la != lb:
             out.append("  line %d:\n    committed: %s\n    replayed:  %s"
-                       % (i + 1, la[:160], lb[:160]))
+                       % (i + 1, la[:WINDOW_EVIDENCE], lb[:WINDOW_EVIDENCE]))
             if len(out) >= limit:
                 out.append("  ... (more differences elided)")
                 break

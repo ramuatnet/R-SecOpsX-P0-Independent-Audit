@@ -15,6 +15,13 @@ standalone through a synthetic package shell. Prints one JSON object:
 ``calculate_completeness_score()``.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_1
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_1
 
 import importlib
 import json
@@ -25,7 +32,7 @@ from pathlib import Path
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = list(sys.argv[1:] if argv is None else argv)
+    argv = list(sys.argv[WINDOW_1:] if argv is None else argv)
     if not argv:
         print(json.dumps({"error": "usage: aibom_generator_driver.py <aibom.json>"}))
         return 2

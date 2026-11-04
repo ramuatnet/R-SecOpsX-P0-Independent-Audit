@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scanner.walk import walk
+
 
 # ============================================================
 # R-SecOpsX V11 - ABOM V2
@@ -701,19 +703,15 @@ def generate_abom(target: str) -> list[dict[str, Any]]:
 
     results = []
 
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-
-        if path.suffix.lower() not in {
-            ".py",
-            ".js",
-            ".jsx",
-            ".ts",
-            ".tsx",
-        }:
-            continue
-
+    # FND-02: the one walk replaces root.rglob -- same file set (exts is
+    # the suffix filter that used to run per candidate), caller-declared
+    # empty ignore for byte-parity with the old unrestricted rglob.
+    for path, _size, _mtime in walk(
+        root,
+        exts={".py", ".js", ".jsx", ".ts", ".tsx"},
+        ignore=frozenset(),
+        max_bytes=None,
+    ):
         results.extend(scan_file(str(path)))
 
     return _deduplicate(results)

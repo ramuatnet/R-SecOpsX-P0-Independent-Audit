@@ -34,6 +34,13 @@ Usage:
     python analysis/benchmark_intel_feeds.py --reuse-truth   # offline rerun
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_20
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_20
 
 import argparse
 import json
@@ -618,7 +625,7 @@ def render_md(result: dict) -> str:
         f"**{'no' if result['provenance']['offline_clean'] else 'YES — DEFECT'}**",
         f"- Live-run provenance errors: **{len(result['provenance']['errors'])}**",
     ]
-    for err in result["provenance"]["errors"][:20]:
+    for err in result["provenance"]["errors"][:WINDOW_20]:
         lines.append(
             f"  - `{err['cve']}` {err['field']}: {err['error']}"
         )

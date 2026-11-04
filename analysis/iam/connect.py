@@ -19,6 +19,13 @@ module never reads credential env vars itself (task.md risk
 register).  Artifact: ``rsecopsx.iam_analysis/v1``.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200
 
 import argparse
 import json
@@ -162,7 +169,7 @@ def collect_iam(requested: tuple[str, ...] = (),
             except (OSError, ValueError) as exc:
                 skips.append({"stage": provider,
                               "target": files[provider],
-                              "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                              "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
             continue
         got = creds.get(provider) or resolve_credentials(provider)
         if not got:
@@ -176,7 +183,7 @@ def collect_iam(requested: tuple[str, ...] = (),
             skips.extend(sk)
         except (ApiError, ResponseTooLarge, OSError, ValueError) as exc:
             skips.append({"stage": provider, "target": IAM_OP,
-                          "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                          "reason": f"{type(exc).__name__}: {exc}"[:WINDOW_200]})
 
     model = {"account_id": None, "principals": [], "groups": {},
              "policies": {}, "usage": None, "skips": []}

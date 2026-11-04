@@ -6,6 +6,13 @@
 # that is not attributable to a named fix).
 #
 # Usage: python val_ab_diff.py
+try:
+    from analysis.spans import WINDOW_1, WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_1, WINDOW_SNIPPET
 import json, os, sys
 from collections import Counter
 
@@ -40,14 +47,14 @@ def load_findings(path):
 
 def row_key(f):
     return (str(f.get("rule_id")), str(f.get("file")), str(f.get("line")),
-            str(f.get("snippet"))[:120])
+            str(f.get("snippet"))[:WINDOW_SNIPPET])
 
 def main():
     baseline = json.load(open(BASE, encoding="utf-8"))
     failures = []
     # Optional positional args restrict the comparison to named targets
     # (e.g. while other rescans are still writing their report directories).
-    only = set(sys.argv[1:])
+    only = set(sys.argv[WINDOW_1:])
     reports = {k: v for k, v in REPORTS.items() if not only or k in only}
     if not reports:
         # An empty selection must never reach the verdict as a vacuous PASS

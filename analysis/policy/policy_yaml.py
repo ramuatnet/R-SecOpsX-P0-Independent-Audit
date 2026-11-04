@@ -19,6 +19,13 @@ canonical document (pinned by test_both_yaml_paths_produce_equal_
 structures). This parser is what keeps the gate runnable with zero
 third-party dependencies.
 """
+try:
+    from analysis.spans import WINDOW_1, WINDOW_2, WINDOW_M1
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_1, WINDOW_2, WINDOW_M1
 
 
 class PolicyYamlError(Exception):
@@ -68,7 +75,7 @@ def loads(text):
             if line.startswith("- "):
                 current_item = {}
                 exclusions.append(current_item)
-                rest = line[2:].strip()
+                rest = line[WINDOW_2:].strip()
                 if ":" not in rest:
                     raise PolicyYamlError(
                         f"line {lineno}: expected 'key: value' after '-'")
@@ -113,7 +120,7 @@ def _parse_value(value, lineno):
         if not value.endswith("]"):
             raise PolicyYamlError(f"line {lineno}: unterminated flow list")
         return [_parse_scalar(p.strip(), lineno)
-                for p in _split_flow(value[1:-1], lineno)]
+                for p in _split_flow(value[WINDOW_1:WINDOW_M1], lineno)]
     return _parse_scalar(value, lineno)
 
 
@@ -146,7 +153,7 @@ def _parse_scalar(value, lineno):
     if value.startswith("'"):
         if len(value) < 2 or not value.endswith("'"):
             raise PolicyYamlError(f"line {lineno}: unterminated quote")
-        return value[1:-1].replace("''", "'")
+        return value[WINDOW_1:WINDOW_M1].replace("''", "'")
     if value in ("true", "True"):
         return True
     if value in ("false", "False"):

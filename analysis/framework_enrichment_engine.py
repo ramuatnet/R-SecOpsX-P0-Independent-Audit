@@ -7,8 +7,14 @@ Backward-compatible public APIs:
 """
 from __future__ import annotations
 import re
+import sys
 from pathlib import Path
 from collections import Counter
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scanner.walk import walk
 
 FRAMEWORK_RULES = [
     ("SPRING_SECURITY_CSRF_DISABLED", "Spring Security CSRF Disabled", "spring_boot", "Critical", r"csrf\s*\(\s*\)\s*\.disable|csrf\s*->\s*csrf\.disable", "CWE-352", "A01:2021 - Broken Access Control"),
@@ -51,7 +57,7 @@ def scan_file(filepath: str) -> list[dict]:
     return out
 
 def scan_directory(target_path: str) -> dict:
-    target=Path(target_path); files=[target] if target.is_file() else [x for x in target.rglob("*") if x.is_file()]
+    target=Path(target_path); files=[x for x, _s, _m in walk(target, exts=None, ignore=frozenset(), max_bytes=None)]
     findings=[]
     for f in files: findings.extend(scan_file(str(f)))
     return {"framework_enrichment_findings": findings, "framework_enrichment_summary": summarize_framework_enrichment(findings)}

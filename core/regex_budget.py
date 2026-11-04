@@ -23,6 +23,20 @@ every match start is a candidate position; candidates are then replayed
 with ``pattern.match`` in leftmost non-overlapping order, replicating
 finditer's empty-match advance. When in doubt the prefilter disables
 itself and the plain finditer runs.
+
+FND-05 (ftasks Phase 0) adds the per-line budget on top:
+
+  * :data:`LINE_BUDGET_MS` (50 ms) -- when a rule takes the line path
+    (:func:`rule_finditer`), every line of input gets its own wall-clock
+    budget; a breach is logged with the rule id AND the offending line;
+  * every breach -- line or whole-source -- also lands on
+    ``payload["filter_trace"]`` as a ``regex_budget_exceeded`` violation
+    (``filter_trace.record_scan_violation``), so a rule that is killed to
+    zero matches is never a silent loss (ground rule 3);
+  * :func:`_line_safe` is the conservative classifier deciding line path
+    vs whole-source fallback. Patterns that can cross a line boundary or
+    match empty fall back to :func:`timed_finditer` -- the T-0.5
+    contract, byte-for-byte unchanged.
 """
 from __future__ import annotations
 
@@ -35,6 +49,8 @@ import time
 from pathlib import Path
 
 DEFAULT_BUDGET_MS = 250
+#: FND-05: per-line wall-clock budget when matching line-scoped input.
+LINE_BUDGET_MS = 50
 
 # Prefilter engages only on inputs where whole-file scanning actually
 # costs something; below this the plain finditer is already fast.
@@ -284,13 +300,28 @@ class RegexBudgetCollector:
                 del self._checks[_KEEP_CHECKS:]
 
     def record_timeout(self, rule_id: str, file: str, budget_ms: int,
-                       mode: str, elapsed_ms: float | None = None) -> None:
+                       mode: str, elapsed_ms: float | None = None,
+                       line: int | None = None) -> None:
+        """Record one breach.  FND-05: ``line`` names the offending line
+        (None for whole-source breaches), and every breach ALSO lands on
+        the filter_trace ledger with its rule id -- telemetry and the
+        payload ledger must never disagree about a loss."""
         row = {"rule_id": rule_id, "file": file, "budget_ms": budget_ms,
                "mode": mode}
         if elapsed_ms is not None:
             row["elapsed_ms"] = round(elapsed_ms, 3)
+        row["line"] = line
         with self._lock:
             self._timeouts.append(row)
+        # FND-05: lazy import -- this module stays project-import-free at
+        # load time (the subprocess worker runs with -I).
+        from core import filter_trace
+        where = f" on line {line}" if line is not None else ""
+        filter_trace.record_scan_violation(
+            "regex_budget_exceeded",
+            f"{mode} exceeded {budget_ms} ms wall budget{where} "
+            f"(rule {rule_id})",
+            rule_id=rule_id, path=file, line=line)
 
     def timeouts(self) -> list[dict]:
         with self._lock:
@@ -854,6 +885,251 @@ def timed_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
     else:
         matches = list(pattern.finditer(source))
     return _finish(matches)
+
+
+# ---------------------------------------------------------------------------
+# FND-05: the per-line budget
+# ---------------------------------------------------------------------------
+_LINE_SAFE_CACHE: dict[tuple[str, int], bool] = {}
+
+#: Escape bodies that can never produce a newline and never re-anchor a
+#: match (``\d \w \b \B \t \f \a \v``).  Every other alnum escape -- the
+#: newline class escapes, ``\A``/``\Z``, hex/unicode/octal spellings of
+#: ``0x0a``, backrefs -- disqualifies the pattern (whitelist, so an
+#: escape this classifier does not know about falls back to the
+#: whole-source path instead of guessing).
+_SAFE_ESCAPES = frozenset("dwabBtfv")
+
+
+def _line_safe(pattern: re.Pattern) -> bool:
+    """Conservative: can this pattern be matched line-by-line with the
+    EXACT same match set as whole-source finditer?
+
+    Any doubt returns False and the caller falls back to
+    :func:`timed_finditer` -- the T-0.5 contract, unchanged.  A pattern
+    is line-safe when it provably cannot cross a ``\\n`` chunk boundary
+    and cannot re-anchor inside one:
+
+      * it cannot match the empty string (advance semantics differ);
+      * no escape or literal that can produce ``\\n`` (whitelist above);
+      * no ``.`` under DOTALL (``.`` then eats newlines);
+      * no ``^``/``$`` without MULTILINE (they would re-anchor at every
+        chunk start/end instead of only at the real ones);
+      * no lookaround / inline-flag / conditional group -- they see
+        across the chunk boundary;
+      * no negated class ``[^...]`` (negation is evaluated against the
+        chunk, so it happily eats the newline the real match never sees).
+    """
+    key = (pattern.pattern, pattern.flags)
+    cached = _LINE_SAFE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    src = pattern.pattern
+    flags = pattern.flags
+    multiline = bool(flags & re.MULTILINE)
+    dotall = bool(flags & re.DOTALL)
+    safe = True
+
+    if pattern.match(""):
+        # empty-matchable: per-line advance != whole-source advance
+        safe = False
+
+    i, n = 0, len(src)
+    while safe and i < n:
+        c = src[i]
+        if c == "\\":
+            if i + 1 >= n:
+                safe = False
+                break
+            nxt = src[i + 1]
+            if nxt.isascii() and nxt.isalnum():
+                if nxt not in _SAFE_ESCAPES:
+                    safe = False
+                    break
+            # non-alnum escape (``\\.`` etc.) is a literal: chunk-safe
+            i += 2
+            continue
+        if c == "[":
+            j = i + 1
+            if j < n and src[j] == "^":
+                safe = False
+                break
+            j += 1  # past ``[`` (or ``[^``)
+            terminated = False
+            while j < n:
+                ch = src[j]
+                if ch == "\\":
+                    if j + 1 >= n:
+                        break
+                    nxt2 = src[j + 1]
+                    if (nxt2.isascii() and nxt2.isalnum()
+                            and nxt2 not in _SAFE_ESCAPES):
+                        break
+                    j += 2
+                    continue
+                if ch == "]":
+                    terminated = True
+                    break
+                if ch in "\n\r":
+                    safe = False
+                    break
+                j += 1
+            if not safe:
+                break
+            if not terminated:
+                safe = False  # unterminated class: be conservative
+                break
+            i = j + 1
+            continue
+        if c == ".":
+            if dotall:
+                safe = False
+                break
+            i += 1
+            continue
+        if c in "^$":
+            if not multiline:
+                safe = False
+                break
+            i += 1
+            continue
+        if c == "(" and i + 1 < n and src[i + 1] == "?":
+            # only plain ``(?:`` and named ``(?P`` groups are chunk-safe;
+            # lookarounds, inline flags and conditionals re-anchor or see
+            # across the boundary
+            if src.startswith("(?P", i) or src.startswith("(?:", i):
+                i += 3
+                continue
+            safe = False
+            break
+        if c in "\n\r":
+            safe = False
+            break
+        i += 1
+
+    _LINE_SAFE_CACHE[key] = safe
+    return safe
+
+
+def _split_keep_newlines(source: str) -> list[str]:
+    """Split on ``\\n`` only (the one byte every line-safe pattern cannot
+    consume) -- NOT ``str.splitlines``, which also breaks on ``\\v``,
+    ``\\f``, ``\\x85`` and friends that ``.`` CAN cross.
+    """
+    parts = source.split("\n")
+    return [p + "\n" for p in parts[:-1]] + [parts[-1]]
+
+
+def rule_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
+                  file_path: str = "<memory>",
+                  lines: list[str] | None = None):
+    """FND-05: budgeted finditer with a per-line budget on line-safe input.
+
+    Line path (:func:`_line_safe` patterns): each line gets its own
+    ``LINE_BUDGET_MS`` wall budget.  A breach is recorded with the
+    offending line number -- on the collector AND on
+    ``payload["filter_trace"]`` via ``record_timeout``'s
+    ``regex_budget_exceeded`` wiring, so a rule killed to zero matches is
+    never a silent loss (ground rule 3).  Suspect patterns on lines
+    ``>= _GUARD_MIN_BYTES`` run in the killable child (the hard
+    prevention); everything else is post-hoc telemetry, and -- exactly as
+    in the whole-source path -- found matches are KEPT on a post-hoc
+    breach (telemetry, not a discard).
+
+    Matches are rebuilt against the FULL source at absolute offsets, so
+    snippet extraction and comment checks see identical positions to
+    whole-source finditer.  If any rebuilt span disagrees (classifier
+    bug, caller/``lines`` mismatch), the whole-source path wins:
+    detections must never differ.
+
+    ``lines`` is the caller's ``splitlines(keepends=True)`` view of
+    ``source``; it is recomputed when omitted or when it does not cover
+    ``source`` exactly (defends against a no-keepends ``splitlines()``
+    slipping in from a line-number consumer).
+
+    Fallback (everything else): byte-for-byte the T-0.5
+    :func:`timed_finditer` contract.
+    """
+    if not _line_safe(pattern):
+        return timed_finditer(pattern, source, rule_id=rule_id,
+                              file_path=file_path)
+
+    coll = current()
+    t0 = time.perf_counter()
+    c0 = time.process_time()
+
+    if (lines is None
+            or sum(len(ln) for ln in lines) != len(source)):
+        lines = _split_keep_newlines(source)
+
+    # Exact skip, same as timed_finditer: a literal required by EVERY
+    # alternative is absent, so the pattern has provably zero matches --
+    # one check row, no per-line walk.
+    req = required_anywhere_literals(pattern)
+    if req and _absent_from_source(pattern, source, req):
+        wall = (time.perf_counter() - t0) * 1000
+        cpu = (time.process_time() - c0) * 1000
+        coll.record_check(rule_id, file_path, wall, cpu, 0)
+        return iter(())
+
+    matches: list[re.Match] = []
+    breached = False
+    line_start = 0
+    mismatches = 0
+    for lineno, line in enumerate(lines, 1):
+        t_line = time.perf_counter()
+        if len(line) >= _GUARD_MIN_BYTES and _is_suspect(pattern):
+            # hard prevention: killable child, budget = the per-line cap
+            spans, timed_out, errored = _guarded_spans(
+                pattern, line, LINE_BUDGET_MS)
+            if timed_out:
+                coll.record_timeout(rule_id, file_path, LINE_BUDGET_MS,
+                                    "line_guard", None, line=lineno)
+                breached = True
+                line_start += len(line)
+                continue
+            if errored:
+                coll.record_timeout(rule_id, file_path, LINE_BUDGET_MS,
+                                    "line_guard_error", None, line=lineno)
+                breached = True
+                line_start += len(line)
+                continue
+            line_matches = _replay_spans(pattern, line, spans or [])
+        else:
+            line_matches = list(pattern.finditer(line))
+            wall_line = (time.perf_counter() - t_line) * 1000
+            if wall_line > LINE_BUDGET_MS:
+                # post-hoc telemetry (the C engine holds the GIL); the
+                # matches below are kept, exactly like timed_finditer
+                coll.record_timeout(rule_id, file_path, LINE_BUDGET_MS,
+                                    "line_budget", wall_line, line=lineno)
+                breached = True
+        for m in line_matches:
+            abs_start = line_start + m.start()
+            abs_end = line_start + m.end()
+            rm = pattern.match(source, abs_start)
+            if rm is None or rm.start() != abs_start or rm.end() != abs_end:
+                mismatches += 1
+                continue
+            matches.append(rm)
+        line_start += len(line)
+
+    if mismatches:
+        # Classifier bug or source/lines disagreement: the whole-source
+        # contract wins -- detections must never differ.
+        return timed_finditer(pattern, source, rule_id=rule_id,
+                              file_path=file_path)
+
+    wall = (time.perf_counter() - t0) * 1000
+    cpu = (time.process_time() - c0) * 1000
+    coll.record_check(rule_id, file_path, wall, cpu, len(matches))
+    if wall > DEFAULT_BUDGET_MS and not breached:
+        # aggregate breach with no line already blamed: one row, mirroring
+        # timed_finditer's single-post_hoc-per-call behaviour
+        coll.record_timeout(rule_id, file_path, DEFAULT_BUDGET_MS,
+                            "post_hoc", wall)
+    return iter(matches)
 
 
 # ---------------------------------------------------------------------------

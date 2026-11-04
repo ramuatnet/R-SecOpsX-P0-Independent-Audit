@@ -15,6 +15,13 @@ Verdicts:
                   200 SPA catch-all must not become "17 admin panels").
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_60, WINDOW_80, WINDOW_8192
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_60, WINDOW_80, WINDOW_8192
 
 import re
 
@@ -96,7 +103,7 @@ def classify_admin_response(path: str, status: int,
                 "evidence": f"http_{code}"}
     if code < 200 or code >= 400:
         return None
-    text = (body or "")[:8192]
+    text = (body or "")[:WINDOW_8192]
     title_m = _TITLE_RE.search(text)
     title = title_m.group(1).strip() if title_m else ""
     combined = f"{title}\n{text}"
@@ -105,10 +112,10 @@ def classify_admin_response(path: str, status: int,
     for rx, name in _MARKER_RE:
         if rx.search(combined):
             return {"path": path, "status": code, "kind": "detected",
-                    "panel": name, "evidence": rx.pattern[:80]}
+                    "panel": name, "evidence": rx.pattern[:WINDOW_80]}
     if title and LOGIN_TITLE_RE.search(title) and not GENERIC_SPA_TITLES.match(title):
         return {"path": path, "status": code, "kind": "detected",
-                "panel": "Login Form", "evidence": f"title={title[:60]}"}
+                "panel": "Login Form", "evidence": f"title={title[:WINDOW_60]}"}
     # 200 on /admin with no panel signal = soft-404/SPA catch-all
     return None
 

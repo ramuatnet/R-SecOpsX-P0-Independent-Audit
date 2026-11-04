@@ -26,6 +26,13 @@ Honesty rules baked in:
     captures it publishes ``null`` and ``tested: 0``, never a fake 0.0.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_SNIPPET
 
 import argparse
 import ast
@@ -117,7 +124,7 @@ def _finding_key(finding: dict) -> str:
     rule = str(finding.get("rule_id") or finding.get("vuln_type") or "rule")
     line = int(finding.get("line") or 0)
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{file_part}__{rule}__L{line}")
-    return safe[:120] or "finding"
+    return safe[:WINDOW_SNIPPET] or "finding"
 
 
 def _payload_for(finding: dict) -> Optional[tuple[str, str]]:

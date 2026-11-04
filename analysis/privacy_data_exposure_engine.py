@@ -1,4 +1,11 @@
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_240, WINDOW_500
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_240, WINDOW_500
 
 import os
 import re
@@ -440,19 +447,6 @@ _V17925_COMPILED_EXPOSURE_PATTERNS = tuple(
 
 THIRD_PARTY_HINTS = ["openai", "anthropic", "googleapis", "segment", "mixpanel", "analytics", "hubspot", "stripe", "sendgrid", "slack", "telegram", "discord"]
 
-
-def _iter_files(target: str):
-    root = Path(target)
-
-    if root.is_file():
-        if root.suffix.lower() in SCAN_EXTENSIONS:
-            yield root
-        return
-
-    # T-0.2 (task.md): the one walk's index; SKIP_DIRS is walk policy now.
-    from core import file_index
-    yield from file_index.index_for(root).files(
-        exts={e.lower() for e in SCAN_EXTENSIONS})
 
 def _safe_read(path: Path):
     # T-0.2 (task.md): serve lines from the shared per-scan index cache
@@ -1066,7 +1060,7 @@ def _pii_evidence_window(text: str, pii_types, before: int = 60, after: int = 18
 
     offset = _pii_match_offset(text, pii_types)
     if offset is None:
-        return text[:240]
+        return text[:WINDOW_240]
 
     start = max(0, offset - before)
     end = min(len(text), offset + after)
@@ -1313,7 +1307,18 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
     indicators: List[Dict[str, Any]] = []
     pii_type_counts: Dict[str, int] = {}
 
-    _privacy_v5_files = list(_iter_files(target))
+    # FND-02: single-file targets are suffix-gated; directory targets
+    # are the one index query (ext allow-list = the same gate).
+    _privacy_root = Path(target)
+    if _privacy_root.is_file():
+        _privacy_v5_files = (
+            [_privacy_root]
+            if _privacy_root.suffix.lower() in SCAN_EXTENSIONS else [])
+    else:
+        from core import file_index
+        _privacy_v5_files = list(
+            file_index.index_for(_privacy_root).files(
+                exts={e.lower() for e in SCAN_EXTENSIONS}))
     _privacy_v5_total = len(_privacy_v5_files)
     _privacy_v5_global_start = time.perf_counter()
     _privacy_v5_index = 0
@@ -1630,7 +1635,7 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
         # V17.9 PRIVACY EVIDENCE SEMANTICS
         "raw_privacy_evidence_count": raw_privacy_evidence_count,
         "deduplicated_privacy_finding_count": deduplicated_privacy_finding_count,
-        "deduplicated_privacy_findings": deduplicated_privacy_findings[:500],
+        "deduplicated_privacy_findings": deduplicated_privacy_findings[:WINDOW_500],
         "potential_executive_review_indicators": potential_executive_review_indicators,
         "confirmed_executive_exposures": confirmed_executive_exposures,
         "executive_relevant": confirmed_executive_exposures,
@@ -1642,7 +1647,7 @@ def enrich_privacy_data_exposure(target: str, findings: List[Dict[str, Any]] | N
         "challenge_context_semantics": "CHALLENGE_PREDICATE_OBSERVATION_ONLY_UNLESS_INDEPENDENT_EXPOSURE_SINK_EXISTS",
         "request_side_semantics": "REQUEST_COLLECTION_OR_COMPARISON_IS_NOT_DISCLOSURE_WITHOUT_EXPOSURE_SINK",
         "engine_mode": "STATIC_PRIVACY_PATTERN_AND_CONTEXT_ANALYSIS_V3_SINK_DRIVEN",
-        "indicators": indicators[:500],
+        "indicators": indicators[:WINDOW_500],
     }
 
 

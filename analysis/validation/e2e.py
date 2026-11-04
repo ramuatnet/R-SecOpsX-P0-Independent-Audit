@@ -26,6 +26,13 @@ Exit codes
     1   at least one target did not
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_3, WINDOW_M4000
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_3, WINDOW_M4000
 
 import json
 import logging
@@ -85,8 +92,8 @@ def _run_cli(target: Path, outdir: Path, *extra: str) -> dict:
     return {
         "cmd": cmd,
         "exit_code": proc.returncode,
-        "stdout": proc.stdout[-4000:],
-        "stderr": proc.stderr[-4000:],
+        "stdout": proc.stdout[WINDOW_M4000:],
+        "stderr": proc.stderr[WINDOW_M4000:],
     }
 
 
@@ -157,7 +164,7 @@ def _check_bom_structure(outdir: Path, result: dict) -> None:
         check = checker(doc)
         if not check.get("valid"):
             result["problems"].append(
-                "%s: %s" % (name, (check.get("errors") or [])[:3]))
+                "%s: %s" % (name, (check.get("errors") or [])[:WINDOW_3]))
             ok = False
     result["checks"]["bom_structure"] = ok
 

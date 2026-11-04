@@ -19,6 +19,13 @@ The bundler (analysis.repro.bundler) judges it against the finding's
 stated expectation.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_12, WINDOW_300
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_12, WINDOW_300
 
 import json
 import os
@@ -455,7 +462,7 @@ def _start_container(runtime: RuntimeInfo, target: ReproTarget,
                      ) -> tuple[str, str, str]:
     """docker/podman run; returns (base_url, container_name, image_digest)."""
     exe = runtime.kind
-    name = f"rsx_repro_{uuid.uuid4().hex[:12]}"
+    name = f"rsx_repro_{uuid.uuid4().hex[:WINDOW_12]}"
     cmd = [exe, "run", "-d", "--name", name]
     for host, cont in target.container_publish:
         cmd += ["-p", f"127.0.0.1:{host}:{cont}"]
@@ -470,7 +477,7 @@ def _start_container(runtime: RuntimeInfo, target: ReproTarget,
         capture.blocked_reason = f"container run failed: {exc}"
         return "", "", ""
     if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()[:300]
+        detail = (proc.stderr or proc.stdout or "").strip()[:WINDOW_300]
         capture.errors.append(f"container run failed: {detail}")
         capture.blocked_reason = f"container run failed: {detail}"
         return "", "", ""

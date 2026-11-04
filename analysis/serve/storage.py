@@ -21,6 +21,13 @@ string ops.  file:// and friends are rejected at REGISTRATION, so a
 bad hook can never sit in the table waiting for a delivery attempt.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_12
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_12
 
 import hashlib
 import json
@@ -75,7 +82,7 @@ def webhook_id_for(url: str, tenant=None) -> str:
     on each other's primary key.
     """
     canon = url if not tenant else f"{tenant}\n{url}"
-    return "wh_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+    return "wh_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:WINDOW_12]
 
 
 class SqliteBackend:

@@ -36,6 +36,13 @@ Usage:
     python analysis/audit_dead_code.py --json     # machine-readable
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M1, WINDOW_M3
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_M1, WINDOW_M3
 
 import argparse
 import io
@@ -47,6 +54,10 @@ from collections import defaultdict, deque
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scanner.walk import walk
 
 SKIP_DIRS = {"backup", "dump", "Working folder", "__pycache__",
              ".git", ".venv",
@@ -78,10 +89,11 @@ def _norm(p: Path) -> str:
 
 def collect(root: Path) -> list[str]:
     out = []
-    for p in sorted(root.rglob("*.py")):
+    for p in sorted(x for x, _s, _m in walk(
+            root, exts={".py"}, ignore=frozenset(), max_bytes=None)):
         rel = _norm(p.relative_to(root))
         parts = rel.split("/")
-        if any(s in SKIP_DIRS for s in parts[:-1]):
+        if any(s in SKIP_DIRS for s in parts[:WINDOW_M1]):
             continue
         if parts[0] in SKIP_DIRS:
             continue
@@ -98,7 +110,7 @@ def audit(root: Path | None = None) -> dict:
         if rel.endswith("/__init__.py"):
             mod = rel[: -len("/__init__.py")].replace("/", ".")
         else:
-            mod = rel[:-3].replace("/", ".")
+            mod = rel[:WINDOW_M3].replace("/", ".")
         mod_of[mod] = rel
 
     roots: set[str] = set()
@@ -118,7 +130,7 @@ def audit(root: Path | None = None) -> dict:
             t = io.open(root / rel, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        this_mod = rel[:-3].replace("/", ".")
+        this_mod = rel[:WINDOW_M3].replace("/", ".")
         targets: set[str] = set()
         for m in IMPORT_RE.finditer(t):
             frm = m.group("frm")
@@ -126,7 +138,7 @@ def audit(root: Path | None = None) -> dict:
                 if frm.startswith("."):
                     dots = len(frm) - len(frm.lstrip("."))
                     rest = frm.lstrip(".")
-                    pkg = this_mod.split(".")[:-1] if "." in this_mod else []
+                    pkg = this_mod.split(".")[:WINDOW_M1] if "." in this_mod else []
                     up = dots - 1
                     if up:
                         pkg = pkg[:-up] if up <= len(pkg) else []

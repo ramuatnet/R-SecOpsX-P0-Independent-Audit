@@ -14,6 +14,13 @@ Usage:
     python analysis/benchmark_sast_corpus.py --fixture <dir> --out <dir>
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M2000, WINDOW_SNIPPET
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_M2000, WINDOW_SNIPPET
 
 import argparse
 import json
@@ -157,7 +164,7 @@ def run_scan(fixture: Path, out: Path) -> list[dict]:
     if proc.returncode != 0:
         raise SystemExit(
             f"scan failed rc={proc.returncode}\n"
-            f"{(proc.stdout or '')[-2000:]}\n{(proc.stderr or '')[-2000:]}"
+            f"{(proc.stdout or '')[WINDOW_M2000:]}\n{(proc.stderr or '')[WINDOW_M2000:]}"
         )
     return load_findings(out / "clean_report.json")
 
@@ -183,7 +190,7 @@ def reconcile(findings: list[dict]) -> dict:
             "severity": str(f.get("severity") or ""),
             "confidence": str(f.get("confidence") or f.get("confidence_label") or ""),
             "evidence_valid": f.get("evidence_valid"),
-            "snippet": str(f.get("snippet") or "")[:120],
+            "snippet": str(f.get("snippet") or "")[:WINDOW_SNIPPET],
         })
 
     matches: list[Match] = []

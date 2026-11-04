@@ -5,6 +5,13 @@ Usage:
     python analysis/validation/triage_report.py <clean_report.json> [--out <dir>]
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_10, WINDOW_15, WINDOW_20, WINDOW_60
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_10, WINDOW_15, WINDOW_20, WINDOW_60
 import argparse, json, os, re, sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -166,8 +173,8 @@ def main(argv=None):
     md.append("## Top 20 Highest-FP-Score Findings\n")
     md.append("| Score | Rule | File | Line | Snippet |")
     md.append("|---|---|---|---|---|")
-    for s in sorted(scored, key=lambda x: -x["fp_score"])[:20]:
-        snip = (s["snippet"] or "")[:60].replace("|", "\\|")
+    for s in sorted(scored, key=lambda x: -x["fp_score"])[:WINDOW_20]:
+        snip = (s["snippet"] or "")[:WINDOW_60].replace("|", "\\|")
         md.append("| %d | %s | %s | %s | %s |" % (
             s["fp_score"], s["rule_id"], s["file"], s["line"], snip))
     md.append("")
@@ -180,7 +187,7 @@ def main(argv=None):
         f["total"] += 1
         if s["category"] == "LIKELY_FP":
             f["fp"] += 1
-    top_files = sorted(by_file.items(), key=lambda x: -x[1]["fp"])[:15]
+    top_files = sorted(by_file.items(), key=lambda x: -x[1]["fp"])[:WINDOW_15]
     for path, v in top_files:
         fp_pct = 100 * v["fp"] / v["total"] if v["total"] else 0
         md.append("| %s | %d | %d | %.0f%% |" % (path, v["total"], v["fp"], fp_pct))
@@ -204,7 +211,7 @@ def main(argv=None):
         print("  %-15s %5d  (%.1f%%)" % (cat, c, 100 * c / len(findings)))
     print()
     print("By rule (top 10):")
-    for rid, v in sorted(by_rule.items(), key=lambda x: -x[1]["total"])[:10]:
+    for rid, v in sorted(by_rule.items(), key=lambda x: -x[1]["total"])[:WINDOW_10]:
         fp_pct = 100 * v["fp"] / v["total"] if v["total"] else 0
         print("  %-40s total=%4d  fp=%4d  (%.0f%%)" % (rid, v["total"], v["fp"], fp_pct))
     print()

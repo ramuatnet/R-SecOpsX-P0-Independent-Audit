@@ -31,6 +31,15 @@ Usage:
     python analysis/validate_prodtest_corpus.py [--only NAME ...] [--skip NAME ...]
 """
 from __future__ import annotations
+try:
+    from analysis.spans import (
+    WINDOW_3, WINDOW_300, WINDOW_400, WINDOW_60, WINDOW_8, WINDOW_M1500)
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import (
+    WINDOW_3, WINDOW_300, WINDOW_400, WINDOW_60, WINDOW_8, WINDOW_M1500)
 
 import argparse
 import json
@@ -155,7 +164,7 @@ def _tally(challenges: list[dict], field: str) -> dict:
 def find_prose_declarations(name: str, project_dir: pathlib.Path) -> list[str]:
     out = []
     for pattern in PROSE_DECLARATION_HINTS.get(name, ["README.md"]):
-        for p in sorted(project_dir.glob(pattern))[:3]:
+        for p in sorted(project_dir.glob(pattern))[:WINDOW_3]:
             try:
                 size = p.stat().st_size
             except OSError:
@@ -182,7 +191,7 @@ def run_scan(name: str, project_dir: pathlib.Path, out_dir: pathlib.Path,
                               text=True, encoding="utf-8", errors="replace",
                               timeout=timeout)
         rc = proc.returncode
-        err_tail = (proc.stderr or "")[-1500:]
+        err_tail = (proc.stderr or "")[WINDOW_M1500:]
     except subprocess.TimeoutExpired:
         rc, err_tail = -1, f"TIMEOUT after {timeout}s"
     except Exception as exc:
@@ -234,7 +243,7 @@ def summarize(report_path: pathlib.Path) -> dict:
         "sast_findings": len(findings),
         "severity": dict(sorted(sev.items())),
         "distinct_rules": len(rules),
-        "top_rules": sorted(rules.items(), key=lambda kv: -kv[1])[:8],
+        "top_rules": sorted(rules.items(), key=lambda kv: -kv[1])[:WINDOW_8],
         "risk_score": meta.get("risk_score"),
         "release_decision": meta.get("canonical_release_decision"),
         "executive_decision": meta.get("canonical_executive_decision"),
@@ -286,7 +295,7 @@ def compare_to_declared(declared: dict, summary: dict) -> dict:
         "detected_and_attributed_to_declared": len(hit),
         "detected_challenge_keys": sorted(hit),
         "declared_not_detected": len(missed),
-        "declared_not_detected_keys": missed[:60],
+        "declared_not_detected_keys": missed[:WINDOW_60],
         "detected_total_findings": summary.get("sast_findings"),
         "scanner_attributed_findings": gt.get("declared_intentional_findings"),
         "undeclared_findings": gt.get("undeclared_findings"),
@@ -366,9 +375,9 @@ def write_reports(results: list[dict]) -> None:
         else:
             lines.append("- no machine-readable declaration found; not scored")
         if r.get("comparison"):
-            lines.append(f"- comparison: {json.dumps(r['comparison'], default=str)[:400]}")
+            lines.append(f"- comparison: {json.dumps(r['comparison'], default=str)[:WINDOW_400]}")
         if r.get("error"):
-            lines.append(f"- error: {r['error'][:300]}")
+            lines.append(f"- error: {r['error'][:WINDOW_300]}")
         lines.append("")
 
     SWEEP_MD.write_text("\n".join(lines), encoding="utf-8")

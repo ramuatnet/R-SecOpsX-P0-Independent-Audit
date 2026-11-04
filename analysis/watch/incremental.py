@@ -32,6 +32,13 @@ No I/O happens at import; ``prime()`` is the only walker and it is
 called explicitly.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200, WINDOW_300, WINDOW_80
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200, WINDOW_300, WINDOW_80
 
 from typing import Any, Callable
 
@@ -136,7 +143,7 @@ class IncrementalScanner:
                     "reason": f"scan_failed_{type(exc).__name__}",
                     "path": fp,
                     "phase": "prime",
-                    "detail": str(exc)[:300],
+                    "detail": str(exc)[:WINDOW_300],
                 })
                 continue
             self._baseline[fp] = {_key(r): r for r in rows or []}
@@ -171,17 +178,17 @@ class IncrementalScanner:
         for ev in events:
             if not isinstance(ev, dict):
                 skips.append({"reason": "event_not_object",
-                              "event": repr(ev)[:200]})
+                              "event": repr(ev)[:WINDOW_200]})
                 continue
             path = ev.get("path")
             if not isinstance(path, str) or not path:
                 skips.append({"reason": "event_missing_path",
-                              "event": repr(ev)[:200]})
+                              "event": repr(ev)[:WINDOW_200]})
                 continue
             kind = ev.get("kind")
             if kind not in EVENT_KINDS:
                 skips.append({"reason": "event_kind_unknown", "path": path,
-                              "kind": repr(kind)[:80]})
+                              "kind": repr(kind)[:WINDOW_80]})
                 continue
             valid[path] = kind  # latest event for this path wins
         rows: "list[dict]" = []
@@ -206,7 +213,7 @@ class IncrementalScanner:
                 skips.append({
                     "reason": f"scan_failed_{type(exc).__name__}",
                     "path": path,
-                    "detail": str(exc)[:300],
+                    "detail": str(exc)[:WINDOW_300],
                 })
                 continue
             stats["scans"] += 1

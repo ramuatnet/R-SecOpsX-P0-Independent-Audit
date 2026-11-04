@@ -35,6 +35,13 @@ corpus package's advisory records from ``data/.vuln_cache.json`` into
 pinned SCA pairs" clause made into a committed, offline-complete store.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_16
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_16
 
 import hashlib
 import json
@@ -109,7 +116,7 @@ def entry_id(source: str, fixture_sha256: str, rule_id: str,
         str(line if line is not None else ""), str(cwe or ""),
         str(cve or ""), str(package or ""), str(version or ""),
     ])
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:WINDOW_16]
 
 
 def lang_of(rel: Path) -> str:

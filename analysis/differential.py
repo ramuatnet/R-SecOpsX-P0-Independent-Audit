@@ -42,6 +42,13 @@ tree -- so the two would never be looking at the same inputs and every
 disagreement would be an artefact of different scopes. One SBOM, fed to both.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M200, WINDOW_M400
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_M200, WINDOW_M400
 
 import json
 import logging
@@ -330,11 +337,11 @@ def _run_grype(sbom_path: Path, extra_args: list[str], timeout: int):
     proc = subprocess.run(cmd, capture_output=True, timeout=timeout)
     stderr = proc.stderr.decode("utf-8", "replace").strip()
     if proc.returncode != 0:
-        return None, "grype exited %d: %s" % (proc.returncode, stderr[-400:])
+        return None, "grype exited %d: %s" % (proc.returncode, stderr[WINDOW_M400:])
     try:
         data = json.loads(proc.stdout.decode("utf-8", "replace"))
     except json.JSONDecodeError as exc:
-        return None, "grype output was not JSON (%s): %s" % (exc, stderr[-200:])
+        return None, "grype output was not JSON (%s): %s" % (exc, stderr[WINDOW_M200:])
     return data.get("matches") or [], None
 
 
@@ -351,7 +358,7 @@ def _run_trivy(sbom_path: Path, extra_args: list[str], timeout: int):
         proc = subprocess.run(cmd, capture_output=True, timeout=timeout)
         if proc.returncode != 0:
             stderr = proc.stderr.decode("utf-8", "replace").strip()
-            return None, "trivy exited %d: %s" % (proc.returncode, stderr[-400:])
+            return None, "trivy exited %d: %s" % (proc.returncode, stderr[WINDOW_M400:])
         if not out_path.exists():
             return None, "trivy produced no output file"
         try:

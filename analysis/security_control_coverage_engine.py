@@ -1,3 +1,10 @@
+try:
+    from analysis.spans import WINDOW_EVIDENCE
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_EVIDENCE
 import logging
 import re
 import time
@@ -220,7 +227,7 @@ def _detect_controls(
             "risk_level": "INFO",
             "coverage_observed": True,
             "confidence": "Medium",
-            "evidence_match": match.group(0)[:160],
+            "evidence_match": match.group(0)[:WINDOW_EVIDENCE],
             "evidence": evidence or {},
             "mapped_frameworks": [framework],
             "recommended_action": "Validate whether this control is consistently enforced across applicable routes, functions, and deployment paths.",

@@ -14,6 +14,13 @@ semantically distinct.
 """
 
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_24
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_24
 
 import hashlib
 import json
@@ -48,7 +55,7 @@ def _edge_fingerprint(parent: str, child: str) -> str:
         "utf-8",
         errors="ignore",
     )
-    return hashlib.sha256(raw).hexdigest()[:24]
+    return hashlib.sha256(raw).hexdigest()[:WINDOW_24]
 
 
 def _package_name_from_path(path: str) -> str:

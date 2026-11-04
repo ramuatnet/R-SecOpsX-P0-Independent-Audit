@@ -19,6 +19,13 @@ injected fetch and rate limiting; unreachable providers classify as
 skips, never as "bucket absent".
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_16384
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_16384
 
 import re
 from typing import Iterable
@@ -108,7 +115,7 @@ def classify_storage_response(provider: str, status: int,
         code = int(status)
     except (TypeError, ValueError):
         return None
-    text = (body or "")[:16384].lower()
+    text = (body or "")[:WINDOW_16384].lower()
 
     def _has(options) -> bool:
         return any(o in text for o in options)

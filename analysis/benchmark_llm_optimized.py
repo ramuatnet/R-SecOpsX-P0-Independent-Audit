@@ -17,10 +17,12 @@ if spec is None or spec.loader is None:
 llm = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(llm)
 
+from scanner.walk import walk
+
 target = Path(r"D:\Data\Code test\juice-shop-20.2.0_node22_win32_x64")
 
 files = []
-for p in target.rglob("*"):
+for p, _s, _m in walk(target, exts=None, ignore=frozenset(), max_bytes=None):
     if not p.is_file():
         continue
     if not llm._should_scan(p):

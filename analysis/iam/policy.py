@@ -21,6 +21,13 @@ pattern-vs-pattern deny cannot be decided cheaply and is DISCLOSED as
 a ``wildcard_deny`` note, never silently applied.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200
 
 import fnmatch
 import json
@@ -379,7 +386,7 @@ def effective_for(model: dict) -> dict:
             try:
                 stmts = parse_policy(doc)
             except (ValueError, RecursionError) as exc:
-                notes.append(f"policy_parse_error:{source}:{exc}"[:200])
+                notes.append(f"policy_parse_error:{source}:{exc}"[:WINDOW_200])
                 continue
             for s in stmts:
                 rec = dict(s, source=source)

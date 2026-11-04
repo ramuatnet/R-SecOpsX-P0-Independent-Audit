@@ -26,6 +26,13 @@ action codes / masks / watch descriptors become annotated skips -- never
 raised, never silently dropped.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_300
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_300
 
 import os
 import queue
@@ -327,7 +334,7 @@ class _ReadDirectoryChangesWatcher:
             except Exception as exc:  # never kill the drain loop
                 self._skips.append({
                     "reason": f"rdcw_parse_{type(exc).__name__}",
-                    "detail": str(exc)[:300]})
+                    "detail": str(exc)[:WINDOW_300]})
                 continue
             events.extend(evs)
             self._skips.extend(skips)
@@ -403,7 +410,7 @@ class _InotifyWatcher:
             except Exception as exc:
                 self._skips.append({
                     "reason": f"inotify_parse_{type(exc).__name__}",
-                    "detail": str(exc)[:300]})
+                    "detail": str(exc)[:WINDOW_300]})
                 continue
             events.extend(evs)
             self._skips.extend(skips)

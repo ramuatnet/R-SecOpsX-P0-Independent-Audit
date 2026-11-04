@@ -34,6 +34,13 @@ EXIT CODES:
     2  could-not-run (missing files, missing key, bad arguments)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_16
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_16
 
 import argparse
 import hashlib
@@ -171,7 +178,7 @@ def sign(statement: dict, key: bytes) -> "dict":
     return {
         "schema": SCHEMA,
         "alg": ALG,
-        "keyId": hashlib.sha256(key).hexdigest()[:16],
+        "keyId": hashlib.sha256(key).hexdigest()[:WINDOW_16],
         "sig": digest.hexdigest(),
     }
 
@@ -183,7 +190,7 @@ def verify(statement: dict, signature: dict, key: bytes) -> "bool":
         return False
     if signature.get("alg") != ALG or signature.get("schema") != SCHEMA:
         return False
-    if signature.get("keyId") != hashlib.sha256(key).hexdigest()[:16]:
+    if signature.get("keyId") != hashlib.sha256(key).hexdigest()[:WINDOW_16]:
         return False
     expected = hmac.new(key, canonical_json(statement),
                         hashlib.sha256).hexdigest()

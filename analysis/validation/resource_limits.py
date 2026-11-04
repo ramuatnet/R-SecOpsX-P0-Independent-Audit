@@ -24,6 +24,13 @@ EXIT CODES:
     reason, malformed --json output)
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_M600
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_M600
 
 import argparse
 import json
@@ -125,7 +132,7 @@ def _run_child(name: str, script: str) -> dict:
     return {"name": name, "rc": proc.returncode,
             "expected": proc.returncode == 2
             and "RESOURCE LIMIT EXCEEDED" in out,
-            "detail": out[-600:].replace("\n", " | "),
+            "detail": out[WINDOW_M600:].replace("\n", " | "),
             "elapsed_s": round(time.time() - started, 2)}
 
 
@@ -143,7 +150,7 @@ def _disabled_control() -> dict:
     return {"name": "disabled_probe", "rc": proc.returncode,
             "expected": proc.returncode == 0 and "CHILD-DONE" in out
             and "RESOURCE LIMIT EXCEEDED" not in out,
-            "detail": out[-600:].replace("\n", " | ")}
+            "detail": out[WINDOW_M600:].replace("\n", " | ")}
 
 
 def _check_probe() -> dict:

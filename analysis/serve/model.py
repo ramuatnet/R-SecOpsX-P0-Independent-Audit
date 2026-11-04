@@ -22,6 +22,13 @@ Caps live here as named constants; tests assert behaviour at the cap,
 never the literal, so raising a bound cannot silently break a gate.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_12
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_12
 
 import hashlib
 import json
@@ -122,7 +129,7 @@ def job_id_for(row, occurrence=None) -> str:
         canon_row["tenant"] = row["tenant"]
     canon = json.dumps(canon_row, sort_keys=True, ensure_ascii=True,
                        separators=(",", ":"))
-    return "job_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+    return "job_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:WINDOW_12]
 
 
 class CronExpr:

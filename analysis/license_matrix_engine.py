@@ -5,6 +5,13 @@ License Matrix Engine.
 Stdlib-only. Converts SBOM package licenses into package -> license -> policy decision rows.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_24
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_24
 
 from typing import Any, Dict, List
 import hashlib
@@ -38,7 +45,7 @@ def _identity(pkg: Dict[str, Any]) -> str:
 
 
 def _fp(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:24]
+    return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:WINDOW_24]
 
 
 def normalize_license(value: Any) -> str:

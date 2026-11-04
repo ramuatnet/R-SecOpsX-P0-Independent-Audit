@@ -1,4 +1,11 @@
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_180
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[1]))
+    from analysis.spans import WINDOW_180
 
 import sys
 import time
@@ -13,6 +20,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from scanner.llm_security import scan_llm_file
 
 from scanner.llm_context_precision import classify_findings
+from scanner.walk import walk
 
 
 TARGET = Path(
@@ -99,7 +107,7 @@ def main() -> None:
     # ------------------------------------------------------------
     # File selection
     # ------------------------------------------------------------
-    for p in TARGET.rglob("*"):
+    for p, _s, _m in walk(TARGET, exts=None, ignore=frozenset(), max_bytes=None):
         if not _should_scan(p):
             continue
 
@@ -220,7 +228,7 @@ def main() -> None:
         )
 
         print(
-            f"     {finding.get('snippet', '')[:180]}"
+            f"     {finding.get('snippet', '')[:WINDOW_180]}"
         )
 
 

@@ -2316,7 +2316,14 @@ _SECRET_ASSIGNMENT_RE = re.compile(
     # "[HIGH-ENTROPY VALUE REDACTED]", "[SECRET MATERIAL REDACTED]" etc., and
     # re-masking those turned "password=[HIGH-ENTROPY VALUE REDACTED]" into the
     # unbalanced "password=[REDACTED SECRET] VALUE REDACTED]".
-    r"(?P<prefix>\b(?:password|passwd|secret|client[-_ ]secret|api[-_ ]?key|access[-_ ]?key|private[-_ ]?key|jwt[-_ ]?secret|token)\b\s*[:=]\s*)(?P<quote>['\"]?)(?!\[[^\[\]]*REDACTED)(?P<value>[^\s,'\";]+)(?P<endquote>['\"]?)",
+    # FND-07: the value first tries a balanced ${...} span (opening and
+    # closing delimiters included, one nesting level of braces) so template
+    # interpolation is redacted THROUGH its closing `}`; the bare-word
+    # fallback keeps the historical class.  `ore` matches a trailing
+    # empty-default operand (` || ''` / ` || ""`) so it can be consumed
+    # with the value -- _mask_assignment deliberately does not re-emit it,
+    # which is what keeps a dangling ` || ''` out of the evidence.
+    r"(?P<prefix>\b(?:password|passwd|secret|client[-_ ]secret|api[-_ ]?key|access[-_ ]?key|private[-_ ]?key|jwt[-_ ]?secret|token)\b\s*[:=]\s*)(?P<quote>['\"]?)(?!\[[^\[\]]*REDACTED)(?P<value>\$\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|[^\s,'\";]+)(?P<endquote>['\"]?)(?P<ore>(?:\s*\|\|\s*(?:''|\"\"))?)",
     re.I,
 )
 
@@ -2502,6 +2509,9 @@ def _redact_secret_text(value: object) -> object:
     def _mask_assignment(match):
         if "[REDACTED PRIVATE KEY]" in str(match.group(0) or ""):
             return match.group(0)
+        # FND-07: emit prefix + quote + marker + endquote only -- the `ore`
+        # group (a trailing ` || ''`) is matched so it is consumed, but it
+        # is never re-emitted next to the marker.
         return f"{match.group('prefix')}{match.group('quote')}[REDACTED SECRET]{match.group('endquote')}"
     text = _SECRET_ASSIGNMENT_RE.sub(_mask_assignment, text)
     return text
@@ -3813,6 +3823,15 @@ def main():
     # repository explicitly supplied by the user. This catches symlink/junction
     # escapes and third-party engine path-walking mistakes before scoring,
     # governance, SBOM correlation, or executive decisions.
+    # FND-01: raw_candidates is EVERY candidate the engines produced --
+    # what survived detection (len(raw)) plus what detection itself
+    # discarded through the ledger (shell-sink taint gate, interprocedural
+    # seeded re-run, ...).  begin_scan() reset the ledger at scan start, so
+    # every entry so far is a detection-phase drop.  The serialization-
+    # boundary attach asserts len(filter_trace) + len(findings) ==
+    # raw_candidates, which can only hold if every later pass also records
+    # its drops -- the kill switch for silent drops (ftasks FND-01).
+    raw_candidates_count = len(raw) + filter_trace.current_ledger().count()
     raw, dropped_benchmark_fixtures = _filter_benchmark_fixtures(
         raw, include_fixtures=args.include_benchmark_fixtures
     )
@@ -4360,7 +4379,7 @@ def main():
     # --------------------------------------------------
     _step("Privacy data exposure")
     if sbom_ingest_doc is not None:
-        # Ingest mode: the privacy engine's _iter_files() YIELDS a lone
+        # Ingest mode: the privacy engine's file enumeration YIELDS a lone
         # file when its suffix is scannable (.json is) -- against an SBOM
         # path that would read the document's own bytes and report PII
         # "indicators" extracted from someone else's component names.
@@ -6138,6 +6157,13 @@ def main():
     # clean_report.json, triage.html, the PDF and the XLSX all read this
     # same dict; a failed consistency check logs ERROR and sets
     # metadata.aggregates_inconsistent instead of aborting the export.
+    # FND-01: attach the drop ledger AFTER every filter pass (the last one
+    # above can still move the population) and BEFORE the aggregate build,
+    # so filter_trace, aggregates and the written findings all describe the
+    # same population.  attach_to_payload raises AssertionError on a
+    # silent-drop breach -- fail loudly rather than ship an unresolvable
+    # report.
+    filter_trace.attach_to_payload(payload, raw_candidates_count)
     from core import report_aggregates as _report_aggregates
     payload["aggregates"] = _report_aggregates.build(payload)
     json_path = output_dir / "clean_report.json"

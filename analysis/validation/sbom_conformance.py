@@ -15,6 +15,13 @@ parse/enrich of the CBOM. External pieces are located via RSX_* env
 vars and report BLOCKED (never silent agreement) when absent.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_2, WINDOW_3, WINDOW_M500, WINDOW_TOP_5
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_2, WINDOW_3, WINDOW_M500, WINDOW_TOP_5
 
 import json
 import logging
@@ -231,7 +238,7 @@ def _attach_official_schema(result: dict, doc: dict, version: str) -> dict:
             return result
         result["schema_%s" % version.replace(".", "_")] = entry
         if not entry["valid"]:
-            result.setdefault("errors", []).extend(errs[:5])
+            result.setdefault("errors", []).extend(errs[:WINDOW_TOP_5])
             result["valid"] = False
     elif "error" in schema:
         result["schema_%s" % version.replace(".", "_")] = {
@@ -373,7 +380,7 @@ def _real_aibom_generator_check(report_dir: Path) -> dict:
     driver = Path(__file__).with_name("aibom_generator_driver.py")
     rc, out, err = _shell([python, str(driver), str(aibom_path)])
     if rc != 0:
-        return {"status": "FAIL", "errors": [(err or out)[-500:]]}
+        return {"status": "FAIL", "errors": [(err or out)[WINDOW_M500:]]}
     try:
         payload = json.loads(out)
     except Exception as e:  # noqa: BLE001
@@ -382,7 +389,7 @@ def _real_aibom_generator_check(report_dir: Path) -> dict:
         return {"status": "FAIL", "errors": [payload["error"]]}
     result: dict = {"status": "PASS" if payload.get("cyclonedx_16_valid") else "FAIL"}
     if payload.get("errors"):
-        result["errors"] = payload["errors"][:5]
+        result["errors"] = payload["errors"][:WINDOW_TOP_5]
     score = payload.get("completeness_score")
     if isinstance(score, dict) and "total_score" in score:
         result["completeness_score"] = score["total_score"]
@@ -405,7 +412,7 @@ def _real_cbomkit_quantum_safe_check(report_dir: Path) -> dict:
         opa, "eval", "-d", rego, "-i", str(cbom_path),
         "--format", "json", "data.policies.quantum_safe.findings"])
     if rc != 0:
-        return {"status": "FAIL", "errors": [err[-500:]]}
+        return {"status": "FAIL", "errors": [err[WINDOW_M500:]]}
     try:
         payload = json.loads(out)
         findings = ((payload.get("result") or [{}])[0]
@@ -442,7 +449,7 @@ def _real_cbomkit_theia_check(report_dir: Path) -> dict:
                         % (image, image))
     src = str(report_dir.resolve())
     if os.name == "nt" and len(src) > 1 and src[1] == ":":
-        src = "/" + src[0].lower() + src[2:].replace("\\", "/")
+        src = "/" + src[0].lower() + src[WINDOW_2:].replace("\\", "/")
     else:
         src = src.replace("\\", "/")
     rc, out, err = _shell([
@@ -451,7 +458,7 @@ def _real_cbomkit_theia_check(report_dir: Path) -> dict:
         timeout=600)
     start = out.find("{")
     if rc != 0 or start < 0:
-        return {"status": "FAIL", "errors": [(err + out)[-500:]]}
+        return {"status": "FAIL", "errors": [(err + out)[WINDOW_M500:]]}
     try:
         doc = json.loads(out[start:])
     except Exception as e:  # noqa: BLE001
@@ -509,7 +516,7 @@ def main(argv: list[str] | None = None) -> int:
             if score is not None:
                 line += "  quality=%.1f" % score
             if errors:
-                line += "  errors=%s" % errors[:3]
+                line += "  errors=%s" % errors[:WINDOW_3]
             print(line)
         if real is not None:
             print("-- real external tools --")

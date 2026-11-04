@@ -24,6 +24,13 @@ result; subject/issuer/SAN/date string extraction degrades to a
 disclosed ``dates_pending_cryptography`` flag -- never a crash.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_200
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_200
 
 import hashlib
 import socket
@@ -130,7 +137,7 @@ def analyze_cert(der: bytes, as_of: datetime | None = None,
 def _verify_error_text(exc: Exception) -> str:
     """Normalize an SSL verification failure to a short, stable string."""
     reason = getattr(exc, "verify_message", None) or str(exc)
-    return f"{type(exc).__name__}: {reason}"[:200]
+    return f"{type(exc).__name__}: {reason}"[:WINDOW_200]
 
 
 ProbeSocket = Callable[[str, int, float, bool], bytes]

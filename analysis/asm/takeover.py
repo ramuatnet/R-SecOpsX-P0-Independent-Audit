@@ -20,6 +20,13 @@ All tables are data, all matching is pure -- the probes that feed them
 run in the collector (network, opt-in, injected).
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_80
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_80
 
 import re
 
@@ -151,7 +158,7 @@ def match_body(body: str | None) -> list[dict]:
         if rx.search(text) and provider not in seen:
             seen.add(provider)
             out.append({"provider": provider, "confidence": conf,
-                        "evidence": rx.pattern[:80]})
+                        "evidence": rx.pattern[:WINDOW_80]})
     return out
 
 

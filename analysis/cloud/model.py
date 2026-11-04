@@ -13,6 +13,13 @@ normalizer did not observe is absent, and checks must treat absence as
 ``insufficient data`` (disclosed skip), never as compliant.
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_32
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_32
 
 import json
 import xml.etree.ElementTree as ET
@@ -110,7 +117,7 @@ def aws_security_groups(pages: list[str]) -> list[dict]:
                     "protocol": _s(_t(perm, "ipProtocol")),
                     "from_port": _t(perm, "fromPort"),
                     "to_port": _t(perm, "toPort"),
-                    "cidrs": [c for c in cidrs if c][:32],
+                    "cidrs": [c for c in cidrs if c][:WINDOW_32],
                 })
             out.append(resource(
                 "aws", "network", "ec2",
@@ -329,8 +336,8 @@ def gcp_firewalls(pages: list[str]) -> list[dict]:
                 _s(item.get("name")), config={
                     "direction": _s(item.get("direction")),
                     "source_ranges": [str(r) for r in
-                                      (item.get("sourceRanges") or [])][:32],
-                    "ports": ports[:32],
+                                      (item.get("sourceRanges") or [])][:WINDOW_32],
+                    "ports": ports[:WINDOW_32],
                 }))
     return out
 

@@ -32,6 +32,13 @@ credentials remain cross-tenant operators.  The CLI doc/schema is
 unchanged (zero-I/O default still emits no tenant key).
 """
 from __future__ import annotations
+try:
+    from analysis.spans import WINDOW_300
+except ImportError:  # FND-03: standalone, repo root not on path
+    import sys as _fnd03_sys
+    from pathlib import Path as _fnd03_path
+    _fnd03_sys.path.insert(0, str(_fnd03_path(__file__).resolve().parents[2]))
+    from analysis.spans import WINDOW_300
 
 import argparse
 import json
@@ -68,7 +75,7 @@ def scan_runner(job: dict) -> dict:
                           timeout=3600)
     if proc.returncode == 0:
         return {"ok": True, "detail": "rc=0"}
-    return {"ok": False, "detail": f"rc={proc.returncode}"[:300]}
+    return {"ok": False, "detail": f"rc={proc.returncode}"[:WINDOW_300]}
 
 
 def _dry_runner(job: dict) -> dict:

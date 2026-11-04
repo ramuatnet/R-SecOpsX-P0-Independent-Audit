@@ -8,17 +8,19 @@
 # Dockerfile.backend, Dockerfile.worker, Dockerfile.server, Dockerfile.safety,
 # Dockerfile.website, Dockerfile.discord-bot, Dockerfile.model-training, ...
 #
-# ``_iter_files`` only accepted the exact names dockerfile / dockerfile.dev /
-# dockerfile.prod / dockerfile.production / dockerfile.test and the
-# ``*.dockerfile`` suffix, so every ``Dockerfile.<role>`` file was never even
-# opened -- a coverage hole, not a rule-precision trade-off. These tests pin
-# the enumeration contract so the naming convention stays covered.
+# The original enumeration helper only accepted the exact names dockerfile /
+# dockerfile.dev / dockerfile.prod / dockerfile.production / dockerfile.test
+# and the ``*.dockerfile`` suffix, so every ``Dockerfile.<role>`` file was
+# never even opened -- a coverage hole, not a rule-precision trade-off.
+# FND-02 inlined the enumeration into ``scan_docker`` (single-file targets
+# yielded unconditionally, directory targets one index query with the
+# ``_docker_candidate`` pred); these tests pin that contract end-to-end so
+# the naming convention stays covered.
 from pathlib import Path
 
 from scanner.iac_docker import (
     DOCKER_SPECIAL_NAMES,
     _is_dockerfile,
-    _iter_files,
     scan_docker,
 )
 
@@ -37,8 +39,11 @@ def _mk(tmp_path: Path, name: str) -> Path:
     return p
 
 
-def test_iter_files_yields_dockerfile_role_variants(tmp_path):
-    for name in (
+def test_scan_docker_enumerates_role_named_variants(tmp_path):
+    """End-to-end enumeration pin: every ``Dockerfile.<role>`` must be
+    opened by ``scan_docker`` and reported (REPO_DOCKERFILE content fires
+    missing-user + missing-healthcheck for each one)."""
+    names = (
         "Dockerfile.backend",
         "Dockerfile.worker",
         "Dockerfile.server",
@@ -47,31 +52,26 @@ def test_iter_files_yields_dockerfile_role_variants(tmp_path):
         "Dockerfile.discord-bot",
         "Dockerfile.model-training",
         "Dockerfile.worker-full",
-    ):
+    )
+    for name in names:
         _mk(tmp_path, name)
 
-    found = sorted(p.name for p in _iter_files(tmp_path))
-    assert found == sorted(
-        [
-            "Dockerfile.backend",
-            "Dockerfile.discord-bot",
-            "Dockerfile.model-training",
-            "Dockerfile.safety",
-            "Dockerfile.server",
-            "Dockerfile.website",
-            "Dockerfile.worker",
-            "Dockerfile.worker-full",
-        ]
-    ), found
+    findings = scan_docker(tmp_path)
+    paths = {f.get("file") for f in findings}
+    expected = {f"docker/{name}" for name in names}
+    assert paths == expected, paths
 
 
-def test_iter_files_still_ignores_unrelated_files(tmp_path):
+def test_scan_docker_ignores_unrelated_files(tmp_path):
+    """Unrelated names are not enumerated. FROM bodies on the decoys: if
+    the enumeration leaked them, the content fallback would report them."""
     _mk(tmp_path, "Dockerfile.backend")
-    (tmp_path / "notes.backend").write_text("not a dockerfile", encoding="utf-8")
-    (tmp_path / "README.md").write_text("# hi", encoding="utf-8")
+    (tmp_path / "notes.backend").write_text("FROM alpine\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("# hi\nFROM alpine\n", encoding="utf-8")
 
-    found = sorted(p.name for p in _iter_files(tmp_path))
-    assert found == ["Dockerfile.backend"], found
+    findings = scan_docker(tmp_path)
+    paths = {f.get("file") for f in findings}
+    assert paths == {"docker/Dockerfile.backend"}, paths
 
 
 def test_special_names_keep_legacy_members():

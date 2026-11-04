@@ -3,3 +3,8 @@
 # on a Windows checkout must never rewrite them, or every fresh clone
 # would go red on line endings alone.
 tests/replay/** text eol=lf
+
+# FND-08: the baseline fixtures are byte-compared against a SHA manifest
+# (tests/test_report_parity.py, report_audit --baseline).  CRLF
+# normalization at add-time would make every fresh clone fail the hash.
+tests/fixtures/baseline/** -text
