@@ -21,6 +21,12 @@ DIRECT_MANIFESTS = {
     "pipfile",
 }
 
+# Every lockfile format the scanner parses authoritatively (see the
+# _LOCKFILE_PARSERS registry in scanner/sbom.py). Names lowercase: the
+# membership check compares against Path(...).name.lower(). Task 2: the
+# retired set carried 7 of these, so cargo/uv/bun/deno/composer/gem/nuget
+# lock rows either lost their membership evidence or, flag-less, fell
+# through the old finalize default into a fabricated Direct.
 LOCKFILES = {
     "package-lock.json",
     "npm-shrinkwrap.json",
@@ -28,7 +34,14 @@ LOCKFILES = {
     "pnpm-lock.yaml",
     "poetry.lock",
     "pipfile.lock",
+    "uv.lock",
+    "bun.lock",
+    "deno.lock",
     "go.sum",
+    "cargo.lock",
+    "composer.lock",
+    "gemfile.lock",
+    "packages.lock.json",
 }
 
 
@@ -42,6 +55,58 @@ def _manifest_name(pkg: dict) -> str:
     return Path(str(manifest)).name.lower()
 
 
+# Placeholder the retired parent-synthesis path used to invent
+# ("Unknown parent dependency"). Kept as a named constant so the evidence
+# gate can REJECT it wherever an older payload or cached report still
+# carries it -- it is evidence of nothing.
+UNKNOWN_PARENT = "Unknown parent dependency"
+
+
+def _path_head_is_package(value: str) -> bool:
+    """True only when a path head names a PACKAGE, not a file or placeholder.
+
+    The retired enrich_package path shape used the manifest FILENAME as the
+    first hop (".../requirements.txt, flask"). A filename is provenance, not
+    a parent package, so it must never satisfy the transitive evidence gate.
+    """
+    head = str(value or "").strip()
+    if not head or head.casefold() == UNKNOWN_PARENT.casefold():
+        return False
+    if Path(head).name.lower() in DIRECT_MANIFESTS | LOCKFILES:
+        return False
+    return True
+
+
+def _has_transitive_evidence(pkg: dict) -> bool:
+    """Evidence a non-direct record may carry for a transitive relationship.
+
+    Vocabulary follows the npm evidence policy (analysis/npm_lock_graph_v2):
+    only authoritative declarations create relationships. A lockfile row
+    vouches for TREE MEMBERSHIP even though it does not name the parent; a
+    named parent / introduced_by / path head is a claim an upstream record
+    actually made. A bare ``direct=False`` flag, an ``is_transitive`` flag
+    or a ``transitive_guess`` are none of these -- they are assertions.
+    """
+    if str(pkg.get("parent") or "").strip():
+        return True
+
+    introduced_by = str(pkg.get("introduced_by") or "").strip()
+    if _path_head_is_package(introduced_by):
+        return True
+
+    path = pkg.get("dependency_path")
+    if (
+        isinstance(path, list)
+        and len(path) >= 2
+        and _path_head_is_package(str(path[0]))
+    ):
+        return True
+
+    # The record itself was parsed out of a lockfile: authoritative
+    # membership in the resolved tree, parent unnamed.
+    return _manifest_name(pkg) in LOCKFILES
+
+
 def infer_dependency_type(pkg: dict) -> str:
     # Explicit dependency metadata always takes precedence
     # over manifest/lockfile inference.
@@ -50,7 +115,14 @@ def infer_dependency_type(pkg: dict) -> str:
         return "Direct"
 
     if pkg.get("direct") is False or pkg.get("is_transitive") is True:
-        return "Transitive"
+        # Task 2 (RC-2): a bare non-direct flag is NOT a verified
+        # parent-child relationship. Transitive now requires evidence --
+        # a named parent, a real path head, or authoritative lockfile
+        # membership. Everything else is honestly Unknown instead of a
+        # guess printed as fact.
+        if _has_transitive_evidence(pkg):
+            return "Transitive"
+        return "Unknown"
 
     manifest_name = _manifest_name(pkg)
 
@@ -67,12 +139,12 @@ def infer_dependency_depth(pkg: dict) -> int:
     if dep_type == "Direct":
         return 1
 
+    # A depth is computed only from a REAL multi-hop path. The retired
+    # "Transitive -> 2" default synthesized a depth for records whose
+    # parent was never observed; an unobserved depth is 0, like Unknown.
     existing_path = pkg.get("dependency_path")
-    if isinstance(existing_path, list) and existing_path:
+    if isinstance(existing_path, list) and len(existing_path) >= 2:
         return len(existing_path)
-
-    if dep_type == "Transitive":
-        return 2
 
     return 0
 
@@ -81,7 +153,7 @@ def infer_dependency_path(pkg: dict) -> list[str]:
     existing_path = pkg.get("dependency_path")
     dep_type = infer_dependency_type(pkg)
 
-    if dep_type != "Direct" and isinstance(existing_path, list) and existing_path:
+    if isinstance(existing_path, list) and existing_path:
         return existing_path
 
     name = str(pkg.get("name") or "unknown-package")
@@ -91,9 +163,14 @@ def infer_dependency_path(pkg: dict) -> list[str]:
     if dep_type == "Direct":
         return [package_node]
 
+    # Task 2 (RC-3): a parent hop is built ONLY from a parent something
+    # actually recorded. A transitive record without that evidence carries
+    # only its own node; the retired [UNKNOWN_PARENT, node] shape invented
+    # a parent nothing observed.
     if dep_type == "Transitive":
-        parent = str(pkg.get("parent") or pkg.get("introduced_by") or "Unknown parent dependency")
-        return [parent, package_node]
+        parent = str(pkg.get("parent") or pkg.get("introduced_by") or "").strip()
+        if parent and _path_head_is_package(parent):
+            return [parent, package_node]
 
     return [package_node]
 
@@ -101,7 +178,11 @@ def infer_dependency_path(pkg: dict) -> list[str]:
 def infer_introduced_by(pkg: dict) -> str:
     existing_path = pkg.get("dependency_path")
 
-    if isinstance(existing_path, list) and len(existing_path) >= 2:
+    if (
+        isinstance(existing_path, list)
+        and len(existing_path) >= 2
+        and _path_head_is_package(str(existing_path[0]))
+    ):
         return str(existing_path[0])
 
     dep_type = infer_dependency_type(pkg)
@@ -110,9 +191,12 @@ def infer_introduced_by(pkg: dict) -> str:
         return str(pkg.get("manifest_file") or pkg.get("source_manifest") or "Direct manifest")
 
     if dep_type == "Transitive":
-        return str(pkg.get("parent") or pkg.get("introduced_by") or "Unknown parent dependency")
+        # Task 2 (RC-3): the parent is returned only when something
+        # actually recorded it. An unnamed parent yields "" so renderers
+        # dash the cell out rather than print an invented one.
+        return str(pkg.get("parent") or pkg.get("introduced_by") or "").strip()
 
-    return "Unknown"
+    return ""
 
 
 

@@ -8,6 +8,10 @@ from pathlib import Path
 from urllib.parse import quote
 
 from scanner.vulnerability_intel import extract_cvss_metadata, preferred_cvss_score
+# Task 2 (summary alignment): both summaries read the ONE classification
+# rule; dependency_intelligence imports nothing from this package, so the
+# import stays acyclic.
+from scanner.dependency_intelligence import infer_dependency_type
 
 
 LICENSE_RISK = {
@@ -538,17 +542,15 @@ def fixed_versions(pkg: dict) -> str:
 
 
 def dependency_path(pkg: dict) -> list[str]:
-    if pkg.get("dependency_path"):
-        return pkg["dependency_path"]
-
-    if pkg.get("direct") is True:
-        return [pkg.get("manifest_file", "manifest"), pkg.get("name", "package")]
-
-    return [
-        pkg.get("manifest_file", "manifest"),
-        "transitive",
-        pkg.get("name", "package"),
-    ]
+    # Task 2 (RC-3 family): this layer does not fabricate path hops. The
+    # retired shape [manifest_file, "transitive", name] manufactured a
+    # parent hop out of a filename and the literal word "transitive" --
+    # exactly the placeholder evidence the classification evidence gate
+    # must not trust. A path is passed through only if the record already
+    # carries one; scanner.dependency_intelligence owns the canonical
+    # self/parent shape and may add a parent hop only from real evidence.
+    existing = pkg.get("dependency_path")
+    return list(existing) if isinstance(existing, list) else []
 
 
 def enrich_package(pkg: dict) -> dict:
@@ -666,8 +668,17 @@ def license_risk_count(packages: list[dict]) -> int:
 
 def build_package_summary(packages: list[dict]) -> dict:
     total = len(packages)
-    direct = sum(1 for p in packages if p.get("is_direct"))
-    transitive = total - direct
+    # Task 2 (summary alignment): count by the shared evidence-gated
+    # classification. ``is_direct`` + (total - direct) counted every
+    # Unknown and flag-less record as transitive and disagreed with
+    # dependency_summary computed over the same payload;
+    # infer_dependency_type is the one classification rule both read.
+    direct = sum(
+        1 for p in packages if infer_dependency_type(p) == "Direct"
+    )
+    transitive = sum(
+        1 for p in packages if infer_dependency_type(p) == "Transitive"
+    )
 
     vulnerable_pkg_keys = set()
 

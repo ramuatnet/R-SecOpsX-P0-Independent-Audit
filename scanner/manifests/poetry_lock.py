@@ -21,7 +21,16 @@ except ImportError:
 
 
 def parse_poetry_lock(filepath: str) -> list[dict]:
-    """Parse poetry.lock and extract pinned package versions."""
+    """Parse poetry.lock and extract pinned package versions.
+
+    poetry.lock is the RESOLVED TREE, not the direct list: every ``[[package]]``
+    entry is a pinned member, most of them transitively installed. Stamping
+    ``direct = not dev`` fabricated a Direct classification for the whole
+    non-dev tree (Task 2 RC-5). Lockfile rows stamp ``direct=False``; the
+    manifest cross-fill in generate_sbom restores ``direct=True`` for the
+    packages pyproject.toml (incl. [tool.poetry.dependencies]) actually
+    declares.
+    """
     pkgs = []
     path = Path(filepath)
 
@@ -38,7 +47,8 @@ def parse_poetry_lock(filepath: str) -> list[dict]:
                     "version": version,
                     "ecosystem": "PyPI",
                     "license": "unknown",
-                    "direct": not pkg.get("category", "") == "dev",
+                    # RC-5: tree member, not a declared direct (see docstring).
+                    "direct": False,
                     "manifest_file": filepath,
                     "manifest_line": 1,
                 })
@@ -62,7 +72,8 @@ def parse_poetry_lock(filepath: str) -> list[dict]:
                         "version": current_version,
                         "ecosystem": "PyPI",
                         "license": "unknown",
-                        "direct": not current_dev,
+                        # RC-5: tree member, not a declared direct.
+                        "direct": False,
                         "manifest_file": filepath,
                         "manifest_line": 1,
                     })
@@ -82,7 +93,8 @@ def parse_poetry_lock(filepath: str) -> list[dict]:
                 "version": current_version,
                 "ecosystem": "PyPI",
                 "license": "unknown",
-                "direct": not current_dev,
+                # RC-5: tree member, not a declared direct.
+                "direct": False,
                 "manifest_file": filepath,
                 "manifest_line": 1,
             })
@@ -107,7 +119,9 @@ def parse_pipfile_lock(filepath: str) -> list[dict]:
                     "version": version,
                     "ecosystem": "PyPI",
                     "license": "unknown",
-                    "direct": section == "default",
+                    # Same RC-5 family as poetry.lock: the "default" section
+                    # is the resolved tree, not the direct list.
+                    "direct": False,
                     "manifest_file": filepath,
                     "manifest_line": 1,
                 })

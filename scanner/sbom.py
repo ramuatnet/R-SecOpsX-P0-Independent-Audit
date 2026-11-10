@@ -25,6 +25,9 @@ from core.value_state import (
     resolve,
 )
 from scanner.purl import purl as build_purl
+# Task 2 (RC-2): one classification rule. finalize stamps and the enrich
+# layer must not be able to disagree about the same record.
+from scanner.dependency_intelligence import infer_dependency_type
 from scanner.vulnerability_overrides import VULNERABILITY_OVERRIDES
 from scanner.vulnerability_intel import (
     ADVISORY_SERVICE_STATUS,
@@ -1542,9 +1545,12 @@ def _stamp_report_fields(pkg: dict) -> None:
     if not pkg.get("component") and pkg.get("name"):
         pkg["component"] = pkg["name"]
     if not pkg.get("dependency_type"):
-        pkg["dependency_type"] = (
-            "Direct" if pkg.get("direct", True) else "Transitive"
-        )
+        # Task 2 (RC-2): the inline default used to classify every
+        # flag-less record Direct (``direct`` defaulted True) and every
+        # bare direct=False Transitive -- claims with no evidence. The
+        # evidence gate in scanner.dependency_intelligence is the single
+        # source of truth for both the finalize stamp and the enrich layer.
+        pkg["dependency_type"] = infer_dependency_type(pkg)
     if not pkg.get("purl"):
         built = build_purl(pkg.get("name"), pkg.get("version"),
                            pkg.get("ecosystem"))
