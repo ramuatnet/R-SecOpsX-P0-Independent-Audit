@@ -14,8 +14,9 @@ This file pins the replacement contract:
     dependency_type, purl, cvss_version on offline-table scores,
     reachability_source, and the version reason ladder (express carries
     MANIFEST_RANGE end to end, no cell reads a bare placeholder);
-  * ``_add_transitive`` fabrications (T-3.3): ``transitive_guess`` +
-    ``dependency_type`` so a guessed component admits the guess;
+  * ``_collect_transitive_candidates`` fabrications (T-3.3 + Task 3
+    quarantine): ``transitive_guess`` + provenance so a guessed component
+    admits the guess -- outside the canonical SBOM;
   * on the count_parity fixture, neither renderer's SBOM surfaces ever
     print a bare ``unknown``/``Unknown``/``Review`` cell (Gate 3 Accept).
 
@@ -40,7 +41,7 @@ from reporting import excel_report, pdf_report  # noqa: E402
 from scanner import vulnerability_intel  # noqa: E402
 from scanner.purl import purl  # noqa: E402
 from scanner.sbom import (  # noqa: E402
-    _add_transitive,
+    _collect_transitive_candidates,
     finalize_sbom_packages,
     generate_sbom,
 )
@@ -216,19 +217,26 @@ def test_finalize_stamps_the_report_fields(_dark_external_advisory):
 
 
 def test_add_transitive_marks_fabrications():
-    """T-3.3: a component invented from the 4-entry table admits it."""
+    """T-3.3 + Task 3 quarantine: a component invented from the 4-entry
+    table admits it -- and never joins the canonical SBOM. It is collected
+    separately, with provenance, as a heuristic candidate."""
     base = [{"name": "flask", "version": "1.0.2", "ecosystem": "PyPI",
              "license": "MIT", "direct": True,
              "manifest_file": "requirements.txt", "manifest_line": 1}]
-    out = _add_transitive(base)
-    fabricated = [p for p in out if p["name"] in {
+    canonical, candidates = _collect_transitive_candidates(base)
+    fabricated = [p for p in candidates if p["name"] in {
         "jinja2", "werkzeug", "itsdangerous", "click", "blinker"}]
-    assert fabricated, "TRANSITIVE_DEPS[flask] must inject components"
+    assert fabricated, "TRANSITIVE_DEPS[flask] must yield candidates"
     for p in fabricated:
         assert p["transitive_guess"] is True
-        assert p["dependency_type"] == "Transitive"
+        assert p["heuristic_source"] == "TRANSITIVE_DEPS_TABLE"
+        assert p["heuristic_parent"] == "flask"
         assert p["direct"] is False
         assert p["version"] == "unknown"
+        # A guess is not a classification (Task 2 gate vocabulary).
+        assert "dependency_type" not in p
+    # The canonical list is untouched: no guessed component joins it.
+    assert [p["name"] for p in canonical] == ["flask"]
     # The manifest entry itself is not re-marked
     assert "transitive_guess" not in base[0]
     assert base[0].get("dependency_type") is None

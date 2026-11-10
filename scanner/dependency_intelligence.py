@@ -87,6 +87,11 @@ def _has_transitive_evidence(pkg: dict) -> bool:
     actually made. A bare ``direct=False`` flag, an ``is_transitive`` flag
     or a ``transitive_guess`` are none of these -- they are assertions.
     """
+    # Stamped ONLY by join_verified_edges() from VERIFIED lockfile edges --
+    # evidence by construction (Task 3 verified-edge integration).
+    if pkg.get("verified_transitive") is True:
+        return True
+
     if str(pkg.get("parent") or "").strip():
         return True
 
@@ -246,6 +251,179 @@ def enrich_dependency(pkg: dict) -> dict:
 
 def enrich_dependency_intelligence(sbom: list[dict]) -> list[dict]:
     return [enrich_dependency(pkg) for pkg in sbom]
+
+
+# ---------------------------------------------------------------------------
+# Task 3: verified-edge integration
+# ---------------------------------------------------------------------------
+
+#: relationship_source stamp carried by records a verified edge explained.
+VERIFIED_EDGE_RELATIONSHIP = "VERIFIED_NPM_LOCKFILE_EDGE"
+
+_EDGE_PREFIX = "pkg:npm/"
+
+
+def _parse_edge_node(node_id) -> tuple[str, str]:
+    """``pkg:npm/<name>[@<version>]`` -> ``(name, version)``.
+
+    Compares COMPONENTS, not raw purl strings: scanner.purl percent-encodes
+    npm scopes (``pkg:npm/%40babel/core@7.0.0``) while the graph engine
+    emits them raw (``pkg:npm/@babel/core@7.0.0``). Returns ("", "") for
+    anything that is not an npm purl node. ``__root__`` is the synthetic
+    root, never a package.
+    """
+    text = str(node_id or "").strip()
+    if not text.startswith(_EDGE_PREFIX):
+        return "", ""
+    rest = text[len(_EDGE_PREFIX):]
+    if rest == "__root__":
+        return "__root__", ""
+    name, sep, version = rest.rpartition("@")
+    if not sep:
+        return rest, ""
+    return name, version
+
+
+def _is_npm_ecosystem(value) -> bool:
+    # npm-normalized aliases (mirrors normalize_ecosystem's npm mapping;
+    # inlined here to keep this module import-light).
+    return str(value or "").strip().casefold() in {
+        "npm", "node", "javascript", "js",
+    }
+
+
+def join_verified_edges(sbom: list[dict], edges) -> dict:
+    """Populate parent/introduced_by/dependency_path from VERIFIED edges only.
+
+    Identity matching is purl-equivalent: ecosystem (npm-normalized) +
+    package name (case-insensitive) + exact version. A record qualifies
+    only with a resolved version -- a manifest range cannot be matched to
+    a versioned lockfile node without guessing, so it is skipped and
+    counted.
+
+    Population rules (nothing is ever guessed):
+      * exactly one distinct non-root parent -> parent, introduced_by and
+        dependency_path are stamped, plus edge provenance
+        (fingerprint + source lockfile);
+      * several distinct parents -> the transitive relationship is
+        verified but single-parent attribution would be a guess:
+        ``verified_transitive`` only, with ``parent_resolution`` and
+        ``verified_parents`` disclosing the ambiguity;
+      * root-declared only -> ``verified_root_declared`` disclosure, no
+        parent fields (the synthetic root is not a package);
+      * direct records keep their manifest introduction -- a package
+        parent edge does not overwrite it.
+
+    Returns ``{"sbom": <the same records, mutated in place>, "summary":
+    <join tallies + disclosure>}``.
+    """
+    summary = {
+        "engine": "VERIFIED_EDGE_JOIN_V1",
+        "evidence_policy": "VERIFIED_NPM_LOCKFILE_EDGES_ONLY",
+        "identity": "PURL_EQUIVALENT_ECOSYSTEM_NAME_VERSION",
+        "edges_seen": 0,
+        "matched": 0,
+        "parented": 0,
+        "ambiguous_parents": 0,
+        "root_declared_only": 0,
+        "unmatched": 0,
+        "skipped_non_npm": 0,
+        "skipped_incomplete_identity": 0,
+        "disclosure": (
+            "parent/introduced_by/dependency_path are populated only from "
+            "VERIFIED package-lock edges (npm engine). Records the npm "
+            "engine does not cover, or whose identity is incomplete (no "
+            "resolved version), keep their prior classification and are "
+            "counted in the skipped/unmatched tallies. Nothing is guessed."
+        ),
+    }
+
+    index: dict[tuple[str, str], list[dict]] = {}
+    for edge in edges or []:
+        if not isinstance(edge, dict):
+            continue
+        if str(edge.get("confidence") or "").strip().upper() != "VERIFIED":
+            continue
+        child_name, child_version = _parse_edge_node(edge.get("child"))
+        parent_name, parent_version = _parse_edge_node(edge.get("parent"))
+        if (not child_name or not child_version
+                or not parent_name):
+            # Versionless or malformed node ids: identity too weak to join.
+            summary["skipped_incomplete_identity"] += 1
+            continue
+        summary["edges_seen"] += 1
+        index.setdefault((child_name.casefold(), child_version), []).append({
+            "parent_name": parent_name,
+            "parent_version": parent_version,
+            "is_root": parent_name == "__root__",
+            "fingerprint": str(edge.get("fingerprint") or ""),
+            "source": str(edge.get("source") or ""),
+        })
+
+    for pkg in sbom or []:
+        if not isinstance(pkg, dict):
+            continue
+        if not _is_npm_ecosystem(pkg.get("ecosystem")):
+            summary["skipped_non_npm"] += 1
+            continue
+        name = str(pkg.get("name") or "").strip()
+        version = str(pkg.get("version") or "").strip()
+        if not name or not version or version.casefold() == "unknown":
+            summary["skipped_incomplete_identity"] += 1
+            continue
+        hits = index.get((name.casefold(), version))
+        if not hits:
+            summary["unmatched"] += 1
+            continue
+        summary["matched"] += 1
+
+        # Direct records keep their manifest as the introduction point; a
+        # package-parent edge would not change what introduced them.
+        if pkg.get("direct") is True or pkg.get("is_direct") is True:
+            if all(h["is_root"] for h in hits):
+                pkg["verified_root_declared"] = True
+                summary["root_declared_only"] += 1
+            continue
+
+        parent_names = sorted({
+            h["parent_name"] for h in hits if not h["is_root"]
+        })
+        if not parent_names:
+            # Only the root declares it: disclosure, no parent fields
+            # (the synthetic root is not a package), classification
+            # unchanged -- direct flags govern it.
+            pkg["verified_root_declared"] = True
+            summary["root_declared_only"] += 1
+            continue
+
+        # The transitive relationship is VERIFIED from here on.
+        pkg["verified_transitive"] = True
+        pkg["relationship_source"] = VERIFIED_EDGE_RELATIONSHIP
+
+        if len(parent_names) == 1:
+            parent_name = parent_names[0]
+            parent_versions = sorted({
+                h["parent_version"] for h in hits
+                if h["parent_name"] == parent_name and h["parent_version"]
+            })
+            parent = (f"{parent_name}@{parent_versions[0]}"
+                      if parent_versions else parent_name)
+            pkg["parent"] = parent
+            pkg["introduced_by"] = parent
+            pkg["dependency_path"] = [parent, f"{name}@{version}"]
+            first = next(
+                h for h in hits if h["parent_name"] == parent_name)
+            pkg["parent_edge_fingerprint"] = first["fingerprint"]
+            pkg["parent_edge_source"] = first["source"]
+            summary["parented"] += 1
+        else:
+            # Several distinct verified parents: verified transitive, but
+            # picking ONE parent would be manufacturing. Disclose.
+            pkg["parent_resolution"] = "ambiguous_multiple_parents"
+            pkg["verified_parents"] = parent_names
+            summary["ambiguous_parents"] += 1
+
+    return {"sbom": sbom, "summary": summary}
 
 
 def dependency_summary(sbom: list[dict]) -> dict:

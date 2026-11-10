@@ -1161,28 +1161,65 @@ def _parse_pom_xml(filepath: str) -> list[dict]:
 # Enrichment
 # ---------------------------------------------------------------------------
 
-def _add_transitive(packages: list[dict]) -> list[dict]:
+def _collect_transitive_candidates(packages: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Task 3 quarantine: collect (do NOT inject) TRANSITIVE_DEPS guesses.
+
+    The retired `_add_transitive` appended knowledge-base rows straight
+    into the canonical SBOM, inflating component counts, dependency
+    summaries and reachability with components nothing observed. Now the
+    canonical list is returned untouched; the guesses travel separately
+    as heuristic candidates carrying full provenance (source table,
+    parent, reason) and no classification claim -- a guess is not a
+    ``dependency_type``.
+    """
     existing = {p["name"].lower() for p in packages}
-    extra = []
-    for pkg in list(packages):
+    candidates: list[dict] = []
+    for pkg in packages:
         for trans in TRANSITIVE_DEPS.get(pkg["name"].lower(), []):
-            if trans not in existing:
-                extra.append({
-                    "name": trans,
-                    "version": "unknown",
-                    "ecosystem": pkg.get("ecosystem", "unknown"),
-                    "license": "unknown",
-                    "direct": False,
-                    # taskf T-3.3: this component was fabricated from the
-                    # 4-entry table, not read from a manifest -- say so
-                    # where the renderers and the version ladder look.
-                    "transitive_guess": True,
-                    "dependency_type": "Transitive",
-                    "manifest_file": pkg.get("manifest_file"),
-                    "manifest_line": pkg.get("manifest_line"),
-                })
-                existing.add(trans)
-    return packages + extra
+            if trans in existing:
+                continue
+            candidates.append({
+                "name": trans,
+                "version": "unknown",
+                "ecosystem": pkg.get("ecosystem", "unknown"),
+                "license": "unknown",
+                "direct": False,
+                # taskf T-3.3: this component was fabricated from the
+                # 4-entry table, not read from a manifest -- say so.
+                "transitive_guess": True,
+                "manifest_file": pkg.get("manifest_file"),
+                "manifest_line": pkg.get("manifest_line"),
+                # Task 3: provenance for the quarantined candidate.
+                "heuristic_source": "TRANSITIVE_DEPS_TABLE",
+                "heuristic_parent": pkg.get("name"),
+                "heuristic_reason": (
+                    f"knowledge-base guess: {pkg.get('name')} commonly "
+                    f"requires '{trans}'; not read from any manifest or "
+                    "lockfile"
+                ),
+            })
+            existing.add(trans)
+    return packages, candidates
+
+
+HEURISTIC_CANDIDATE_DISCLOSURE = (
+    "Heuristic dependency candidates guessed from the built-in "
+    "TRANSITIVE_DEPS knowledge table. They are NOT read from any manifest "
+    "or lockfile, carry no resolved version, and are excluded from the "
+    "canonical SBOM, component counts, dependency summaries, vulnerability "
+    "counts and reachability metrics. A candidate is a hint to inspect the "
+    "project, never evidence that the package is installed."
+)
+
+
+def heuristic_candidate_section(candidates: list[dict] | None) -> dict:
+    """The disclosed payload section for quarantined candidates."""
+    return {
+        "disclosure": HEURISTIC_CANDIDATE_DISCLOSURE,
+        "source_engine": "TRANSITIVE_DEPS_TABLE_V1",
+        "count": len(candidates or []),
+        "candidates": list(candidates or []),
+    }
 
 
 def _normalise(name: str) -> str:
@@ -1348,11 +1385,16 @@ def apply_vulnerability_overrides(packages: list[dict]) -> list[dict]:
 # Public interface
 # ---------------------------------------------------------------------------
 
-def generate_sbom(target_path: str) -> list[dict]:
+def generate_sbom(target_path: str,
+                  heuristic_candidates: list[dict] | None = None) -> list[dict]:
     """
     Locate all dependency manifests under target_path and return enriched SBOM.
     Scans: requirements*.txt, package.json, pom.xml
     ENH #4: output sorted direct-first, then transitive, each group alphabetical.
+
+    Task 3: TRANSITIVE_DEPS guesses are quarantined out of the canonical
+    SBOM. Pass a list as ``heuristic_candidates`` to collect them (main.py
+    discloses them as payload["heuristic_dependency_candidates"]).
     """
     target   = Path(target_path)
     packages: list[dict] = []
@@ -1450,7 +1492,8 @@ def generate_sbom(target_path: str) -> list[dict]:
         if not p.get("direct") and key in declared_direct:
             p["direct"] = True
 
-    return finalize_sbom_packages(unique)
+    return finalize_sbom_packages(unique,
+                                  heuristic_candidates=heuristic_candidates)
 
 
 #: Specifier prefixes that mark a version request as a local/VCS
@@ -1573,23 +1616,35 @@ def _stamp_report_fields(pkg: dict) -> None:
 
 
 def finalize_sbom_packages(packages: list[dict],
-                           add_transitive: bool = True) -> list[dict]:
+                           add_transitive: bool = True,
+                           heuristic_candidates: list[dict] | None = None) -> list[dict]:
     """Shared post-inventory enrichment tail.
 
-    Runs the transitive expansion (opt-out), the offline CVE table, external
-    advisory enrichment (fail-open with disclosure), vulnerability
-    overrides, best-effort CPE stamping, the offline licence catalogue, and
-    the direct-first sort.
+    Runs the transitive-candidate collection (opt-out), the offline CVE
+    table, external advisory enrichment (fail-open with disclosure),
+    vulnerability overrides, best-effort CPE stamping, the offline licence
+    catalogue, and the direct-first sort.
+
+    TRANSITIVE_DEPS guesses are QUARANTINED (Task 3): they never join the
+    canonical SBOM. When ``heuristic_candidates`` is a list, the guesses
+    are appended there for the caller to disclose separately (main.py
+    attaches them as payload["heuristic_dependency_candidates"]); the
+    canonical inventory, its counts and every downstream metric see only
+    manifest/lockfile-evidenced components.
 
     generate_sbom() calls this with add_transitive=True. The ``--sbom``
     ingest path (scanner/sbom_reader.py) calls it with
     add_transitive=False: an ingested SBOM is authoritative for WHICH
-    components exist, and _add_transitive would inject knowledge-base
-    guesses stamped version "unknown" into someone else's inventory.
-    Enrichment of the declared members is identical either way, so the two
-    paths stay behaviour-identical for everything after membership.
+    components exist. Enrichment of the declared members is identical
+    either way, so the two paths stay behaviour-identical for everything
+    after membership.
     """
-    working = _add_transitive(packages) if add_transitive else packages
+    if add_transitive:
+        working, guessed = _collect_transitive_candidates(packages)
+        if heuristic_candidates is not None:
+            heuristic_candidates.extend(guessed)
+    else:
+        working = packages
     enriched = enrich_with_cve(working)
 
     # Advisory enrichment is an EXTERNAL dependency. It fails open: an outage,

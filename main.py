@@ -63,7 +63,7 @@ from scanner.iac_docker import scan_docker
 from scanner.iac_compose import scan_compose
 from scanner.compliance_mapper import enrich_compliance, compliance_summary, compliance_summary_detail
 from scanner.package_intelligence import enrich_report_payload, license_risk_count
-from scanner.dependency_intelligence import enrich_dependency_intelligence, dependency_summary
+from scanner.dependency_intelligence import enrich_dependency_intelligence, dependency_summary, join_verified_edges
 from scanner.change_intelligence import enrich_report_payload_with_change_intelligence
 from scanner.changed_line_security import enrich_changed_line_findings
 from scanner.change_impact import enrich_change_impact
@@ -3488,9 +3488,14 @@ def main():
         _step("Generating SBOM & dependency analysis")
         from scanner.sbom import generate_sbom
 
-        sbom = generate_sbom(target)
+        # Task 3: TRANSITIVE_DEPS guesses are QUARANTINED -- they never
+        # join the canonical SBOM. They are collected here and disclosed
+        # as payload["heuristic_dependency_candidates"] below.
+        heuristic_candidates: list[dict] = []
+        sbom = generate_sbom(target, heuristic_candidates=heuristic_candidates)
     else:
         sbom = sbom_ingest_doc["components"]
+        heuristic_candidates = []
 
     # Advisory-lookup disclosure. The SCA numbers below are only meaningful if the
     # external CVE lookup actually happened: an unreachable OSV yields the same
@@ -3889,10 +3894,42 @@ def main():
     # which is the difference between a clean bill of health and a gap in the scan.
     payload["sbom_advisory_status"] = advisory_status
 
+    # Task 3: disclosed heuristic candidates -- quarantined OUT of the
+    # canonical SBOM (see generate_sbom), so they inflate no component
+    # count, dependency summary, vulnerability count or reachability
+    # metric. This section is the only place they appear. Imported here
+    # (not in the scan branch) so ingest mode discloses an empty section.
+    from scanner.sbom import heuristic_candidate_section
+    payload["heuristic_dependency_candidates"] = heuristic_candidate_section(
+        heuristic_candidates)
+    if heuristic_candidates:
+        _safe_print(
+            "       => Heuristic candidates quarantined (disclosed, not "
+            f"in SBOM): {len(heuristic_candidates)}"
+        )
+
     # Dependency Graph V2 is a top-level payload artifact.
     # It is intentionally kept outside payload["sbom"] so existing
     # SCA/package processing remains unchanged.
     payload["dependency_graph"] = dependency_graph
+
+    # Task 3 (verified-edge integration): parent/introduced_by/
+    # dependency_path are populated ONLY from VERIFIED lockfile edges,
+    # matched on purl-equivalent identity (ecosystem/name/version).
+    # Ambiguous or incomplete matches are disclosed, never guessed.
+    _edge_join = join_verified_edges(
+        payload.get("sbom") or [],
+        (payload.get("dependency_graph") or {}).get("edges") or [],
+    )
+    payload["sbom"] = _edge_join["sbom"]
+    payload["verified_edge_join"] = _edge_join["summary"]
+    _safe_print(
+        "       => Verified edge join: "
+        f"{_edge_join['summary']['parented']} parented, "
+        f"{_edge_join['summary']['ambiguous_parents']} ambiguous, "
+        f"{_edge_join['summary']['unmatched']} unmatched, "
+        f"{_edge_join['summary']['skipped_non_npm']} non-npm"
+    )
 
     _normalize_finding_paths(payload, target)
     payload = normalize_payload(payload)
