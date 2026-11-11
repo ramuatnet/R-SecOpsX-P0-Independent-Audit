@@ -302,13 +302,16 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
     counted.
 
     Population rules (nothing is ever guessed):
-      * exactly one distinct non-root parent -> parent, introduced_by and
-        dependency_path are stamped, plus edge provenance
-        (fingerprint + source lockfile);
-      * several distinct parents -> the transitive relationship is
-        verified but single-parent attribution would be a guess:
-        ``verified_transitive`` only, with ``parent_resolution`` and
-        ``verified_parents`` disclosing the ambiguity;
+      * exactly one distinct non-root parent at ONE version -> parent,
+        introduced_by and dependency_path are stamped, plus edge
+        provenance (fingerprint + source lockfile) that belongs to that
+        exact instance;
+      * one parent name at SEVERAL verified versions ->
+        ``parent_resolution: "ambiguous_multiple_versions"`` with every
+        verified instance and its fingerprint retained; no definitive
+        parent path is minted (F-1);
+      * several distinct parents -> ``ambiguous_multiple_parents`` with
+        the same per-instance fingerprint pairs;
       * root-declared only -> ``verified_root_declared`` disclosure, no
         parent fields (the synthetic root is not a package);
       * direct records keep their manifest introduction -- a package
@@ -325,6 +328,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
         "matched": 0,
         "parented": 0,
         "ambiguous_parents": 0,
+        "ambiguous_parent_versions": 0,
         "root_declared_only": 0,
         "unmatched": 0,
         "skipped_non_npm": 0,
@@ -400,25 +404,56 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
         pkg["verified_transitive"] = True
         pkg["relationship_source"] = VERIFIED_EDGE_RELATIONSHIP
 
+        # F-1/F-2: every verified parent instance carries its OWN
+        # fingerprint and source; nothing is selected independently of
+        # the instance it belongs to. Sorted for canonical order, so
+        # input edge ordering can never change provenance.
+        instances = sorted({
+            (h["parent_name"], h["parent_version"],
+             h["fingerprint"], h["source"])
+            for h in hits if not h["is_root"]
+        })
+        pkg["verified_parent_instances"] = [
+            {
+                "parent": f"{n}@{v}" if v else n,
+                "fingerprint": fp,
+                "source": src,
+            }
+            for (n, v, fp, src) in instances
+        ]
+
         if len(parent_names) == 1:
             parent_name = parent_names[0]
-            parent_versions = sorted({
-                h["parent_version"] for h in hits
-                if h["parent_name"] == parent_name and h["parent_version"]
+            versions = sorted({
+                v for (n, v, _, _) in instances
+                if n == parent_name and v
             })
-            parent = (f"{parent_name}@{parent_versions[0]}"
-                      if parent_versions else parent_name)
-            pkg["parent"] = parent
-            pkg["introduced_by"] = parent
-            pkg["dependency_path"] = [parent, f"{name}@{version}"]
-            first = next(
-                h for h in hits if h["parent_name"] == parent_name)
-            pkg["parent_edge_fingerprint"] = first["fingerprint"]
-            pkg["parent_edge_source"] = first["source"]
-            summary["parented"] += 1
+            if len(versions) > 1:
+                # F-1: the same parent name exists at several verified
+                # versions and those instances point at this child.
+                # Picking one version arbitrarily would manufacture a
+                # definite introduction path from ambiguous evidence.
+                pkg["parent_resolution"] = "ambiguous_multiple_versions"
+                pkg["verified_parents"] = [parent_name]
+                summary["ambiguous_parent_versions"] += 1
+            else:
+                v = versions[0] if versions else ""
+                chosen = next(
+                    i for i in pkg["verified_parent_instances"]
+                    if i["parent"] == (f"{parent_name}@{v}" if v
+                                       else parent_name))
+                parent = chosen["parent"]
+                pkg["parent"] = parent
+                pkg["introduced_by"] = parent
+                pkg["dependency_path"] = [parent, f"{name}@{version}"]
+                # F-2: the fingerprint IS the stamped instance's edge.
+                pkg["parent_edge_fingerprint"] = chosen["fingerprint"]
+                pkg["parent_edge_source"] = chosen["source"]
+                summary["parented"] += 1
         else:
             # Several distinct verified parents: verified transitive, but
-            # picking ONE parent would be manufacturing. Disclose.
+            # picking ONE parent would be manufacturing. Disclose; the
+            # per-instance fingerprint pairs travel with the disclosure.
             pkg["parent_resolution"] = "ambiguous_multiple_parents"
             pkg["verified_parents"] = parent_names
             summary["ambiguous_parents"] += 1

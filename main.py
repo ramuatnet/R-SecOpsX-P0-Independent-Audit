@@ -3927,6 +3927,8 @@ def main():
         "       => Verified edge join: "
         f"{_edge_join['summary']['parented']} parented, "
         f"{_edge_join['summary']['ambiguous_parents']} ambiguous, "
+        f"{_edge_join['summary']['ambiguous_parent_versions']} "
+        "version-ambiguous, "
         f"{_edge_join['summary']['unmatched']} unmatched, "
         f"{_edge_join['summary']['skipped_non_npm']} non-npm"
     )

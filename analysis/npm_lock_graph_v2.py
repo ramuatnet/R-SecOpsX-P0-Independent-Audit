@@ -208,7 +208,15 @@ def _resolve_child_path(
         if not search_base:
             break
 
-        parts = list(Path(search_base).parts)
+        # F-3: the walk uses ONE separator representation ("/") end to
+        # end. The retired str(Path(*parts)) form backslash-joined the
+        # base on Windows, so every intermediate candidate missed the
+        # forward-slash node table and nested dependencies fell through
+        # to the hoisted root node (measured: 350/1907 NodeGoat edges).
+        parts = [
+            segment for segment in search_base.split("/")
+            if segment
+        ]
 
         indexes = [
             index
@@ -225,9 +233,7 @@ def _resolve_child_path(
         if last_nm == 0:
             search_base = ""
         else:
-            search_base = str(
-                Path(*parts[:last_nm])
-            )
+            search_base = "/".join(parts[:last_nm])
 
     return None, "UNRESOLVED_FROM_TOPOLOGY"
 
