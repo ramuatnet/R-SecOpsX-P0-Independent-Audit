@@ -19,7 +19,10 @@ from core.value_state import (
     LOCAL_REFERENCE,
     MANIFEST_RANGE,
     NO_LOCKFILE,
+    OFFLINE_CVSS_TABLE,
     PROPERTY_UNRESOLVED,
+    PURL_DERIVED,
+    PURL_UNRESOLVABLE,
     TRANSITIVE_GUESS,
     UNKNOWN,
     resolve,
@@ -27,7 +30,9 @@ from core.value_state import (
 from scanner.purl import purl as build_purl
 # Task 2 (RC-2): one classification rule. finalize stamps and the enrich
 # layer must not be able to disagree about the same record.
-from scanner.dependency_intelligence import infer_dependency_type
+# R1/W2 (GAP-14): the evidence basis rides the same gate (no second
+# classifier); provenance records why, the gate decides what.
+from scanner.dependency_intelligence import dependency_type_evidence
 from scanner.vulnerability_overrides import VULNERABILITY_OVERRIDES
 from scanner.vulnerability_intel import (
     ADVISORY_SERVICE_STATUS,
@@ -1574,6 +1579,39 @@ def _stamp_license_provenance(pkg: dict) -> None:
     }
 
 
+def _stamp_identity_provenance(pkg: dict) -> None:
+    """Reason-only provenance for purl and cvss_version (R1/W2, GAP-14).
+
+    value_state lets a provenance ``state`` override its ladder, so these
+    entries carry reasons only: a populated field keeps resolving VALUE.
+    On an unresolvable identity the entry turns the field's bare ABSENT
+    into UNKNOWN-with-reason (ladder step 4) -- that labeled absence is the
+    provenance answer; no renderer resolves purl today (they resolve
+    version/fixed_versions/severity), so no rendered cell changes.
+    Existing entries (an ingest adapter's) stay authoritative.
+    dependency_type provenance is stamped at its gate call site below,
+    where the gate -- not a parser -- decided.
+    """
+    prov = pkg.get("field_provenance")
+    if not isinstance(prov, dict):
+        prov = {}
+        pkg["field_provenance"] = prov
+
+    if "purl" not in prov:
+        if pkg.get("purl"):
+            prov["purl"] = {"reason": PURL_DERIVED}
+        elif build_purl(pkg.get("name"), pkg.get("version"),
+                        pkg.get("ecosystem")) is None:
+            prov["purl"] = {"reason": PURL_UNRESOLVABLE}
+
+    if "cvss" not in prov and pkg.get("cvss_version"):
+        # cvss_version is stamped here only from the offline table's
+        # enrich_with_cve marker; anything else is another producer's field
+        # and gets no provenance claim from this stamp.
+        if pkg.get("cvss_method") == "STATIC_OFFLINE_CVSS_V1":
+            prov["cvss"] = {"reason": OFFLINE_CVSS_TABLE}
+
+
 def _stamp_report_fields(pkg: dict) -> None:
     """Populate the report fields no parser ever wrote (taskf T-3.2).
 
@@ -1585,6 +1623,14 @@ def _stamp_report_fields(pkg: dict) -> None:
     cvss_version is stamped only where enrich_with_cve marked the
     offline table's score.
     """
+    # R1/W2: the provenance map exists for the whole stamp so every field
+    # this function populates can carry a reason (existing entries stay
+    # authoritative; _stamp_version_provenance's own guard is unchanged).
+    prov = pkg.get("field_provenance")
+    if not isinstance(prov, dict):
+        prov = {}
+        pkg["field_provenance"] = prov
+
     if not pkg.get("component") and pkg.get("name"):
         pkg["component"] = pkg["name"]
     if not pkg.get("dependency_type"):
@@ -1593,7 +1639,13 @@ def _stamp_report_fields(pkg: dict) -> None:
         # bare direct=False Transitive -- claims with no evidence. The
         # evidence gate in scanner.dependency_intelligence is the single
         # source of truth for both the finalize stamp and the enrich layer.
-        pkg["dependency_type"] = infer_dependency_type(pkg)
+        dep_type, dep_basis = dependency_type_evidence(pkg)
+        pkg["dependency_type"] = dep_type
+        if "dependency_type" not in prov:
+            # R1/W2: provenance only where the GATE decided (this branch);
+            # a parser's pre-set dependency_type is that parser's claim and
+            # gets no gate-basis entry.
+            prov["dependency_type"] = {"reason": dep_basis}
     if not pkg.get("purl"):
         built = build_purl(pkg.get("name"), pkg.get("version"),
                            pkg.get("ecosystem"))
@@ -1612,6 +1664,7 @@ def _stamp_report_fields(pkg: dict) -> None:
         # never an observed import -- carry the source so the legend can
         # say so.  A computed engine that already stamped a source wins.
         pkg.setdefault("reachability_source", "STATIC_TABLE")
+    _stamp_identity_provenance(pkg)
     _stamp_version_provenance(pkg)
 
 

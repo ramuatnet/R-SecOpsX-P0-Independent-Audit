@@ -42,6 +42,14 @@ def test_states_and_reasons_match_taskf_spelling():
         "MANIFEST_RANGE", "LOCAL_REFERENCE", "NO_LOCKFILE",
         "TRANSITIVE_GUESS", "PROPERTY_UNRESOLVED", "NO_ADVISORY",
         "NOT_PUBLISHED",
+        # R1/W2 (GAP-14): per-field provenance reasons for purl, cvss,
+        # dependency_type (gate evidence basis) and parent.
+        "PURL_DERIVED", "PURL_UNRESOLVABLE", "OFFLINE_CVSS_TABLE",
+        "GATE_MANIFEST_DIRECT", "GATE_NAMED_PARENT", "GATE_PATH_HEAD",
+        "GATE_LOCKFILE_MEMBERSHIP", "GATE_VERIFIED_TRANSITIVE",
+        "GATE_NO_EVIDENCE",
+        "VERIFIED_PARENT_EDGE", "PARENT_AMBIGUOUS_MULTIPLE_VERSIONS",
+        "PARENT_AMBIGUOUS_MULTIPLE_PARENTS", "PARENT_ROOT_DECLARED",
     }
     # T-0.3 pins this sentence verbatim.
     assert value_state.REASON_TEXT[MANIFEST_RANGE] == \

@@ -5,6 +5,19 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
+from core.value_state import (
+    GATE_LOCKFILE_MEMBERSHIP,
+    GATE_MANIFEST_DIRECT,
+    GATE_NAMED_PARENT,
+    GATE_NO_EVIDENCE,
+    GATE_PATH_HEAD,
+    GATE_VERIFIED_TRANSITIVE,
+    PARENT_AMBIGUOUS_MULTIPLE_PARENTS,
+    PARENT_AMBIGUOUS_MULTIPLE_VERSIONS,
+    PARENT_ROOT_DECLARED,
+    VERIFIED_PARENT_EDGE,
+)
+
 
 DIRECT_MANIFESTS = {
     "requirements.txt",
@@ -77,6 +90,43 @@ def _path_head_is_package(value: str) -> bool:
     return True
 
 
+def _transitive_evidence_basis(pkg: dict) -> str | None:
+    """Which evidence class a non-direct record carries, or ``None``.
+
+    Single source for both the gate's decision and its provenance basis
+    (R1/W2): ``_has_transitive_evidence`` stays the boolean read and
+    ``dependency_type_evidence`` records the class -- the checks below are
+    the ONLY place the transitive evidence vocabulary lives, in the same
+    order the gate has always evaluated it.
+    """
+    # Stamped ONLY by join_verified_edges() from VERIFIED lockfile edges --
+    # evidence by construction (Task 3 verified-edge integration).
+    if pkg.get("verified_transitive") is True:
+        return GATE_VERIFIED_TRANSITIVE
+
+    if str(pkg.get("parent") or "").strip():
+        return GATE_NAMED_PARENT
+
+    introduced_by = str(pkg.get("introduced_by") or "").strip()
+    if _path_head_is_package(introduced_by):
+        return GATE_NAMED_PARENT
+
+    path = pkg.get("dependency_path")
+    if (
+        isinstance(path, list)
+        and len(path) >= 2
+        and _path_head_is_package(str(path[0]))
+    ):
+        return GATE_PATH_HEAD
+
+    # The record itself was parsed out of a lockfile: authoritative
+    # membership in the resolved tree, parent unnamed.
+    if _manifest_name(pkg) in LOCKFILES:
+        return GATE_LOCKFILE_MEMBERSHIP
+
+    return None
+
+
 def _has_transitive_evidence(pkg: dict) -> bool:
     """Evidence a non-direct record may carry for a transitive relationship.
 
@@ -87,37 +137,21 @@ def _has_transitive_evidence(pkg: dict) -> bool:
     actually made. A bare ``direct=False`` flag, an ``is_transitive`` flag
     or a ``transitive_guess`` are none of these -- they are assertions.
     """
-    # Stamped ONLY by join_verified_edges() from VERIFIED lockfile edges --
-    # evidence by construction (Task 3 verified-edge integration).
-    if pkg.get("verified_transitive") is True:
-        return True
-
-    if str(pkg.get("parent") or "").strip():
-        return True
-
-    introduced_by = str(pkg.get("introduced_by") or "").strip()
-    if _path_head_is_package(introduced_by):
-        return True
-
-    path = pkg.get("dependency_path")
-    if (
-        isinstance(path, list)
-        and len(path) >= 2
-        and _path_head_is_package(str(path[0]))
-    ):
-        return True
-
-    # The record itself was parsed out of a lockfile: authoritative
-    # membership in the resolved tree, parent unnamed.
-    return _manifest_name(pkg) in LOCKFILES
+    return _transitive_evidence_basis(pkg) is not None
 
 
-def infer_dependency_type(pkg: dict) -> str:
+def dependency_type_evidence(pkg: dict) -> tuple[str, str]:
+    """(classification, evidence basis) from the Task-2 gate branches.
+
+    ``infer_dependency_type`` is a thin wrapper over this -- same branches,
+    same outcomes, unchanged public contract; the basis exists so provenance
+    can record WHY (R1/W2) without growing a second classifier.
+    """
     # Explicit dependency metadata always takes precedence
     # over manifest/lockfile inference.
 
     if pkg.get("direct") is True or pkg.get("is_direct") is True:
-        return "Direct"
+        return "Direct", GATE_MANIFEST_DIRECT
 
     if pkg.get("direct") is False or pkg.get("is_transitive") is True:
         # Task 2 (RC-2): a bare non-direct flag is NOT a verified
@@ -125,19 +159,61 @@ def infer_dependency_type(pkg: dict) -> str:
         # a named parent, a real path head, or authoritative lockfile
         # membership. Everything else is honestly Unknown instead of a
         # guess printed as fact.
-        if _has_transitive_evidence(pkg):
-            return "Transitive"
-        return "Unknown"
+        basis = _transitive_evidence_basis(pkg)
+        if basis is None:
+            return "Unknown", GATE_NO_EVIDENCE
+        return "Transitive", basis
 
     manifest_name = _manifest_name(pkg)
 
     if manifest_name in DIRECT_MANIFESTS:
-        return "Direct"
+        return "Direct", GATE_MANIFEST_DIRECT
 
     if manifest_name in LOCKFILES:
-        return "Transitive"
+        return "Transitive", GATE_LOCKFILE_MEMBERSHIP
 
-    return "Unknown"
+    return "Unknown", GATE_NO_EVIDENCE
+
+
+def infer_dependency_type(pkg: dict) -> str:
+    return dependency_type_evidence(pkg)[0]
+
+
+def stamp_parent_provenance(sbom) -> None:
+    """``field_provenance['parent']`` from the join's own stamps (R1/W2).
+
+    Reads ONLY fields ``join_verified_edges`` already wrote -- the parent
+    edge fingerprint/source, ``parent_resolution``, ``verified_root_declared``
+    -- and writes a reason-only provenance entry (a state-bearing entry could
+    change how value_state resolves the record). An immediate verified edge
+    is ONE hop; nothing here mints or implies a root-to-package path. Records
+    the join never touched get no entry: no edge data existed for them.
+    """
+    for pkg in sbom or []:
+        if not isinstance(pkg, dict):
+            continue
+
+        if pkg.get("parent_edge_fingerprint"):
+            entry = {"reason": VERIFIED_PARENT_EDGE}
+            if pkg.get("parent_edge_source"):
+                entry["source"] = str(pkg["parent_edge_source"])
+            entry["fingerprint"] = str(pkg["parent_edge_fingerprint"])
+        elif pkg.get("parent_resolution") == "ambiguous_multiple_versions":
+            entry = {"reason": PARENT_AMBIGUOUS_MULTIPLE_VERSIONS}
+        elif pkg.get("parent_resolution") == "ambiguous_multiple_parents":
+            entry = {"reason": PARENT_AMBIGUOUS_MULTIPLE_PARENTS}
+        elif pkg.get("verified_root_declared"):
+            entry = {"reason": PARENT_ROOT_DECLARED}
+        else:
+            continue
+
+        prov = pkg.get("field_provenance")
+        if isinstance(prov, dict) and "parent" in prov:
+            continue  # an existing entry (an ingest adapter's) is authoritative
+        if not isinstance(prov, dict):
+            prov = {}
+            pkg["field_provenance"] = prov
+        prov["parent"] = entry
 def infer_dependency_depth(pkg: dict) -> int:
     dep_type = infer_dependency_type(pkg)
 

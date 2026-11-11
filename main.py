@@ -63,7 +63,7 @@ from scanner.iac_docker import scan_docker
 from scanner.iac_compose import scan_compose
 from scanner.compliance_mapper import enrich_compliance, compliance_summary, compliance_summary_detail
 from scanner.package_intelligence import enrich_report_payload, license_risk_count
-from scanner.dependency_intelligence import enrich_dependency_intelligence, dependency_summary, join_verified_edges
+from scanner.dependency_intelligence import enrich_dependency_intelligence, dependency_summary, join_verified_edges, stamp_parent_provenance
 from scanner.change_intelligence import enrich_report_payload_with_change_intelligence
 from scanner.changed_line_security import enrich_changed_line_findings
 from scanner.change_impact import enrich_change_impact
@@ -3923,6 +3923,10 @@ def main():
     )
     payload["sbom"] = _edge_join["sbom"]
     payload["verified_edge_join"] = _edge_join["summary"]
+    # R1/W2 (GAP-14): parent provenance reads ONLY the join's own stamps
+    # (edge fingerprint/source, parent_resolution, verified_root_declared)
+    # and records the immediate hop -- never a root-to-package path.
+    stamp_parent_provenance(payload["sbom"])
     _safe_print(
         "       => Verified edge join: "
         f"{_edge_join['summary']['parented']} parented, "

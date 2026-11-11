@@ -70,6 +70,27 @@ PROPERTY_UNRESOLVED = "PROPERTY_UNRESOLVED"
 NO_ADVISORY = "NO_ADVISORY"
 NOT_PUBLISHED = "NOT_PUBLISHED"
 
+# --- dependency provenance reasons (R1/W2, GAP-14) ---
+# Shared vocabulary for the per-field provenance entries written by
+# scanner/sbom.py (purl, cvss, dependency_type) and the join's parent
+# provenance stamp (scanner/dependency_intelligence.py). Provenance entries
+# for populated fields are REASON-ONLY: value_state.resolve() lets a
+# provenance ``state`` override its ladder, so a state-bearing entry on a
+# populated field would change rendered values.
+PURL_DERIVED = "PURL_DERIVED"
+PURL_UNRESOLVABLE = "PURL_UNRESOLVABLE"
+OFFLINE_CVSS_TABLE = "OFFLINE_CVSS_TABLE"
+GATE_MANIFEST_DIRECT = "GATE_MANIFEST_DIRECT"
+GATE_NAMED_PARENT = "GATE_NAMED_PARENT"
+GATE_PATH_HEAD = "GATE_PATH_HEAD"
+GATE_LOCKFILE_MEMBERSHIP = "GATE_LOCKFILE_MEMBERSHIP"
+GATE_VERIFIED_TRANSITIVE = "GATE_VERIFIED_TRANSITIVE"
+GATE_NO_EVIDENCE = "GATE_NO_EVIDENCE"
+VERIFIED_PARENT_EDGE = "VERIFIED_PARENT_EDGE"
+PARENT_AMBIGUOUS_MULTIPLE_VERSIONS = "PARENT_AMBIGUOUS_MULTIPLE_VERSIONS"
+PARENT_AMBIGUOUS_MULTIPLE_PARENTS = "PARENT_AMBIGUOUS_MULTIPLE_PARENTS"
+PARENT_ROOT_DECLARED = "PARENT_ROOT_DECLARED"
+
 #: Reader-facing wording per reason.  MANIFEST_RANGE is pinned verbatim by
 #: taskf T-0.3 (``unknown (manifest declares a range, no lockfile pin)``).
 REASON_TEXT: dict[str, str] = {
@@ -80,6 +101,19 @@ REASON_TEXT: dict[str, str] = {
     PROPERTY_UNRESOLVED: "unresolved manifest property",
     NO_ADVISORY: "no advisory",          # never printed: renders "--"
     NOT_PUBLISHED: "not published",
+    PURL_DERIVED: "derived from identity coordinates",
+    PURL_UNRESOLVABLE: "identity has no honest purl",
+    OFFLINE_CVSS_TABLE: "score from the offline CVSS table",
+    GATE_MANIFEST_DIRECT: "declared direct in a manifest",
+    GATE_NAMED_PARENT: "named by a parent record",
+    GATE_PATH_HEAD: "dependency path starts at a package",
+    GATE_LOCKFILE_MEMBERSHIP: "resolved lockfile row",
+    GATE_VERIFIED_TRANSITIVE: "verified lockfile edge",
+    GATE_NO_EVIDENCE: "no classification evidence",
+    VERIFIED_PARENT_EDGE: "verified lockfile edge (single hop)",
+    PARENT_AMBIGUOUS_MULTIPLE_VERSIONS: "parent name at several verified versions",
+    PARENT_AMBIGUOUS_MULTIPLE_PARENTS: "several verified parents",
+    PARENT_ROOT_DECLARED: "declared at the tree root",
 }
 
 #: Strings that mean "the producer had nothing to write".  Matched
