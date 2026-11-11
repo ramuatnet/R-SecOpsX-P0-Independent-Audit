@@ -10,6 +10,33 @@ from analysis.intelligence_provenance import NOT_AVAILABLE, STATIC_REFERENCE
 
 CYCLONEDX_VERSION = "1.5"
 
+# R1/W1 (GAP-04): endpoint classes the npm graph engine emits as raw ids
+# (analysis/npm_lock_graph_v2.py). Every serialized ref must resolve inside
+# its own document; endpoints that cannot are dropped and counted in a
+# disclosed tally -- never shipped as dangling references.
+NPM_ROOT_REF = "pkg:npm/__root__"
+_NPM_WORKSPACE_PREFIX = "pkg:npm-workspace/"
+_NPM_FILE_PREFIX = "pkg:npm-file/"
+
+# Keys must include the strings the manifest parsers actually EMIT
+# (scanner/sbom.py and scanner/manifests/*): "crates.io", "Packagist",
+# "RubyGems", "Go". The legacy aliases (cargo/composer/gem/golang) stay
+# for records that arrived from other paths.
+_PURL_TYPE_BY_ECOSYSTEM = {
+    "pypi": "pypi",
+    "npm": "npm",
+    "maven": "maven",
+    "go": "golang",
+    "golang": "golang",
+    "cargo": "cargo",
+    "crates.io": "cargo",
+    "nuget": "nuget",
+    "composer": "composer",
+    "packagist": "composer",
+    "gem": "gem",
+    "rubygems": "gem",
+}
+
 
 def _canonical_component_version(pkg: dict) -> str | None:
     value = pkg.get("version")
@@ -39,24 +66,7 @@ def _purl(pkg: dict) -> str | None:
     if not name:
         return None
 
-    # Keys must include the strings the manifest parsers actually EMIT
-    # (scanner/sbom.py and scanner/manifests/*): "crates.io", "Packagist",
-    # "RubyGems", "Go". The legacy aliases (cargo/composer/gem/golang) stay
-    # for records that arrived from other paths.
-    purl_type = {
-        "pypi": "pypi",
-        "npm": "npm",
-        "maven": "maven",
-        "go": "golang",
-        "golang": "golang",
-        "cargo": "cargo",
-        "crates.io": "cargo",
-        "nuget": "nuget",
-        "composer": "composer",
-        "packagist": "composer",
-        "gem": "gem",
-        "rubygems": "gem",
-    }.get(ecosystem)
+    purl_type = _PURL_TYPE_BY_ECOSYSTEM.get(ecosystem)
 
     if not purl_type:
         return None
@@ -461,33 +471,96 @@ def _bom_asset_components(payload: dict) -> list[dict]:
             })
     return assets
 
+def _component_ref_index(sbom: list, components: list) -> dict:
+    """Exact-reference and purl-equivalent identity keys for every component.
+
+    Same identity vocabulary as the verified-edge join (purl-equivalent
+    triple), so exporter resolution cannot disagree with the join's stamps.
+    """
+    by_ref: dict = {}
+    by_identity: dict = {}
+    for comp in components:
+        ref = comp.get("bom-ref")
+        if ref:
+            by_ref.setdefault(str(ref), ref)
+    for pkg in sbom:
+        ref = _bom_ref(pkg)
+        by_ref[ref] = ref
+        purl = _purl(pkg)
+        if purl:
+            by_ref.setdefault(purl, ref)
+        ptype = _PURL_TYPE_BY_ECOSYSTEM.get(
+            str(pkg.get("ecosystem") or "").lower())
+        name = pkg.get("name")
+        version = _canonical_component_version(pkg)
+        if ptype and name and version:
+            by_identity.setdefault((ptype, str(name), str(version)), ref)
+    return {"by_ref": by_ref, "by_identity": by_identity}
+
+
+def _resolve_edge_endpoint(endpoint, index: dict, has_root: bool):
+    """Resolve one raw engine endpoint id to an in-document ref (R1/W1).
+
+    Four endpoint classes: registry ids (match by exact ref or
+    purl-equivalent identity -- never by name alone), the synthetic npm root
+    (resolves to the metadata.component bom-ref), workspace/file ids
+    (versionless; resolve only as exact refs), and everything unresolvable
+    (dropped-and-counted, never serialized).
+    """
+    text = str(endpoint)
+    by_ref = index["by_ref"]
+    if text in by_ref:
+        return by_ref[text], "resolved"
+    if text == NPM_ROOT_REF:
+        if has_root:
+            return NPM_ROOT_REF, "root_mapped"
+        return None, "dropped"
+    if (text.startswith(_NPM_WORKSPACE_PREFIX)
+            or text.startswith(_NPM_FILE_PREFIX)):
+        if text in by_ref:
+            return text, "resolved"
+        return None, "workspace_file_dropped"
+    tail = text[4:] if text.startswith("pkg:") else ""
+    ptype, _, id_tail = tail.partition("/")
+    name, sep, version = id_tail.rpartition("@")
+    if sep and name and version:
+        ref = index["by_identity"].get((ptype, name, version))
+        if ref:
+            return ref, "resolved"
+    return None, "dropped"
+
+
 def build_cyclonedx(payload: dict) -> dict:
     sbom = payload.get("sbom", []) or []
     metadata = payload.get("metadata", {}) or {}
 
     components = [_component(pkg) for pkg in sbom] + _bom_asset_components(payload)
 
-    # Synthetic project root used by the authoritative Dependency Graph V2.
-    # It is emitted only when the graph explicitly contains pkg:npm/__root__.
+    # R1/W1: the synthetic npm root is the SUBJECT of the BOM (the scanned
+    # project), not a piece of software -- it ships as the CycloneDX
+    # metadata.component and never as an ordinary component. Its bom-ref is
+    # unchanged ("pkg:npm/__root__") so refs stay stable across the change.
     dependency_graph = payload.get("dependency_graph", {}) or {}
     graph_edges = dependency_graph.get("edges", []) or []
 
     has_synthetic_root = any(
         isinstance(edge, dict)
         and (
-            str(edge.get("parent") or "") == "pkg:npm/__root__"
-            or str(edge.get("child") or "") == "pkg:npm/__root__"
+            str(edge.get("parent") or "") == NPM_ROOT_REF
+            or str(edge.get("child") or "") == NPM_ROOT_REF
         )
         for edge in graph_edges
     )
 
+    metadata_component = None
     if has_synthetic_root:
-        components.append({
+        target = str(metadata.get("target") or "").replace("\\", "/")
+        metadata_component = {
             "type": "application",
-            "bom-ref": "pkg:npm/__root__",
-            "name": "__root__",
+            "bom-ref": NPM_ROOT_REF,
+            "name": target.rsplit("/", 1)[-1] if target else "__root__",
             "version": "unknown",
-        })
+        }
 
     vulnerabilities = []
     for pkg in sbom:
@@ -498,11 +571,11 @@ def build_cyclonedx(payload: dict) -> dict:
 
     # Dependency Graph V2
     #
-    # Only authoritative VERIFIED edges are serialized into
-    # CycloneDX dependency relationships.
-    dependency_graph = payload.get("dependency_graph", {}) or {}
-    graph_edges = dependency_graph.get("edges", []) or []
-
+    # Only authoritative VERIFIED edges are serialized into CycloneDX
+    # dependency relationships, and only after endpoint resolution (R1/W1):
+    # every shipped ref names a component bom-ref or the metadata.component;
+    # anything else is dropped and counted in the disclosed tally -- never
+    # serialized as a dangling reference.
     verified_edges = [
         edge
         for edge in graph_edges
@@ -514,12 +587,25 @@ def build_cyclonedx(payload: dict) -> dict:
         )
     ]
 
+    ref_index = _component_ref_index(sbom, components)
+    resolution = {
+        "resolved": 0,
+        "root_mapped": 0,
+        "workspace_file_dropped": 0,
+        "dropped": 0,
+    }
+
     dependency_map = {}
 
     for edge in verified_edges:
-        parent = str(edge["parent"])
-        child = str(edge["child"])
-        dependency_map.setdefault(parent, set()).add(child)
+        parent, parent_class = _resolve_edge_endpoint(
+            edge["parent"], ref_index, has_synthetic_root)
+        child, child_class = _resolve_edge_endpoint(
+            edge["child"], ref_index, has_synthetic_root)
+        resolution[parent_class] += 1
+        resolution[child_class] += 1
+        if parent and child:
+            dependency_map.setdefault(parent, set()).add(child)
 
     dependencies = [
         {
@@ -549,6 +635,7 @@ def build_cyclonedx(payload: dict) -> dict:
                     "version": "2.0.0",
                 }
             ],
+            **({"component": metadata_component} if metadata_component else {}),
             "properties": [
                 {
                     "name": "rsecopsx:total_findings",
@@ -573,6 +660,10 @@ def build_cyclonedx(payload: dict) -> dict:
                 {
                     "name": "rsecopsx:scan_date",
                     "value": datetime.now(timezone.utc).date().isoformat(),
+                },
+                {
+                    "name": "rsecopsx:edge_ref_resolution",
+                    "value": json.dumps(resolution, sort_keys=True),
                 },
             ],
         },
