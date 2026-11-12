@@ -95,9 +95,15 @@ def test_envelope_counts_verified_only_and_carries_limitations():
 
 
 # ---------------------------------------------------------------- registry --
-def test_registry_names_cover_r2_1_scope():
+def test_registry_names_cover_r2_scope():
+    # R2.1: npm/poetry/uv/pipenv; R2.2 adds Java: resolved-evidence files
+    # (dependency-tree.txt, gradle-dependencies.txt) plus manifest files
+    # that must answer with disclosed UNSUPPORTED envelopes (never edges).
     assert registry.LOCKFILE_NAMES == {
         "package-lock.json", "poetry.lock", "uv.lock", "Pipfile.lock",
+        "dependency-tree.txt", "pom.xml",
+        "gradle-dependencies.txt", "gradle.lockfile",
+        "build.gradle", "settings.gradle",
     }
 
 

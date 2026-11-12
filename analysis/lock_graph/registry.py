@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from analysis.lock_graph import contract
+from analysis.lock_graph import gradle as _gradle
 from analysis.lock_graph import maven as _maven
 from analysis.lock_graph import npm_adapter
 from analysis.lock_graph import pipfile
@@ -37,7 +38,8 @@ REGISTRY = {
     # script is direct declarations, never a resolved graph.
     "dependency-tree.txt": _maven.extract,
     "pom.xml": _maven.extract_manifest,
-    "gradle-dependencies.txt": _maven.extract_manifest,
+    "gradle-dependencies.txt": _gradle.extract,
+    "gradle.lockfile": _gradle.extract_lockfile,
     "build.gradle": _maven.extract_manifest,
     "settings.gradle": _maven.extract_manifest,
 }

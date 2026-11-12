@@ -153,7 +153,9 @@ def extraction_result(*, engine: str, source: str, format_version: str,
     counts.setdefault("duplicate_records_dropped", 0)
     if tallies:
         for key, value in tallies.items():
-            if key in counts and isinstance(value, int):
+            # additive: extractors may disclose custom counts
+            # (e.g. direct_declarations) alongside the known keys.
+            if isinstance(value, int):
                 counts[key] = value
     result = {
         "engine": str(engine),
