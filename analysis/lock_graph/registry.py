@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from analysis.lock_graph import contract
+from analysis.lock_graph import maven as _maven
 from analysis.lock_graph import npm_adapter
 from analysis.lock_graph import pipfile
 from analysis.lock_graph import poetry as _poetry_extractor
@@ -31,6 +32,14 @@ REGISTRY = {
     "poetry.lock": _poetry_extractor.extract,
     "uv.lock": _uv_extractor.extract,
     "Pipfile.lock": pipfile.extract,
+    # R2.2 (Java): resolved-evidence files carry verified edges; manifest
+    # files answer with disclosed UNSUPPORTED envelopes -- a pom or build
+    # script is direct declarations, never a resolved graph.
+    "dependency-tree.txt": _maven.extract,
+    "pom.xml": _maven.extract_manifest,
+    "gradle-dependencies.txt": _maven.extract_manifest,
+    "build.gradle": _maven.extract_manifest,
+    "settings.gradle": _maven.extract_manifest,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)
