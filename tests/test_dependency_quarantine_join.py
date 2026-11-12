@@ -230,12 +230,18 @@ def test_join_incomplete_identity_is_disclosed_not_guessed():
     assert result["summary"]["skipped_incomplete_identity"] == 1
 
 
-def test_join_ignores_non_npm_records():
+def test_npm_edge_never_joins_a_pypi_record():
+    # R2.1 contract change (approved): the join is ecosystem-scoped. PyPI is
+    # now a supported ecosystem, so this PyPI row counts as unmatched (no
+    # pypi edge exists) rather than skipped_non_npm -- and the npm edge
+    # STILL cannot stamp it, preserving the security property the original
+    # test pinned, now structurally via ecosystem-scoped identity.
     sbom = [{"name": "flask", "version": "1.0.2", "ecosystem": "PyPI",
              "direct": True}]
     edges = [_edge("pkg:npm/express@4.17.3", "pkg:npm/flask@1.0.2")]
     result = join_verified_edges(sbom, edges)
-    assert result["summary"]["skipped_non_npm"] == 1
+    assert result["summary"]["unmatched"] == 1
+    assert result["summary"]["skipped_non_npm"] == 0
     assert "parent" not in result["sbom"][0]
 
 

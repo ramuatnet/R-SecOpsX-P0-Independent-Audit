@@ -3530,19 +3530,23 @@ def main():
     # package-lock.json is present. No relationship is inferred from
     # dependency_type, parent, introduced_by, or dependency_path.
     try:
-        from analysis.npm_lock_graph_v2 import extract_verified_edges
+        from analysis.lock_graph import registry
 
         # T-0.2 (task.md): the one walk's index; node_modules/.git are
         # shared union walk policy now.
+        # R2.1: discovery and dispatch come from the lock-graph registry
+        # (npm adapter wraps the unmodified npm engine; approved ecosystem
+        # extractors register alongside it; membership-only formats answer
+        # with disclosed UNSUPPORTED envelopes -- no fabricated edges).
         lockfiles = file_index.index_for(target).files(
-            names={"package-lock.json"})
+            names=registry.LOCKFILE_NAMES)
 
         graph_results = []
 
         for lockfile in lockfiles:
             try:
                 graph_results.append(
-                    extract_verified_edges(str(lockfile))
+                    registry.extract_for_file(str(lockfile))
                 )
             except Exception as exc:
                 graph_results.append({

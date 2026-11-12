@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 
@@ -360,12 +361,59 @@ def _parse_edge_node(node_id) -> tuple[str, str]:
     return name, version
 
 
-def _is_npm_ecosystem(value) -> bool:
-    # npm-normalized aliases (mirrors normalize_ecosystem's npm mapping;
-    # inlined here to keep this module import-light).
-    return str(value or "").strip().casefold() in {
-        "npm", "node", "javascript", "js",
-    }
+# R2.1: ecosystems whose VERIFIED lockfile edges may join. Mirrors
+# normalize_ecosystem's canonical mapping (package_intelligence); inlined to
+# keep this module import-light. Unlisted ecosystems still count in
+# skipped_non_npm -- no edge is ever matched across ecosystem boundaries.
+_JOIN_ECOSYSTEM_ALIASES = {
+    "npm", "node", "javascript", "js",
+    "pypi", "python", "pip",
+    "maven", "java",
+    "go", "golang",
+    "nuget", ".net", "dotnet",
+    "rubygems", "gem", "ruby",
+    "crates.io", "crates-io", "crates", "cargo",
+    "packagist", "composer",
+}
+
+
+def _canonical_join_ecosystem(value) -> str:
+    raw = str(value or "").strip().casefold()
+    if raw in {"node", "javascript", "js"}:
+        return "npm"
+    if raw in {"python", "pip"}:
+        return "pypi"
+    if raw == "java":
+        return "maven"
+    if raw == "go":
+        return "golang"
+    if raw in {".net", "dotnet"}:
+        return "nuget"
+    if raw in {"gem", "ruby"}:
+        return "rubygems"
+    if raw in {"crates-io", "crates", "cargo"}:
+        return "crates.io"
+    if raw == "packagist":
+        return "composer"
+    return raw
+
+
+def _supported_join_ecosystem(value) -> bool:
+    return _canonical_join_ecosystem(value) in _JOIN_ECOSYSTEM_ALIASES
+
+
+def _norm_identity_name(ecosystem: str, name: str) -> str:
+    """Per-ecosystem package-name identity normalization.
+
+    PyPI: PEP 503 (`[-_.]+ -> -`, casefold) so `typing_extensions` and
+    `typing-extensions` are one identity -- lockfiles and manifests spell
+    PyPI names inconsistently and the index cannot guess which spelling a
+    consumer used. Everything else: casefold (npm's established behavior).
+    """
+    text = str(name or "").strip()
+    if ecosystem == "pypi":
+        return re.sub(r"[-_.]+", "-", text).casefold()
+    return text.casefold()
 
 
 def join_verified_edges(sbom: list[dict], edges) -> dict:
@@ -398,7 +446,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
     """
     summary = {
         "engine": "VERIFIED_EDGE_JOIN_V1",
-        "evidence_policy": "VERIFIED_NPM_LOCKFILE_EDGES_ONLY",
+        "evidence_policy": "VERIFIED_LOCKFILE_EDGES_ONLY",
         "identity": "PURL_EQUIVALENT_ECOSYSTEM_NAME_VERSION",
         "edges_seen": 0,
         "matched": 0,
@@ -409,30 +457,60 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
         "unmatched": 0,
         "skipped_non_npm": 0,
         "skipped_incomplete_identity": 0,
+        "by_ecosystem": {},
         "disclosure": (
             "parent/introduced_by/dependency_path are populated only from "
-            "VERIFIED package-lock edges (npm engine). Records the npm "
-            "engine does not cover, or whose identity is incomplete (no "
-            "resolved version), keep their prior classification and are "
-            "counted in the skipped/unmatched tallies. Nothing is guessed."
+            "VERIFIED lockfile edges (npm engine plus the approved R2 "
+            "ecosystem extractors; R2.1 adds pypi). Identity is "
+            "ecosystem-scoped, so an edge can never join a record from a "
+            "different ecosystem. Records without edges, or whose identity "
+            "is incomplete (no resolved version), keep their prior "
+            "classification and are counted in the skipped/unmatched "
+            "tallies. Nothing is guessed."
         ),
     }
 
-    index: dict[tuple[str, str], list[dict]] = {}
+    def _bump(eco: str, key: str) -> None:
+        per = summary.setdefault("by_ecosystem", {}).setdefault(eco, {
+            "matched": 0, "parented": 0, "ambiguous_parents": 0,
+            "ambiguous_parent_versions": 0, "root_declared_only": 0,
+            "unmatched": 0,
+        })
+        if key in per:
+            per[key] += 1
+
+    index: dict[tuple[str, str, str], list[dict]] = {}
     for edge in edges or []:
         if not isinstance(edge, dict):
             continue
         if str(edge.get("confidence") or "").strip().upper() != "VERIFIED":
             continue
-        child_name, child_version = _parse_edge_node(edge.get("child"))
-        parent_name, parent_version = _parse_edge_node(edge.get("parent"))
+        eco = _canonical_join_ecosystem(
+            str(edge.get("ecosystem") or "").strip() or "npm")
+        # R2.1: contract edges carry explicit identity fields (populated by
+        # the extractors and the npm adapter for parseable endpoints);
+        # synthetic roots, workspace/file ids and legacy raw ids fall back
+        # to purl parsing exactly as before.
+        if "child_name" in edge and "child_version" in edge:
+            child_name = str(edge.get("child_name") or "")
+            child_version = str(edge.get("child_version") or "")
+        else:
+            child_name, child_version = _parse_edge_node(edge.get("child"))
+        if "parent_name" in edge:
+            parent_name = str(edge.get("parent_name") or "")
+            parent_version = str(edge.get("parent_version") or "")
+        else:
+            parent_name, parent_version = _parse_edge_node(edge.get("parent"))
         if (not child_name or not child_version
                 or not parent_name):
             # Versionless or malformed node ids: identity too weak to join.
             summary["skipped_incomplete_identity"] += 1
             continue
         summary["edges_seen"] += 1
-        index.setdefault((child_name.casefold(), child_version), []).append({
+        index.setdefault(
+            (eco, _norm_identity_name(eco, child_name), child_version),
+            [],
+        ).append({
             "parent_name": parent_name,
             "parent_version": parent_version,
             "is_root": parent_name == "__root__",
@@ -443,7 +521,8 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
     for pkg in sbom or []:
         if not isinstance(pkg, dict):
             continue
-        if not _is_npm_ecosystem(pkg.get("ecosystem")):
+        eco = _canonical_join_ecosystem(pkg.get("ecosystem"))
+        if not _supported_join_ecosystem(eco):
             summary["skipped_non_npm"] += 1
             continue
         name = str(pkg.get("name") or "").strip()
@@ -451,11 +530,13 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
         if not name or not version or version.casefold() == "unknown":
             summary["skipped_incomplete_identity"] += 1
             continue
-        hits = index.get((name.casefold(), version))
+        hits = index.get((eco, _norm_identity_name(eco, name), version))
         if not hits:
             summary["unmatched"] += 1
+            _bump(eco, "unmatched")
             continue
         summary["matched"] += 1
+        _bump(eco, "matched")
 
         # Direct records keep their manifest as the introduction point; a
         # package-parent edge would not change what introduced them.
@@ -463,6 +544,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
             if all(h["is_root"] for h in hits):
                 pkg["verified_root_declared"] = True
                 summary["root_declared_only"] += 1
+                _bump(eco, "root_declared_only")
             continue
 
         parent_names = sorted({
@@ -474,6 +556,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
             # unchanged -- direct flags govern it.
             pkg["verified_root_declared"] = True
             summary["root_declared_only"] += 1
+            _bump(eco, "root_declared_only")
             continue
 
         # The transitive relationship is VERIFIED from here on.
@@ -512,6 +595,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
                 pkg["parent_resolution"] = "ambiguous_multiple_versions"
                 pkg["verified_parents"] = [parent_name]
                 summary["ambiguous_parent_versions"] += 1
+                _bump(eco, "ambiguous_parent_versions")
             else:
                 v = versions[0] if versions else ""
                 chosen = next(
@@ -526,6 +610,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
                 pkg["parent_edge_fingerprint"] = chosen["fingerprint"]
                 pkg["parent_edge_source"] = chosen["source"]
                 summary["parented"] += 1
+                _bump(eco, "parented")
         else:
             # Several distinct verified parents: verified transitive, but
             # picking ONE parent would be manufacturing. Disclose; the
@@ -533,6 +618,7 @@ def join_verified_edges(sbom: list[dict], edges) -> dict:
             pkg["parent_resolution"] = "ambiguous_multiple_parents"
             pkg["verified_parents"] = parent_names
             summary["ambiguous_parents"] += 1
+            _bump(eco, "ambiguous_parents")
 
     return {"sbom": sbom, "summary": summary}
 
