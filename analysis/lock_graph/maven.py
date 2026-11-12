@@ -25,6 +25,7 @@ import re
 from pathlib import Path
 
 from analysis.lock_graph import contract
+from analysis.spans import WINDOW_6, WINDOW_60, WINDOW_80
 
 ENGINE = "MAVEN_DEPENDENCY_TREE_V1"
 EVIDENCE = "MAVEN_DEPENDENCY_TREE"
@@ -102,7 +103,7 @@ def _split_decorations(line: str) -> tuple[int, str] | None:
             depth = 1 + prefix.count("|") + prefix.count(" ") // 3
             return depth, text[idx + len(connector):].strip()
         return None  # decoration would be a guess -- refuse the line
-    if text[:6].strip() == "" and "|" in text[:6]:
+    if text[:WINDOW_6].strip() == "" and "|" in text[:WINDOW_6]:
         return None  # bare continuation fragment
     return 0, text.strip()
 
@@ -137,7 +138,7 @@ def extract(lockfile_path: str) -> dict:
                 format_version="maven-dependency-tree",
                 graph_status=contract.EXTRACTION_ERROR,
                 edges=[],
-                limitations=[f"unparseable tree line: {raw[:80]!r}"],
+                limitations=[f"unparseable tree line: {raw[:WINDOW_80]!r}"],
             )
         depth, text = parsed
 
@@ -160,7 +161,7 @@ def extract(lockfile_path: str) -> dict:
                 format_version="maven-dependency-tree",
                 graph_status=contract.EXTRACTION_ERROR,
                 edges=[],
-                limitations=[f"unparseable coordinate: {text[:80]!r}"],
+                limitations=[f"unparseable coordinate: {text[:WINDOW_80]!r}"],
             )
         if selected_version:
             # verbose trees print "-> selected": the pre-arrow version was
@@ -188,7 +189,7 @@ def extract(lockfile_path: str) -> dict:
                 format_version="maven-dependency-tree",
                 graph_status=contract.EXTRACTION_ERROR,
                 edges=[],
-                limitations=[f"orphan tree node at depth {depth}: {text[:60]!r}"],
+                limitations=[f"orphan tree node at depth {depth}: {text[:WINDOW_60]!r}"],
             )
         parent = stack[-1][1]
 

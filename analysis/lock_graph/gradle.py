@@ -27,6 +27,7 @@ import re
 from pathlib import Path
 
 from analysis.lock_graph import contract
+from analysis.spans import WINDOW_6, WINDOW_60, WINDOW_80
 
 ENGINE = "GRADLE_DEPENDENCIES_V1"
 EVIDENCE = "GRADLE_DEPENDENCIES"
@@ -66,7 +67,7 @@ def _split_decorations(line: str) -> tuple[int, str] | None:
             depth = 1 + prefix.count("|") + prefix.count(" ") // _LEVEL
             return depth, text[idx + len(connector):].strip()
         return None
-    if text[:6].strip() == "" and "|" in text[:6]:
+    if text[:WINDOW_6].strip() == "" and "|" in text[:WINDOW_6]:
         return None
     return 0, text.strip()
 
@@ -154,7 +155,7 @@ def extract(lockfile_path: str) -> dict:
                 format_version="gradle-dependencies",
                 graph_status=contract.EXTRACTION_ERROR,
                 edges=[],
-                limitations=[f"unparseable gradle node: {text[:80]!r}"],
+                limitations=[f"unparseable gradle node: {text[:WINDOW_80]!r}"],
             )
 
         if depth == 1:
@@ -172,7 +173,7 @@ def extract(lockfile_path: str) -> dict:
                 format_version="gradle-dependencies",
                 graph_status=contract.EXTRACTION_ERROR,
                 edges=[],
-                limitations=[f"orphan gradle node at depth {depth}: {text[:60]!r}"],
+                limitations=[f"orphan gradle node at depth {depth}: {text[:WINDOW_60]!r}"],
             )
         parent = stack[-1][1]
         parent_is_project = bool(parent.get("project"))
