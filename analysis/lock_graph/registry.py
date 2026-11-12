@@ -19,20 +19,9 @@ from analysis.lock_graph import contract
 from analysis.lock_graph import npm_adapter
 from analysis.lock_graph import pipfile
 from analysis.lock_graph import poetry as _poetry_extractor
+from analysis.lock_graph import uv as _uv_extractor
 
 ENGINE = "LOCK_GRAPH_REGISTRY_V1"
-
-
-def _uv(lockfile_path: str) -> dict:
-    # R2.1 commit 3 replaces this stub with the real uv extractor.
-    return contract.extraction_result(
-        engine="UV_LOCK_GRAPH_V1",
-        source=str(lockfile_path),
-        format_version="uv.lock",
-        graph_status=contract.UNSUPPORTED_FORMAT,
-        edges=[],
-        limitations=["uv verified-edge extractor not enabled yet"],
-    )
 
 
 #: filename -> extractor. Keys are exact lockfile names as they appear on
@@ -40,7 +29,7 @@ def _uv(lockfile_path: str) -> dict:
 REGISTRY = {
     "package-lock.json": npm_adapter.extract,
     "poetry.lock": _poetry_extractor.extract,
-    "uv.lock": _uv,
+    "uv.lock": _uv_extractor.extract,
     "Pipfile.lock": pipfile.extract,
 }
 
