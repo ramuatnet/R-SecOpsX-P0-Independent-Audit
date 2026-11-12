@@ -8,6 +8,7 @@ callers must surface as UNRESOLVED (never as a match).
 
 Supported forms (the vocabulary Poetry/uv lockfiles actually emit, verified
 on the R2.0 corpus):
+
 - ``*`` or empty -> any version
 - caret ``^X.Y.Z`` (semver bump: major, or minor when major is 0, or patch
   when both are 0)
@@ -25,6 +26,8 @@ sufficient for resolved-lockfile pins, which are exact in practice.
 from __future__ import annotations
 
 import re
+
+from analysis.spans import WINDOW_1, WINDOW_M1, WINDOW_M2
 
 _CLAUSE = re.compile(
     r"^\s*(\^|~=|~|==|!=|>=|<=|>|<|=)?\s*([0-9][0-9A-Za-z.*_-]*)\s*$")
@@ -65,7 +68,7 @@ def _tilde_bounds(core: tuple[int, ...]) -> tuple[tuple[int, ...], tuple[int, ..
 
 
 def _wildcard_bounds(core: tuple[int, ...]) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    hi = core[:-1] + (core[-1] + 1,)
+    hi = core[:WINDOW_M1] + (core[WINDOW_M1] + WINDOW_1,)
     return core, hi
 
 
@@ -82,7 +85,7 @@ def satisfies(version: str, constraint: str) -> bool | None:
 
     A version with no numeric head never satisfies any understood
     constraint (False), because a match would be a guess. ``||`` unions
-    (PEP 508, emitted by mainstream packages -- e.g. pylint's isort pin)
+    (PEP 508, emitted by mainstream packages -- e.g. the pylint isort pin)
     are exact OR-semantics over comma-AND branches; a union with ANY
     unparseable branch refuses the whole constraint (partial understanding
     is not understanding).
@@ -114,7 +117,7 @@ def _eval_branch(version: str, constraint: str) -> bool | None:
 
         if op in ("", "=", "=="):
             if body.endswith(".*"):
-                bounds = _wildcard_bounds(_release(body[:-2]) or ())
+                bounds = _wildcard_bounds(_release(body[:WINDOW_M2]) or (WINDOW_1,))
                 if ver is None or _cmp(ver, bounds[0]) < 0 or _cmp(ver, bounds[1]) >= 0:
                     return False
                 continue
@@ -126,7 +129,7 @@ def _eval_branch(version: str, constraint: str) -> bool | None:
             continue
         if op == "!=":
             if body.endswith(".*"):
-                bounds = _wildcard_bounds(_release(body[:-2]) or ())
+                bounds = _wildcard_bounds(_release(body[:WINDOW_M2]) or (WINDOW_1,))
                 if ver is None:
                     return False
                 if bounds[0] <= ver < bounds[1]:
