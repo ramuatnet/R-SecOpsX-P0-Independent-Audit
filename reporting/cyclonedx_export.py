@@ -576,14 +576,16 @@ def build_cyclonedx(payload: dict) -> dict:
     # every shipped ref names a component bom-ref or the metadata.component;
     # anything else is dropped and counted in the disclosed tally -- never
     # serialized as a dangling reference.
+    # R2.1: contract edges (poetry/uv extractors) carry purl-built identity
+    # fields instead of raw ids -- resolved through the same component index.
     verified_edges = [
         edge
         for edge in graph_edges
         if (
             isinstance(edge, dict)
             and str(edge.get("confidence") or "").upper() == "VERIFIED"
-            and edge.get("parent")
-            and edge.get("child")
+            and (edge.get("parent") or edge.get("parent_purl"))
+            and (edge.get("child") or edge.get("child_purl"))
         )
     ]
 
@@ -599,9 +601,11 @@ def build_cyclonedx(payload: dict) -> dict:
 
     for edge in verified_edges:
         parent, parent_class = _resolve_edge_endpoint(
-            edge["parent"], ref_index, has_synthetic_root)
+            edge.get("parent") or edge.get("parent_purl"),
+            ref_index, has_synthetic_root)
         child, child_class = _resolve_edge_endpoint(
-            edge["child"], ref_index, has_synthetic_root)
+            edge.get("child") or edge.get("child_purl"),
+            ref_index, has_synthetic_root)
         resolution[parent_class] += 1
         resolution[child_class] += 1
         if parent and child:

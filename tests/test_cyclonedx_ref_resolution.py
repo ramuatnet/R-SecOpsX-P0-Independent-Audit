@@ -201,3 +201,69 @@ def test_unscoped_fully_resolved_refs_unchanged():
         {"ref": "pkg:npm/express@4.18.2", "dependsOn": ["pkg:npm/lodash@4.17.21"]},
         {"ref": "pkg:npm/lodash@4.17.21", "dependsOn": ["pkg:npm/express@4.18.2"]},
     ]
+
+
+# ------------------------------------------------- R2.1 contract edges --
+def test_contract_edges_resolve_without_raw_ids():
+    # R2.1 contract edges (poetry/uv extractors) carry purl-built identity
+    # fields and NO raw parent/child ids -- the exporter must resolve them
+    # against the component index exactly like engine edges, or the
+    # verified relationships silently vanish from CycloneDX (found on the
+    # DVAP/flask R2.1 benchmark scans).
+    payload = {
+        "sbom": [
+            {"name": "flask", "version": "3.1.0", "ecosystem": "pypi"},
+            {"name": "click", "version": "8.1.7", "ecosystem": "pypi"},
+        ],
+        "dependency_graph": {
+            "edges": [{
+                "ecosystem": "pypi",
+                "parent_name": "flask", "parent_version": "3.1.0",
+                "parent_purl": "pkg:pypi/flask@3.1.0",
+                "child_name": "click", "child_version": "8.1.7",
+                "child_purl": "pkg:pypi/click@8.1.7",
+                "confidence": "VERIFIED",
+                "evidence_source": "POETRY_PACKAGE_DEPENDENCIES",
+                "source": "poetry.lock",
+                "fingerprint": "sha256:t",
+            }],
+        },
+        "metadata": {"target": "/proj/demo"},
+    }
+    doc = build_cyclonedx(payload)
+    comps, emitted = _refs(doc)
+    assert "pkg:pypi/click@8.1.7" in comps
+    groups = {x["ref"]: x["dependsOn"] for x in doc["dependencies"]}
+    assert groups["pkg:pypi/flask@3.1.0"] == ["pkg:pypi/click@8.1.7"]
+    assert set(emitted) <= comps
+
+
+def test_contract_edge_parent_absent_dropped_and_counted():
+    # W1 doctrine holds for contract edges: a parent identity absent from
+    # the component set (e.g. the scanned project itself, which membership
+    # parsers do not emit as a component) is dropped and counted -- never
+    # serialized as a dangling ref.
+    payload = {
+        "sbom": [
+            {"name": "click", "version": "8.1.7", "ecosystem": "pypi"},
+        ],
+        "dependency_graph": {
+            "edges": [{
+                "ecosystem": "pypi",
+                "parent_name": "flask", "parent_version": "3.1.0",
+                "parent_purl": "pkg:pypi/flask@3.1.0",
+                "child_name": "click", "child_version": "8.1.7",
+                "child_purl": "pkg:pypi/click@8.1.7",
+                "confidence": "VERIFIED",
+                "evidence_source": "POETRY_PACKAGE_DEPENDENCIES",
+                "source": "poetry.lock",
+                "fingerprint": "sha256:t",
+            }],
+        },
+        "metadata": {"target": "/proj/demo"},
+    }
+    doc = build_cyclonedx(payload)
+    comps, emitted = _refs(doc)
+    assert set(emitted) <= comps
+    tally = json.loads(_meta_props(doc)["rsecopsx:edge_ref_resolution"])
+    assert tally["dropped"] == 1  # parent unresolved; child IS a component
