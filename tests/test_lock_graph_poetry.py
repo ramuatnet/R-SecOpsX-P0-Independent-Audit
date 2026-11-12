@@ -357,3 +357,14 @@ version = "0.3.9"
             edge["child_version"]) == ("app", "dill", "0.3.9")
     assert "python_version <" in edge["qualifiers"]["markers"]
     assert "python_version >=" in edge["qualifiers"]["markers"]
+
+
+def test_unparseable_version_never_satisfies_exclusions(r2_f1=None):
+    # R2.2 F-1 remediation (review finding): an unparseable version must
+    # never satisfy ANY understood constraint branch -- the exact-!= form
+    # previously fell through to True (inconsistent with == and wildcard-!=).
+    from analysis.lock_graph.versions import satisfies
+    assert satisfies("unknown-version-x", "!=1.2.3") is False
+    assert satisfies("unknown-version-x", "==1.2.3") is False
+    assert satisfies("unknown-version-x", "!=1.2.*") is False
+    assert satisfies("unknown-version-x", ">=1.0") is False

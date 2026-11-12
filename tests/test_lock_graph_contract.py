@@ -161,3 +161,21 @@ def test_registry_membership_only_placeholder_never_fabricates(tmp_path):
     assert result["edges"] == []
     assert any("membership" in str(l).lower() for l in result["limitations"])
     assert result["membership_packages"] == 1
+
+
+# ------------------------------------------------- R2.2 F-2 equivalence --
+def test_norm_pypi_matches_join_identity():
+    # The join keeps an inlined (import-light) copy of the PyPI identity
+    # rule; this test pins the two spellings to stay equivalent across the
+    # spellings real manifests/lockfiles emit.
+    from scanner.dependency_intelligence import _norm_identity_name
+    spellings = [
+        ("typing_extensions", "typing-extensions"),
+        ("Flask_Login", "flask-login"),
+        ("Pillow", "pillow"),
+        ("zope.interface", "zope-interface"),
+        ("a..b--c__d", "a-b-c-d"),
+        ("HTTPS/lib", "https-lib"),
+    ]
+    for raw, _ in spellings:
+        assert contract.norm_pypi(raw) == _norm_identity_name("pypi", raw), raw

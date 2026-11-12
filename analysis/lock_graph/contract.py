@@ -21,8 +21,20 @@ Honesty is structural, not aspirational:
 from __future__ import annotations
 
 import hashlib
+import re
 
 from scanner.purl import purl as _purl
+
+
+def norm_pypi(name: str) -> str:
+    """PEP 503 canonical PyPI identity: ``[-_.]+ -> -``, casefolded.
+
+    Single source for the R2 extractors (poetry/uv) -- the verified-edge
+    join normalizes with the same rule (its own inlined copy, import-light
+    by design); the equivalence of the two spellings is pinned by test
+    (test_lock_graph_contract.py::test_norm_pypi_matches_join_identity).
+    """
+    return re.sub(r"[-_.]+", "-", str(name or "").strip()).casefold()
 
 VERIFIED = "VERIFIED"
 AMBIGUOUS = "AMBIGUOUS"

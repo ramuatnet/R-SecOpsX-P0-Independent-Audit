@@ -138,7 +138,11 @@ def _eval_branch(version: str, constraint: str) -> bool | None:
             core = _release(body)
             if core is None:
                 return None
-            if ver is not None and _cmp(ver, core) == 0:
+            if ver is None:
+                # R2.2 F-1: an unparseable version must never satisfy any
+                # understood branch (mirrors == and wildcard-!= above).
+                return False
+            if _cmp(ver, core) == 0:
                 return False
             continue
         if op == "^":

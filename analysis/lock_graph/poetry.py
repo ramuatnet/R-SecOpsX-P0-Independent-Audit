@@ -20,17 +20,11 @@ import tomllib
 from pathlib import Path
 
 from analysis.lock_graph import contract
+from analysis.lock_graph.contract import norm_pypi
 from analysis.lock_graph.versions import satisfies
 
 ENGINE = "POETRY_LOCK_GRAPH_V1"
 EVIDENCE = "POETRY_PACKAGE_DEPENDENCIES"
-
-
-def _norm_pypi(name: str) -> str:
-    # PEP 503: [-_.]+ -> -, casefold (mirror of the join's PyPI identity).
-    import re
-
-    return re.sub(r"[-_.]+", "-", str(name or "").strip()).casefold()
 
 
 def _source_qualifiers(source) -> dict:
@@ -69,7 +63,7 @@ def extract(lockfile_path: str) -> dict:
         name = str(pkg.get("name") or "").strip()
         version = str(pkg.get("version") or "").strip()
         if name and version:
-            universe.setdefault(_norm_pypi(name), []).append(version)
+            universe.setdefault(norm_pypi(name), []).append(version)
 
     edges: list[dict] = []
     duplicate_dropped = 0
@@ -114,7 +108,7 @@ def extract(lockfile_path: str) -> dict:
 
                 location = (f"[[package] {parent_name}@{parent_version}] "
                             f"[package.dependencies] {dep_name}")
-                candidates = universe.get(_norm_pypi(dep_name), [])
+                candidates = universe.get(norm_pypi(dep_name), [])
 
                 if not candidates:
                     edges.append(contract.build_edge(
