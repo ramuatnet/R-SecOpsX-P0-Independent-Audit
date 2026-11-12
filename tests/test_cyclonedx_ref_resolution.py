@@ -89,8 +89,10 @@ def test_root_group_still_present_in_dependencies():
 
 # ----------------------------------------------------- scoped registry ids --
 def test_scoped_depends_on_resolves_to_component_bom_ref():
-    # The exporter's own purl form is raw ``@scope`` end to end, so a scoped
-    # edge must resolve to the scoped component bom-ref as emitted.
+    # R2.2: component purls come from scanner.purl (the single authority),
+    # which percent-encodes npm scopes to %40 -- the purl-spec-correct
+    # spelling. A raw-engine scoped edge id still resolves (W1 identity
+    # normalization), to the %40 bom-ref.
     pkg = {"name": "@scope/pkg", "version": "1.0.0", "ecosystem": "npm"}
     payload = _payload(
         sbom=[pkg],
@@ -98,7 +100,7 @@ def test_scoped_depends_on_resolves_to_component_bom_ref():
     )
     doc = _doc(payload)
     comps, emitted = _refs(doc)
-    assert "pkg:npm/@scope/pkg@1.0.0" in comps
+    assert "pkg:npm/%40scope/pkg@1.0.0" in comps
     assert set(emitted) <= comps
 
 
@@ -267,3 +269,44 @@ def test_contract_edge_parent_absent_dropped_and_counted():
     assert set(emitted) <= comps
     tally = json.loads(_meta_props(doc)["rsecopsx:edge_ref_resolution"])
     assert tally["dropped"] == 1  # parent unresolved; child IS a component
+
+
+def test_maven_contract_edges_resolve_single_purl_authority():
+    # R2.2 finding (real Maven scan): the exporter's local _purl emitted
+    # pkg:maven/g:a@v while scanner.purl (the authority, used by the
+    # contract edges) emits pkg:maven/g/a@v -- two vocabularies, the same
+    # defect class W1 closed for scoped npm. The exporter must delegate to
+    # scanner.purl so ONE vocabulary exists end to end.
+    payload = {
+        "sbom": [
+            {"name": "com.sun.xml.bind:jaxb-impl", "version": "2.3.9",
+             "ecosystem": "Maven"},
+            {"name": "javax.xml.bind:jaxb-api", "version": "2.3.1",
+             "ecosystem": "Maven"},
+        ],
+        "dependency_graph": {
+            "edges": [{
+                "ecosystem": "maven",
+                "parent_name": "com.sun.xml.bind:jaxb-impl",
+                "parent_version": "2.3.9",
+                "parent_purl": "pkg:maven/com.sun.xml.bind/jaxb-impl@2.3.9",
+                "child_name": "javax.xml.bind:jaxb-api",
+                "child_version": "2.3.1",
+                "child_purl": "pkg:maven/javax.xml.bind/jaxb-api@2.3.1",
+                "confidence": "VERIFIED",
+                "evidence_source": "MAVEN_DEPENDENCY_TREE",
+                "source": "dependency-tree.txt",
+                "fingerprint": "sha256:m",
+            }],
+        },
+        "metadata": {"target": "/proj/demo"},
+    }
+    doc = build_cyclonedx(payload)
+    impl = [c for c in doc["components"]
+            if c["name"] == "com.sun.xml.bind:jaxb-impl"][0]
+    # the component purl/bom-ref now come from scanner.purl (g/a form)
+    assert impl["purl"] == "pkg:maven/com.sun.xml.bind/jaxb-impl@2.3.9"
+    comps, emitted = _refs(doc)
+    groups = {x["ref"]: x["dependsOn"] for x in doc["dependencies"]}
+    assert groups[impl["bom-ref"]] == ["pkg:maven/javax.xml.bind/jaxb-api@2.3.1"]
+    assert set(emitted) <= comps

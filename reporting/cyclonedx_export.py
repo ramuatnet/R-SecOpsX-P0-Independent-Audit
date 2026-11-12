@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from analysis.intelligence_provenance import NOT_AVAILABLE, STATIC_REFERENCE
+from scanner.purl import purl as _scanner_purl
 
 
 CYCLONEDX_VERSION = "1.5"
@@ -59,22 +60,19 @@ def _bom_ref(pkg: dict) -> str:
 
 
 def _purl(pkg: dict) -> str | None:
-    ecosystem = str(pkg.get("ecosystem") or "").lower()
-    name = pkg.get("name")
-    version = _canonical_component_version(pkg)
+    """Component purl from the SINGLE authority (scanner.purl).
 
-    if not name:
-        return None
-
-    purl_type = _PURL_TYPE_BY_ECOSYSTEM.get(ecosystem)
-
-    if not purl_type:
-        return None
-
-    if version:
-        return f"pkg:{purl_type}/{name}@{version}"
-
-    return f"pkg:{purl_type}/{name}"
+    R2.2: the exporter previously kept a private raw purl builder, which
+    disagreed with scanner.purl for Maven (pkg:maven/g:a@v vs the
+    authority's pkg:maven/g/a@v) -- the same two-vocabulary defect class
+    W1 closed for scoped npm, resurfacing cross-ecosystem via contract
+    edges. One vocabulary end to end: delegate to scanner.purl. npm
+    unscoped output is byte-identical (verified against the NodeGoat
+    baseline); npm SCOPED bom-refs change raw @ -> %40, the purl-spec-
+    correct spelling (disclosed per ground rule 7).
+    """
+    return _scanner_purl(pkg.get("name"), _canonical_component_version(pkg),
+                         pkg.get("ecosystem"))
 
 
 def _license(pkg: dict) -> list[dict]:
