@@ -18,20 +18,9 @@ from pathlib import Path
 from analysis.lock_graph import contract
 from analysis.lock_graph import npm_adapter
 from analysis.lock_graph import pipfile
+from analysis.lock_graph import poetry as _poetry_extractor
 
 ENGINE = "LOCK_GRAPH_REGISTRY_V1"
-
-
-def _poetry(lockfile_path: str) -> dict:
-    # R2.1 commit 2 replaces this stub with the real Poetry extractor.
-    return contract.extraction_result(
-        engine="POETRY_LOCK_GRAPH_V1",
-        source=str(lockfile_path),
-        format_version="poetry.lock",
-        graph_status=contract.UNSUPPORTED_FORMAT,
-        edges=[],
-        limitations=["Poetry verified-edge extractor not enabled yet"],
-    )
 
 
 def _uv(lockfile_path: str) -> dict:
@@ -50,7 +39,7 @@ def _uv(lockfile_path: str) -> dict:
 #: disk (Pipfile.lock is conventionally case-sensitive; the others lowercase).
 REGISTRY = {
     "package-lock.json": npm_adapter.extract,
-    "poetry.lock": _poetry,
+    "poetry.lock": _poetry_extractor.extract,
     "uv.lock": _uv,
     "Pipfile.lock": pipfile.extract,
 }
