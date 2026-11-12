@@ -188,3 +188,19 @@ def test_empty_tree_yields_no_edges(tmp_path):
     result = extract(_write(tmp_path, "com.example:app:jar:1.0.0\n"))
     assert result["graph_status"] == "NO_VERIFIED_EDGES"
     assert result["edges"] == []
+
+
+def test_optional_marker_from_real_maven_output(tmp_path):
+    # Real shape (WebGoat tree, freshly generated offline 2026-11-12):
+    # optional dependencies carry a trailing "(optional)" marker after the
+    # scope -- it must map to scope=optional, not corrupt the version.
+    tree = """com.example:app:jar:1.0.0
++- org.projectlombok:lombok:jar:1.18.46:provided (optional)
+"""
+    result = extract(_write(tmp_path, tree))
+    assert result["verified_edge_count"] == 1
+    edge = result["edges"][0]
+    assert edge["child_version"] == "1.18.46"
+    assert edge["confidence"] == "VERIFIED"
+    assert edge["scope"] == "optional"
+    assert edge["qualifiers"]["scope_declared"] == "provided"

@@ -61,6 +61,8 @@ def split_line(line):
 
 
 def parse_coord(body):
+    # real dependency:tree marks optional deps with a trailing "(optional)"
+    body = re.sub(r"\s*\(optional\)\s*$", "", body.strip())
     parts = [p.strip() for p in body.split(":")]
     if len(parts) < 3:
         return None

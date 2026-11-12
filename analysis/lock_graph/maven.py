@@ -39,7 +39,17 @@ _ROOT_CONVENTION = (
 
 
 def _parse_coordinate(coord: str) -> dict | None:
-    """`g:a:type[:classifier]:version[:scope]` -> identity dict, or None."""
+    """`g:a:type[:classifier]:version[:scope]` -> identity dict, or None.
+
+    Real dependency:tree output marks optional dependencies with a trailing
+    ``(optional)`` after the scope (verified on the WebGoat tree, 2026-11-12)
+    -- the marker maps to scope=optional instead of corrupting the version.
+    """
+    coord = coord.strip()
+    optional_marker = False
+    if coord.endswith("(optional)"):
+        optional_marker = True
+        coord = coord[: -len("(optional)")].strip()
     parts = [p.strip() for p in coord.split(":")]
     if len(parts) < 3:
         return None
@@ -57,10 +67,14 @@ def _parse_coordinate(coord: str) -> dict | None:
             classifier = parts[-3]
     if not group or not artifact or not version:
         return None
+    declared_scope = scope
+    if optional_marker:
+        scope = "optional"
     return {
         "name": f"{group}:{artifact}",
         "version": version,
         "scope": scope,
+        "declared_scope": declared_scope,
         "classifier": classifier,
         "type": parts[2] if len(parts) >= 3 else "jar",
     }
@@ -178,7 +192,8 @@ def extract(lockfile_path: str) -> dict:
             )
         parent = stack[-1][1]
 
-        qualifiers: dict = {"scope_declared": identity["scope"]}
+        qualifiers: dict = {"scope_declared": identity.get(
+            "declared_scope", identity["scope"])}
         if identity["classifier"]:
             qualifiers["classifier"] = identity["classifier"]
         qualifiers["packaging"] = identity["type"]
