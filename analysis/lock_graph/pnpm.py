@@ -320,9 +320,9 @@ def extract(lockfile_path: str) -> dict:
             engine=ENGINE, source=str(lockfile_path),
             format_version=f"pnpm lockfileVersion {version_label or '?'}",
             graph_status=contract.UNSUPPORTED_FORMAT, edges=[],
-            limitations=[f"pnpm lockfileVersion \'{version_label or \'?\'}\' "
+            limitations=[f"pnpm lockfileVersion '{version_label or '?'}' "
                          f"is not supported (supported: "
-                         f"{', '.join(sorted(SUPPORTED_VERSIONS))}); no "
+                         f"{', '.join(sorted(SUPPORTED_VERSIONS))}; no "
                          "edges fabricated."])
     if version_label == "5.4":
         return _extract_v5(data, str(lockfile_path), version_label)
