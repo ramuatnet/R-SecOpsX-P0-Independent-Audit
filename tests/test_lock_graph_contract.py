@@ -99,11 +99,14 @@ def test_registry_names_cover_r2_scope():
     # R2.1: npm/poetry/uv/pipenv; R2.2 adds Java: resolved-evidence files
     # (dependency-tree.txt, gradle-dependencies.txt) plus manifest files
     # that must answer with disclosed UNSUPPORTED envelopes (never edges).
+    # R2.3 adds JavaScript multi-ecosystem: yarn v1 entries (Berry lockfiles
+    # answer UNSUPPORTED) -- pnpm-lock.yaml joins in the R2.3b commit.
     assert registry.LOCKFILE_NAMES == {
         "package-lock.json", "poetry.lock", "uv.lock", "Pipfile.lock",
         "dependency-tree.txt", "pom.xml",
         "gradle-dependencies.txt", "gradle.lockfile",
         "build.gradle", "settings.gradle",
+        "yarn.lock",
     }
 
 

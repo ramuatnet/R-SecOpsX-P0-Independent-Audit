@@ -22,6 +22,7 @@ from analysis.lock_graph import npm_adapter
 from analysis.lock_graph import pipfile
 from analysis.lock_graph import poetry as _poetry_extractor
 from analysis.lock_graph import uv as _uv_extractor
+from analysis.lock_graph import yarn as _yarn_extractor
 
 ENGINE = "LOCK_GRAPH_REGISTRY_V1"
 
@@ -42,6 +43,9 @@ REGISTRY = {
     "gradle.lockfile": _gradle.extract_lockfile,
     "build.gradle": _maven.extract_manifest,
     "settings.gradle": _maven.extract_manifest,
+    # R2.3 (JavaScript): yarn v1 entries carry per-instance dependencies;
+    # Berry lockfiles answer with disclosed UNSUPPORTED envelopes.
+    "yarn.lock": _yarn_extractor.extract,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)
