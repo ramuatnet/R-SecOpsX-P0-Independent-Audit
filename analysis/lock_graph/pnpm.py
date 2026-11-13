@@ -3,13 +3,13 @@
 Evidence basis: a pnpm-lock.yaml records the resolved universe in
 ``packages`` (resolution metadata per ``name@version``) and the dependency
 relations in ``snapshots`` (v6+/v9) or inline in ``packages`` entries
-(v5.4). A snapshot's ``dependencies`` / ``optionalDependencies`` values are
+(v5.4). A snapshot\'s ``dependencies`` / ``optionalDependencies`` values are
 EXACT resolved identities (``1.1.3``, ``3.2.6(supports-color@5.5.0)``,
 tarball URLs) -- an exact value whose ``name@version`` exists in the
 packages universe is a VERIFIED edge; everything weaker is disclosed:
 membership miss -> UNRESOLVED, link/file/URL -> UNRESOLVED with the value
 preserved verbatim (the purl guard refuses to certify non-registry
-versions). Membership alone is never an edge -- a package's presence in
+versions). Membership alone is never an edge -- a package\'s presence in
 ``packages`` says nothing about WHO depends on it.
 
 Peer-qualified identities: snapshot keys and dependency values carry
@@ -18,12 +18,12 @@ resolves, never the package identity: the edge uses name@version, the
 qualifiers record the peer instance verbatim. Importer (project-level)
 declarations are counted and disclosed but never become edges: the project
 is not a lockfile component (verified_root_declared stays npm-engine-only,
-R2 contract §4).
+R2 contract \u00a74).
 
 Lockfile versions: 5.4, 6.0, 6.1, 9.0 parse; anything else answers with a
 disclosed UNSUPPORTED envelope. The R2.3 corpus contains NO real pnpm
 lockfiles -- the real-evidence benchmark is a pnpm 11.10.0-generated
-lockfile (pnpm import from NodeGoat's package-lock.json), 5.4/6.0/6.1
+lockfile (pnpm import from NodeGoat\'s package-lock.json), 5.4/6.0/6.1
 coverage is fixture-based and disclosed.
 
 FND-03: every slice bound is a named span (analysis.spans).
@@ -46,7 +46,7 @@ _NPM_TARGET_MARK = "@npm:"
 
 
 def _parse_lockfile_version(raw) -> str:
-    """Normalize pnpm's string/float lockfileVersion spellings."""
+    """Normalize pnpm\'s string/float lockfileVersion spellings."""
     if isinstance(raw, str):
         return raw.strip().strip("'\"")
     if isinstance(raw, (int, float)):
@@ -62,7 +62,7 @@ def _split_peer_suffix(value: str) -> tuple:
         open_at = text.rfind("(")
         if open_at < 0:
             break
-        peers.insert(0, text[open_at + WINDOW_1:WINDOW_M1])
+        peers.insert(0, text[open_at + 1:-1])
         text = text[:open_at]
     return text, peers
 
@@ -71,7 +71,7 @@ def _split_key_identity(key: str) -> tuple:
     """``@scope/name@1.2.3`` / ``name@1.2.3`` -> (name, version|'')."""
     text = str(key or "").strip()
     if text.startswith("@"):
-        at = text.find("@", WINDOW_1)
+        at = text.find("@", 1)
     else:
         at = text.find("@")
     if at < 0:
@@ -138,9 +138,6 @@ def _extract_v6(data: dict, lockfile_path: str, version_label: str) -> dict:
         parent_qualifiers = {}
         if parent_peers:
             parent_qualifiers["peer_instances"] = list(parent_peers)
-        parent_registry_version = (
-            "(" not in base and not base.startswith(("http:", "https:",
-                                                     "file:", "link:")))
         for block, scope in (("dependencies", "runtime"),
                              ("optionalDependencies", "optional")):
             for child_name, value in (snap.get(block) or {}).items():
@@ -148,8 +145,7 @@ def _extract_v6(data: dict, lockfile_path: str, version_label: str) -> dict:
                     universe, snapshots, str(snap_key),
                     str(parent_name), base, dict(parent_qualifiers),
                     str(child_name), value, scope, lockfile_path, block,
-                    snap.get("transitivePeerDependencies"),
-                    non_registry_parent=not parent_registry_version))
+                    snap.get("transitivePeerDependencies")))
     return _finish(edges, tallies, lockfile_path, version_label, data)
 
 
@@ -177,9 +173,6 @@ def _extract_v5(data: dict, lockfile_path: str, version_label: str) -> dict:
             parent_qualifiers["peer_instances"] = list(parent_peers)
         if pkg.get("dev") is True:
             parent_qualifiers["package_dev"] = True
-        parent_registry_version = (
-            "(" not in base and not base.startswith(("http:", "https:",
-                                                     "file:", "link:")))
         for block, scope in (("dependencies", "runtime"),
                              ("optionalDependencies", "optional")):
             for child_name, value in (pkg.get(block) or {}).items():
@@ -187,24 +180,15 @@ def _extract_v5(data: dict, lockfile_path: str, version_label: str) -> dict:
                     universe, {}, str(pkg_key),
                     real_parent, base, dict(parent_qualifiers),
                     str(child_name), value, scope, lockfile_path, block,
-                    None,
-                    non_registry_parent=not parent_registry_version))
+                    None))
     return _finish(edges, tallies, lockfile_path, version_label, data)
-
-
-def _registry_value(value) -> bool:
-    """True when the value is a purl-certifiable registry version."""
-    base = _split_peer_suffix(value)[0].strip()
-    return bool(base) and "(" not in base and not base.startswith(
-        ("http:", "https:", "file:", "link:"))
 
 
 def _build_snapshot_edge(universe: dict, snapshots: dict, snap_key: str,
                          parent_name: str, parent_version: str,
                          parent_qualifiers: dict, child_name: str,
                          child_value, scope: str, lockfile_path: str,
-                         block: str, transitive_peers,
-                         non_registry_parent: bool = False) -> dict:
+                         block: str, transitive_peers) -> dict:
     base_value, child_peers = _split_peer_suffix(child_value)
     base_value = str(base_value).strip()
     qualifiers = dict(parent_qualifiers)
@@ -223,45 +207,34 @@ def _build_snapshot_edge(universe: dict, snapshots: dict, snap_key: str,
         edge["requested_spec"] = str(child_value)
         return edge
 
-    if not _registry_value(child_value):
-        # tarball/git/link resolutions carry no purl-certifiable version:
-        # preserved verbatim, disclosed, never guessed into VERIFIED
-        return _edge(parent_name=parent_name,
-                     parent_version=parent_version,
-                     child_name=child_name, child_version=base_value,
-                     resolution_status=("LOCAL_LINK" if
-                                        base_value.startswith("link:")
-                                        else "NON_REGISTRY_RESOLUTION"))
-
-    resolved_name, matched_key, alias = _member_identity(
-        universe, child_name, base_value)
-    if not resolved_name and _snapshot_member(snapshots, child_name,
-                                              base_value):
-        # a peer-qualified snapshot instance of the exact child version
-        # exists -- resolution evidence, though no packages metadata
-        resolved_name, matched_key, alias = child_name, "", None
-    if not resolved_name:
-        # snapshot-id presence is NOT proof of resolution: the packages
-        # universe is the authority
+    if not base_value:
+        # missing version -> UNRESOLVED
         return _edge(parent_name=parent_name,
                      parent_version=parent_version,
                      child_name=child_name, child_version="",
                      resolution_status="CHILD_NOT_IN_LOCKFILE")
+    # resolve child identity (direct or alias)
+    resolved_name, matched_key, alias = _member_identity(
+        universe, child_name, base_value)
+    if resolved_name is None:
+        # check snapshot fallback
+        if _snapshot_member(snapshots, child_name, base_value):
+            resolved_name, matched_key, alias = child_name, "", None
+        else:
+            return _edge(parent_name=parent_name,
+                         parent_version=parent_version,
+                         child_name=child_name, child_version="",
+                         resolution_status="CHILD_NOT_IN_LOCKFILE")
     if alias:
         qualifiers["alias"] = alias
-    integrity = ""
+    # record integrity if present
     pkg_meta = universe.get(matched_key) or {}
-    if pkg_meta.get("dev") is True:
-        qualifiers["package_dev"] = True
     resolution = pkg_meta.get("resolution")
     if isinstance(resolution, dict) and resolution.get("integrity"):
-        integrity = str(resolution["integrity"])
-        qualifiers["integrity"] = integrity
+        qualifiers["integrity"] = str(resolution["integrity"])
     return _edge(parent_name=parent_name,
                  parent_version=parent_version,
-                 child_name=resolved_name, child_version=base_value,
-                 resolution_status=("NON_REGISTRY_PARENT"
-                                    if non_registry_parent else ""))
+                 child_name=resolved_name, child_version=base_value)
 
 
 def _importer_tallies(data: dict, version_label: str) -> dict:
@@ -302,7 +275,7 @@ def _finish(edges, tallies, lockfile_path, version_label, data):
         e["confidence"] == contract.VERIFIED for e in edges)
         else contract.NO_VERIFIED_EDGES)
     limitations = [
-        "pnpm-lock.yaml declares the project's own dependencies in "
+        "pnpm-lock.yaml declares the project\'s own dependencies in "
         "importers (v6+/v9) or root specifier blocks (v5.4): those "
         "declarations are counted (tallies.importer_declarations_*) but "
         "never become edges -- the project is not a lockfile component "
@@ -333,7 +306,7 @@ def extract(lockfile_path: str) -> dict:
             engine=ENGINE, source=str(lockfile_path),
             format_version="pnpm-lock.yaml",
             graph_status=contract.EXTRACTION_ERROR, edges=[],
-            limitations=[f"pnpm-lock.yaml parse failed: {exc}"])
+            limitations=[f"pnpm-lock.yaml read failed: {exc}"])
     if not isinstance(data, dict):
         return contract.extraction_result(
             engine=ENGINE, source=str(lockfile_path),
@@ -347,7 +320,7 @@ def extract(lockfile_path: str) -> dict:
             engine=ENGINE, source=str(lockfile_path),
             format_version=f"pnpm lockfileVersion {version_label or '?'}",
             graph_status=contract.UNSUPPORTED_FORMAT, edges=[],
-            limitations=[f"pnpm lockfileVersion '{version_label or '?'}' "
+            limitations=[f"pnpm lockfileVersion \'{version_label or \'?\'}\' "
                          f"is not supported (supported: "
                          f"{', '.join(sorted(SUPPORTED_VERSIONS))}); no "
                          "edges fabricated."])

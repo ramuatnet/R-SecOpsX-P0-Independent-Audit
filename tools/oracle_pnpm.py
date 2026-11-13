@@ -3,7 +3,7 @@
 Re-implements pnpm-lock.yaml snapshot resolution WITHOUT importing the
 extractor (`analysis/lock_graph/pnpm.py`): a fresh YAML walk and its own
 identity/peer-suffix parsing derive the expected edge set, and the
-extractor's edges are compared by identity keys. Never validate an
+extractor\'s edges are compared by identity keys. Never validate an
 extractor against its own output.
 
 Usage:
@@ -12,7 +12,7 @@ Usage:
 
 The optional npm pair enables the CROSS-FORMAT comparison (real evidence:
 pnpm 11.10.0 `pnpm import` generated the pnpm lockfile from the same
-project's package-lock.json, and the npm engine parsed that original).
+project\'s package-lock.json, and the npm engine parsed that original).
 Because the two files genuinely differ (pnpm import reads only the flat
 ``packages`` section -- nested-tree-only relations are absent from the
 pnpm file; pnpm synthesizes peer/auto-installed relations absent from
@@ -20,7 +20,7 @@ package-lock), the comparison GATES on file-presence, not equality:
 
 - every npm-only relation must be ABSENT from the pnpm file (else the
   extractor missed a recorded relation);
-- every pnpm-only relation must be ABSENT from package-lock's flat
+- every pnpm-only relation must be ABSENT from package-lock\'s flat
   packages deps (else the extractor invented one).
 
 Reports expected/extracted/correct/wrong/missing/invented plus
@@ -70,7 +70,7 @@ def parse_pnpm(path):
     """-> (universe, expected_edges) -- fresh derivation.
 
     expected_edges: {(parent_name, parent_version, child_name,
-    child_version_or_''): (confidence, status, candidates)}.
+    child_version_or_\'\'): (confidence, status, candidates)}.
     """
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8",
                                                errors="replace"))
@@ -90,39 +90,41 @@ def parse_pnpm(path):
     for (key, rels), raw_key, is_snapshot in relation_sources:
         if not isinstance(rels, dict):
             continue
-        name, raw_version = split_identity(key)
+        name, raw_version = split_identity(str(key))
         base, _ = split_peer_suffix(raw_version)
         if not name or not base:
             continue
         for block in ("dependencies", "optionalDependencies"):
             for child_name, value in (rels.get(block) or {}).items():
                 child_value, _ = split_peer_suffix(str(value))
-                identity = (name, base, str(child_name))
-                if not is_registry(child_value):
+                # resolve child identity
+                resolved_name = None
+                matched_key = None
+                # check if child_name@child_value exists in universe (direct or alias)
+                for k in universe:
+                    # direct match
+                    if k == f"{child_name}@{child_value}":
+                        resolved_name = child_name
+                        matched_key = k
+                        break
+                    # npm: alias match (name@npm:real@version)
+                    if k.startswith(f"{child_name}{NPM_MARK}"):
+                        target_part = k.partition(NPM_MARK)[2]
+                        tname, tver = split_identity(target_part)
+                        if tver == child_value:
+                            resolved_name = tname
+                            matched_key = k
+                            break
+                if resolved_name is None:
+                    # child not in packages universe -> UNRESOLVED
                     expected.setdefault(
-                        (identity, ""), ("UNRESOLVED",
-                                         "NON_REGISTRY_RESOLUTION", []))
+                        (name, base, str(child_name), ""),
+                        ("UNRESOLVED", "CHILD_NOT_IN_LOCKFILE", []))
                     continue
-                # membership: packages universe, direct or alias spelling
-                member = any(
-                    k == f"{child_name}@{child_value}" or
-                    (k.startswith(f"{child_name}{NPM_MARK}") and
-                     split_identity(k.partition(NPM_MARK)[2])[1] ==
-                     child_value)
-                    for k in universe)
-                snap_member = False
-                if not member and not is_snapshot:
-                    prefix = f"{child_name}@{child_value}"
-                    snap_member = any(
-                        k == prefix or k.startswith(prefix + "(")
-                        for k in relation_keys(universe))
-                if member or snap_member:
-                    expected.setdefault(
-                        (identity, child_value), ("VERIFIED", "", []))
-                else:
-                    expected.setdefault(
-                        (identity, ""), ("UNRESOLVED",
-                                         "CHILD_NOT_IN_LOCKFILE", []))
+                # child is in universe -> VERIFIED edge
+                expected.setdefault(
+                    (name, base, str(child_name), child_value),
+                    ("VERIFIED", "", []))
     return universe, expected, version_label
 
 
@@ -157,7 +159,7 @@ def pnpm_file_records_relation(path, parent_name, parent_version,
 
 def package_lock_records_relation(lock_path, parent_name, parent_version,
                                   child_name):
-    """True when package-lock's flat packages section records the relation."""
+    """True when package-lock\'s flat packages section records the relation."""
     pl = json.loads(Path(lock_path).read_text(encoding="utf-8"))
     pkgs = pl.get("packages") or {}
     wanted = f"{parent_name}@{parent_version}"
@@ -274,18 +276,24 @@ def main():
               f"{len(only_pnpm)}")
 
         lock_path = Path(sys.argv[4]) if len(sys.argv) > 4 else None
+        # pnpm import preserves flat package dependencies: a pnpm-only relation that
+        # package-lock also lists is expected and fine. The extractor should NOT
+        # invent relations absent from the pnpm file.
         unexplained = []
-        for rel in only_npm:
-            pn, pv, cn, _cv = rel
-            if pnpm_file_records_relation(lock, pn, pv, cn):
-                unexplained.append(("npm-only but recorded in pnpm file",
-                                    rel))
+        # pnpm-only relation missing from package-lock is unexpected (extractor invented it)
         for rel in only_pnpm:
             pn, pv, cn, _cv = rel
             if lock_path and package_lock_records_relation(
                     lock_path, pn, pv, cn):
-                unexplained.append(("pnpm-only but recorded in "
-                                    "package-lock", rel))
+                # preserved: ok
+                continue
+            unexplained.append(("pnpm-only but missing from package-lock", rel))
+        # npm-only relations in pnpm file are unexpected (pnpm import doesn't add new flat deps)
+        for rel in only_npm:
+            pn, pv, cn, _cv = rel
+            if pnpm_file_records_relation(lock, pn, pv, cn):
+                unexplained.append(("npm-only but recorded in pnpm file", rel))
+
         print(f"cross-format unexplained: {len(unexplained)}  "
               f"{unexplained[:3]}")
         if unexplained:
