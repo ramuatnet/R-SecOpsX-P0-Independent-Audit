@@ -20,6 +20,7 @@ from analysis.lock_graph import gradle as _gradle
 from analysis.lock_graph import maven as _maven
 from analysis.lock_graph import npm_adapter
 from analysis.lock_graph import pipfile
+from analysis.lock_graph import pnpm as _pnpm_extractor
 from analysis.lock_graph import poetry as _poetry_extractor
 from analysis.lock_graph import uv as _uv_extractor
 from analysis.lock_graph import yarn as _yarn_extractor
@@ -44,8 +45,10 @@ REGISTRY = {
     "build.gradle": _maven.extract_manifest,
     "settings.gradle": _maven.extract_manifest,
     # R2.3 (JavaScript): yarn v1 entries carry per-instance dependencies;
-    # Berry lockfiles answer with disclosed UNSUPPORTED envelopes.
+    # Berry lockfiles answer with disclosed UNSUPPORTED envelopes. pnpm
+    # snapshot relations are exact resolved identities (5.4/6.0/6.1/9.0).
     "yarn.lock": _yarn_extractor.extract,
+    "pnpm-lock.yaml": _pnpm_extractor.extract,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)

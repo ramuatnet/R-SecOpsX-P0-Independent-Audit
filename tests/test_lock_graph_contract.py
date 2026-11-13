@@ -100,13 +100,14 @@ def test_registry_names_cover_r2_scope():
     # (dependency-tree.txt, gradle-dependencies.txt) plus manifest files
     # that must answer with disclosed UNSUPPORTED envelopes (never edges).
     # R2.3 adds JavaScript multi-ecosystem: yarn v1 entries (Berry lockfiles
-    # answer UNSUPPORTED) -- pnpm-lock.yaml joins in the R2.3b commit.
+    # answer UNSUPPORTED) and pnpm snapshot relations (unsupported pnpm
+    # lockfile versions answer UNSUPPORTED envelopes, never edges).
     assert registry.LOCKFILE_NAMES == {
         "package-lock.json", "poetry.lock", "uv.lock", "Pipfile.lock",
         "dependency-tree.txt", "pom.xml",
         "gradle-dependencies.txt", "gradle.lockfile",
         "build.gradle", "settings.gradle",
-        "yarn.lock",
+        "yarn.lock", "pnpm-lock.yaml",
     }
 
 
@@ -188,3 +189,38 @@ def test_norm_pypi_matches_join_identity():
     ]
     for raw, _ in spellings:
         assert contract.norm_pypi(raw) == _norm_identity_name("pypi", raw), raw
+
+
+def test_registry_dispatches_pnpm_lock(tmp_path):
+    # F-R3-1 positive dispatch: a minimal v9.0 lockfile reaches the pnpm
+    # snapshot extractor through the registry path
+    lock = tmp_path / "pnpm-lock.yaml"
+    lock.write_text(
+        "lockfileVersion: '9.0'\n"
+        "importers:\n"
+        "  .:\n"
+        "    dependencies:\n"
+        "      foo: 1.0.0\n"
+        "packages:\n"
+        "  foo@1.0.0:\n"
+        "    resolution: {integrity: sha512-x}\n"
+        "snapshots:\n"
+        "  foo@1.0.0: {}\n",
+        encoding="utf-8")
+    result = registry.extract_for_file(str(lock))
+    assert result["engine"] == "PNPM_SNAPSHOT_GRAPH_V1"
+    assert result["graph_status"] == "NO_VERIFIED_EDGES"
+    assert result["tallies"]["importer_declarations"] == 1
+
+
+def test_registry_dispatches_pnpm_unsupported_version(tmp_path):
+    # F-R3-1 negative dispatch: an unsupported lockfile version answers a
+    # disclosed UNSUPPORTED envelope through the registry path
+    lock = tmp_path / "pnpm-lock.yaml"
+    lock.write_text("lockfileVersion: 99.0\npackages: {}\n",
+                    encoding="utf-8")
+    result = registry.extract_for_file(str(lock))
+    assert result["engine"] == "PNPM_SNAPSHOT_GRAPH_V1"
+    assert result["graph_status"] == "UNSUPPORTED_FORMAT"
+    assert result["edges"] == []
+    assert any("99.0" in line for line in result["limitations"])
