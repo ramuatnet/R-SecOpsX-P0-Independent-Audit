@@ -25,6 +25,7 @@ from analysis.lock_graph import poetry as _poetry_extractor
 from analysis.lock_graph import uv as _uv_extractor
 from analysis.lock_graph import yarn as _yarn_extractor
 from analysis.lock_graph import cargo as _cargo_extractor
+from analysis.lock_graph import rubygems as _ruby_extractor
 from analysis.lock_graph import gomod as _go_extractor
 
 ENGINE = "LOCK_GRAPH_REGISTRY_V1"
@@ -61,6 +62,11 @@ REGISTRY = {
     # Cargo.toml declarations answer with a disclosed envelope.
     "Cargo.lock": _cargo_extractor.extract,
     "Cargo.toml": _cargo_extractor.extract_manifest,
+    # R2.5a (Ruby): Gemfile.lock specs blocks carry resolved parent-child
+    # declarations (GEM/GIT/PATH provenance); Gemfile declarations answer
+    # with a disclosed envelope.
+    "Gemfile.lock": _ruby_extractor.extract,
+    "Gemfile": _ruby_extractor.extract_manifest,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)
