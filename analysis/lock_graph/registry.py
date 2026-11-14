@@ -24,6 +24,7 @@ from analysis.lock_graph import pnpm as _pnpm_extractor
 from analysis.lock_graph import poetry as _poetry_extractor
 from analysis.lock_graph import uv as _uv_extractor
 from analysis.lock_graph import yarn as _yarn_extractor
+from analysis.lock_graph import gomod as _go_extractor
 
 ENGINE = "LOCK_GRAPH_REGISTRY_V1"
 
@@ -49,6 +50,12 @@ REGISTRY = {
     # snapshot relations are exact resolved identities (5.4/6.0/6.1/9.0).
     "yarn.lock": _yarn_extractor.extract,
     "pnpm-lock.yaml": _pnpm_extractor.extract,
+    # R2.4 (Go): `go mod graph` output carries resolved module-graph edges;
+    # go.mod declarations and go.sum checksums answer with disclosed
+    # envelopes (declarations/membership are never relationships).
+    "go-mod-graph.txt": _go_extractor.extract_graph,
+    "go.mod": _go_extractor.extract_gomod,
+    "go.sum": _go_extractor.extract_gosum,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)

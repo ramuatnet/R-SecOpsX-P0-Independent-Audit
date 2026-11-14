@@ -102,12 +102,15 @@ def test_registry_names_cover_r2_scope():
     # R2.3 adds JavaScript multi-ecosystem: yarn v1 entries (Berry lockfiles
     # answer UNSUPPORTED) and pnpm snapshot relations (unsupported pnpm
     # lockfile versions answer UNSUPPORTED envelopes, never edges).
+    # R2.4 adds Go (go mod graph resolved edges; go.mod/go.sum disclosure
+    # envelopes) and Rust (Cargo.lock resolved edges; Cargo.toml envelope).
     assert registry.LOCKFILE_NAMES == {
         "package-lock.json", "poetry.lock", "uv.lock", "Pipfile.lock",
         "dependency-tree.txt", "pom.xml",
         "gradle-dependencies.txt", "gradle.lockfile",
         "build.gradle", "settings.gradle",
         "yarn.lock", "pnpm-lock.yaml",
+        "go-mod-graph.txt", "go.mod", "go.sum",
     }
 
 
