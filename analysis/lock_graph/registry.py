@@ -25,6 +25,7 @@ from analysis.lock_graph import poetry as _poetry_extractor
 from analysis.lock_graph import uv as _uv_extractor
 from analysis.lock_graph import yarn as _yarn_extractor
 from analysis.lock_graph import cargo as _cargo_extractor
+from analysis.lock_graph import nuget as _nuget_extractor
 from analysis.lock_graph import rubygems as _ruby_extractor
 from analysis.lock_graph import gomod as _go_extractor
 
@@ -67,6 +68,14 @@ REGISTRY = {
     # with a disclosed envelope.
     "Gemfile.lock": _ruby_extractor.extract,
     "Gemfile": _ruby_extractor.extract_manifest,
+    # R2.5b (.NET): packages.lock.json / project.assets.json targets are
+    # resolved restore evidence; packages.config and the CPM catalog
+    # answer with disclosed envelopes (membership/declarations are not
+    # relationships).
+    "packages.lock.json": _nuget_extractor.extract_lock,
+    "project.assets.json": _nuget_extractor.extract_assets,
+    "packages.config": _nuget_extractor.extract_packages_config,
+    "Directory.Packages.props": _nuget_extractor.extract_props,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)

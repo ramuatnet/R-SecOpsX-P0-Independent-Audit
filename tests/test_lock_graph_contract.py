@@ -113,6 +113,8 @@ def test_registry_names_cover_r2_scope():
         "go-mod-graph.txt", "go.mod", "go.sum",
         "Cargo.lock", "Cargo.toml",
         "Gemfile.lock", "Gemfile",
+        "packages.lock.json", "project.assets.json", "packages.config",
+        "Directory.Packages.props",
     }
 
 
