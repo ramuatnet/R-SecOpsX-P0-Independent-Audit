@@ -24,6 +24,7 @@ from analysis.lock_graph import pnpm as _pnpm_extractor
 from analysis.lock_graph import poetry as _poetry_extractor
 from analysis.lock_graph import uv as _uv_extractor
 from analysis.lock_graph import yarn as _yarn_extractor
+from analysis.lock_graph import cargo as _cargo_extractor
 from analysis.lock_graph import gomod as _go_extractor
 
 ENGINE = "LOCK_GRAPH_REGISTRY_V1"
@@ -56,6 +57,10 @@ REGISTRY = {
     "go-mod-graph.txt": _go_extractor.extract_graph,
     "go.mod": _go_extractor.extract_gomod,
     "go.sum": _go_extractor.extract_gosum,
+    # R2.4 (Rust): Cargo.lock carries resolved parent-child dependencies;
+    # Cargo.toml declarations answer with a disclosed envelope.
+    "Cargo.lock": _cargo_extractor.extract,
+    "Cargo.toml": _cargo_extractor.extract_manifest,
 }
 
 LOCKFILE_NAMES = frozenset(REGISTRY)

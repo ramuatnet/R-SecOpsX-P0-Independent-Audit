@@ -111,6 +111,7 @@ def test_registry_names_cover_r2_scope():
         "build.gradle", "settings.gradle",
         "yarn.lock", "pnpm-lock.yaml",
         "go-mod-graph.txt", "go.mod", "go.sum",
+        "Cargo.lock", "Cargo.toml",
     }
 
 
