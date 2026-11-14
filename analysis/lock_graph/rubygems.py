@@ -55,6 +55,10 @@ FORMAT_MANIFEST = "Gemfile"
 _SECTIONS = ("GEM", "GIT", "PATH", "PLUGIN")
 _SPEC_LINE = re.compile(r"^(\S+)\s+\(([^)]+)\)\s*$")
 _GEMFILE_LINE = re.compile(r'^\s*gem\s+["\']([^"\']+)["\']')
+# F-R5-1: PLUGIN is a real Bundler section; its gems are resolved
+# instances with their own disclosed provenance (source_kind=plugin)
+_SECTION_PROVENANCE = {"GEM": "registry", "GIT": "git", "PATH": "path",
+                       "PLUGIN": "plugin"}
 
 
 def _normalize_ruby_constraint(constraint: str) -> str:
@@ -151,8 +155,7 @@ def extract(lockfile_path: str) -> dict:
             in_specs = False
             in_dependencies = section == "DEPENDENCIES"
             if section in _SECTIONS:
-                source_kind = {"GEM": "registry", "GIT": "git",
-                               "PATH": "path"}[section]
+                source_kind = _SECTION_PROVENANCE.get(section, "plugin")
                 source_url = ""
                 revision = ""
             continue
@@ -208,21 +211,26 @@ def extract(lockfile_path: str) -> dict:
                         for (i, _n, _v, _q) in parent_stack
                         if i < indent]
         parent_stack.append((indent, name, version_token, qualifiers))
-        universe.setdefault(name, []).append(version_token)
+        # F-R5-2: the universe carries PER-INSTANCE provenance so a
+        # resolved child's own section source travels on the edge
+        universe.setdefault(name, []).append((version_token, qualifiers))
 
     # ---- resolve declarations against the universe -------------------------
     edges = []
     for pname, pversion, child_name, constraint, pquals in section_records:
         location = f"specs: {pname} ({pversion}) {child_name} ({constraint})"
-        candidates = universe.get(child_name, [])
+        instances = universe.get(child_name, [])
         constraint_norm = _normalize_ruby_constraint(constraint)
 
-        def _edge(**kwargs):
+        def _edge(child_quals=None, **kwargs):
+            quals = dict(pquals)
+            if child_quals:
+                quals.update(child_quals)
             requested = kwargs.pop("requested_spec", "")
             edge = contract.build_edge(
                 ecosystem="rubygems", source=str(lockfile_path),
                 source_location=location, evidence_source=EVIDENCE,
-                scope="runtime", qualifiers=pquals, **kwargs)
+                scope="runtime", qualifiers=quals, **kwargs)
             # requested_spec is a contract-schema field the shared builder
             # does not consume; attach it so the declared constraint
             # travels with the edge
@@ -230,27 +238,75 @@ def extract(lockfile_path: str) -> dict:
                 edge["requested_spec"] = requested
             return edge
 
-        if not candidates:
+        def _child_provenance(matched_instances):
+            """F-R5-2: the resolved child's OWN section source, disclosed
+            per instance; a version resolved from several sections
+            discloses every source kind (comma-joined)."""
+            kinds = sorted({(q or {}).get("source_kind") or ""
+                            for (_v, q) in matched_instances})
+            child_quals = {"child_source_kind":
+                           ",".join(k for k in kinds if k)}
+            urls = sorted({(q or {}).get("source") or ""
+                           for (_v, q) in matched_instances} - {""})
+            if len(urls) == 1:
+                child_quals["child_source"] = urls[0]
+            revisions = sorted({(q or {}).get("revision") or ""
+                                for (_v, q) in matched_instances} - {""})
+            if len(revisions) == 1:
+                child_quals["child_revision"] = revisions[0]
+            return child_quals
+
+        if not instances:
             edges.append(_edge(
                 parent_name=pname, parent_version=pversion,
                 child_name=child_name, child_version="",
                 resolution_status="CHILD_NOT_IN_LOCKFILE"))
             continue
-        matched = sorted({v for v in candidates
-                          if satisfies(v, constraint_norm)})
-        parseable = satisfies("1.0.0", constraint_norm) is not None
-        if len(matched) == 1:
+
+        # F-R5-3: an EXACT constraint that is not a plain numeric version
+        # carries a platform variant or alphanumeric prerelease head -- the
+        # numeric-prefix approximation would match sibling variants, so
+        # verbatim instance matching is authoritative with NO fallback
+        m_exact = re.match(r"^=\s*(\S+)$", constraint.strip())
+        verbatim_route = (m_exact is not None and
+                          not re.fullmatch(r"\d+(?:\.\d+)*",
+                                           m_exact.group(WINDOW_1)))
+        if verbatim_route:
+            requested = m_exact.group(WINDOW_1)
+            matched_instances = [(v, q) for (v, q) in instances
+                                 if v == requested]
+            if not matched_instances:
+                edges.append(_edge(
+                    parent_name=pname, parent_version=pversion,
+                    child_name=child_name, child_version="",
+                    resolution_status="NO_MATCHING_VERSION",
+                    requested_spec=constraint))
+                continue
             edges.append(_edge(
                 parent_name=pname, parent_version=pversion,
-                child_name=child_name, child_version=matched[0],
+                child_name=child_name, child_version=matched_instances[0][0],
+                child_quals=_child_provenance(matched_instances),
                 requested_spec=constraint))
-        elif len(matched) > 1:
+            continue
+
+        matched_versions = sorted({v for (v, _q) in instances
+                                   if satisfies(v, constraint_norm)})
+        parseable = satisfies("1.0.0", constraint_norm) is not None
+        if len(matched_versions) == 1:
+            matched_instances = [(v, q) for (v, q) in instances
+                                 if v == matched_versions[0]]
+            edges.append(_edge(
+                parent_name=pname, parent_version=pversion,
+                child_name=child_name, child_version=matched_versions[0],
+                child_quals=_child_provenance(matched_instances),
+                requested_spec=constraint))
+        elif len(matched_versions) > 1:
             edges.append(_edge(
                 parent_name=pname, parent_version=pversion,
                 child_name=child_name, child_version="",
                 confidence=contract.AMBIGUOUS,
                 ambiguity={"constraint": constraint,
-                           "candidates": matched},
+                           "candidates": matched_versions},
                 resolution_status="MULTIPLE_CANDIDATES",
                 requested_spec=constraint))
         else:

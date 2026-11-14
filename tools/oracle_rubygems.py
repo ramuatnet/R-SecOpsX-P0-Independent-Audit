@@ -168,6 +168,20 @@ def expected_lock(path):
     expected = {}
     for parent_name, parent_version, child_name, constraint in declarations:
         key = (parent_name, parent_version, child_name)
+        # F-R5-3 (own implementation): an EXACT constraint that is not a
+        # plain numeric version carries a platform variant or prerelease
+        # head -- verbatim instance matching is authoritative, no numeric
+        # fallback
+        m_exact = re.match(r"^=\s*(\S+)$", constraint.strip())
+        if m_exact and not re.fullmatch(r"\d+(?:\.\d+)*", m_exact.group(1)):
+            requested = m_exact.group(1)
+            verbatim = sorted({v for v in universe.get(child_name, [])
+                               if v == requested})
+            if not verbatim:
+                expected.setdefault(key, ("UNRESOLVED", "", []))
+                continue
+            expected[key] = ("VERIFIED", verbatim[0], verbatim)
+            continue
         matched = sorted({v for v in universe.get(child_name, [])
                           if satisfies_oracle(v, constraint)})
         parseable = satisfies_oracle("1.0.0", constraint) is not None

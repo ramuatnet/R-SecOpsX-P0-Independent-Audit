@@ -384,3 +384,176 @@ def test_confidence_vocabulary_pinned(tmp_path):
         assert edge["confidence"] in (
             contract.VERIFIED, contract.AMBIGUOUS, contract.UNRESOLVED,
             contract.UNSUPPORTED, contract.INVALID)
+
+
+# -- R2.5.1 remediation regression tests (F-R5-1/2/3) ---------------------------
+def test_plugin_section_does_not_crash_and_discloses_provenance(tmp_path):
+    # F-R5-1 red: a PLUGIN section (real Bundler feature) crashed with
+    # KeyError: 'PLUGIN'; plugin gems are real resolved instances with
+    # their own disclosed provenance
+    lock = """\
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rails (8.0.4)
+      plugin_dep (= 1.0.0)
+
+PLUGIN
+  remote: https://github.com/example/plugin.git
+  specs:
+    plugin_dep (1.0.0)
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Gemfile.lock"))
+    assert result["engine"] == "BUNDLER_LOCK_GRAPH_V1"
+    assert result["graph_status"] == "VERIFIED_EDGES_AVAILABLE"
+    pairs = _verified_pairs(result)
+    assert pairs == {("rails", "8.0.4", "plugin_dep", "1.0.0")}
+    edge = result["edges"][0]
+    # the resolved CHILD carries its plugin provenance (F-R5-2)
+    assert edge["qualifiers"]["child_source_kind"] == "plugin"
+    assert edge["qualifiers"]["child_source"] == \
+        "https://github.com/example/plugin.git"
+    assert edge["qualifiers"]["source_kind"] == "registry"
+    assert result["membership_packages"] == 2
+
+
+def test_cross_section_child_provenance_retained(tmp_path):
+    # F-R5-2 red: a GEM-spec parent depending on GIT- and PATH-sourced
+    # children keeps the resolved child's own provenance on the edge
+    lock = """\
+GIT
+  remote: https://github.com/example/forked.git
+  revision: abc123def4567890
+  specs:
+    gitgem (1.0.0)
+
+PATH
+  remote: ../local
+  specs:
+    pathgem (0.2.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    reggem (3.0.0)
+      gitgem (= 1.0.0)
+      pathgem (= 0.2.0)
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Gemfile.lock"))
+    by_child = {e["child_name"]: e for e in result["edges"]}
+    assert by_child["gitgem"]["qualifiers"]["child_source_kind"] == "git"
+    assert by_child["gitgem"]["qualifiers"]["child_revision"] == \
+        "abc123def4567890"
+    assert by_child["pathgem"]["qualifiers"]["child_source_kind"] == "path"
+    assert by_child["pathgem"]["qualifiers"]["child_source"] == "../local"
+    # parent provenance unchanged
+    assert by_child["gitgem"]["qualifiers"]["source_kind"] == "registry"
+
+
+def test_cross_section_version_collision_discloses_both_kinds(tmp_path):
+    # the same gem@version resolved from TWO sections: the edge stays
+    # VERIFIED (identity is name@version) and the child provenance
+    # discloses every source kind that resolved to it
+    lock = """\
+GIT
+  remote: https://github.com/example/forked.git
+  revision: abc123def4567890
+  specs:
+    dual (1.0.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    dual (1.0.0)
+
+PATH
+  remote: ../local
+  specs:
+    app (1.0.0)
+      dual (= 1.0.0)
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Gemfile.lock"))
+    edge = result["edges"][0]
+    assert edge["confidence"] == "VERIFIED"
+    kinds = edge["qualifiers"]["child_source_kind"]
+    assert set(kinds.split(",")) == {"git", "registry"}
+
+
+def test_exact_platform_constraint_resolves_verbatim(tmp_path):
+    # F-R5-3 red: an exact platform-constrained declaration names ONE
+    # variant; the numeric-prefix approximation wrongly AMBIGUOUS-ed it
+    lock = """\
+GEM
+  remote: https://rubygems.org/
+  specs:
+    nokogiri (1.14.0-x86_64-linux)
+    nokogiri (1.14.0-arm64-darwin)
+    app (1.0.0)
+      nokogiri (= 1.14.0-x86_64-linux)
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Gemfile.lock"))
+    assert _verified_pairs(result) == {
+        ("app", "1.0.0", "nokogiri", "1.14.0-x86_64-linux")}
+
+
+def test_exact_platform_constraint_absent_variant_unresolved(tmp_path):
+    # an exact platform constraint naming an ABSENT variant must not fall
+    # back to the numeric-prefix approximation (which would match other
+    # platforms' variants)
+    lock = """\
+GEM
+  remote: https://rubygems.org/
+  specs:
+    nokogiri (1.14.0-x86_64-linux)
+    nokogiri (1.14.0-arm64-darwin)
+    app (1.0.0)
+      nokogiri (= 1.14.0-x86_64-darwin)
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Gemfile.lock"))
+    edge = result["edges"][0]
+    assert edge["confidence"] == "UNRESOLVED"
+    assert edge["resolution_status"] == "NO_MATCHING_VERSION"
+    assert edge["requested_spec"] == "= 1.14.0-x86_64-darwin"
+
+
+def test_range_constraint_platform_family_stays_ambiguous(tmp_path):
+    # preserved behavior: range constraints over platform families remain
+    # AMBIGUOUS (the lockfile cannot say which variant a consumer uses)
+    result = registry.extract_for_file(_write(tmp_path, LOCK, "Gemfile.lock"))
+    amb = [e for e in result["edges"] if e["confidence"] == "AMBIGUOUS"]
+    assert len(amb) == 1
+    assert amb[0]["child_name"] == "rack"
+    assert amb[0]["ambiguity"]["candidates"] == ["2.2.8", "3.0.8"]
+
+
+def test_exact_platform_child_provenance_precise(tmp_path):
+    # F-R5-2 + F-R5-3 together: a verbatim platform match carries the
+    # provenance of the exact resolved instance, not every variant
+    lock = """\
+GEM
+  remote: https://rubygems.org/
+  specs:
+    nokogiri (1.14.0-x86_64-linux)
+
+app (1.0.0)
+  nokogiri (= 1.14.0-x86_64-linux)
+"""
+    # note: the second block is not inside a section header -- use PATH
+    lock = """\
+PATH
+  remote: ../app
+  specs:
+    app (1.0.0)
+      nokogiri (= 1.14.0-x86_64-linux)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    nokogiri (1.14.0-x86_64-linux)
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Gemfile.lock"))
+    assert _verified_pairs(result) == {
+        ("app", "1.0.0", "nokogiri", "1.14.0-x86_64-linux")}
+    edge = result["edges"][0]
+    assert edge["qualifiers"]["source_kind"] == "path"
+    assert edge["qualifiers"]["child_source_kind"] == "registry"
