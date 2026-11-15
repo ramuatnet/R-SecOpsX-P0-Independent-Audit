@@ -19,9 +19,14 @@ F-1 finding; the (n) and (c) markers are NOT interchangeable):
   never silently promoted to a resolved one, and no fingerprint is minted
   (contract: fingerprints exist only for VERIFIED identities). This
   applies wherever the node sits -- as a child or as a parent.
-- ``(c)`` -- the printed version was selected by a dependency CONSTRAINT
-  and is the version in use: the edge stays VERIFIED with a
-  `constraint_selected` disclosure qualifier.
+- ``(c)`` -- R2.6.2: a DEPENDENCY CONSTRAINT entry, NOT a dependency
+  (Gradle userguide: "This element is a dependency constraint, not a
+  dependency. Look for the matching dependency elsewhere in the tree.").
+  The constraint's version is never promoted: the entry is disclosed
+  UNRESOLVED (`GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY`, constraint
+  version as a qualifier, no fingerprint) on both parent and child
+  sides, tallied (`constraint_entries`), and depth-1 constraint lines
+  are not counted as direct declarations.
 - ``(*)`` means "subtree already printed" -- the dependency still exists
   and its edge is kept (`subtree_elided` qualifier).
 - Conflict resolutions (``-> selected``) carry the selected version; the
@@ -102,8 +107,11 @@ def _parse_node(body: str) -> dict | None:
     constraint-selected version that IS in use. The two markers are
     distinct and must not share one code path."""
     not_resolved = bool(re.search(r"\(n\)\s*$", body))
-    constraint_selected = bool(re.search(r"\(c\)\s*$", body))
-    body = re.sub(r"\s*\([nc]\)\s*$", "", body)
+    constraint_entry = bool(re.search(r"\(c\)\s*$", body))
+    # strip ALL trailing (c)/(n) markers (defensive: real Gradle never
+    # prints both, but "1.0.0 (c) (n)" must not leave "(c)" in the version)
+    while re.search(r"\s*\([nc]\)\s*$", body):
+        body = re.sub(r"\s*\([nc]\)\s*$", "", body)
     conflict = ""
     arrow = re.search(r"\s+->\s*(.*)$", body)
     if arrow:
@@ -133,12 +141,25 @@ def _parse_node(body: str) -> dict | None:
         node["requested_version"] = version
         node["version"] = ""      # NO resolved version: never promoted
         node["not_resolved"] = True
+        if constraint_entry:
+            # defensive: both markers (real Gradle never prints this) --
+            # the (n) semantics win, the constraint marker still disclosed
+            node["constraint_version"] = version
+    elif constraint_entry:
+        # R2.6.2: a (c) entry is a DEPENDENCY CONSTRAINT, not a dependency
+        # (Gradle userguide: "This element is a dependency constraint, not
+        # a dependency. Look for the matching dependency elsewhere in the
+        # tree."). It carries no resolved version: the constraint's
+        # required version travels as a qualifier and the entry is
+        # disclosed UNRESOLVED -- never promoted, never VERIFIED.
+        node["requested_version"] = version
+        node["version"] = ""
+        node["constraint"] = True
+        node["constraint_version"] = version
     elif conflict:
         node["requested_version"] = version
         node["version"] = conflict
         node["conflict"] = True
-    if constraint_selected and not node.get("not_resolved"):
-        node["constraint_selected"] = True
     return node
 
 
@@ -165,6 +186,7 @@ def extract(lockfile_path: str) -> dict:
     direct_declarations = 0
     unsupported = 0
     not_resolved_markers = 0
+    constraint_entries = 0
     configuration = ""
     stack: list[tuple[int, dict]] = []
     for raw in lines:
@@ -201,8 +223,13 @@ def extract(lockfile_path: str) -> dict:
             )
 
         if depth == 1:
-            # direct declaration of the project: counted, not edged
-            direct_declarations += 1
+            # R2.6.2: a depth-1 constraint entry is a CONSTRAINT, not one
+            # of the project's direct dependencies.
+            if node.get("constraint"):
+                constraint_entries += 1
+            else:
+                # direct declaration of the project: counted, not edged
+                direct_declarations += 1
             stack = [(1, node)]
             continue
 
@@ -225,8 +252,8 @@ def extract(lockfile_path: str) -> dict:
             qualifiers["requested_version"] = node["requested_version"]
             if node.get("conflict"):
                 qualifiers["conflict_resolved"] = "true"
-        if node.get("constraint_selected"):
-            qualifiers["constraint_selected"] = "true"
+        if node.get("constraint_version"):
+            qualifiers["constraint_version"] = node["constraint_version"]
         if node.get("star"):
             qualifiers["subtree_elided"] = "true"
         # R2.6.1: an (n) endpoint -- child or parent -- has no resolved
@@ -240,6 +267,17 @@ def extract(lockfile_path: str) -> dict:
             qualifiers["parent_requested_version"] = \
                 parent.get("requested_version", "")
             resolution_status = "GRADLE_VERSION_NOT_RESOLVED"
+        # R2.6.2: a (c) endpoint -- child or parent -- is a DEPENDENCY
+        # CONSTRAINT, not a dependency: the edge is disclosed UNRESOLVED
+        # with the constraint version retained as a qualifier, never
+        # promoted and never VERIFIED (no fingerprint).
+        if node.get("constraint"):
+            constraint_entries += 1
+            resolution_status = "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"
+        if not parent_is_project and parent.get("constraint"):
+            qualifiers["parent_constraint_version"] = \
+                parent.get("constraint_version", "")
+            resolution_status = "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"
 
         if parent_is_project:
             # the parent has no registry identity -- disclosed as
@@ -304,6 +342,7 @@ def extract(lockfile_path: str) -> dict:
             "unsupported": unsupported,
             "duplicate_records_dropped": duplicate_dropped,
             "not_resolved_markers": not_resolved_markers,
+            "constraint_entries": constraint_entries,
         },
     )
 

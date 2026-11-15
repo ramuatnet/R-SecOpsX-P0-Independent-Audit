@@ -286,23 +286,25 @@ def test_resolved_sibling_in_same_tree_stays_verified(tmp_path):
     assert child_edge["qualifiers"]["parent_requested_version"] == "3.0.0"
 
 
-def test_c_marker_constraint_selected_is_resolved_and_disclosed(tmp_path):
-    # (c) = version selected by a dependency constraint: the printed
-    # version IS the resolved one -- VERIFIED stays, with a disclosure
-    # qualifier distinguishing it from a plain resolution.
-    tree = """\
-> Task :app:dependencies
+def test_c_marker_constraint_entry_is_disclosed_not_verified(tmp_path):
+    # R2.6.2: (c) marks a DEPENDENCY CONSTRAINT, not a dependency (Gradle
+    # userguide). The constraint version is never promoted: the entry is
+    # disclosed UNRESOLVED with the constraint version as a qualifier.
+    # (Rewritten from the R2.6.1-era test that pinned the pre-docs
+    # VERIFIED classification -- disclosed test correction.)
+    tree = """> Task :app:dependencies
 
 runtimeClasspath
 +--- org.gradle.test:gd-parent:1.0.0
-|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+|    \--- org.gradle.test:gd-constrained:2.0.0 (c)
 """
     result = extract(_write(tmp_path, tree))
     edge = result["edges"][0]
-    assert edge["confidence"] == "VERIFIED"
-    assert edge["child_version"] == "2.0.0"
-    assert edge["qualifiers"]["constraint_selected"] == "true"
-    assert edge["fingerprint"].startswith("sha256:")
+    assert edge["confidence"] == "UNRESOLVED"
+    assert edge["child_version"] == ""
+    assert edge["qualifiers"]["constraint_version"] == "2.0.0"
+    assert edge["resolution_status"] == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"
+    assert "fingerprint" not in edge
 
 
 def test_not_resolved_markers_are_tallied(tmp_path):
@@ -324,3 +326,265 @@ runtimeClasspath
     edge = result["edges"][0]
     assert edge["confidence"] == "UNRESOLVED"
     assert edge["child_version"] == ""
+
+
+# -- R2.6.2: Gradle (c) constraint-entry semantics (red-first) ----------------
+#
+# (c) marks a DEPENDENCY CONSTRAINT, not a dependency (Gradle userguide:
+# "This element is a dependency constraint, not a dependency. Look for
+# the matching dependency elsewhere in the tree."). Constraint entries
+# are disclosed as UNRESOLVED non-dependency evidence -- never VERIFIED,
+# never promoted, no fingerprint -- mirroring the R2.6.1 (n) pattern.
+
+C_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+\\--- org.gradle.test:gd-real:3.0.0
+|    \\--- org.gradle.test:gd-dep:4.0.0
+"""
+
+
+def _constraint_edge(result):
+    return [e for e in result["edges"]
+            if e["child_name"] == "org.gradle.test:gd-constrained"][0]
+
+
+def test_constraint_only_entry_is_unresolved_not_verified(tmp_path):
+    # (c) = constraint entry, NOT a dependency: UNRESOLVED disclosure
+    # edge with the constraint version retained as a qualifier.
+    result = extract(_write(tmp_path, C_TREE))
+    e = _constraint_edge(result)
+    assert e["confidence"] == "UNRESOLVED"
+    assert e["child_version"] == ""
+    assert e["qualifiers"]["constraint_version"] == "2.0.0"
+    assert e["resolution_status"] == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"
+
+
+def test_constraint_version_never_promoted(tmp_path):
+    result = extract(_write(tmp_path, C_TREE))
+    e = _constraint_edge(result)
+    assert e["child_version"] != "2.0.0"
+    assert e["child_purl"] == ""
+
+
+def test_constraint_edge_mints_no_fingerprint(tmp_path):
+    result = extract(_write(tmp_path, C_TREE))
+    assert "fingerprint" not in _constraint_edge(result)
+
+
+def test_constraint_plus_matching_resolved_dependency(tmp_path):
+    # the constraint line discloses; the REAL resolved dependency (printed
+    # on its own line elsewhere in the tree) stays VERIFIED from its own
+    # evidence -- no evidence lost, no fabrication.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+\\--- org.gradle.test:gd-other:1.1.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    disc = [e for e in result["edges"]
+            if e["child_name"] == "org.gradle.test:gd-constrained"]
+    assert {e["confidence"] for e in disc} == {"UNRESOLVED", "VERIFIED"}
+    resolved = [e for e in disc if e["confidence"] == "VERIFIED"][0]
+    assert resolved["child_version"] == "2.0.0"
+    assert resolved["fingerprint"].startswith("sha256:")
+
+
+def test_constraint_plus_unrelated_same_module_name(tmp_path):
+    # a different group's same-named module must not be captured by the
+    # constraint's identity.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:common:1.0.0 (c)
+\\--- org.gradle.test:gd-real:3.0.0
+|    \\--- org.other:common:1.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    by_child = {e["child_name"]: e["confidence"]
+                for e in result["edges"]}
+    assert by_child["org.gradle.test:common"] == "UNRESOLVED"
+    assert by_child["org.other:common"] == "VERIFIED"
+
+
+def test_constraint_plus_different_resolved_version(tmp_path):
+    # the constraint version is NOT promoted even when a different
+    # version of the module is resolved elsewhere.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+\\--- org.gradle.test:gd-real:3.0.0
+|    \\--- org.gradle.test:gd-constrained:2.5.0
+"""
+    result = extract(_write(tmp_path, tree))
+    edges = {(e["child_version"], e["confidence"])
+             for e in result["edges"]
+             if e["child_name"] == "org.gradle.test:gd-constrained"}
+    assert edges == {("", "UNRESOLVED"), ("2.5.0", "VERIFIED")}
+
+
+def test_multiple_resolved_candidates_with_constraint(tmp_path):
+    # two resolved instances of the constrained module: both stay
+    # VERIFIED from their own lines; the constraint stays a disclosure.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+\\--- org.gradle.test:gd-real:3.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0
+     \\--- org.gradle.test:gd-inner:1.0.0
+\\--- org.gradle.test:gd-real2:4.0.0
+|    \\--- org.gradle.test:gd-constrained:2.5.0
+"""
+    result = extract(_write(tmp_path, tree))
+    disc = [e for e in result["edges"]
+            if e["child_name"] == "org.gradle.test:gd-constrained"]
+    assert sum(1 for e in disc if e["confidence"] == "VERIFIED") == 2
+    assert sum(1 for e in disc
+               if e["confidence"] == "UNRESOLVED"
+               and e["resolution_status"]
+               == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY") == 1
+
+
+def test_parent_side_constraint_is_unresolved(tmp_path):
+    # a constraint entry used as a PARENT has no resolved identity: edges
+    # FROM it are disclosed UNRESOLVED with the constraint version.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-constrained:2.0.0 (c)
+|    \\--- org.gradle.test:gd-d:4.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    assert len(result["edges"]) == 1
+    e = result["edges"][0]
+    assert e["parent_name"] == "org.gradle.test:gd-constrained"
+    assert e["parent_version"] == ""
+    assert e["child_name"] == "org.gradle.test:gd-d"
+    assert e["confidence"] == "UNRESOLVED"
+    assert e["qualifiers"]["parent_constraint_version"] == "2.0.0"
+    assert e["resolution_status"] == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"
+
+
+def test_child_side_constraint_under_parent(tmp_path):
+    # child-side constraint: disclosed against its printed parent.
+    result = extract(_write(tmp_path, C_TREE))
+    e = _constraint_edge(result)
+    assert e["parent_name"] == "org.gradle.test:gd-parent"
+    assert e["parent_version"] == "1.0.0"
+    assert e["confidence"] == "UNRESOLVED"
+
+
+def test_constraint_under_different_configurations_dedupes(tmp_path):
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+
+testClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+"""
+    result = extract(_write(tmp_path, tree))
+    disc = [e for e in result["edges"]
+            if e["child_name"] == "org.gradle.test:gd-constrained"]
+    assert len(disc) == 1
+    assert disc[0]["confidence"] == "UNRESOLVED"
+    assert "runtimeClasspath" in disc[0]["qualifiers"]["configurations"]
+    assert result["tallies"]["constraint_entries"] == 2
+
+
+def test_constraint_combined_with_n_marker(tmp_path):
+    # defensive: (n) takes precedence (the version is not resolved);
+    # the constraint marker is still disclosed.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-weird:1.0.0 (c) (n)
+"""
+    result = extract(_write(tmp_path, tree))
+    e = result["edges"][0]
+    assert e["confidence"] == "UNRESOLVED"
+    assert e["resolution_status"] == "GRADLE_VERSION_NOT_RESOLVED"
+    assert e["qualifiers"]["requested_version"] == "1.0.0"
+
+
+def test_malformed_constraint_output_is_disclosed(tmp_path):
+    # a malformed constraint line is the existing error path: disclosed,
+    # never fabricated.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-bad: (c)
+"""
+    result = extract(_write(tmp_path, tree))
+    assert result["graph_status"] == "EXTRACTION_ERROR"
+    assert result["edges"] == []
+    assert result["limitations"]
+
+
+def test_repeated_constraint_entries_tallied(tmp_path):
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+"""
+    result = extract(_write(tmp_path, tree))
+    disc = [e for e in result["edges"]
+            if e["child_name"] == "org.gradle.test:gd-constrained"]
+    assert len(disc) == 1 and disc[0]["confidence"] == "UNRESOLVED"
+    assert result["tallies"]["constraint_entries"] == 2
+
+
+def test_depth1_constraint_not_counted_as_direct_declaration(tmp_path):
+    # a depth-1 constraint line is a CONSTRAINT, not one of the project's
+    # direct dependencies.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-constrained:2.0.0 (c)
+\\--- org.gradle.test:gd-real:3.0.0
+|    \\--- org.gradle.test:gd-dep:4.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    assert result["tallies"]["direct_declarations"] == 1
+    assert result["tallies"]["constraint_entries"] == 1
+    # a depth-1 line is never edged (no parent exists to disclose from):
+    # the constraint disclosure is the tally itself.
+    assert all(e["child_name"] != "org.gradle.test:gd-constrained"
+               for e in result["edges"])
+
+
+def test_resolved_dependencies_around_constraints_unchanged(tmp_path):
+    # preservation: resolved edges keep their semantics and fingerprints.
+    result = extract(_write(tmp_path, C_TREE))
+    verified = {(e["parent_name"], e["child_name"], e["child_version"])
+                for e in result["edges"] if e["confidence"] == "VERIFIED"}
+    assert verified == {
+        ("org.gradle.test:gd-real", "org.gradle.test:gd-dep", "4.0.0"),
+    }

@@ -14,8 +14,11 @@ exactly the shared-assumption failure the closure audit flagged):
 - `(n)`  -- the printed version was requested but NOT resolved: the node
   carries NO resolved version; edges touching it are expected UNRESOLVED
   with empty versions on the affected side (identity names preserved).
-- `(c)`  -- the printed version was selected by a dependency constraint
-  and IS in use: expected VERIFIED at that version.
+- `(c)`  -- R2.6.2: a DEPENDENCY CONSTRAINT entry, NOT a dependency
+  (derived from the Gradle userguide, independently of the extractor):
+  expected UNRESOLVED with no resolved version on the constraint side;
+  a constraint identity emitted VERIFIED is the F-R1 defect and is
+  reported as a constraint confidence mismatch.
 - `-> X` -- conflict resolution: the selected version X is resolved; a
   MISSING selected version (`g:a:1.0 ->`) is requested-but-unresolved
   and follows the (n) semantics.
@@ -72,9 +75,16 @@ def consume_decoration(text):
 
 
 def parse_node(body):
-    """Independent (n)/(c)/arrow semantics -- see module docstring."""
+    """Independent (n)/(c)/arrow semantics -- see module docstring.
+
+    R2.6.2: a `(c)` entry is a DEPENDENCY CONSTRAINT, not a dependency
+    (derived from the Gradle userguide). It carries NO resolved version
+    on the constraint side and must never appear in the expected
+    VERIFIED set."""
     not_resolved = bool(re.search(r"\(n\)\s*$", body))
-    body = re.sub(r"\s*\([nc]\)\s*$", "", body)
+    constraint = bool(re.search(r"\(c\)\s*$", body))
+    while re.search(r"\s*\([nc]\)\s*$", body):
+        body = re.sub(r"\s*\([nc]\)\s*$", "", body)
     selected = ""
     arrow = re.search(r"\s+->\s*(.*)$", body)
     if arrow:
@@ -92,6 +102,10 @@ def parse_node(body):
     if not_resolved:
         return {"name": f"{parts[0]}:{parts[1]}", "version": "",
                 "project": False, "not_resolved": True}
+    if constraint:
+        # a constraint entry is not a dependency: no resolved identity
+        return {"name": f"{parts[0]}:{parts[1]}", "version": "",
+                "project": False, "constraint": True}
     return {"name": f"{parts[0]}:{parts[1]}", "version": version,
             "project": False}
 
@@ -107,6 +121,7 @@ def expected_edges(tree_path):
     parents = [None] * 64   # parent-pointer array by depth
     expected = set()        # VERIFIED identities: (pn, pv, cn, cv)
     expected_unresolved = set()   # (n)-class UNRESOLVED identities
+    expected_constraints = set()  # (c)-class UNRESOLVED identities
     direct = 0
     for raw in lines:
         line = raw.rstrip()
@@ -130,7 +145,8 @@ def expected_edges(tree_path):
             continue
         parent = parents[depth - 1] if depth >= 2 else None
         if depth == 1 or parent is None or parent.get("project"):
-            direct += 1
+            if not node.get("constraint"):
+                direct += 1   # constraint entries are NOT direct declarations
             parents[depth] = node
             continue
         parents[depth] = node
@@ -138,9 +154,11 @@ def expected_edges(tree_path):
                     node["name"], node["version"])
         if parent.get("not_resolved") or node.get("not_resolved"):
             expected_unresolved.add(identity)
+        elif parent.get("constraint") or node.get("constraint"):
+            expected_constraints.add(identity)
         else:
             expected.add(identity)
-    return expected, expected_unresolved, direct
+    return expected, expected_unresolved, expected_constraints, direct
 
 
 def main():
@@ -154,10 +172,12 @@ def main():
     else:
         edges = payload
 
-    expected, expected_unresolved, direct = expected_edges(tree)
+    expected, expected_unresolved, expected_constraints, direct =         expected_edges(tree)
     got_verified = set()
     got_unresolved = set()
+    got_constraints = set()
     other_unresolved = 0
+    constraint_fingerprint_violations = 0
     for e in edges:
         identity = (str(e.get("parent_name")), str(e.get("parent_version")),
                     str(e.get("child_name")), str(e.get("child_version")))
@@ -166,12 +186,21 @@ def main():
         if conf == "VERIFIED":
             got_verified.add(identity)
         elif conf == "UNRESOLVED":
-            if status == STATUS_NOT_RESOLVED:
+            if status == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY":
+                got_constraints.add(identity)
+                if e.get("fingerprint"):
+                    constraint_fingerprint_violations += 1
+            elif status == STATUS_NOT_RESOLVED:
                 got_unresolved.add(identity)
             else:
                 other_unresolved += 1
-    # confidence mismatch: an (n)-expected identity emitted as VERIFIED
+    # confidence mismatches: an (n)/(c)-expected identity emitted VERIFIED
     confidence_mismatch = len(got_verified & expected_unresolved)
+    constraint_pairs = {(pn, cn) for (pn, _pv, cn, _cv)
+                        in expected_constraints}
+    constraint_confidence_mismatch = len(
+        {(str(p), str(c)) for (p, _pv, c, _cv) in got_verified}
+        & constraint_pairs)
 
     wrong = got_verified - expected
     missing = expected - got_verified
@@ -190,8 +219,18 @@ def main():
     print(f"MISSING ((n) UNRESOLVED): {len(missing_u)}  {sorted(missing_u)[:5]}")
     print(f"CONFIDENCE MISMATCHES ((n) identity emitted VERIFIED): "
           f"{confidence_mismatch}")
+    wrong_c = got_constraints - expected_constraints
+    missing_c = expected_constraints - got_constraints
+    print(f"WRONG ((c) UNRESOLVED):   {len(wrong_c)}  {sorted(wrong_c)[:5]}")
+    print(f"MISSING ((c) UNRESOLVED): {len(missing_c)}  {sorted(missing_c)[:5]}")
+    print(f"CONSTRAINT FINGERPRINT VIOLATIONS: {constraint_fingerprint_violations}")
+    print(f"CONSTRAINT CONFIDENCE MISMATCHES ((c) identity emitted "
+          f"VERIFIED -- the F-R1 defect): {constraint_confidence_mismatch}")
     ok = (not wrong and not missing and not wrong_u and not missing_u
-          and confidence_mismatch == 0)
+          and not wrong_c and not missing_c
+          and confidence_mismatch == 0
+          and constraint_confidence_mismatch == 0
+          and constraint_fingerprint_violations == 0)
     print("ORACLE RESULT:", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)
 
