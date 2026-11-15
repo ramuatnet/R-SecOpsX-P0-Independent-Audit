@@ -8,14 +8,33 @@ invented parent (no synthetic root for non-npm ecosystems, per the R2.0
 approval). Transitive parentage starts at depth >= 2 from the decoration
 tree.
 
-Markers: ``(*)`` means "subtree already printed" -- the dependency still
-exists and its edge is kept; ``(c)`` constraint and ``(n)`` unresolved
-markers are disclosed via qualifiers; ``project :module`` references have
-no registry identity -- skipped and tallied. Conflict resolutions
-(``-> selected``) carry the selected version; the requested version
-travels as a qualifier. The same pair under multiple configurations
-dedupes by identity with configurations merged (identity-stable
-fingerprints, per the common contract).
+Marker semantics (R2.6.1 -- corrected from the R2 final closure audit's
+F-1 finding; the (n) and (c) markers are NOT interchangeable):
+
+- ``(n)`` -- the printed version was REQUESTED but NOT resolved (e.g.
+  conflicted away). The node has NO resolved version: the edge is
+  disclosed UNRESOLVED with the requested version travelling as a
+  qualifier (`requested_version` / `parent_requested_version`) and
+  `resolution_status=GRADLE_VERSION_NOT_RESOLVED`. A requested version is
+  never silently promoted to a resolved one, and no fingerprint is minted
+  (contract: fingerprints exist only for VERIFIED identities). This
+  applies wherever the node sits -- as a child or as a parent.
+- ``(c)`` -- the printed version was selected by a dependency CONSTRAINT
+  and is the version in use: the edge stays VERIFIED with a
+  `constraint_selected` disclosure qualifier.
+- ``(*)`` means "subtree already printed" -- the dependency still exists
+  and its edge is kept (`subtree_elided` qualifier).
+- Conflict resolutions (``-> selected``) carry the selected version; the
+  requested version travels as a qualifier (`conflict_resolved`). A
+  missing selected version (``g:a:1.0 -> ``) is requested-but-unresolved
+  and follows the (n) semantics.
+- ``project :module`` references have no registry identity -- skipped and
+  tallied (their subtree edges are disclosed UNRESOLVED
+  `PROJECT_PARENT_UNSUPPORTED`, never invented).
+
+The same pair under multiple configurations dedupes by identity with
+configurations merged (identity-stable fingerprints, per the common
+contract).
 
 ``gradle.lockfile`` is a flat resolved-version list -- no parent map, so it
 answers a disclosed membership-only envelope (never fabricates edges).
@@ -74,12 +93,28 @@ def _split_decorations(line: str) -> tuple[int, str] | None:
 
 def _parse_node(body: str) -> dict | None:
     """`g:a:version` (+ markers/conflicts) -> identity dict, or None for
-    project references / unparseable entries."""
-    body = re.sub(r"\s*\([nc]\)\s*$", "", body)  # constraint / not-resolved
+    project references / unparseable entries.
+
+    R2.6.1: an ``(n)`` marker marks the printed version as NOT resolved
+    -- the node keeps its requested version as a qualifier and carries no
+    resolved version (the contract downgrades the edge to UNRESOLVED, so
+    a requested version is never promoted). ``(c)`` marks a
+    constraint-selected version that IS in use. The two markers are
+    distinct and must not share one code path."""
+    not_resolved = bool(re.search(r"\(n\)\s*$", body))
+    constraint_selected = bool(re.search(r"\(c\)\s*$", body))
+    body = re.sub(r"\s*\([nc]\)\s*$", "", body)
     conflict = ""
-    if " -> " in body:
-        body, selected = body.split(" -> ", 1)
-        conflict = selected.strip()
+    arrow = re.search(r"\s+->\s*(.*)$", body)
+    if arrow:
+        body = body[:arrow.start()]
+        selected = arrow.group(1).strip()
+        if selected:
+            conflict = selected
+        else:
+            # `g:a:1.0 ->` with no selected version: requested but
+            # unresolved -- same evidence semantics as (n).
+            not_resolved = True
     star = bool(re.search(r"\(\*\)\s*$", body))
     body = re.sub(r"\s*\(\*\)\s*$", "", body)
     parts = [p.strip() for p in body.split(":")]
@@ -94,10 +129,16 @@ def _parse_node(body: str) -> dict | None:
         "star": star,
         "requested_version": "",
     }
-    if conflict:
+    if not_resolved:
+        node["requested_version"] = version
+        node["version"] = ""      # NO resolved version: never promoted
+        node["not_resolved"] = True
+    elif conflict:
         node["requested_version"] = version
         node["version"] = conflict
         node["conflict"] = True
+    if constraint_selected and not node.get("not_resolved"):
+        node["constraint_selected"] = True
     return node
 
 
@@ -123,6 +164,7 @@ def extract(lockfile_path: str) -> dict:
     duplicate_dropped = 0
     direct_declarations = 0
     unsupported = 0
+    not_resolved_markers = 0
     configuration = ""
     stack: list[tuple[int, dict]] = []
     for raw in lines:
@@ -181,9 +223,23 @@ def extract(lockfile_path: str) -> dict:
         qualifiers: dict = {"configuration": configuration}
         if node.get("requested_version"):
             qualifiers["requested_version"] = node["requested_version"]
-            qualifiers["conflict_resolved"] = "true"
+            if node.get("conflict"):
+                qualifiers["conflict_resolved"] = "true"
+        if node.get("constraint_selected"):
+            qualifiers["constraint_selected"] = "true"
         if node.get("star"):
             qualifiers["subtree_elided"] = "true"
+        # R2.6.1: an (n) endpoint -- child or parent -- has no resolved
+        # version; the contract downgrades the edge to UNRESOLVED and the
+        # requested version is disclosed, never promoted.
+        resolution_status = ""
+        if node.get("not_resolved"):
+            not_resolved_markers += 1
+            resolution_status = "GRADLE_VERSION_NOT_RESOLVED"
+        if not parent_is_project and parent.get("not_resolved"):
+            qualifiers["parent_requested_version"] = \
+                parent.get("requested_version", "")
+            resolution_status = "GRADLE_VERSION_NOT_RESOLVED"
 
         if parent_is_project:
             # the parent has no registry identity -- disclosed as
@@ -208,7 +264,8 @@ def extract(lockfile_path: str) -> dict:
             source_location=f"{configuration} depth {depth}",
             evidence_source=EVIDENCE,
             scope=_scope_of(configuration),
-            qualifiers=qualifiers))
+            qualifiers=qualifiers,
+            resolution_status=resolution_status))
         stack.append((depth, node))
 
     # same identity under multiple configurations: dedupe by identity with
@@ -246,6 +303,7 @@ def extract(lockfile_path: str) -> dict:
             "direct_declarations": direct_declarations,
             "unsupported": unsupported,
             "duplicate_records_dropped": duplicate_dropped,
+            "not_resolved_markers": not_resolved_markers,
         },
     )
 

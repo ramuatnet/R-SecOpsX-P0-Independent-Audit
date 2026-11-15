@@ -1,4 +1,4 @@
-"""Independent Gradle dependencies-output edge oracle (R2.2).
+"""Independent Gradle dependencies-output edge oracle (R2.2; R2.6.1 update).
 
 Re-implements `gradle dependencies` parsing WITHOUT importing the extractor
 (`analysis/lock_graph/gradle.py`): the oracle determines each node's parent
@@ -7,21 +7,39 @@ by maintaining an explicit parent-pointer array indexed by decoration depth
 structurally different from the extractor's formula-plus-stack approach.
 Never validate an extractor against its own output.
 
+R2.6.1 marker semantics -- derived INDEPENDENTLY from the extractor (the
+R2.2 oracle shared the extractor's `(n)`-stripping assumption, which is
+exactly the shared-assumption failure the closure audit flagged):
+
+- `(n)`  -- the printed version was requested but NOT resolved: the node
+  carries NO resolved version; edges touching it are expected UNRESOLVED
+  with empty versions on the affected side (identity names preserved).
+- `(c)`  -- the printed version was selected by a dependency constraint
+  and IS in use: expected VERIFIED at that version.
+- `-> X` -- conflict resolution: the selected version X is resolved; a
+  MISSING selected version (`g:a:1.0 ->`) is requested-but-unresolved
+  and follows the (n) semantics.
+- `(*)`  -- subtree elision: the edge is real and kept.
+- `project :x` references have no registry identity (their subtree
+  children are disclosed as unresolvable, never invented); those edges
+  carry the extractor's own PROJECT_PARENT_UNSUPPORTED status and are
+  reported separately from the (n) comparisons below.
+
 Usage:
     python -I tools/oracle_gradle.py <gradle-dependencies.txt> <edges.json>
     python -I tools/oracle_gradle.py <gradle-dependencies.txt> <clean_report.json>
 
-Semantics mirrored independently: level-1 entries under a configuration
-header are DIRECT declarations (no parent edge, no synthetic root); `(*)`
-elision keeps the edge; conflicts use the selected version; `project :x`
-references have no registry identity (their subtree children are disclosed
-as unresolvable, never invented). Exit 0 iff VERIFIED identity sets agree.
+Reports VERIFIED wrong/missing, UNRESOLVED((n)-class) wrong/missing,
+confidence mismatches (an (n)-expected identity emitted VERIFIED) and
+resolution-status mismatches. Exit 0 iff all comparisons agree.
 """
 
 import json
 import re
 import sys
 from pathlib import Path
+
+STATUS_NOT_RESOLVED = "GRADLE_VERSION_NOT_RESOLVED"
 
 
 def consume_decoration(text):
@@ -54,11 +72,16 @@ def consume_decoration(text):
 
 
 def parse_node(body):
+    """Independent (n)/(c)/arrow semantics -- see module docstring."""
+    not_resolved = bool(re.search(r"\(n\)\s*$", body))
     body = re.sub(r"\s*\([nc]\)\s*$", "", body)
     selected = ""
-    if " -> " in body:
-        body, selected = body.split(" -> ", 1)
-        selected = selected.strip()
+    arrow = re.search(r"\s+->\s*(.*)$", body)
+    if arrow:
+        body = body[:arrow.start()]
+        selected = arrow.group(1).strip()
+        if not selected:
+            not_resolved = True
     body = re.sub(r"\s*\(\*\)\s*$", "", body)
     parts = [p.strip() for p in body.split(":")]
     if len(parts) != 3:
@@ -66,6 +89,9 @@ def parse_node(body):
     version = parts[2]
     if selected:
         version = selected
+    if not_resolved:
+        return {"name": f"{parts[0]}:{parts[1]}", "version": "",
+                "project": False, "not_resolved": True}
     return {"name": f"{parts[0]}:{parts[1]}", "version": version,
             "project": False}
 
@@ -79,7 +105,8 @@ def parse_project(body):
 def expected_edges(tree_path):
     lines = Path(tree_path).read_text(encoding="utf-8").splitlines()
     parents = [None] * 64   # parent-pointer array by depth
-    expected = set()
+    expected = set()        # VERIFIED identities: (pn, pv, cn, cv)
+    expected_unresolved = set()   # (n)-class UNRESOLVED identities
     direct = 0
     for raw in lines:
         line = raw.rstrip()
@@ -107,9 +134,13 @@ def expected_edges(tree_path):
             parents[depth] = node
             continue
         parents[depth] = node
-        expected.add((parent["name"], parent["version"],
-                      node["name"], node["version"]))
-    return expected, direct
+        identity = (parent["name"], parent["version"],
+                    node["name"], node["version"])
+        if parent.get("not_resolved") or node.get("not_resolved"):
+            expected_unresolved.add(identity)
+        else:
+            expected.add(identity)
+    return expected, expected_unresolved, direct
 
 
 def main():
@@ -123,22 +154,44 @@ def main():
     else:
         edges = payload
 
-    expected, direct = expected_edges(tree)
-    got = set()
+    expected, expected_unresolved, direct = expected_edges(tree)
+    got_verified = set()
+    got_unresolved = set()
+    other_unresolved = 0
     for e in edges:
-        if str(e.get("confidence")) != "VERIFIED":
-            continue
-        got.add((str(e.get("parent_name")), str(e.get("parent_version")),
-                 str(e.get("child_name")), str(e.get("child_version"))))
+        identity = (str(e.get("parent_name")), str(e.get("parent_version")),
+                    str(e.get("child_name")), str(e.get("child_version")))
+        conf = str(e.get("confidence") or "").upper()
+        status = str(e.get("resolution_status") or "")
+        if conf == "VERIFIED":
+            got_verified.add(identity)
+        elif conf == "UNRESOLVED":
+            if status == STATUS_NOT_RESOLVED:
+                got_unresolved.add(identity)
+            else:
+                other_unresolved += 1
+    # confidence mismatch: an (n)-expected identity emitted as VERIFIED
+    confidence_mismatch = len(got_verified & expected_unresolved)
 
-    wrong = got - expected
-    missing = expected - got
+    wrong = got_verified - expected
+    missing = expected - got_verified
+    wrong_u = got_unresolved - expected_unresolved
+    missing_u = expected_unresolved - got_unresolved
     print(f"oracle expected VERIFIED edges: {len(expected)} "
           f"(direct declarations counted: {direct})")
-    print(f"extractor VERIFIED edges: {len(edges)}")
-    print(f"WRONG:   {len(wrong)}  {sorted(wrong)[:5]}")
-    print(f"MISSING: {len(missing)}  {sorted(missing)[:5]}")
-    ok = not wrong and not missing
+    print(f"oracle expected (n)-class UNRESOLVED edges: "
+          f"{len(expected_unresolved)}")
+    print(f"extractor VERIFIED edges: {len(got_verified)} | "
+          f"(n)-class UNRESOLVED: {len(got_unresolved)} | "
+          f"other UNRESOLVED (project-parent): {other_unresolved}")
+    print(f"WRONG (VERIFIED):   {len(wrong)}  {sorted(wrong)[:5]}")
+    print(f"MISSING (VERIFIED): {len(missing)}  {sorted(missing)[:5]}")
+    print(f"WRONG ((n) UNRESOLVED):   {len(wrong_u)}  {sorted(wrong_u)[:5]}")
+    print(f"MISSING ((n) UNRESOLVED): {len(missing_u)}  {sorted(missing_u)[:5]}")
+    print(f"CONFIDENCE MISMATCHES ((n) identity emitted VERIFIED): "
+          f"{confidence_mismatch}")
+    ok = (not wrong and not missing and not wrong_u and not missing_u
+          and confidence_mismatch == 0)
     print("ORACLE RESULT:", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)
 

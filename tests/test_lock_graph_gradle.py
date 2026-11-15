@@ -202,3 +202,125 @@ def test_gradle_lockfile_is_membership_only_disclosure(tmp_path):
     assert result["edges"] == []
     assert result["membership_packages"] == 2
     assert any("membership" in str(l).lower() for l in result["limitations"])
+
+
+# -- R2.6.1: Gradle (n)/(c) marker evidence semantics (red-first) -------------
+
+N_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-a:1.0.0
+|    \\--- org.gradle.test:gd-c:3.0.0 (n)
+|         \\--- org.gradle.test:gd-d:4.0.0
+\\--- org.gradle.test:gd-b:2.0.0
+|    \\--- org.gradle.test:gd-e:5.0.0
+"""
+
+
+def test_n_marker_child_is_unresolved_not_verified(tmp_path):
+    # (n) = the requested version was NOT resolved: the edge is disclosed
+    # UNRESOLVED with the requested version as a qualifier -- never VERIFIED
+    # at the requested version (R2.6.1; F-1 from the R2 final closure audit).
+    result = extract(_write(tmp_path, N_TREE))
+    edge = [e for e in result["edges"] if e["child_name"] == "org.gradle.test:gd-c"][0]
+    assert edge["confidence"] == "UNRESOLVED"
+    assert edge["child_version"] == ""
+    assert edge["qualifiers"]["requested_version"] == "3.0.0"
+    assert edge["resolution_status"] == "GRADLE_VERSION_NOT_RESOLVED"
+
+
+def test_n_marker_requested_version_never_promoted(tmp_path):
+    result = extract(_write(tmp_path, N_TREE))
+    edge = [e for e in result["edges"] if e["child_name"] == "org.gradle.test:gd-c"][0]
+    assert edge["child_version"] != "3.0.0"
+    assert edge["child_purl"] == ""
+
+
+def test_n_marker_parent_is_unresolved_not_invented(tmp_path):
+    # an (n) node used as a PARENT has no resolved identity either: edges
+    # FROM it are disclosed UNRESOLVED with an empty parent version.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-c:3.0.0 (n)
+|    \\--- org.gradle.test:gd-d:4.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    assert len(result["edges"]) == 1
+    edge = result["edges"][0]
+    assert edge["parent_name"] == "org.gradle.test:gd-c"
+    assert edge["parent_version"] == ""
+    assert edge["child_name"] == "org.gradle.test:gd-d"
+    assert edge["confidence"] == "UNRESOLVED"
+    assert edge["qualifiers"]["parent_requested_version"] == "3.0.0"
+    assert edge["resolution_status"] == "GRADLE_VERSION_NOT_RESOLVED"
+
+
+def test_n_marker_edge_mints_no_fingerprint(tmp_path):
+    # fingerprints exist only for VERIFIED identities (contract); an
+    # unresolved (n) edge carries none.
+    result = extract(_write(tmp_path, N_TREE))
+    edge = [e for e in result["edges"] if e["child_name"] == "org.gradle.test:gd-c"][0]
+    assert "fingerprint" not in edge
+
+
+def test_resolved_sibling_in_same_tree_stays_verified(tmp_path):
+    # preservation: resolved edges around the (n) marker keep their
+    # resolved semantics and identity-stable fingerprints. The (n) node's
+    # OWN subtree edge is parent-side-unresolved (see the dedicated test
+    # above) and stays out of the VERIFIED set.
+    result = extract(_write(tmp_path, N_TREE))
+    verified = {(e["parent_name"], e["child_name"], e["child_version"])
+                for e in result["edges"] if e["confidence"] == "VERIFIED"}
+    assert verified == {
+        ("org.gradle.test:gd-b", "org.gradle.test:gd-e", "5.0.0"),
+    }
+    for e in result["edges"]:
+        if e["confidence"] == "VERIFIED":
+            assert e["fingerprint"].startswith("sha256:")
+    child_edge = [e for e in result["edges"]
+                  if e["child_name"] == "org.gradle.test:gd-d"][0]
+    assert child_edge["confidence"] == "UNRESOLVED"
+    assert child_edge["qualifiers"]["parent_requested_version"] == "3.0.0"
+
+
+def test_c_marker_constraint_selected_is_resolved_and_disclosed(tmp_path):
+    # (c) = version selected by a dependency constraint: the printed
+    # version IS the resolved one -- VERIFIED stays, with a disclosure
+    # qualifier distinguishing it from a plain resolution.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-constrained:2.0.0 (c)
+"""
+    result = extract(_write(tmp_path, tree))
+    edge = result["edges"][0]
+    assert edge["confidence"] == "VERIFIED"
+    assert edge["child_version"] == "2.0.0"
+    assert edge["qualifiers"]["constraint_selected"] == "true"
+    assert edge["fingerprint"].startswith("sha256:")
+
+
+def test_not_resolved_markers_are_tallied(tmp_path):
+    result = extract(_write(tmp_path, N_TREE))
+    assert result["tallies"]["not_resolved_markers"] == 1
+
+
+def test_versionless_node_is_disclosed_not_verified(tmp_path):
+    # an ambiguous/missing version never silently resolves (contract
+    # downgrade path, exercised through gradle's identity split).
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-loose:1.0 -> 
+"""
+    result = extract(_write(tmp_path, tree))
+    edge = result["edges"][0]
+    assert edge["confidence"] == "UNRESOLVED"
+    assert edge["child_version"] == ""
