@@ -308,15 +308,34 @@ def test_worker_requires_matching_argc():
 #     406.2 ms against a 50 ms band).
 #
 # Windows thread clocks tick at 15.625 ms (GetThreadTimes, 64 Hz) -- every
-# band carries an absolute floor cushion (>= 2 ticks + scheduler slop), and
-# post-fix inflation observed under extreme contention is <= ~1.2x (plus one
-# tick of noise), well inside every band.
+# band carries an absolute floor cushion (>= 2 ticks + scheduler slop).
+# R-FR3-1 correction note (2026-11-15): the calling thread's own GIL-switch
+# overhead under contention is real thread CPU and reaches ~1.7-2.3x of the
+# quiet cost (the original "post-fix inflation <= ~1.2x" assumption in this
+# header was WRONG and was corrected by the independent review + the
+# fr3_s2 distribution study).  S2 was therefore redesigned (v3) around a
+# load-adaptive envelope invariant instead of a quiet-relative ratio band;
+# S3/S5 keep quiet-relative per-row bands, which are empirically stable at
+# 8-spinner contention (their assertion targets the absence of
+# contamination-scale inflation, not the overhead envelope).
 # ---------------------------------------------------------------------------
 _FR3_BAND_MULT = 2.5        # per-row isolation band multiplier vs quiet value
 _FR3_BAND_FLOOR = 50.0      # 5 MB-scale band floor (ticks + scheduler slop)
 _FR3_S5_FLOOR = 75.0        # 1 MB-scale band floor (small quiet rows)
-_FR3_TOTAL_MULT = 1.4       # 1-spinner whole-scan total band multiplier
-_FR3_TOTAL_FLOOR = 100.0    # whole-scan total band floor
+# S2 v3 (R-FR3-1 correction) envelope constants -- calibrated from the
+# 12+12-pass distribution study in
+# audit_output/fr3_s2/logs/s2_distribution_study.py/.txt (2026-11-15):
+#   post-fix excess (recorded_total - external thread envelope) over 12
+#   passes: [-31.2, +0.0] ms;  pre-fix excess over 12 passes:
+#   [+671.9, +1390.6] ms.  300 ms sits ~10x above the observed post-fix
+#   maximum and >= 2.2x below the pre-fix minimum.  The proposed
+#   2.5xquiet+150 relative threshold was REJECTED by the same study: it
+#   passes 6/12 pre-fix runs (detection lost half the time) because the
+#   1-spinner pre-fix contamination ratio (1.96-3.53x) overlaps the
+#   post-fix GIL-overhead ratio (0.90-1.73x).
+_FR3_S2_ENVELOPE_MS = 300.0     # recorded_total <= external_thread + this
+_FR3_S2_SPINNER_FLOOR_MS = 250.0  # spinner must accrue >= this (min observed
+#                                 # 687.5 ms pre-fix / 953.1 ms post-fix)
 
 _FR3_BUNDLES: dict[int, str] = {}
 
@@ -372,6 +391,36 @@ def _spinners(n: int):
         raise RuntimeError("fr3 spinner(s) did not stop")
 
 
+class _SpinnerCpu:
+    """S2-only spinner with CPU accounting (records the CPU the
+    contamination source actually consumed, so the envelope assertion is
+    provably meaningful).  Kept separate from :class:`_Spinner` so the
+    other scenarios' helper code path stays byte-identical."""
+
+    def __init__(self):
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self.cpu = 0.0
+
+    def _run(self):
+        c0 = time.thread_time()
+        x = 1.0
+        while not self._stop.is_set():
+            for _ in range(5000):
+                x = x * 1.0000001 + 0.1
+        self.cpu = (time.thread_time() - c0) * 1000
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self._thread.join(timeout=10)
+        if self._thread.is_alive():
+            raise RuntimeError("fr3 s2 spinner did not stop")
+
+
 def _run_js_rules(src: str) -> list[dict]:
     """Scan every JS-relevant rule over src through the production path --
     the same shape as the existing 5 MB acceptance gate.  Returns the
@@ -406,27 +455,58 @@ def test_fr3_s1_single_thread_baseline(collector):
             if t["mode"] == "subprocess_guard"] == []
 
 
-def test_fr3_s2_one_spinner_thread_band(collector):
-    """Scenario 2 (red-first, partial): scanning under ONE unrelated
-    CPU-bound thread.  Budget preservation: every row stays under 250 ms
-    (pre-fix worst observed 187.5 ms).  Isolation: the whole-scan recorded
-    cpu total must stay within a 1.4x+floor band of the quiet value -- with
-    process_time the spinner's CPU leaks into the scan (1.87x observed) and
-    the band fails; per-thread measurement stays at ~1.0-1.2x."""
+def test_fr3_s2_one_spinner_thread_envelope(collector):
+    """Scenario 2 (red-first; v3 = R-FR3-1 correction): scanning under ONE
+    unrelated CPU-bound thread.
+
+    v3 redesign rationale (evidence: audit_output/fr3_s2/logs/
+    s2_distribution_study.py/.txt, 12+12 passes): the v1 whole-scan ratio
+    band (1.4x quiet + 100) is unstable post-fix (observed post-fix ratios
+    0.90-1.73x) because the calling thread's own GIL-switch/descheduling
+    overhead is real thread CPU that grows with contention -- and that
+    ratio OVERLAPS the pre-fix contamination ratio (1.96-3.53x), so any
+    relative quiet-based threshold wide enough to pass post-fix reliably
+    also passes pre-fix sometimes (2.5xquiet+150 passes 6/12 pre-fix
+    runs).  The v1 scenario is therefore replaced by a LOAD-ADAPTIVE
+    envelope invariant, which separates the implementations by
+    construction:
+
+        recorded_total <= (calling-thread time.thread_time delta around
+                           the contended phase) + ENVELOPE_MS
+
+    * post-fix the recorded rows ARE the calling thread's CPU, so the
+      excess is only clock quantization: observed [-31.2, +0.0] ms over
+      12 passes (ENVELOPE_MS=300 sits ~10x above it);
+    * pre-fix the recorded rows additionally contain the spinner's CPU:
+      observed excess [+671.9, +1390.6] ms over 12 passes -- the
+      assertion fails deterministically (12/12 in the study);
+    * the spinner's own CPU is asserted to prove the contamination source
+      was genuinely active during the measurement (floor 250 ms; minimum
+      observed 687.5 ms).
+
+    Budget preservation is retained: every row stays under 250 ms.
+    """
     src = _fr3_bundle(5 * 1024 * 1024)
-    regex_budget.begin_scan()
-    quiet_total = sum(r["cpu_ms"] for r in _run_js_rules(src))
-    with _spinners(1):
+    tt0 = time.thread_time()
+    with _SpinnerCpu() as spinner:
         regex_budget.begin_scan()
         rows = _run_js_rules(src)
-    total = sum(r["cpu_ms"] for r in rows)
+    external_thread_ms = (time.thread_time() - tt0) * 1000
+    recorded_total = sum(r["cpu_ms"] for r in rows)
     over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
     assert not over, f"rows over budget under 1-spinner load: {over[:10]}"
-    limit = _FR3_TOTAL_MULT * quiet_total + _FR3_TOTAL_FLOOR
-    assert total <= limit, (
-        f"scan cpu total {total:.1f} ms exceeds the isolation band "
-        f"{limit:.1f} ms (quiet {quiet_total:.1f} ms) -- unrelated-thread "
-        f"CPU leaked into the measurement")
+    assert spinner.cpu >= _FR3_S2_SPINNER_FLOOR_MS, (
+        f"contamination source too weak: spinner consumed only "
+        f"{spinner.cpu:.1f} ms (floor {_FR3_S2_SPINNER_FLOOR_MS:.0f} ms) "
+        f"-- the envelope assertion would not be meaningful")
+    assert recorded_total <= external_thread_ms + _FR3_S2_ENVELOPE_MS, (
+        f"recorded cpu total {recorded_total:.1f} ms exceeds the calling "
+        f"thread's own CPU envelope ({external_thread_ms:.1f} ms + "
+        f"{_FR3_S2_ENVELOPE_MS:.0f} ms allowance) by "
+        f"{recorded_total - external_thread_ms:.1f} ms -- the budget "
+        f"metric charged CPU the calling thread did not consume "
+        f"(process-wide contamination; spinner consumed "
+        f"{spinner.cpu:.1f} ms during the same phase)")
 
 
 def test_fr3_s3_eight_spinner_isolation(collector):
