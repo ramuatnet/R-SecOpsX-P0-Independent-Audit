@@ -103,9 +103,13 @@ def _parse_node(body: str) -> dict | None:
     R2.6.1: an ``(n)`` marker marks the printed version as NOT resolved
     -- the node keeps its requested version as a qualifier and carries no
     resolved version (the contract downgrades the edge to UNRESOLVED, so
-    a requested version is never promoted). ``(c)`` marks a
-    constraint-selected version that IS in use. The two markers are
-    distinct and must not share one code path."""
+    a requested version is never promoted).
+    R2.6.2: a ``(c)`` marker identifies a DEPENDENCY CONSTRAINT, not an
+    in-use dependency -- the entry is disclosed UNRESOLVED
+    (GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY) with the constraint version
+    as a qualifier, and never independently creates a VERIFIED dependency
+    edge or fingerprint. The two markers are distinct and must not share
+    one code path."""
     not_resolved = bool(re.search(r"\(n\)\s*$", body))
     constraint_entry = bool(re.search(r"\(c\)\s*$", body))
     # strip ALL trailing (c)/(n) markers (defensive: real Gradle never
