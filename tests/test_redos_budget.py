@@ -32,12 +32,14 @@ GIL for the duration of a match), so the budget is layered:
 """
 from __future__ import annotations
 
+import contextlib
 import importlib
 import pathlib
 import random
 import re
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
@@ -280,6 +282,405 @@ def test_5mb_minified_js_no_regex_exceeds_budget(collector):
 # 4. Worker entrypoint hygiene
 # ---------------------------------------------------------------------------
 def test_worker_requires_matching_argc():
+    proc = subprocess.run(
+        [sys.executable, "-I", str(REPO / "core" / "regex_budget.py"),
+         "--worker"],
+        capture_output=True, text=True, timeout=30)
+    assert proc.returncode != 0
+
+
+# ---------------------------------------------------------------------------
+# 5. F-R3 concurrency isolation matrix (12 scenarios, red-first, additive)
+#
+# Approved proposal: audit_output/F_R3_CPU_BUDGET_REMEDIATION_PROPOSAL.md
+# (2026-11-15).  Root cause: the budget gate's CPU measurement is process-wide
+# (time.process_time) so unrelated in-process threads inflate the recorded
+# per-regex cost; the fix (separate commit) switches the six measurement
+# lines to per-thread time.thread_time.  Thresholds below are calibrated on
+# Python 3.14.3 / win32 from the PRE-FIX contamination profiles in
+# audit_output/fr3/logs/ (phase1_calibration.txt, phase1b_calibration.txt):
+#
+#   * 8-spinner 5 MB acceptance-shape scan, pre-fix: worst row 1343.8 ms
+#     (14.3x its quiet value), 8 rows over the 250 ms budget.
+#   * 1-spinner 5 MB scan, pre-fix: whole-scan cpu total 1.87x its quiet
+#     value (budget itself not breached -- hence the partial-red band).
+#   * 1 MB per-row scan, pre-fix: 7 rows outside a 2.5x+floor band (worst
+#     406.2 ms against a 50 ms band).
+#
+# Windows thread clocks tick at 15.625 ms (GetThreadTimes, 64 Hz) -- every
+# band carries an absolute floor cushion (>= 2 ticks + scheduler slop), and
+# post-fix inflation observed under extreme contention is <= ~1.2x (plus one
+# tick of noise), well inside every band.
+# ---------------------------------------------------------------------------
+_FR3_BAND_MULT = 2.5        # per-row isolation band multiplier vs quiet value
+_FR3_BAND_FLOOR = 50.0      # 5 MB-scale band floor (ticks + scheduler slop)
+_FR3_S5_FLOOR = 75.0        # 1 MB-scale band floor (small quiet rows)
+_FR3_TOTAL_MULT = 1.4       # 1-spinner whole-scan total band multiplier
+_FR3_TOTAL_FLOOR = 100.0    # whole-scan total band floor
+
+_FR3_BUNDLES: dict[int, str] = {}
+
+
+def _fr3_bundle(nbytes: int) -> str:
+    """Deterministic shared bundle (seed 42), generated once per process."""
+    bundle = _FR3_BUNDLES.get(nbytes)
+    if bundle is None:
+        bundle = make_minified_js(nbytes)
+        _FR3_BUNDLES[nbytes] = bundle
+    return bundle
+
+
+class _Spinner:
+    """One pure-Python CPU-bound thread (the GIL-bound contamination
+    source from the approved proposal's decisive experiment)."""
+
+    def __init__(self):
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self):
+        x = 1.0
+        while not self._stop.is_set():
+            for _ in range(5000):
+                x = x * 1.0000001 + 0.1
+
+    def start(self):
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        self._thread.join(timeout=10)
+        if self._thread.is_alive():
+            raise RuntimeError("fr3 spinner did not stop")
+
+
+@contextlib.contextmanager
+def _spinners(n: int):
+    """n concurrent spinner threads; always stopped, even on test failure."""
+    group = [_Spinner() for _ in range(n)]
+    for s in group:
+        s.start()
+    try:
+        yield
+    finally:
+        for s in group:
+            s._stop.set()
+        for s in group:
+            s._thread.join(timeout=10)
+    alive = [s for s in group if s._thread.is_alive()]
+    if alive:
+        raise RuntimeError("fr3 spinner(s) did not stop")
+
+
+def _run_js_rules(src: str) -> list[dict]:
+    """Scan every JS-relevant rule over src through the production path --
+    the same shape as the existing 5 MB acceptance gate.  Returns the
+    collector's check rows."""
+    from scanner import sast
+    for rule in sast.REGEX_RULES:
+        if not _runs_on_javascript(rule, compiled=False):
+            continue
+        list(regex_budget.timed_finditer(
+            rule["pattern"], src, rule_id=rule.get("id") or "?",
+            file_path="bundle.min.js"))
+    for rule in sast.COMPILED_ENTERPRISE_RULES:
+        if not _runs_on_javascript(rule, compiled=True):
+            continue
+        list(regex_budget.timed_finditer(
+            rule["pattern"], src, rule_id=rule.get("id") or "?",
+            file_path="bundle.min.js"))
+    return regex_budget.current().checks()
+
+
+def test_fr3_s1_single_thread_baseline(collector):
+    """Scenario 1 (preservation): the quiet single-threaded 5 MB acceptance
+    scan keeps every per-rule cpu under the 250 ms budget with no hard-guard
+    intervention."""
+    src = _fr3_bundle(5 * 1024 * 1024)
+    rows = _run_js_rules(src)
+    over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
+    assert not over, (
+        "quiet scan over budget: %s"
+        % sorted(over, key=lambda r: -r["cpu_ms"])[:5])
+    assert [t for t in collector.timeouts()
+            if t["mode"] == "subprocess_guard"] == []
+
+
+def test_fr3_s2_one_spinner_thread_band(collector):
+    """Scenario 2 (red-first, partial): scanning under ONE unrelated
+    CPU-bound thread.  Budget preservation: every row stays under 250 ms
+    (pre-fix worst observed 187.5 ms).  Isolation: the whole-scan recorded
+    cpu total must stay within a 1.4x+floor band of the quiet value -- with
+    process_time the spinner's CPU leaks into the scan (1.87x observed) and
+    the band fails; per-thread measurement stays at ~1.0-1.2x."""
+    src = _fr3_bundle(5 * 1024 * 1024)
+    regex_budget.begin_scan()
+    quiet_total = sum(r["cpu_ms"] for r in _run_js_rules(src))
+    with _spinners(1):
+        regex_budget.begin_scan()
+        rows = _run_js_rules(src)
+    total = sum(r["cpu_ms"] for r in rows)
+    over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
+    assert not over, f"rows over budget under 1-spinner load: {over[:10]}"
+    limit = _FR3_TOTAL_MULT * quiet_total + _FR3_TOTAL_FLOOR
+    assert total <= limit, (
+        f"scan cpu total {total:.1f} ms exceeds the isolation band "
+        f"{limit:.1f} ms (quiet {quiet_total:.1f} ms) -- unrelated-thread "
+        f"CPU leaked into the measurement")
+
+
+def test_fr3_s3_eight_spinner_isolation(collector):
+    """Scenario 3 (red-first, decisive): the 5 MB acceptance scan under
+    EIGHT unrelated CPU-bound threads.  Pre-fix the recorded per-rule cpu
+    absorbs the whole process's spinner CPU (observed: worst row 1343.8 ms,
+    8 rows over budget); per-thread measurement must keep every row under
+    the 250 ms budget and within 2.5x+floor of its own quiet value."""
+    src = _fr3_bundle(5 * 1024 * 1024)
+    regex_budget.begin_scan()
+    quiet = {r["rule_id"]: r["cpu_ms"] for r in _run_js_rules(src)}
+    with _spinners(8):
+        regex_budget.begin_scan()
+        rows = _run_js_rules(src)
+    over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
+    assert not over, (
+        "rows over the %d ms budget under 8-spinner load: %s"
+        % (regex_budget.DEFAULT_BUDGET_MS,
+           sorted(over, key=lambda r: -r["cpu_ms"])[:10]))
+    blown = []
+    for r in rows:
+        limit = (_FR3_BAND_MULT * quiet.get(r["rule_id"], 0.0)
+                 + _FR3_BAND_FLOOR)
+        if r["cpu_ms"] > limit:
+            blown.append((r["rule_id"], r["cpu_ms"], limit))
+    assert not blown, f"rows outside the isolation band: {blown[:10]}"
+
+
+def test_fr3_s4_genuine_overbudget_still_detected(collector):
+    """Scenario 4 (preservation): a regex genuinely exceeding its budget is
+    still detected after the correction -- the timeout path is wall-driven,
+    so no measurement change can silence it.  A non-suspect match-dense
+    pattern (inline path, no prefilter skip) forced through a 1 ms budget
+    on the 512 KB bundle breaches, produces a post_hoc REGEX_TIMEOUT row,
+    and its matches stay KEPT (telemetry, never a discard).  (v2: the
+    first cut picked a rule table entry by a wall threshold, which is
+    boundary-noise-flaky and could pick a rule whose budgeted path is
+    prefiltered below the probe budget -- a synthetic pattern with a
+    ~15-40 ms window is deterministic.)"""
+    pattern = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*\s*\(")
+    src = _fr3_bundle(512 * 1024)
+    want = list(pattern.finditer(src))
+    assert len(want) > 100, "probe pattern must be match-dense"
+    got = list(regex_budget.timed_finditer(
+        pattern, src, rule_id="FR3_S4_OVERBUDGET", file_path="b.js",
+        budget_ms=1))
+    assert [m.span() for m in got] == [m.span() for m in want], (
+        "breached rule's matches must be kept, not discarded")
+    tos = [t for t in collector.timeouts()
+           if t["rule_id"] == "FR3_S4_OVERBUDGET"]
+    assert tos, "breach produced no telemetry -- silent skip!"
+    assert tos[0]["mode"] == "post_hoc"
+    assert tos[0]["budget_ms"] == 1
+
+
+def test_fr3_s5_below_budget_under_concurrent_load(collector):
+    """Scenario 5 (red-first): every JS-relevant rule stays below the 250 ms
+    budget AND within its own 2.5x+floor band of its quiet value while eight
+    unrelated CPU threads run.  Pre-fix seven rows blew their bands (worst
+    406.2 ms against a 50 ms band)."""
+    src = _fr3_bundle(1024 * 1024)
+    regex_budget.begin_scan()
+    quiet = {r["rule_id"]: r["cpu_ms"] for r in _run_js_rules(src)}
+    with _spinners(8):
+        regex_budget.begin_scan()
+        rows = _run_js_rules(src)
+    over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
+    assert not over, f"rows over budget under concurrent load: {over[:10]}"
+    blown = []
+    for r in rows:
+        limit = (_FR3_BAND_MULT * quiet.get(r["rule_id"], 0.0)
+                 + _FR3_S5_FLOOR)
+        if r["cpu_ms"] > limit:
+            blown.append((r["rule_id"], r["cpu_ms"], limit))
+    assert not blown, f"rows outside band under concurrent load: {blown[:10]}"
+
+
+def test_fr3_s6_multiple_regex_calls_collector_consistent(collector):
+    """Scenario 6 (preservation): multiple regex calls in one scan produce
+    one check row per call with match spans identical to plain finditer,
+    and the metadata totals account for every call."""
+    from scanner import sast
+    src = 'password = "hunter2"\nhashlib.md5(x)\neval(user_input)\n'
+    picked = []
+    for rule in sast.REGEX_RULES:
+        rid = rule.get("id") or "?"
+        want = list(rule["pattern"].finditer(src))
+        got = list(regex_budget.timed_finditer(
+            rule["pattern"], src, rule_id=rid))
+        assert [m.span() for m in got] == [m.span() for m in want], (
+            f"parity break in {rid}")
+        picked.append(rid)
+        if len(picked) >= 5:
+            break
+    meta = collector.as_metadata()
+    assert meta["checks"] == len(picked)
+    ids = {r["rule_id"] for r in collector.checks()}
+    assert set(picked) <= ids
+
+
+def test_fr3_s7_measurement_is_per_thread_by_construction():
+    """Scenario 7 (structural pin, red-first): all six CPU measurement lines
+    use per-thread time.thread_time and time.process_time is fully gone
+    from the module, with the per-thread semantics disclosed in the
+    docstrings.  Pins the F-R3 correction against silent regression."""
+    source = (REPO / "core" / "regex_budget.py").read_text(encoding="utf-8")
+    assert "time.process_time()" not in source, (
+        "process-wide CPU measurement still present -- F-R3 regression")
+    assert source.count("time.thread_time()") == 6, (
+        "expected the six measurement lines on time.thread_time()")
+    assert "per-thread" in source, (
+        "per-thread measurement semantics must be disclosed in the "
+        "module/function docstrings")
+
+
+def test_fr3_s8_subprocess_hard_guard_preserved(collector):
+    """Scenario 8 (preservation): the catastrophic-pattern probe on a
+    guard-threshold input is still interrupted by the killable child and
+    produces a subprocess_guard REGEX_TIMEOUT row (never a silent skip)."""
+    t0 = time.perf_counter()
+    got = list(regex_budget.timed_finditer(
+        CATASTROPHIC, ATTACK, rule_id="FR3_S8_GUARD", file_path="attack.txt"))
+    elapsed = time.perf_counter() - t0
+    assert got == [], "catastrophic input must yield no matches"
+    assert elapsed < 5.0, f"guard did not interrupt: {elapsed:.1f}s"
+    rows = [t for t in collector.timeouts()
+            if t["rule_id"] == "FR3_S8_GUARD"]
+    assert rows, "breach produced no telemetry -- silent skip!"
+    assert rows[0]["mode"] == "subprocess_guard"
+    assert rows[0]["budget_ms"] == regex_budget.DEFAULT_BUDGET_MS
+
+
+def test_fr3_s9_windows_thread_time_resolution():
+    """Scenario 9 (preservation): time.thread_time behaves as the gate
+    metric needs on Python 3.14.3 / win32 -- available, excludes sleep,
+    tracks CPU work, and its GetThreadTimes tick (calibrated 15.625 ms,
+    64 Hz) is far below the 250 ms budget."""
+    assert hasattr(time, "thread_time")
+    t0 = time.thread_time()
+    time.sleep(0.2)
+    assert (time.thread_time() - t0) * 1000 <= 15.7, (
+        "sleep was counted as CPU -- thread_time excludes idle time")
+    t0 = time.thread_time()
+    x = 1.0
+    while (time.thread_time() - t0) < 0.15:
+        for _ in range(1000):
+            x = x * 1.0000001 + 0.1
+    busy = (time.thread_time() - t0) * 1000
+    assert 100.0 <= busy <= 300.0, f"busy work not tracked: {busy:.1f} ms"
+    # resolution: the first positive delta sampled while busy-spinning is
+    # one GetThreadTimes tick; allow up to two ticks for sampling slop --
+    # either bound is far below the 250 ms budget.
+    t0 = time.thread_time()
+    x = 1.0
+    first = None
+    deadline = time.perf_counter() + 2.0
+    while time.perf_counter() < deadline:
+        for _ in range(1000):
+            x = x * 1.0000001 + 0.1
+        cur = time.thread_time()
+        if cur > t0:
+            first = (cur - t0) * 1000
+            break
+    assert first is not None, "thread_time never advanced while busy"
+    assert 0.0 < first <= 31.3, (
+        f"thread_time resolution unusable for the budget: {first:.3f} ms")
+
+
+def test_fr3_s10_telemetry_row_shapes_unchanged(collector):
+    """Scenario 10 (preservation): check/timeout/metadata telemetry keeps
+    its exact shape under load and after a breach; only the cpu values'
+    scope changes to per-thread (disclosed behavioural correction)."""
+    src = _fr3_bundle(256 * 1024)
+    with _spinners(8):
+        regex_budget.begin_scan()
+        _run_js_rules(src)
+        list(regex_budget.timed_finditer(
+            CATASTROPHIC, ATTACK, rule_id="FR3_S10", budget_ms=1))
+    rows = regex_budget.current().checks()
+    assert rows, "no telemetry rows"
+    for r in rows:
+        assert set(r) == {"rule_id", "file", "wall_ms", "cpu_ms", "matches"}
+        assert r["cpu_ms"] >= 0.0 and r["wall_ms"] >= 0.0
+        assert isinstance(r["matches"], int)
+    meta = regex_budget.current().as_metadata()
+    assert set(meta) == {"budget_ms", "checks", "total_ms", "timeouts"}
+    assert meta["budget_ms"] == regex_budget.DEFAULT_BUDGET_MS
+    tos = regex_budget.current().timeouts()
+    assert tos, "forced breach produced no timeout telemetry"
+    assert any(t["mode"] == "subprocess_guard" for t in tos)
+    for t in tos:
+        assert set(t) >= {"rule_id", "file", "budget_ms", "mode", "line"}
+
+
+def test_fr3_s11_production_line_path_under_contention(collector):
+    """Scenario 11 (preservation): the production rule_finditer line path
+    keeps parity, per-line wall enforcement and the line_guard subprocess
+    kill under concurrent load -- a guard-threshold line is killed with the
+    offending line number while the other lines keep their matches."""
+    pat = re.compile(r"password")
+    src = ('password = "x"\n' + "a" * (70 * 1024) + "!\n" + "b\n")
+    lines = src.splitlines(keepends=True)
+    # quiet parity on the line path
+    regex_budget.begin_scan()
+    want = list(pat.finditer(src))
+    got = list(regex_budget.rule_finditer(
+        pat, src, rule_id="FR3_S11", file_path="m.js", lines=lines))
+    assert [m.span() for m in got] == [m.span() for m in want]
+    assert regex_budget.current().timeouts() == []
+    # quiet guard: the suspect pattern on the 70 KB line is killed by the
+    # killable child with the offending line number
+    got = list(regex_budget.rule_finditer(
+        CATASTROPHIC, src, rule_id="FR3_S11G", file_path="m.js",
+        lines=lines))
+    assert got == [], "guard-threshold line must yield no matches"
+    tos = [t for t in regex_budget.current().timeouts()
+           if t["mode"] == "line_guard"]
+    assert tos, "no line_guard row -- hard prevention missing"
+    assert tos[0]["line"] == 2
+    assert tos[0]["budget_ms"] == regex_budget.LINE_BUDGET_MS
+    # contended: the child process is immune to parent-thread contention
+    with _spinners(8):
+        regex_budget.begin_scan()
+        got = list(regex_budget.rule_finditer(
+            pat, src, rule_id="FR3_S11C", file_path="m.js", lines=lines))
+        assert [m.span() for m in got] == [m.span() for m in want]
+        got = list(regex_budget.rule_finditer(
+            CATASTROPHIC, src, rule_id="FR3_S11G2", file_path="m.js",
+            lines=lines))
+    assert got == []
+    tos = [t for t in regex_budget.current().timeouts()
+           if t["mode"] == "line_guard"]
+    assert tos and tos[0]["line"] == 2, (
+        "line_guard enforcement broke under concurrent load")
+
+
+def test_fr3_s12_existing_redos_protections_regress():
+    """Scenario 12 (preservation): the existing ReDoS protection layers are
+    untouched by the correction -- the static audit still flags nested
+    quantifiers, no rule table ships a flagged pattern, small-input inline
+    parity holds, and the -I worker hygiene contract still holds."""
+    assert regex_budget.audit_pattern(CATASTROPHIC.pattern)
+    from scanner import sast
+    offenders = []
+    for r in sast.REGEX_RULES:
+        if regex_budget.audit_pattern(r["pattern"].pattern):
+            offenders.append(r.get("id"))
+    for r in sast.ENTERPRISE_RULES:
+        if regex_budget.audit_pattern(r["pat"]):
+            offenders.append(r.get("id"))
+    assert not offenders, f"flagged patterns in tables: {offenders}"
+    got = list(regex_budget.timed_finditer(
+        re.compile(r"(a+)+b"), "aaab", rule_id="FR3_S12"))
+    assert [m.span() for m in got] == [(0, 4)]
     proc = subprocess.run(
         [sys.executable, "-I", str(REPO / "core" / "regex_budget.py"),
          "--worker"],

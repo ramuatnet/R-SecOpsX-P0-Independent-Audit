@@ -295,7 +295,8 @@ class RegexBudgetCollector:
                  "matches": matches})
             if len(self._checks) > 2 * _KEEP_CHECKS:
                 # Keep the slowest rows by CPU -- CPU is the machine-
-                # independent cost signal; wall under load is noisy.
+                # independent cost signal (per-thread since F-R3); wall
+                # under load is noisy.
                 self._checks.sort(key=lambda r: -r["cpu_ms"])
                 del self._checks[_KEEP_CHECKS:]
 
@@ -829,17 +830,22 @@ def timed_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
     (wall-clock -- the operator-facing signal from task.md T-0.5) --
     telemetry, never a silent skip (ground rule 3). Each check also
     records CPU time: CPU is the machine-independent per-regex cost and
-    what the acceptance gate asserts on, so a loaded machine cannot flake
-    the 5 MB budget while wall-clock telemetry stays faithful to spec.
+    what the acceptance gate asserts on, measured per-thread
+    (``time.thread_time`` -- F-R3) so unrelated in-process threads cannot
+    inflate the recorded cost: a loaded machine cannot flake the 5 MB
+    budget while wall-clock telemetry stays faithful to spec. The guarded
+    branch below records the PARENT's coordination overhead only -- the
+    regex itself runs in the killable child, whose CPU the parent never
+    sees (unchanged semantics, now per-thread instead of process-wide).
     """
     budget = DEFAULT_BUDGET_MS if budget_ms is None else budget_ms
     coll = current()
     t0 = time.perf_counter()
-    c0 = time.process_time()
+    c0 = time.thread_time()
 
     def _finish(matches: list[re.Match]) -> iter:
         wall = (time.perf_counter() - t0) * 1000
-        cpu = (time.process_time() - c0) * 1000
+        cpu = (time.thread_time() - c0) * 1000
         coll.record_check(rule_id, file_path, wall, cpu, len(matches))
         if wall > budget:
             # In-process re cannot be interrupted mid-match (GIL held by
@@ -858,7 +864,7 @@ def timed_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
     if _is_suspect(pattern) and len(source) >= _GUARD_MIN_BYTES:
         spans, timed_out, errored = _guarded_spans(pattern, source, budget)
         wall = (time.perf_counter() - t0) * 1000
-        cpu = (time.process_time() - c0) * 1000
+        cpu = (time.thread_time() - c0) * 1000
         if timed_out:
             coll.record_timeout(rule_id, file_path, budget,
                                 "subprocess_guard", wall)
@@ -1050,6 +1056,10 @@ def rule_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
 
     Fallback (everything else): byte-for-byte the T-0.5
     :func:`timed_finditer` contract.
+
+    The aggregate check row's cpu is per-thread CPU (``time.thread_time``,
+    F-R3) for the calling thread; per-line enforcement stays wall-driven
+    (``LINE_BUDGET_MS``) exactly as before.
     """
     if not _line_safe(pattern):
         return timed_finditer(pattern, source, rule_id=rule_id,
@@ -1057,7 +1067,7 @@ def rule_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
 
     coll = current()
     t0 = time.perf_counter()
-    c0 = time.process_time()
+    c0 = time.thread_time()
 
     if (lines is None
             or sum(len(ln) for ln in lines) != len(source)):
@@ -1069,7 +1079,7 @@ def rule_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
     req = required_anywhere_literals(pattern)
     if req and _absent_from_source(pattern, source, req):
         wall = (time.perf_counter() - t0) * 1000
-        cpu = (time.process_time() - c0) * 1000
+        cpu = (time.thread_time() - c0) * 1000
         coll.record_check(rule_id, file_path, wall, cpu, 0)
         return iter(())
 
@@ -1122,7 +1132,7 @@ def rule_finditer(pattern: re.Pattern, source: str, *, rule_id: str,
                               file_path=file_path)
 
     wall = (time.perf_counter() - t0) * 1000
-    cpu = (time.process_time() - c0) * 1000
+    cpu = (time.thread_time() - c0) * 1000
     coll.record_check(rule_id, file_path, wall, cpu, len(matches))
     if wall > DEFAULT_BUDGET_MS and not breached:
         # aggregate breach with no line already blamed: one row, mirroring
