@@ -49,6 +49,14 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from core import regex_budget  # noqa: E402
+# F-R3 S2 v4: scanner.sast is imported at MODULE scope so that its cold
+# import (rule-table compilation, ~0.5 s of real CPU) can never fall inside
+# a spinner/envelope measurement window -- the defect that made S2 v3
+# non-discriminating (FR3_S2_INDEPENDENT_REVIEW.md: the import sat inside
+# the spinner window but outside every rule's row window, so pre-fix
+# contamination hid in it).  All measurement helpers below therefore start
+# their windows with zero pending import/compilation work.
+from scanner import sast  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -317,25 +325,36 @@ def test_worker_requires_matching_argc():
 # load-adaptive envelope invariant instead of a quiet-relative ratio band;
 # S3/S5 keep quiet-relative per-row bands, which are empirically stable at
 # 8-spinner contention (their assertion targets the absence of
-# contamination-scale inflation, not the overhead envelope).
+# contamination-scale inflation, not the overhead envelope).  S2 was then
+# corrected again (v4, 2026-11-16) to enforce measurement-window
+# equivalence -- see test_fr3_s2_one_spinner_thread_envelope's docstring and
+# audit_output/fr3_s2_v4/.
 # ---------------------------------------------------------------------------
 _FR3_BAND_MULT = 2.5        # per-row isolation band multiplier vs quiet value
 _FR3_BAND_FLOOR = 50.0      # 5 MB-scale band floor (ticks + scheduler slop)
 _FR3_S5_FLOOR = 75.0        # 1 MB-scale band floor (small quiet rows)
-# S2 v3 (R-FR3-1 correction) envelope constants -- calibrated from the
-# 12+12-pass distribution study in
-# audit_output/fr3_s2/logs/s2_distribution_study.py/.txt (2026-11-15):
-#   post-fix excess (recorded_total - external thread envelope) over 12
-#   passes: [-31.2, +0.0] ms;  pre-fix excess over 12 passes:
-#   [+671.9, +1390.6] ms.  300 ms sits ~10x above the observed post-fix
-#   maximum and >= 2.2x below the pre-fix minimum.  The proposed
-#   2.5xquiet+150 relative threshold was REJECTED by the same study: it
-#   passes 6/12 pre-fix runs (detection lost half the time) because the
-#   1-spinner pre-fix contamination ratio (1.96-3.53x) overlaps the
-#   post-fix GIL-overhead ratio (0.90-1.73x).
+# S2 v4 (window-equivalence correction) constants -- calibrated from the
+# 12+12-pass distribution study under v4 boundaries in
+# audit_output/fr3_s2_v4/logs/v4_calibration.py/.txt (2026-11-16):
+#   pre-fix  excess = +515.6 .. +1234.4 ms (contamination lands INSIDE the
+#            measured rule windows; 0/12 pass the envelope);
+#   post-fix excess = -15.6 .. +0.0 ms (12/12 pass; the rows telescope the
+#            external window, so tick-quantization drift is bounded by the
+#            two boundary reads, ~2 ticks = 31 ms -- NOT 43x15.625);
+#   spinner_in_window (both sides) 515.6 .. 1234.4 ms;  gap envelope-start
+#   -> first row window = 0.00 ms in all 24 passes.
+# ENVELOPE 300 ms: ~10x the observed post-fix drift, and >= 215 ms below the
+# pre-fix minimum.  SPINNER FLOOR must exceed the envelope allowance (so a
+# passing floor proves competing CPU larger than the allowance overlapped
+# the measured windows) yet stay below the observed spinner minimum:
+#   500 ms was evaluated and REJECTED (only 1 tick below the observed
+#   minimum of 515.6 -- flake margin too thin); 450 ms chosen: >300 by
+#   150 ms (10 ticks) and >= 5 ticks below both observed minima.
+# (v3's 2.5xquiet+150 rejection rationale is preserved in
+# audit_output/fr3_s2/logs/s2_distribution_study.txt.)
 _FR3_S2_ENVELOPE_MS = 300.0     # recorded_total <= external_thread + this
-_FR3_S2_SPINNER_FLOOR_MS = 250.0  # spinner must accrue >= this (min observed
-#                                 # 687.5 ms pre-fix / 953.1 ms post-fix)
+_FR3_S2_SPINNER_FLOOR_MS = 450.0  # spinner CPU INSIDE the rule-scan window
+#                                 # must reach this (observed min 515.6)
 
 _FR3_BUNDLES: dict[int, str] = {}
 
@@ -394,13 +413,18 @@ def _spinners(n: int):
 class _SpinnerCpu:
     """S2-only spinner with CPU accounting (records the CPU the
     contamination source actually consumed, so the envelope assertion is
-    provably meaningful).  Kept separate from :class:`_Spinner` so the
-    other scenarios' helper code path stays byte-identical."""
+    provably meaningful).  ``cpu_now`` is a rolling checkpoint updated
+    every chunk so the test can isolate the CPU burned INSIDE the
+    rule-scan window (S2 v4 requirement: spinner activity must be
+    verified inside the actual measurement window, not merely across the
+    whole test).  Kept separate from :class:`_Spinner` so the other
+    scenarios' helper code path stays byte-identical."""
 
     def __init__(self):
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self.cpu = 0.0
+        self.cpu_now = 0.0
 
     def _run(self):
         c0 = time.thread_time()
@@ -408,7 +432,9 @@ class _SpinnerCpu:
         while not self._stop.is_set():
             for _ in range(5000):
                 x = x * 1.0000001 + 0.1
+            self.cpu_now = (time.thread_time() - c0) * 1000
         self.cpu = (time.thread_time() - c0) * 1000
+        self.cpu_now = self.cpu
 
     def __enter__(self):
         self._thread.start()
@@ -424,8 +450,9 @@ class _SpinnerCpu:
 def _run_js_rules(src: str) -> list[dict]:
     """Scan every JS-relevant rule over src through the production path --
     the same shape as the existing 5 MB acceptance gate.  Returns the
-    collector's check rows."""
-    from scanner import sast
+    collector's check rows.  (S2 v4: scanner.sast is imported at module
+    scope -- this function body is pure scan work so it can sit inside a
+    measurement window without hiding import CPU there.)"""
     for rule in sast.REGEX_RULES:
         if not _runs_on_javascript(rule, compiled=False):
             continue
@@ -456,57 +483,81 @@ def test_fr3_s1_single_thread_baseline(collector):
 
 
 def test_fr3_s2_one_spinner_thread_envelope(collector):
-    """Scenario 2 (red-first; v3 = R-FR3-1 correction): scanning under ONE
-    unrelated CPU-bound thread.
+    """Scenario 2 (red-first; v4 = window-equivalence correction): scanning
+    under ONE unrelated CPU-bound thread.
 
-    v3 redesign rationale (evidence: audit_output/fr3_s2/logs/
-    s2_distribution_study.py/.txt, 12+12 passes): the v1 whole-scan ratio
-    band (1.4x quiet + 100) is unstable post-fix (observed post-fix ratios
-    0.90-1.73x) because the calling thread's own GIL-switch/descheduling
-    overhead is real thread CPU that grows with contention -- and that
-    ratio OVERLAPS the pre-fix contamination ratio (1.96-3.53x), so any
-    relative quiet-based threshold wide enough to pass post-fix reliably
-    also passes pre-fix sometimes (2.5xquiet+150 passes 6/12 pre-fix
-    runs).  The v1 scenario is therefore replaced by a LOAD-ADAPTIVE
-    envelope invariant, which separates the implementations by
-    construction:
+    v4 boundaries (evidence: audit_output/fr3_s2_v4/logs/
+    v4_calibration.py/.txt, 12+12 passes).  S2 v3 was REJECTED by
+    independent review (FR3_S2_INDEPENDENT_REVIEW.md): its
+    _run_js_rules performed the cold scanner.sast import INSIDE the
+    spinner/envelope window but OUTSIDE every rule's row window, so
+    pre-fix contamination hid in the import phase and the envelope's
+    import-caller CPU cancelled the rules-phase contamination -- false
+    passes.  v4 restores measurement-window equivalence:
 
-        recorded_total <= (calling-thread time.thread_time delta around
-                           the contended phase) + ENVELOPE_MS
+      * scanner.sast is imported at MODULE scope (collection time) -- no
+        cold import or compilation work exists to fall inside a window;
+      * the bundle is generated and begin_scan() runs BEFORE the windows;
+      * tt0 starts immediately before the pure scan loop (the 43 rule
+        windows, nothing else) and external_thread_ms stops immediately
+        after it -- the tt0->first-row gap measured 0.00 ms in 24/24
+        calibration passes;
+      * spinner CPU is checkpointed INSIDE the window
+        (spinner_in_window), not merely across the whole test.
 
-    * post-fix the recorded rows ARE the calling thread's CPU, so the
-      excess is only clock quantization: observed [-31.2, +0.0] ms over
-      12 passes (ENVELOPE_MS=300 sits ~10x above it);
-    * pre-fix the recorded rows additionally contain the spinner's CPU:
-      observed excess [+671.9, +1390.6] ms over 12 passes -- the
-      assertion fails deterministically (12/12 in the study);
-    * the spinner's own CPU is asserted to prove the contamination source
-      was genuinely active during the measurement (floor 250 ms; minimum
-      observed 687.5 ms).
+    Invariant (same intent as v3):
 
-    Budget preservation is retained: every row stays under 250 ms.
+        recorded_total <= external_thread_ms + ENVELOPE_MS
+
+    Post-fix the recorded rows telescope the external window, so the
+    excess is bounded by the two boundary tick reads (observed
+    [-15.6, +0.0] ms over 12 passes; ENVELOPE_MS=300 sits ~10x above).
+    Pre-fix the rows additionally contain the spinner's in-window CPU
+    (observed excess [+515.6, +1234.4] ms over 12 passes -- the
+    contamination assertion fails deterministically, 0/12 would pass).
+
+    Assertion order is deliberate: the CONTAMINATION (envelope)
+    assertion comes before the budget-preservation assertion so that
+    pre-fix failures demonstrate the intended process-wide CPU
+    contamination; the spinner floor (450 ms IN-WINDOW -- 500 ms was
+    evaluated and rejected as flake-thin against the observed 515.6 ms
+    minimum) proves competing CPU larger than the allowance overlapped
+    the measured rows; budget preservation is checked last.
     """
     src = _fr3_bundle(5 * 1024 * 1024)
-    tt0 = time.thread_time()
+    regex_budget.begin_scan()
     with _SpinnerCpu() as spinner:
-        regex_budget.begin_scan()
+        spinner_cpu_before = spinner.cpu_now
+        tt0 = time.thread_time()
         rows = _run_js_rules(src)
-    external_thread_ms = (time.thread_time() - tt0) * 1000
+        external_thread_ms = (time.thread_time() - tt0) * 1000
+        spinner_cpu_after = spinner.cpu_now
+    spinner_in_window_ms = spinner_cpu_after - spinner_cpu_before
     recorded_total = sum(r["cpu_ms"] for r in rows)
-    over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
-    assert not over, f"rows over budget under 1-spinner load: {over[:10]}"
-    assert spinner.cpu >= _FR3_S2_SPINNER_FLOOR_MS, (
-        f"contamination source too weak: spinner consumed only "
-        f"{spinner.cpu:.1f} ms (floor {_FR3_S2_SPINNER_FLOOR_MS:.0f} ms) "
-        f"-- the envelope assertion would not be meaningful")
+
+    # vacuous-pass guard: the scan must have produced measurement rows
+    assert rows and recorded_total > 0.0, (
+        f"scan produced no usable measurement rows ({len(rows)}) -- the "
+        f"envelope assertion would pass vacuously")
+    # 1. CONTAMINATION (asserted before the budget line so pre-fix
+    #    failures demonstrate this assertion, cf. the correction mandate)
     assert recorded_total <= external_thread_ms + _FR3_S2_ENVELOPE_MS, (
         f"recorded cpu total {recorded_total:.1f} ms exceeds the calling "
         f"thread's own CPU envelope ({external_thread_ms:.1f} ms + "
         f"{_FR3_S2_ENVELOPE_MS:.0f} ms allowance) by "
         f"{recorded_total - external_thread_ms:.1f} ms -- the budget "
-        f"metric charged CPU the calling thread did not consume "
-        f"(process-wide contamination; spinner consumed "
-        f"{spinner.cpu:.1f} ms during the same phase)")
+        f"metric charged CPU the calling thread did not consume in the "
+        f"measured rule windows (process-wide contamination; spinner "
+        f"burned {spinner_in_window_ms:.1f} ms INSIDE those windows)")
+    # 2. competing CPU actually overlapped the measured rule windows
+    assert spinner_in_window_ms >= _FR3_S2_SPINNER_FLOOR_MS, (
+        f"contamination source too weak inside the measurement window: "
+        f"spinner burned only {spinner_in_window_ms:.1f} ms of CPU during "
+        f"the rule scan (floor {_FR3_S2_SPINNER_FLOOR_MS:.0f} ms) -- the "
+        f"envelope comparison would not be meaningful")
+    # 3. budget preservation (retained)
+    over = [r for r in rows if r["cpu_ms"] > regex_budget.DEFAULT_BUDGET_MS]
+    assert not over, f"rows over budget under 1-spinner load: {over[:10]}"
 
 
 def test_fr3_s3_eight_spinner_isolation(collector):
