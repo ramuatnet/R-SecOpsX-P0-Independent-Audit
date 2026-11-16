@@ -94,6 +94,27 @@ def parse_node(body):
             not_resolved = True
     body = re.sub(r"\s*\(\*\)\s*$", "", body)
     parts = [p.strip() for p in body.split(":")]
+    if len(parts) == 2:
+        # F-RG-2 platform shape `g:a -> selected` -- paired with the
+        # extractor's platform branch: resolved at the selected version.
+        # The elision marker is stripped on THIS path only; the 3-part
+        # conflict path below keeps its existing behaviour (F-RG-1/O-RG-1
+        # remain open).  An (n)-marked / empty-selected platform node is
+        # requested-but-unresolved; a (c)-marked one is a constraint.
+        group, artifact = parts
+        if not group or not artifact or not arrow:
+            return None
+        sel = re.sub(r"\s*\(\*\)\s*$", "", selected).strip()
+        if not_resolved:
+            return {"name": f"{group}:{artifact}", "version": "",
+                    "project": False, "not_resolved": True}
+        if constraint:
+            return {"name": f"{group}:{artifact}", "version": "",
+                    "project": False, "constraint": True}
+        if not sel:
+            return None
+        return {"name": f"{group}:{artifact}", "version": sel,
+                "project": False}
     if len(parts) != 3:
         return None
     version = parts[2]
@@ -142,11 +163,27 @@ def expected_edges(tree_path):
             continue
         node = parse_node(body)
         if node is None:
+            # F-RG-2 §3.2: a skipped node leaves an UNKNOWN parent slot --
+            # its children must never be re-attributed to `direct` or to a
+            # stale parent (the skip-orphan misattribution that miscounted
+            # 54 subtree nodes on the real micrometer report).
+            parents[depth] = {"name": "<unparseable>", "version": "",
+                              "project": False, "unknown": True}
             continue
         parent = parents[depth - 1] if depth >= 2 else None
-        if depth == 1 or parent is None or parent.get("project"):
+        if depth == 1:
             if not node.get("constraint"):
                 direct += 1   # constraint entries are NOT direct declarations
+            parents[depth] = node
+            continue
+        if parent is None or parent.get("unknown"):
+            # parentage unknown (orphan decoration or skipped parent):
+            # no expectation and NOT a direct declaration.
+            parents[depth] = node
+            continue
+        if parent.get("project"):
+            if not node.get("constraint"):
+                direct += 1
             parents[depth] = node
             continue
         parents[depth] = node

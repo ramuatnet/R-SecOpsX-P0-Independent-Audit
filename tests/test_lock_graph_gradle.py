@@ -173,13 +173,16 @@ runtimeClasspath
 
 def test_malformed_output_is_disclosed_not_fatal(tmp_path):
     # undecorated garbage is honestly an empty tree (NO_VERIFIED_EDGES);
-    # a decorated line with an unparseable node is the error case.
+    # a decorated line with an unparseable LEAF is disclosed (F-RG-2 §5
+    # hardening: tally + limitation) and is not fatal -- the fatal case is
+    # an unparseable node WITH a subtree (test_frg2_s14).
     empty = extract(_write(tmp_path, "\x00\x01 garbage"))
     assert empty["graph_status"] == "NO_VERIFIED_EDGES"
     assert empty["edges"] == []
     broken = extract(_write(tmp_path, "runtimeClasspath\n+--- :::: \n"))
-    assert broken["graph_status"] == "EXTRACTION_ERROR"
+    assert broken["graph_status"] != "EXTRACTION_ERROR"
     assert broken["edges"] == []
+    assert broken["tallies"]["invalid_nodes"] == 1
     assert broken["limitations"]
 
 
@@ -529,8 +532,11 @@ runtimeClasspath
 
 
 def test_malformed_constraint_output_is_disclosed(tmp_path):
-    # a malformed constraint line is the existing error path: disclosed,
-    # never fabricated.
+    # a malformed constraint line is disclosed, never fabricated.
+    # (F-RG-2 §5 hardening: an unparseable LEAF no longer blanks the whole
+    # file -- it is tallied (`invalid_nodes`) and named in `limitations`,
+    # while the rest of the file still extracts.  The with-subtree case
+    # keeps the fatal error; see test_frg2_s14.)
     tree = """\
 > Task :app:dependencies
 
@@ -539,8 +545,9 @@ runtimeClasspath
 |    \\--- org.gradle.test:gd-bad: (c)
 """
     result = extract(_write(tmp_path, tree))
-    assert result["graph_status"] == "EXTRACTION_ERROR"
+    assert result["graph_status"] != "EXTRACTION_ERROR"
     assert result["edges"] == []
+    assert result["tallies"]["invalid_nodes"] == 1
     assert result["limitations"]
 
 
@@ -588,3 +595,327 @@ def test_resolved_dependencies_around_constraints_unchanged(tmp_path):
     assert verified == {
         ("org.gradle.test:gd-real", "org.gradle.test:gd-dep", "4.0.0"),
     }
+
+
+# ---------------------------------------------------------------------------
+# F-RG-2: platform/BOM-selected version shape `group:artifact -> selected`
+# (conflict-resolution arrow with NO requested version on the left).
+# Fixtures are VERBATIM lines from the preserved real reports (line refs in
+# comments): audit_output/real_gradle/micrometer/raw_dependencies.txt and
+# .../mockito/raw_dependencies.txt.  Proposal (source of truth):
+# audit_output/F_RG_2_REMEDIATION_PROPOSAL.md.  F-RG-1 (conflict+elision on
+# the 3-part path) is deliberately NOT fixed here and is PINNED by
+# test_frg2_s8_conflict_marker_semantics_untouched.
+# ---------------------------------------------------------------------------
+
+# micrometer:218-228 verbatim -- netty BOM constraints + platform node +
+# its subtree (the block whose pre-fix EXTRACTION_ERROR blanked the file).
+FRG2_NETTY_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- io.netty:netty-bom:4.2.20.Final
+|    +--- io.netty:netty-transport:4.2.20.Final (c)
+|    +--- io.netty:netty-common:4.2.20.Final (c)
+|    +--- io.netty:netty-buffer:4.2.20.Final (c)
+|    \\--- io.netty:netty-resolver:4.2.20.Final (c)
++--- io.netty:netty-transport -> 4.2.20.Final
+|    +--- io.netty:netty-common:4.2.20.Final
+|    +--- io.netty:netty-buffer:4.2.20.Final
+|    |    \\--- io.netty:netty-common:4.2.20.Final
+|    \\--- io.netty:netty-resolver:4.2.20.Final
+|         \\--- io.netty:netty-common:4.2.20.Final
+"""
+
+# micrometer:313-318 verbatim -- platform BOM node with (c) children.
+FRG2_KOTLIN_BOM_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.jetbrains.kotlin:kotlin-bom -> 2.4.21
+|    +--- org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.4.21 (c)
+|    +--- org.jetbrains.kotlin:kotlin-reflect:2.4.21 (c)
+|    +--- org.jetbrains.kotlin:kotlin-stdlib:2.4.21 (c)
+|    +--- org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.4.21 (c)
+|    \\--- org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21 (c)
+"""
+
+# micrometer:313-321 verbatim -- the BOM block plus the platform+elision
+# combo line and the plain 3-part elision child (existing (*) semantics).
+FRG2_KOTLIN_COMBO_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.jetbrains.kotlin:kotlin-bom -> 2.4.21
+|    +--- org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.4.21 (c)
+|    +--- org.jetbrains.kotlin:kotlin-reflect:2.4.21 (c)
+|    +--- org.jetbrains.kotlin:kotlin-stdlib:2.4.21 (c)
+|    +--- org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.4.21 (c)
+|    \\--- org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21 (c)
++--- org.jetbrains.kotlin:kotlin-reflect -> 2.4.21
+|    \\--- org.jetbrains.kotlin:kotlin-stdlib:2.4.21 (*)
++--- org.jetbrains.kotlin:kotlin-stdlib-jdk8 -> 2.4.21 (*)
+"""
+
+# micrometer:15 + :1504 composed at their real depths (depth-1 registry
+# parent + the report's only depth>=2 platform+elision line).
+FRG2_JUNIT_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- com.google.errorprone:error_prone_core:2.52.0
+|    +--- org.junit.jupiter:junit-jupiter -> 5.14.4 (*)
+"""
+
+# mockito:114-119 verbatim -- the F-RG-1 conflict+elision block (used as
+# the preservation fixture: direct accounting AND the pinned F-RG-1 state).
+FRG2_MOCKITO_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- com.google.googlejavaformat:google-java-format:1.27.0
+|    \\--- com.google.guava:guava:32.1.3-jre -> 33.4.0-jre (*)
++--- com.google.auto:auto-common:1.2.2
+|    \\--- com.google.guava:guava:32.0.1-jre -> 33.4.0-jre (*)
++--- com.google.guava:guava:33.4.0-jre (*)
+"""
+
+
+def _load_oracle():
+    import importlib.util
+    from pathlib import Path as _P
+    spec = importlib.util.spec_from_file_location(
+        "oracle_gradle_frg2",
+        _P(__file__).resolve().parent.parent / "tools" / "oracle_gradle.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_frg2_s1_depth1_platform_selection(tmp_path):
+    # matrix #1 (micrometer:223): the depth-1 platform node parses and is
+    # counted as a direct declaration -- pre-fix this whole file was
+    # EXTRACTION_ERROR (edges=[]).
+    result = extract(_write(tmp_path, FRG2_NETTY_TREE))
+    assert result["graph_status"] == "VERIFIED_EDGES_AVAILABLE", \
+        result.get("limitations")
+    assert result["tallies"]["direct_declarations"] == 2  # netty-bom +
+    # netty-transport (platform node: level-1 = direct, never edged)
+    # R2.6.2 constraint children of the BOM are unchanged (preservation):
+    cons = [e for e in result["edges"]
+            if e["resolution_status"] == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"]
+    assert len(cons) == 4
+
+
+def test_frg2_s2_platform_bom_node(tmp_path):
+    # matrix #2 (micrometer:313): platform BOM node parses; its (c)
+    # children stay R2.6.2 constraint disclosures.
+    result = extract(_write(tmp_path, FRG2_KOTLIN_BOM_TREE))
+    assert result["graph_status"] != "EXTRACTION_ERROR", result.get("limitations")
+    assert result["tallies"]["direct_declarations"] == 1  # kotlin-bom
+    cons = [e for e in result["edges"]
+            if e["resolution_status"] == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"]
+    assert len(cons) == 5
+    assert all(e["confidence"] == "UNRESOLVED" for e in cons)
+
+
+def test_frg2_s3_platform_elision_combo(tmp_path):
+    # matrix #3 (micrometer:321): `g:a -> v (*)` -- platform selection
+    # combined with subtree elision.  Depth-1 occurrence counts as a
+    # direct declaration; the report's depth-2 3-part elision child keeps
+    # the EXISTING (*) semantics (VERIFIED, clean version, subtree_elided).
+    result = extract(_write(tmp_path, FRG2_KOTLIN_COMBO_TREE))
+    assert result["graph_status"] == "VERIFIED_EDGES_AVAILABLE", \
+        result.get("limitations")
+    assert result["tallies"]["direct_declarations"] == 3  # bom + reflect +
+    # stdlib-jdk8 (all three depth-1 platform nodes)
+    edges = {(e["parent_name"], e["child_name"]): e for e in result["edges"]}
+    plain = edges[("org.jetbrains.kotlin:kotlin-reflect",
+                   "org.jetbrains.kotlin:kotlin-stdlib")]
+    assert plain["child_version"] == "2.4.21"
+    assert plain["confidence"] == "VERIFIED"
+    assert plain["qualifiers"].get("subtree_elided") == "true"
+
+
+def test_frg2_s4_subtree_parenting_under_platform_node(tmp_path):
+    # matrix #4 (micrometer:223ff): children at depth>=2 parent to the
+    # platform node's SELECTED identity.
+    result = extract(_write(tmp_path, FRG2_NETTY_TREE))
+    edges = {(e["parent_name"], e["parent_version"],
+              e["child_name"], e["child_version"]): e
+             for e in result["edges"]}
+    for child in ("io.netty:netty-common", "io.netty:netty-buffer",
+                  "io.netty:netty-resolver"):
+        e = edges[("io.netty:netty-transport", "4.2.20.Final", child,
+                   "4.2.20.Final")]
+        assert e["confidence"] == "VERIFIED", e
+        assert e["parent_purl"] == \
+            "pkg:maven/io.netty/netty-transport@4.2.20.Final"
+    # depth-3 parenting under a platform child is unchanged
+    e = edges[("io.netty:netty-buffer", "4.2.20.Final",
+               "io.netty:netty-common", "4.2.20.Final")]
+    assert e["confidence"] == "VERIFIED"
+
+
+def test_frg2_s5_platform_qualifier_disclosure(tmp_path):
+    # matrix #5 (micrometer:1504): the platform edge discloses
+    # version_selected_by_platform and NO requested_version (none was
+    # printed -- never invented).
+    result = extract(_write(tmp_path, FRG2_JUNIT_TREE))
+    assert result["graph_status"] == "VERIFIED_EDGES_AVAILABLE", \
+        result.get("limitations")
+    edge = next(e for e in result["edges"]
+                if e["child_name"] == "org.junit.jupiter:junit-jupiter")
+    assert edge["child_version"] == "5.14.4"  # elision marker stripped
+    assert edge["confidence"] == "VERIFIED"
+    quals = edge["qualifiers"]
+    assert quals.get("version_selected_by_platform") == "true"
+    assert "requested_version" not in quals
+    assert quals.get("subtree_elided") == "true"
+
+
+def test_frg2_s6_platform_fingerprint_minted(tmp_path):
+    # matrix #6: the platform edge carries an identity-stable fingerprint
+    # (VERIFIED identities only, per the common contract).
+    p = _write(tmp_path, FRG2_JUNIT_TREE)
+    r1 = extract(p)
+    r2 = extract(p)
+    e1 = next(e for e in r1["edges"]
+              if e["child_name"] == "org.junit.jupiter:junit-jupiter")
+    e2 = next(e for e in r2["edges"]
+              if e["child_name"] == "org.junit.jupiter:junit-jupiter")
+    assert e1.get("fingerprint"), "VERIFIED platform edge must carry a fingerprint"
+    assert e1["fingerprint"] == e2["fingerprint"]
+
+
+def test_frg2_s7_direct_declarations_unchanged_for_depth1(tmp_path):
+    # matrix #7 (mockito:114-119, preservation): depth-1 direct-declaration
+    # accounting is untouched by the platform-shape work.
+    result = extract(_write(tmp_path, FRG2_MOCKITO_TREE))
+    assert result["tallies"]["direct_declarations"] == 3
+
+
+def test_frg2_s8_conflict_marker_semantics_untouched(tmp_path):
+    # matrix #8 (preservation PIN -- F-RG-1 deliberately NOT fixed here):
+    # the 3-part conflict+elision combo keeps its current disclosed state
+    # (UNRESOLVED, marker-contaminated selected version, no fingerprint).
+    result = extract(_write(tmp_path, FRG2_MOCKITO_TREE))
+    edges = {(e["parent_name"], e["child_name"]): e for e in result["edges"]}
+    for parent in ("com.google.auto:auto-common",
+                   "com.google.googlejavaformat:google-java-format"):
+        e = edges[(parent, "com.google.guava:guava")]
+        assert e["child_version"] == "33.4.0-jre (*)", e
+        assert e["confidence"] == "UNRESOLVED", e
+        assert "fingerprint" not in e or not e.get("fingerprint")
+
+
+def test_frg2_s9_oracle_expects_platform_verified():
+    # matrix #3 pairing: the independent oracle must parse the same shape
+    # (pre-fix it silently skipped it -- the shared-assumption gap).
+    og = _load_oracle()
+    node = og.parse_node("io.netty:netty-transport -> 4.2.20.Final")
+    assert node is not None
+    assert node["name"] == "io.netty:netty-transport"
+    assert node["version"] == "4.2.20.Final"
+    assert not node.get("not_resolved") and not node.get("constraint")
+
+
+def test_frg2_s10_oracle_platform_elision_strips_marker():
+    # pairing for matrix #3 at depth>=2 (micrometer:1504).
+    og = _load_oracle()
+    node = og.parse_node("org.junit.jupiter:junit-jupiter -> 5.14.4 (*)")
+    assert node is not None
+    assert node["version"] == "5.14.4"
+
+
+def test_frg2_s11_oracle_skip_orphan_not_misattributed(tmp_path):
+    # matrix #3 pairing (§3.2): a skipped/unparseable parent must NOT
+    # re-attribute its children to `direct` (the skip-orphan defect that
+    # miscounted 54 subtree nodes on the real micrometer report).  The
+    # 4-part body is unparseable to BOTH implementations (a stand-in for
+    # any future unknown shape) so the skip mechanism itself is exercised
+    # after the platform-shape fix removes the real-world skips.
+    og = _load_oracle()
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-bad:1.0:extra
+|         \\--- org.gradle.test:gd-child:2.0.0
+"""
+    p = tmp_path / "gradle-dependencies.txt"
+    p.write_text(tree, encoding="utf-8")
+    _exp, _unres, _cons, direct = og.expected_edges(str(p))
+    assert direct == 1, (
+        "children of a skipped/unparseable parent must not be counted as "
+        f"direct declarations (got {direct})")
+
+
+def test_frg2_s12_oracle_two_direction(tmp_path):
+    # matrix #3 pairing (§3.3): the oracle REJECTS a pre-fix-style payload
+    # (empty edges -- the pre-fix extractor blanked these files) naming the
+    # platform identity as MISSING, and ACCEPTS the post-fix extraction.
+    import subprocess
+    import sys
+    from pathlib import Path as _P
+    og_path = _P(__file__).resolve().parent.parent / "tools" / "oracle_gradle.py"
+    tree = tmp_path / "gradle-dependencies.txt"
+    tree.write_text(FRG2_JUNIT_TREE, encoding="utf-8")
+    # (a) reject: empty payload
+    empty = tmp_path / "prefix_edges.json"
+    empty.write_text("[]", encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "-I", str(og_path), str(tree), str(empty)],
+        capture_output=True, text=True)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "org.junit.jupiter:junit-jupiter" in proc.stdout
+    assert "MISSING (VERIFIED)" in proc.stdout
+    # (b) accept: the extractor's own (post-fix) payload
+    payload = tmp_path / "postfix_edges.json"
+    payload.write_text(
+        json.dumps(extract(str(tree))["edges"]), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "-I", str(og_path), str(tree), str(payload)],
+        capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "ORACLE RESULT: PASS" in proc.stdout
+
+
+def test_frg2_s13_unparseable_leaf_tallied_not_fatal(tmp_path):
+    # §5 hardening: an unparseable LEAF is disclosed (limitation + invalid
+    # tally) instead of blanking the whole evidence source; the rest of the
+    # file still extracts.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    +--- org.gradle.test:gd-child:2.0.0
+|    \\--- org.gradle.test:gd-bad: (c)
+"""
+    result = extract(_write(tmp_path, tree))
+    assert result["graph_status"] == "VERIFIED_EDGES_AVAILABLE", \
+        result.get("limitations")
+    assert result["tallies"]["invalid_nodes"] == 1
+    assert any("gd-bad" in lim for lim in result["limitations"])
+    kept = {(e["parent_name"], e["child_name"]) for e in result["edges"]}
+    assert ("org.gradle.test:gd-parent", "org.gradle.test:gd-child") in kept
+
+
+def test_frg2_s14_unparseable_with_subtree_still_fails(tmp_path):
+    # §5 hardening (preservation half): an unparseable node WITH a subtree
+    # keeps the fatal error -- the children's parentage is unknown and
+    # detections must never differ.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-bad:
+|         \\--- org.gradle.test:gd-child:2.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    assert result["graph_status"] == "EXTRACTION_ERROR"
+    assert result["edges"] == []
+    assert result["limitations"]

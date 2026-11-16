@@ -130,6 +130,36 @@ def _parse_node(body: str) -> dict | None:
     star = bool(re.search(r"\(\*\)\s*$", body))
     body = re.sub(r"\s*\(\*\)\s*$", "", body)
     parts = [p.strip() for p in body.split(":")]
+    if len(parts) == 2:
+        # F-RG-2: platform/BOM-selected version shape `g:a -> selected`
+        # (conflict-resolution arrow with NO requested version printed on
+        # the left).  Gradle prints `->` only from resolution results and
+        # the selected version's subtree expands below the node, so the
+        # node IS resolved at the selected version.  The requested version
+        # is not printed and is never invented: the edge discloses
+        # `version_selected_by_platform` instead (no speculative
+        # constraint-to-dependency matching).
+        group, artifact = parts
+        if not group or not artifact or not arrow:
+            return None
+        sel = re.sub(r"\s*\(\*\)\s*$", "", conflict).strip()
+        node = {"name": f"{group}:{artifact}", "version": "",
+                "star": bool(re.search(r"\(\*\)\s*$", conflict)),
+                "requested_version": ""}
+        if not_resolved:
+            # `(n)`-marked or `g:a ->` empty: requested-but-unresolved --
+            # no resolved version, never promoted (as the 3-part path).
+            node["not_resolved"] = True
+        elif constraint_entry:
+            # `g:a -> v (c)`: dependency CONSTRAINT -- no resolved version.
+            node["constraint"] = True
+            node["constraint_version"] = sel
+        else:
+            if not sel:
+                return None
+            node["version"] = sel
+            node["version_selected_by_platform"] = True
+        return node
     if len(parts) != 3:
         return None
     group, artifact, version = parts
@@ -171,6 +201,22 @@ def _is_project_reference(body: str) -> bool:
     return body.strip().startswith("project ")
 
 
+def _has_deeper_following(lines: list[str], i: int) -> bool:
+    """True when a tree line deeper than ``lines[i]`` follows -- i.e. the
+    node has a subtree whose parentage would be lost (F-RG-2 §5: such an
+    unparseable node keeps the fatal error; leaves are tallied instead)."""
+    parsed = _split_decorations(lines[i])
+    if parsed is None:
+        return False
+    depth = parsed[0]
+    for nxt in lines[i + 1:]:
+        p = _split_decorations(nxt)
+        if p is None:
+            continue
+        return p[0] > depth
+    return False
+
+
 def extract(lockfile_path: str) -> dict:
     try:
         lines = Path(lockfile_path).read_text(
@@ -191,9 +237,11 @@ def extract(lockfile_path: str) -> dict:
     unsupported = 0
     not_resolved_markers = 0
     constraint_entries = 0
+    invalid_nodes = 0
+    limitations: list[str] = []
     configuration = ""
     stack: list[tuple[int, dict]] = []
-    for raw in lines:
+    for i, raw in enumerate(lines):
         parsed = _split_decorations(raw)
         if parsed is None:
             continue
@@ -217,14 +265,27 @@ def extract(lockfile_path: str) -> dict:
 
         node = _parse_node(text)
         if node is None:
-            return contract.extraction_result(
-                engine=ENGINE,
-                source=str(lockfile_path),
-                format_version="gradle-dependencies",
-                graph_status=contract.EXTRACTION_ERROR,
-                edges=[],
-                limitations=[f"unparseable gradle node: {text[:WINDOW_80]!r}"],
-            )
+            # F-RG-2 §5 hardening: an unparseable LEAF is tallied and
+            # disclosed (limitation + invalid_nodes) instead of blanking
+            # the whole evidence source; an unparseable node WITH a subtree
+            # keeps the fatal error -- the children's parentage is unknown
+            # and detections must never differ.
+            if _has_deeper_following(lines, i):
+                return contract.extraction_result(
+                    engine=ENGINE,
+                    source=str(lockfile_path),
+                    format_version="gradle-dependencies",
+                    graph_status=contract.EXTRACTION_ERROR,
+                    edges=[],
+                    limitations=[
+                        f"unparseable gradle node with subtree: "
+                        f"{text[:WINDOW_80]!r}"],
+                )
+            invalid_nodes += 1
+            limitations.append(
+                f"unparseable gradle node (leaf, dropped): "
+                f"{text[:WINDOW_80]!r}")
+            continue
 
         if depth == 1:
             # R2.6.2: a depth-1 constraint entry is a CONSTRAINT, not one
@@ -260,6 +321,11 @@ def extract(lockfile_path: str) -> dict:
             qualifiers["constraint_version"] = node["constraint_version"]
         if node.get("star"):
             qualifiers["subtree_elided"] = "true"
+        if node.get("version_selected_by_platform"):
+            # F-RG-2: the selected version was chosen by a platform/BOM
+            # (the platform itself is not printed by `dependencies` and is
+            # never guessed); no requested_version exists on this shape.
+            qualifiers["version_selected_by_platform"] = "true"
         # R2.6.1: an (n) endpoint -- child or parent -- has no resolved
         # version; the contract downgrades the edge to UNRESOLVED and the
         # requested version is disclosed, never promoted.
@@ -347,7 +413,9 @@ def extract(lockfile_path: str) -> dict:
             "duplicate_records_dropped": duplicate_dropped,
             "not_resolved_markers": not_resolved_markers,
             "constraint_entries": constraint_entries,
+            "invalid_nodes": invalid_nodes,
         },
+        limitations=limitations,
     )
 
 
