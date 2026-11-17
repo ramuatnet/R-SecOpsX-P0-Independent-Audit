@@ -22,12 +22,30 @@ classifiers = [
 
 # Scan mode is offline/airgap by invariant (task.md): no runtime
 # dependencies are REQUIRED for a scan; optional enrichers (PyYAML,
-# reportlab, openpyxl) degrade gracefully and are extras.
+# reportlab, openpyxl) degrade gracefully and are extras. The `test`
+# extra carries test-only dependencies (pending_features R4: the count
+# parity / SBOM report tests import pymupdf, which was previously
+# undeclared and aborted collection on a clean clone).
 [project.optional-dependencies]
 yaml = ["PyYAML>=6"]
 pdf = ["reportlab>=4"]
 excel = ["openpyxl>=3.1"]
+test = ["pymupdf>=1.24"]
 all = ["PyYAML>=6", "reportlab>=4", "openpyxl>=3.1"]
+
+# A1 (SAST overnight): unscoped collection must never abort and must
+# never walk evidence/scratch trees (audit_output contains same-basename
+# test copies whose bytecode shadows the live modules). The historical
+# convention remains `python -m pytest tests`; testpaths pins that for
+# bare invocations too. Setting norecursedirs REPLACES the pytest
+# defaults, so they are restated here.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+    ".*", "build", "dist", "CVS", "_darcs", "{arch}", "*.egg",
+    "node_modules", "venv",
+    "audit_output", "data", "reports", "quarantine", "backup",
+]
 
 [project.scripts]
 rsecopsx = "main:main"
