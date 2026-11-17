@@ -1084,3 +1084,109 @@ with the disclosure). This decision does NOT authorize project R3,
 B-2 through B-7, R4/R5/R9 remediation, deployment or remote publication.
 Next: separately authorized work only (publication decision, R4/R5/R9
 documentation batch, B-2..B-7, production/push-to-origin decision, R3).
+
+## D-043 · 2026-11-17 · Overnight plan executed (tasks.md): F-CDX16-R4/R5/R9 + B-3 documentation batch, B-6 verified, B-2/B-4/B-5/B-7 evidence + proposals, full regression baseline-identical, publication assessment (no publication), GAP-13/B-8 blocked
+
+FACTS: the overnight autonomous plan (tasks.md, 2026-11-17) was executed
+against verified baseline `0929dbd` on feature/r2-multiecosystem-graph
+(§0 safety snapshot preserved at
+audit_output/overnight_nov17/snapshot/pre_work_snapshot.txt; ancestry
+74c4515 verified). Delivered, in §15 order:
+
+1. **Task 1** — `audit_output/OVERNIGHT_PENDING_WORK_INVENTORY.md`
+   (read-only reconciliation against D-001..D-042 / V-001..V-035, the
+   handover, the F-CDX16 disposition review and the B1_B7 assessment;
+   no disposition changed; B-8 + evidence-establishment items + residual
+   pointers recorded as DEFERRED; exclusions honored).
+2. **Task 2 — F-CDX16-R4 IMPLEMENTED** (`77f21f4`, docs-only): dated
+   ADDENDUM appended to the historical implementation report — original
+   174 lines preserved byte-identical (pre-edit copy + sha256 recorded);
+   the §16 "content hash unchanged during this task" claim withdrawn as
+   unsupported with the full fingerprint chain
+   (`e67879a57573c228` preflight → `dab348e44c8484c1` D-040 →
+   `c494b680ecd32280` D-042/V-035) and the refresh moment declared
+   artifact-verified only.
+3. **Task 3 — F-CDX16-R5 IMPLEMENTED** (`dbe1f3c`, comment-only):
+   `_attach_official_schema` docstring corrected to the committed
+   offline-1.6 semantics + two stale test headers; no executable line or
+   test semantics change; py_compile exit 0; suite 56 passed pre/post
+   identical; `git diff --check` clean.
+4. **Task 4 — F-CDX16-R9 IMPLEMENTED** (`b8df396`, docs-only): handover
+   header corrected (stale R2.1-era `1bcd061` — verified to be the
+   2026-11-12 R2.1e tip — replaced with the correction-time tip and a
+   dated note recording the D-040..D-042 progression); body byte-identical
+   (6 header lines changed); the handover file is now git-tracked
+   (authorized status-shape change).
+5. **Task 5 — B-3 CLOSED WITH EVIDENCE** (`40c0b4b`, docs-only):
+   canonical-interpretation note for the `3fbc317` mangled subject
+   ("(5)-hardening" = intended "§5-hardening", proposal-§5 leaf contract);
+   history untouched; scan confirms exactly 1 mangled subject.
+6. **Task 6 — B-6 VERIFIED CLOSED** (no change): the F-R5-1R correction
+   stands published in `R2_5_1_FINAL_REVIEW.md:78-84,161`; original
+   wording at `R2_5_1_REMEDIATION_REPORT.md:22` preserved by design.
+7. **Task 7 — B-2 evidence + proposal** (no implementation — the recorded
+   disposition reserves the contract design choice for authorization):
+   synthetic red probe reproduced (platform+`(n)`-parent child emits
+   `parent_requested_version: ""`), real corpora re-verified 0
+   occurrences (653 edges ×2 copies); one-line omit-when-empty proposal
+   (option a, recommended) vs document-empty-string (option b) delivered
+   (audit_output/overnight_nov17/b2/).
+8. **Task 8 — B-4 bounded study delivered; risk remains OPEN** (no
+   runtime/default/assertion change): 12-rep controlled 8-spinner study
+   replicating the S3/S5 methodology — S3 worst row max 171.9 ms (budget
+   headroom ≥1.454×, min margin 78.1 ms), S5 max 46.9 ms (≥5.33×), 0
+   over-budget / 0 out-of-band rows; the 2.5×+floor band is the binding
+   constraint (min margin 3.1 ms); disposition = disclose-the-risk
+   recommendation (test-docstring change separately authorized) or an
+   S2-class 12+12 calibration study before any margin change (evidence
+   audit_output/overnight_nov17/b4/).
+9. **Task 9 — B-5a/b/c probes + paired-change proposal** (no
+   implementation — recorded disposition requires separate per-batch
+   authorization): all three reds reproduced (non-graph go-mod-graph.txt
+   → NO_VERIFIED_EDGES; git-sourced cargo child lacks child_source
+   disclosure; AMBIGUOUS candidates `['d@1.0.0','d@1.0.0']` duplicated)
+   with preservation shapes; oracle scope resolved — oracle_go has zero
+   envelope assertions (B-5a needs no pairing), oracle_cargo DOES compare
+   candidate lists (B-5c must be a PAIRED extractor+oracle change);
+   three-commit batch profile on a new branch delivered
+   (audit_output/overnight_nov17/b5/).
+10. **Task 10 — B-7 six-fixture assessment + proposal** (no
+    implementation — recorded disposition DEFER PENDING EVIDENCE stands):
+    membership parser collects GEM-only (GIT/PATH/PLUGIN gems skipped —
+    red for cases 1/3/5), graph extractor already provenance-aware
+    (`_SECTION_PROVENANCE`); six isolated fixtures + red-first
+    expectations + conservatism pins (no directness inference, no
+    provenance fabrication); Ruby suites 56/56 green baseline
+    (audit_output/overnight_nov17/b7/).
+11. **Task 11 — FULL REGRESSION EXECUTED** (documented command, 29:40,
+    exit 1 = baseline-normal): **27 failed / 5,089 passed / 66 skipped,
+    failure identities 27/27 byte-identical (`f62c7e25`)**; count
+    reconciled exactly: 5,085 + 4 (DEV-1 `d695aa2` +1, F-CDX16-R2/R3
+    `74c4515` +3 — the first full-suite run carrying them, previously
+    `[NOT-EXECUTED]` per V-035) — no new failures, no identity drift;
+    only documented side effect: scan-driven cache refresh
+    `c494b680ecd32280` → `56581588bc89bd5d`
+    (audit_output/overnight_nov17/regression/).
+12. **Task 12 — publication-readiness assessed, NO publication** (read-
+    only, no fetch): local feature line ahead 8 / behind 0 of the
+    recorded `audit/feature/r2-multiecosystem-graph` tracking ref
+    (`f100e3e`); clean fast-forward possible; all 8 commits scope-
+    verified intended (CycloneDX, DEV-1, R2/R3, D-042/V-035 sync + this
+    overnight's 4); verdict READY-FOR-AUTHORIZATION with prerequisites
+    (explicit authorization, regression gate — now satisfied clean, live
+    remote fetch confirmation) (audit_output/overnight_nov17/publication/).
+13. **Task 13 — GAP-13/B-8 documented BLOCKED** (protected V11
+    dependency; correction content staged on this side; no V11 write, no
+    workaround) (audit_output/overnight_nov17/gap13/).
+14. **Task 14 — this closure record** +
+    `audit_output/OVERNIGHT_EXECUTION_REPORT.md` (consolidated status
+    table, final state, status-shape explanations).
+
+BOUNDARIES HONORED: no push/fetch/pull/deployment/tag movement; no V11
+modification (read-only checks only); no history rewrite/reset/clean; no
+production behavior change (R5 = comments; B-2/B-5/B-7 unimplemented);
+project R3 not started; B-1 skip flipper not reopened; no test weakened
+or suppressed; stash and pre-existing dirty/untracked state preserved
+throughout. This decision does NOT authorize: B-2/B-5/B-7 implementation,
+B-4 disclosure-note or calibration study, publication, R3.
+Next: separately authorized work only.

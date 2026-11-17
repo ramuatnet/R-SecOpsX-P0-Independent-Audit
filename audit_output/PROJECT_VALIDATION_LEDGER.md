@@ -787,3 +787,28 @@ historical artifact inspected, moment not replayable; **[NOT-EXECUTED]**
 | JSF / jsonschema limitations | assessment | jsf `oneOf` quirk preserved under F-CDX16-R6 (positive proof deliberately uses the URI-algorithm form); wording assertion acceptable under pinned jsonschema 4.26.0; structured-error hardening = non-mandatory future recommendation **[PRESERVED]** |
 | Protected state | before/after capture | dirty set (7 entries) intact; stash (1) untouched; remotes 24 unchanged; V11 `889170a` untouched; no source/test/schema modification by review or synchronization; ledgers pre-edit hashes `c6a2c3f6…` / `a9967d43…` backed up (`d042_v035_sync_evidence/`) **[REPRODUCED]** |
 | Verdict | — | **ACCEPTED** (per CYCLONEDX16_R2_R3_INDEPENDENT_REVIEW.md: F-CDX16-R2 ACCEPT, F-CDX16-R3 ACCEPT); the full regression was NOT run; no publication or deployment authorized |
+
+## V-036 · 2026-11-17 · Overnight plan execution validation (tasks.md §11 regression + documentation-batch gates; related decision D-043)
+
+Evidence classes: **[REPRODUCED]** = executed this run; **[PRESERVED]** =
+read from committed/preserved artifacts; **[NOT-EXECUTED]** = explicitly
+not run.
+
+| Check | Method | Result |
+|---|---|---|
+| Safety snapshot (§0) | git rev-parse / status / stash / for-each-ref / cache hash / V11 read-only | branch feature @ `0929dbd` exact (expected HEAD match); parent `74c4515` ancestor ✓; stash 1 preserved; cache `c494b680ecd32280`; V11 `889170a` / `fix/report-integrity` untouched; snapshot file preserved **[REPRODUCED]** |
+| F-CDX16-R4 preservation | byte diff pre-edit copy vs appended report | first 174 lines byte-identical; sha256 pre-edit recorded (`c514d9c75691e213`); all 3 fingerprints verified in cited sources; 8/8 path checks PASS **[REPRODUCED]** |
+| F-CDX16-R5 comment-only | full diff + py_compile + pre/post suites | diff = docstring + 2 comment headers only (+12/−6); py_compile exit 0; suites 56 passed pre AND post identical; `git diff --check` clean **[REPRODUCED]** |
+| F-CDX16-R9 body integrity | byte diff pre-edit copy | exactly 6 header lines changed (Last-updated + dated note + HEAD line); all body sections identical; `1bcd061` identified as the 2026-11-12 R2.1e tip; all cited refs resolve **[REPRODUCED]** |
+| B-3 history integrity | git log scan + parent check | exactly 1 mangled subject across `889170a..HEAD`; zero UTF-8 `§` subjects; `3fbc317` parent `5f32431` exact; no history operation **[REPRODUCED]** |
+| B-6 closure | read of cited passages | correction present at `R2_5_1_FINAL_REVIEW.md:78-84,161`; original wording intact at `R2_5_1_REMEDIATION_REPORT.md:22` **[PRESERVED]** |
+| B-2 probe | synthetic fixture extraction (isolated, repo untouched) | platform+`(n)`-parent child emits `parent_requested_version: ""` (red reproduced); contrast shapes clean; real corpora 0 occurrences (mockito 106 + micrometer 547 ×2 copies) **[REPRODUCED]** |
+| B-4 study | 12-rep probe replicating S3/S5 (8 spinners, thread_time rows) | S3 worst max 171.9 ms (≥1.454× budget headroom), S5 max 46.9 ms (≥5.33×); 0 over-budget / 0 out-of-band across 12 reps; min band margin 3.1 ms; environment recorded; no defaults changed **[REPRODUCED]** |
+| B-5 probes | isolated fixtures through gomod/cargo extractors | non-graph → `NO_VERIFIED_EDGES` (red); empty file → `NO_VERIFIED_EDGES` (correct); valid graph → `VERIFIED_EDGES_AVAILABLE` (correct); git child lacks child-source qualifiers (red); candidates `['d@1.0.0','d@1.0.0']` duplicated (red); oracle greps: oracle_go 0 envelope refs, oracle_cargo compares candidate lists **[REPRODUCED]** |
+| B-7 fixtures + suites | 6 fixtures through membership parser + graph extractor; Ruby suites | cases 1/3/5 red (GIT/PATH/PLUGIN gems skipped); case 6 anti-misclassification pinned; graph reference shows git/path source_kinds; `pytest test_gemfile_lock_classification.py test_lock_graph_rubygems.py test_g7_ruby_solidity_20261023.py` = **56 passed / 0 failed / 0 skipped** **[REPRODUCED]** |
+| Full regression | documented command `python -m pytest tests/ -q --tb=no -rf` | **27 failed / 5,089 passed / 66 skipped** in 1780.87 s (29:40), exit 1 (baseline-normal); **failure identities 27/27 byte-identical (`f62c7e25`)** via normalized comparator (COMPARE_EXIT=0); count reconciliation exact: 5,085 + 1 (DEV-1 test, `d695aa2`) + 3 (R2/R3 tests, `74c4515`) = 5,089 — first full-suite run carrying the 4 new tests (previously `[NOT-EXECUTED]` per V-035) **[REPRODUCED]** |
+| Regression side effects | status enumeration + cache hash | only tracked modification = `M data/.vuln_cache.json` (scan-driven refresh `c494b680ecd32280` → `56581588bc89bd5d`, rule-permitted); no test/source/schema path modified; +3 status entries = this session's own evidence dirs (no pytest scratch) **[REPRODUCED]** |
+| Publication assessment | read-only git (no fetch) | feature ahead 8 / behind 0 of recorded tracking ref (`f100e3e`); tracking ref is strict ancestor (clean FF); all 8 commits scope-verified; no fetch/push/tag performed **[REPRODUCED]** |
+| Protected state (final) | status / stash / V11 / remotes | tracked set unchanged (cache only); stash 1 intact; V11 `889170a` untouched; no remote operation at any point **[REPRODUCED]** |
+| Exclusions honored | review of executed actions | project R3 not started; B-1 skip flipper not reopened; F-CDX16-R3 (test finding) distinct from project R3 — untouched post-acceptance **[PRESERVED]** |
+| Verdict | — | **ALL OVERNIGHT GATES PASS; BASELINE-IDENTICAL REGRESSION; NO UNAUTHORIZED CHANGE.** Documentation commits `77f21f4`/`dbe1f3c`/`b8df396`/`40c0b4b` validated; B-2/B-5/B-7 implementation and B-4 disclosure note remain separately gated; publication NOT performed |
