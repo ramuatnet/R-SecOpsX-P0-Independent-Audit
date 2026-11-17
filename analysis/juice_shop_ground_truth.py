@@ -25,8 +25,11 @@ except Exception:  # pragma: no cover
 
 CHALLENGE_KEY_RE = re.compile(r"(?:challenges\.)?([A-Za-z][A-Za-z0-9_]*Challenge|[A-Za-z][A-Za-z0-9_]*challenge)\b")
 SOURCE_EXTENSIONS = {".ts", ".js", ".mjs", ".cjs", ".html", ".vue", ".jsx", ".tsx"}
-CONTEXT_WINDOW = 120
-EXPLICIT_REFERENCE_WINDOW = 160
+# FND-03 (cltask G1.7 / B5): the matcher windows are named WINDOW_*
+# constants, not bare literals. Values are unchanged from the measured
+# 120/160-line windows; only the naming follows the declared convention.
+WINDOW_SOURCE_CONTEXT = 120
+WINDOW_EXPLICIT_REFERENCE = 160
 CHALLENGE_GUARD_RE_TEMPLATE = r"(?:challengeUtils\.(?:solveIf|isChallengeEnabled)|utils\.isChallengeEnabled|isChallengeEnabled)\s*\(\s*(?:challenges\.)?{key}\b"
 CATEGORY_VULN_HINTS = {
     "injection": ("injection", "nosql", "sql", "command", "eval", "template"),
@@ -245,8 +248,8 @@ def _explicit_source_challenge_matches(finding: dict, target: Path, challenges: 
         line = int(finding.get("line") or 0)
     except Exception:
         line = 0
-    lo = max(1, line - EXPLICIT_REFERENCE_WINDOW) if line else 1
-    hi = min(len(lines), line + EXPLICIT_REFERENCE_WINDOW) if line else len(lines)
+    lo = max(1, line - WINDOW_EXPLICIT_REFERENCE) if line else 1
+    hi = min(len(lines), line + WINDOW_EXPLICIT_REFERENCE) if line else len(lines)
     block = "\n".join(lines[lo-1:hi])
     # If the fixed window misses a guard that is later in the same handler,
     # expand only to the enclosing lexical block, never to the whole file.
@@ -283,7 +286,7 @@ def _contextual_matches(finding: dict, target: Path, challenges: dict[str, dict]
         for path_str, hits in files.items():
             if Path(path_str).name != file_name:
                 continue
-            if line and not any(abs(line - h) <= CONTEXT_WINDOW for h in hits):
+            if line and not any(abs(line - h) <= WINDOW_SOURCE_CONTEXT for h in hits):
                 continue
             ch = challenges[key]
             if _category_compatible(ch, finding):
@@ -385,6 +388,16 @@ def enrich_juice_shop_ground_truth(payload: dict, target: str | Path) -> dict:
     # ------------------------------------------------------------------
     challenge_keys = sorted(challenges)
     missed = [k for k in challenge_keys if k not in covered]
+    # B5 (SAST overnight, plan acceptance): the coverage measurement must
+    # be internally consistent -- every challenge is covered or missed
+    # exactly once, and no challenge is counted in both buckets. Fail
+    # loudly rather than ship a self-inconsistent denominator.
+    assert len(covered) + len(missed) == len(challenge_keys), (
+        "ground-truth coverage accounting broken: covered=%d + missed=%d "
+        "!= denominator=%d" % (len(covered), len(missed), len(challenge_keys)))
+    assert not (covered & set(missed)), (
+        "a challenge cannot be both covered and missed: "
+        f"{sorted(covered & set(missed))}")
     summary["challenges_total"] = len(challenge_keys)
     summary["challenges_covered_count"] = len(covered)
     summary["challenges_covered"] = sorted(covered)
@@ -393,6 +406,14 @@ def enrich_juice_shop_ground_truth(payload: dict, target: str | Path) -> dict:
     summary["challenge_recall"] = (
         round(len(covered) / len(challenge_keys), 4) if challenge_keys else 0.0
     )
+    # B5: the code-detectable denominator requires a versioned
+    # detectability field on the inventory, which challenges.yml does not
+    # carry -- the contract stays unmeasured rather than inferred.
+    summary["code_detectable_recall"] = None
+    summary["code_detectable_recall_status"] = (
+        "NOT_MEASURED (the inventory's data/static/challenges.yml carries "
+        "no code_detectability field; a versioned oracle/mapping contract "
+        "needs fixture support before this denominator can be reported)")
     summary["matching_basis_counts"] = dict(sorted(basis_counts.items()))
     summary["challenge_coverage_status"] = (
         "COMPLETE"
