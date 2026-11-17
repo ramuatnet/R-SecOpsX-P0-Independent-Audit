@@ -496,6 +496,19 @@
       "version": "1.0.107"
     },
     {
+      "name": "pymupdf",
+      "properties": [
+        {
+          "name": "rsx:extras",
+          "value": "test"
+        }
+      ],
+      "purl": "pkg:pypi/pymupdf",
+      "scope": "optional",
+      "type": "library",
+      "version": ">=1.24"
+    },
+    {
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1372,7 +1385,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:18ffe36e-377e-5d2e-9a65-8d0a0ff3c9ef",
+  "serialNumber": "urn:uuid:34f3e3f6-e93c-5295-9406-2826e630ed09",
   "specVersion": "1.5",
   "version": 1
 }
