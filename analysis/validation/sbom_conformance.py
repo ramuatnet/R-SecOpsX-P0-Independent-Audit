@@ -38,14 +38,105 @@ if __package__ in (None, ""):
 
 _LOG = logging.getLogger("rsx.analysis.validation.sbom_conformance")
 
+# B-1-skip remediation (2026-11-17): the CycloneDX 1.6 schema is vendored
+# under schemas/cyclonedx/1.6/ with pinned SHA-256 hashes
+# (MANIFEST.json).  1.6 validation is offline-first and deterministic: no
+# DNS, HTTP or external service is required.  Other schema versions keep
+# the historical network path unchanged (out of scope).  The fixture
+# freezes the official schema as served at vendoring time; provenance and
+# licensing (Apache-2.0) are recorded in the manifest.
+_VENDORED_SCHEMA_DIR = (Path(__file__).resolve().parents[2]
+                        / "schemas" / "cyclonedx" / "1.6")
+
+
+def _load_vendored_schema_16(base_dir: Path | None = None) -> dict:
+    """Load the pinned CycloneDX 1.6 schema set, offline and hash-verified.
+
+    Returns ``{"schema": <bom-1.6 dict>, "resources": {<id>: <schema dict>}}``
+    on success.  Any integrity or presence failure raises ``RuntimeError``
+    with an explicit message -- the schema is never fetched, never
+    substituted and never silently skipped.  ``base_dir`` exists for
+    integrity tests (tamper/missing scenarios) only.
+    """
+    import hashlib
+    import json
+    base = Path(base_dir) if base_dir is not None else _VENDORED_SCHEMA_DIR
+    manifest_path = base / "MANIFEST.json"
+    if not manifest_path.is_file():
+        raise RuntimeError(
+            f"vendored schema missing: MANIFEST.json not found under {base}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != "1.6":
+        raise RuntimeError(
+            f"schema identity failure: manifest declares "
+            f"{manifest.get('schema_version')!r}, expected '1.6'")
+    loaded: dict = {}
+    for name, meta in manifest.get("files", {}).items():
+        path = base / name
+        if not path.is_file():
+            raise RuntimeError(f"vendored schema missing: {path}")
+        data = path.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != meta.get("sha256"):
+            raise RuntimeError(
+                f"schema integrity failure: {name} sha256 {digest} != "
+                f"pinned {meta.get('sha256')}")
+        loaded[name] = json.loads(data)
+    bom = loaded.get(manifest.get("bom_schema_file", "schema.json"))
+    if bom is None:
+        raise RuntimeError("vendored schema missing: bom schema file")
+    if bom.get("$id") != manifest.get("canonical_id"):
+        raise RuntimeError(
+            f"schema identity failure: $id {bom.get('$id')!r} != "
+            f"{manifest.get('canonical_id')!r}")
+    resources = {}
+    for name, meta in manifest.get("files", {}).items():
+        if name != manifest.get("bom_schema_file", "schema.json"):
+            resources[meta.get("id")] = loaded[name]
+    return {"schema": bom, "resources": resources}
+
 
 def _cyclonedx_schema_check(doc: dict, target_versions: tuple = ("1.5", "1.7")) -> dict:
-    """Validate CycloneDX document against official JSON schemas."""
+    """Validate CycloneDX document against official JSON schemas.
+
+    CycloneDX 1.6 is validated OFFLINE against the vendored, hash-pinned
+    schema (see schemas/cyclonedx/1.6/MANIFEST.json): no network access is
+    performed and none is required.  Other versions keep the historical
+    live-fetch path (unchanged behavior).
+    """
     results = {}
     try:
         import jsonschema
-        import requests
         for ver in target_versions:
+            if ver == "1.6":
+                try:
+                    vendored = _load_vendored_schema_16()
+                except Exception as e:
+                    # Explicit failure: never a silent skip, never a
+                    # network fallback, never unverified content.
+                    results[ver] = {"valid": False, "errors": [str(e)]}
+                    continue
+                try:
+                    from referencing import Registry, Resource
+                    from referencing.jsonschema import DRAFT7
+                    registry = Registry().with_resources([
+                        (res_id, Resource.from_contents(
+                            res_schema, default_specification=DRAFT7))
+                        for res_id, res_schema in
+                        vendored["resources"].items()
+                    ])
+                    validator_cls = jsonschema.validators.validator_for(
+                        vendored["schema"])
+                    validator = validator_cls(
+                        vendored["schema"], registry=registry)
+                    validator.validate(doc)
+                    results[ver] = {"valid": True, "errors": []}
+                except jsonschema.ValidationError as e:
+                    results[ver] = {"valid": False, "errors": [str(e.message)]}
+                except Exception as e:
+                    results[ver] = {"valid": False, "errors": [str(e)]}
+                continue
+            import requests
             url = f"https://raw.githubusercontent.com/CycloneDX/specification/master/schema/bom-{ver}.schema.json"
             try:
                 resp = requests.get(url, timeout=10)

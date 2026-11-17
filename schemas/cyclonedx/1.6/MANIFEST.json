@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.6",
+  "bom_schema_file": "schema.json",
+  "canonical_id": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "json_schema_dialect": "http://json-schema.org/draft-07/schema#",
+  "official_url": "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/bom-1.6.schema.json",
+  "specification_repository": "https://github.com/CycloneDX/specification",
+  "license": "Apache-2.0",
+  "retrieved_at": "2026-11-17T13:50:03+05:30",
+  "provenance": "Retrieved from the official CycloneDX specification repository (CycloneDX/specification, schema/ directory) over HTTPS on the recorded date; SHA-256 pinned at vendoring time and verified at every load. The upstream URL tracks the master branch, so this fixture freezes the schema as served at retrieval time; the $id inside schema.json (http://cyclonedx.org/schema/bom-1.6.schema.json) is the version identity and is asserted by the loader and tests.",
+  "files": {
+    "schema.json": {
+      "sha256": "18f57f7482593bad9f21b4feed09084640cbeff419d62ad5090c5ceccca5b37d",
+      "bytes": 262666,
+      "id": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+      "source_url": "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/bom-1.6.schema.json"
+    },
+    "spdx.schema.json": {
+      "sha256": "4b345e2329f209f34e960ae2a8e7cb46a166907e6a45e94978565925dc47b359",
+      "bytes": 63418,
+      "id": "http://cyclonedx.org/schema/spdx.schema.json",
+      "source_url": "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/spdx.schema.json"
+    },
+    "jsf-0.82.schema.json": {
+      "sha256": "8bae002c25e723db7ee1f26afde680ae1a2b1a8f6b4b4b0fd65dc3becb090aae",
+      "bytes": 8058,
+      "id": "http://cyclonedx.org/schema/jsf-0.82.schema.json",
+      "source_url": "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/jsf-0.82.schema.json"
+    }
+  },
+  "external_refs": [
+    "spdx.schema.json (referenced by bom-1.6 $ref; self-contained, no transitive external refs)",
+    "jsf-0.82.schema.json#/definitions/signature (referenced by bom-1.6 $ref; self-contained, no transitive external refs)"
+  ],
+  "notes": "Offline validation requires all three files: bom-1.6 references spdx.schema.json and jsf-0.82.schema.json by relative $ref; both were verified self-contained at vendoring time. Redistribution permitted under Apache-2.0 (CycloneDX specification repository LICENSE, fetched 2026-11-17). This manifest is the integrity authority: analysis/validation/sbom_conformance.py verifies each file's SHA-256 against it before use and fails explicitly on any mismatch or missing file."
+}
