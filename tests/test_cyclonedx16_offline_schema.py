@@ -54,6 +54,46 @@ def _invalid_doc():
     return doc
 
 
+def _spdx_doc():
+    """Valid document exercising the vendored spdx license-id reference."""
+    doc = _valid_doc()
+    doc["components"][0]["licenses"] = [{"license": {"id": "Apache-2.0"}}]
+    return doc
+
+
+def _jsf_doc():
+    """Valid document exercising the vendored jsf signature reference
+    (URI-form proprietary algorithm per the jsf schema)."""
+    doc = _valid_doc()
+    doc["signature"] = {"algorithm": "https://example.com/proprietary-algo",
+                        "value": "c2ln"}
+    return doc
+
+
+EXTERNAL_REFS = {"spdx.schema.json",
+                 "jsf-0.82.schema.json#/definitions/signature"}
+RESOURCE_IDS = {"http://cyclonedx.org/schema/spdx.schema.json",
+                "http://cyclonedx.org/schema/jsf-0.82.schema.json"}
+
+
+def _external_refs(schema):
+    refs = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "$ref" and isinstance(v, str):
+                    refs.append(v)
+                else:
+                    walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    walk(schema)
+    return {r for r in refs if not r.startswith("#")}
+
+
 class _NetworkGuard:
     """Block the requests layer and record every attempted call."""
 
@@ -182,6 +222,13 @@ def test_external_refs_resolve_offline():
     assert "valid" in entry, entry
     assert entry["valid"] is False, entry
     assert entry.get("errors"), entry
+    # F-CDX16-R2 strengthening: the error must come from evaluating the
+    # vendored jsf schema, not from a failed reference lookup -- an
+    # unresolvable ref names its target ("Unresolvable: ...") and a
+    # silently-skipped ref would validate the document as True.
+    assert not any("Unresolvable" in e for e in entry["errors"]), entry
+    assert any("is not valid under any of the given schemas" in e
+               for e in entry["errors"]), entry
     assert guard.attempts == []
 
 
@@ -237,3 +284,104 @@ def test_schema_fixture_checkout_bytes_and_attributes():
         pytest.skip("git check-attr failed: %s" % out.stderr[:200])
     for line in out.stdout.splitlines():
         assert line.endswith(": text: unset"), line
+
+
+# ---------------------------------------------------------------------------
+# F. F-CDX16-R2/R3 test-quality remediation
+# ---------------------------------------------------------------------------
+
+def test_external_ref_inventory_and_local_resolution():
+    """F-CDX16-R2: the bom schema's external $ref entries must be exactly
+    the two vendored targets, each mapped to its intended local resource,
+    and both must resolve through the real loader/validator path.  The
+    positive verdicts below are only reachable when the referenced
+    resources are dereferenced: an unresolvable or silently-skipped ref
+    yields valid=False (see test_unresolved_external_ref_fails_explicitly
+    and the red-first sabotage evidence)."""
+    loaded = sc._load_vendored_schema_16()
+    assert _external_refs(loaded["schema"]) == EXTERNAL_REFS
+    assert set(loaded["resources"]) == RESOURCE_IDS
+    with _NetworkGuard() as guard:
+        spdx = sc._cyclonedx_schema_check(_spdx_doc(),
+                                          target_versions=("1.6",))["1.6"]
+        jsf = sc._cyclonedx_schema_check(_jsf_doc(),
+                                         target_versions=("1.6",))["1.6"]
+    assert spdx["valid"] is True, spdx
+    assert spdx.get("errors") == [], spdx
+    assert jsf["valid"] is True, jsf
+    assert jsf.get("errors") == [], jsf
+    assert guard.attempts == []
+
+
+def test_unresolved_external_ref_fails_explicitly(tmp_path, monkeypatch):
+    """F-CDX16-R2: retargeting an external $ref to a nonexistent file must
+    fail validation explicitly.  The exercising document is schema-valid
+    when both references resolve, so a resolver that silently skipped
+    unresolved references would return valid=True and fail this test."""
+    import hashlib
+    import shutil
+    target = tmp_path / "1.6"
+    shutil.copytree(VENDORED, target)
+    schema_path = target / "schema.json"
+    raw = schema_path.read_bytes()
+    tampered = raw.replace(
+        b'"jsf-0.82.schema.json#/definitions/signature"',
+        b'"nonexistent.schema.json#/definitions/signature"', 1)
+    assert tampered != raw, "expected external ref not found in schema"
+    schema_path.write_bytes(tampered)
+    mpath = target / "MANIFEST.json"
+    manifest = json.loads(mpath.read_text(encoding="utf-8"))
+    manifest["files"]["schema.json"]["sha256"] = \
+        hashlib.sha256(tampered).hexdigest()
+    mpath.write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(sc, "_VENDORED_SCHEMA_DIR", target, raising=False)
+    doc = _jsf_doc()
+    doc["components"][0]["licenses"] = [{"license": {"id": "Apache-2.0"}}]
+    with _NetworkGuard() as guard:
+        entry = sc._cyclonedx_schema_check(doc,
+                                           target_versions=("1.6",))["1.6"]
+    assert "valid" in entry, entry
+    assert entry["valid"] is False, entry
+    assert any("nonexistent.schema.json" in e
+               for e in entry.get("errors", [])), entry
+    assert guard.attempts == []
+
+
+def test_wrong_schema_id_is_rejected_by_loader(tmp_path, monkeypatch):
+    """F-CDX16-R3: the production loader must reject a schema whose $id is
+    not the pinned identity -- explicit ``schema identity failure``, no
+    fallback, no silent acceptance or substitution.  The tampered copy's
+    manifest hash is updated so the SHA-256 gate passes and the $id check
+    is the rejecting authority.  Fails if the loader accepts the
+    incorrect $id."""
+    import hashlib
+    import shutil
+    target = tmp_path / "1.6"
+    shutil.copytree(VENDORED, target)
+    schema_path = target / "schema.json"
+    raw = schema_path.read_bytes()
+    tampered = raw.replace(
+        b"http://cyclonedx.org/schema/bom-1.6.schema.json",
+        b"http://evil.example/schema/bom-1.6.json", 1)
+    assert tampered != raw, "expected $id not found in schema"
+    schema_path.write_bytes(tampered)
+    mpath = target / "MANIFEST.json"
+    manifest = json.loads(mpath.read_text(encoding="utf-8"))
+    manifest["files"]["schema.json"]["sha256"] = \
+        hashlib.sha256(tampered).hexdigest()
+    mpath.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(RuntimeError) as exc:
+        sc._load_vendored_schema_16(base_dir=target)
+    msg = str(exc.value)
+    assert "schema identity failure" in msg
+    assert "http://evil.example/schema/bom-1.6.json" in msg
+    assert "http://cyclonedx.org/schema/bom-1.6.schema.json" in msg
+    monkeypatch.setattr(sc, "_VENDORED_SCHEMA_DIR", target, raising=False)
+    with _NetworkGuard() as guard:
+        entry = sc._cyclonedx_schema_check(_valid_doc(),
+                                          target_versions=("1.6",))["1.6"]
+    assert "valid" in entry, entry
+    assert entry["valid"] is False, entry
+    assert any("schema identity failure" in e
+               for e in entry.get("errors", [])), entry
+    assert guard.attempts == []
