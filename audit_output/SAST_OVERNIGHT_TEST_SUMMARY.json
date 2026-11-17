@@ -1,0 +1,77 @@
+{
+  "schema": "rsecopsx.sast_overnight_test_summary/v1",
+  "date": "2026-11-17",
+  "repository": "D:\\Data\\Code test\\R-SecOpsX_P0_AUDIT",
+  "branch": "feature/r2-multiecosystem-graph",
+  "starting_head": "6a07066eafb9efa116872ed47963110cc58cdc36",
+  "ending_head": "2603e58",
+  "commits": 11,
+  "suite_command": "python -m pytest tests/ -q --tb=no -rf",
+  "runs": [
+    {
+      "name": "pre_overnight_baseline",
+      "failed": 27, "passed": 5089, "skipped": 66, "collected": 5182,
+      "duration_seconds": 1780.87, "exit_code": 1,
+      "source": "tasks.md-plan final regression (same session, pre-SAST campaign)"
+    },
+    {
+      "name": "sast_final_run_1_mid_campaign",
+      "failed": 4, "passed": 5126, "skipped": 74, "collected": 5204,
+      "duration_seconds": 1747.04, "exit_code": 1,
+      "note": "only new failure = self-scan hazard (explain_scores.json not yet excluded); fixed same night"
+    },
+    {
+      "name": "sast_final_run_2_authoritative",
+      "failed": 3, "passed": 5127, "skipped": 74, "collected": 5204,
+      "duration_seconds": 1699.80, "exit_code": 1,
+      "log": "audit_output/sast_overnight_2026-11-17T22-26-46/final_regression2.log"
+    }
+  ],
+  "failure_identity_comparison": {
+    "starting_baseline_count": 27,
+    "resolved_by_overnight": {
+      "rust_conditional_relocations": 10,
+      "gitignored_fixture_recoveries": 11,
+      "dead_code_audit_scope_fixes": 2,
+      "self_sbom_refresh": 1
+    },
+    "remaining_failures": [
+      "tests/test_corpus_replay.py::test_emitter_check_passes_on_committed_artifacts",
+      "tests/test_supply_chain_trust_signals.py::test_package_release_date_still_counts_as_freshness",
+      "tests/test_supply_chain_trust_signals.py::test_looks_recent_ignores_missing_and_advisory_dates"
+    ],
+    "remaining_class": "SCA advisory/corpus data strategy -- OUT_OF_SCOPE for SAST (boundary 7); unchanged identities from the pre-overnight baseline",
+    "new_failures": 0
+  },
+  "skip_delta": {
+    "before": 66,
+    "after": 74,
+    "added": 10,
+    "mechanism": "+10 Rust-conditional relocations (requires_rust_ext marker / _load_core convention; tests run when the parked native core is built); -2 pre-existing skips now execute because the restored gitignored fixtures un-skipped them (one identified: tests/test_v11_report_validation_fixes.py:461 gap_register-conditional)",
+    "new_failures_from_un_skips": 0
+  },
+  "focused_suites": {
+    "collection_unscoped": {"before": "exit 2 (4 shadow errors)", "after": "exit 0, 5204 collected"},
+    "php_webshell_rule_format_report_parity": {"passed": 55},
+    "golden_corpus_parity": {"passed": 13, "duration_seconds": 622.77},
+    "rust_modules_post_marking": {"passed": 12, "skipped": 21, "failed": 0},
+    "fixture_recovery_modules": {"passed": 77, "failed_after_fix": 0},
+    "dead_code_gate": {"passed": 12},
+    "sarif_codeflows": {"new_passed": 5, "adjacent_regression_passed": 60},
+    "scoring_wire": {"new_passed": 5, "determinism_gate": 18, "existing_scoring_suites": 172},
+    "ground_truth_invariants": {"new_passed": 4, "boundary_consistency_regression": 43},
+    "report_audit_gate": {"new_passed": 7, "real_artifact_violations": "0 across 17 data/outputs artifacts"},
+    "self_scan_exclusions": {"passed": 8},
+    "report_parity_final": {"passed": 14}
+  },
+  "new_tests_added": 23,
+  "boundaries": {
+    "push_fetch_pull_deployment": false,
+    "v11_modified": false,
+    "v11_read_only_copies_from": ["reports/gap_register.json", "quarantine/", "backup/"],
+    "history_rewrite": false,
+    "test_weakening": false,
+    "sca_iac_dast_implementation": false,
+    "b1_skip_flipper_reopened": false
+  }
+}
