@@ -257,8 +257,8 @@ def main():
         print(f"extractor edges: {len(edges)}  identities: {len(got_keys)}")
         print(f"CORRECT:   {correct}")
         print(f"WRONG:     {wrong}  {wrong_samples}")
-        print(f"MISSING:   {len(missing)}  {sorted(missing)[:5]}")
-        print(f"INVENTED:  {len(invented)}  {sorted(invented)[:5]}")
+        print(f"MISSING:   {len(missing)}  {sorted(missing)}")
+        print(f"INVENTED:  {len(invented)}  {sorted(invented)}")
         print(f"AMBIG mismatches: {amb_bad}  {amb_samples}")
         ok = wrong == 0 and not missing and not invented and amb_bad == 0
         dt = payload.get("tallies") or {}

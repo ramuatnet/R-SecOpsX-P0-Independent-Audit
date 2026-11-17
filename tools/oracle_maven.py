@@ -134,8 +134,8 @@ def main():
     missing = expected - got
     print(f"oracle expected edges: {len(expected)} (root seen: {root_seen})")
     print(f"extractor VERIFIED edges: {len(edges)}")
-    print(f"WRONG:   {len(wrong)}  {sorted(wrong)[:5]}")
-    print(f"MISSING: {len(missing)}  {sorted(missing)[:5]}")
+    print(f"WRONG:   {len(wrong)}  {sorted(wrong)}")
+    print(f"MISSING: {len(missing)}  {sorted(missing)}")
     ok = not wrong and not missing and root_seen
     print("ORACLE RESULT:", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)

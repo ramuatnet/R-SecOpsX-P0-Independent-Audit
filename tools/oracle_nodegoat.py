@@ -123,7 +123,7 @@ for pid, got in eng.items():
     if decls is None:
         invented += len(got)
         if len(invented_samples) < 5:
-            invented_samples.append((pid, sorted(got)[:3]))
+            invented_samples.append((pid, sorted(got)))
         continue
     for c in got:
         cname = c.rsplit("pkg:npm/", 1)[-1].rsplit("@", 1)[0]
@@ -162,7 +162,7 @@ print(f"WRONG resolutions:  {wrong}  {wrong_samples}")
 print(f"INVENTED edges:     {invented}  {invented_samples}")
 print(f"MISSING edges:      {missing}  {missing_samples}")
 print(f"ROOT mismatches:    {root_mismatch}")
-print(f"JOIN stamps unbacked: {len(unstamped)}  {unstamped[:5]}")
+print(f"JOIN stamps unbacked: {len(unstamped)}  {unstamped}")
 ok = wrong == invented == missing == root_mismatch == len(unstamped) == 0
 print("ORACLE RESULT:", "PASS" if ok else "FAIL")
 sys.exit(0 if ok else 1)

@@ -383,8 +383,8 @@ def main():
     print(f"extractor edges: {len(edges)}  identities: {len(got_keys)}")
     print(f"CORRECT:   {correct}")
     print(f"WRONG:     {wrong}  {wrong_samples}")
-    print(f"MISSING:   {len(missing)}  {sorted(missing)[:5]}")
-    print(f"INVENTED:  {len(invented)}  {sorted(invented)[:5]}")
+    print(f"MISSING:   {len(missing)}  {sorted(missing)}")
+    print(f"INVENTED:  {len(invented)}  {sorted(invented)}")
     print(f"AMBIG mismatches: {amb_mismatch}  {amb_samples}")
 
     ok = wrong == 0 and not missing and not invented and amb_mismatch == 0
@@ -437,7 +437,7 @@ def main():
               f"{len(cli_names & lock_names)} in lockfile universe; "
               f"{synthesized_optionals} synthesized-optional (disclosed); "
               f"{len(unexplained_universe)} unexplained "
-              f"{unexplained_universe[:3]}")
+              f"{unexplained_universe}")
 
         decl_got = {
             (str(e.get("parent_name") or "").casefold(),
@@ -485,7 +485,7 @@ def main():
               f"hoisted-layout attribution (informational): "
               f"{hoisted_leakage}; synthesized-optional subtree (disclosed): "
               f"{synthesized_subtree}; unexplained: {len(cli_missing)}  "
-              f"{cli_missing[:3]}")
+              f"{cli_missing}")
         if unexplained_universe or cli_missing:
             ok = False
 

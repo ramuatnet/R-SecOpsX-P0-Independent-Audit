@@ -194,12 +194,12 @@ def main():
         print(f"oracle lock: expected VERIFIED {len(verified)}, "
               f"AMBIGUOUS {len(ambiguous)}, UNRESOLVED {len(unresolved)}")
         print(f"extractor VERIFIED identities: {len(got)}")
-        print(f"WRONG/MISSING: {len(missing)}  {sorted(missing)[:5]}")
-        print(f"INVENTED: {len(invented)}  {sorted(invented)[:5]}")
+        print(f"WRONG/MISSING: {len(missing)}  {sorted(missing)}")
+        print(f"INVENTED: {len(invented)}  {sorted(invented)}")
         print(f"AMBIG mismatches: {len(amb_bad)}  "
-              f"{list(amb_bad.items())[:3]}")
+              f"{list(amb_bad.items())}")
         print(f"UNRESOLVED not preserved: {len(unres_bad)}  "
-              f"{sorted(unres_bad)[:3]}")
+              f"{sorted(unres_bad)}")
         ok = (not missing and not invented and not amb_bad
               and not unres_bad)
     elif evidence.name == "Cargo.toml":

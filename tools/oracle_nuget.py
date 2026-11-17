@@ -143,8 +143,8 @@ def main():
               f"{len(verified)}, UNRESOLVED {len(unresolved)}, assets "
               f"{assets}, project skips {skips}, restore types "
               f"{restore_types}")
-        print(f"WRONG/MISSING: {len(missing)}  {sorted(missing)[:5]}")
-        print(f"INVENTED: {len(invented)}  {sorted(invented)[:5]}")
+        print(f"WRONG/MISSING: {len(missing)}  {sorted(missing)}")
+        print(f"INVENTED: {len(invented)}  {sorted(invented)}")
         if missing or invented:
             ok = False
         if tallies.get("runtime_assets") != assets or \

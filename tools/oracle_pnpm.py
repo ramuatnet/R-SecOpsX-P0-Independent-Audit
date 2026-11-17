@@ -275,8 +275,8 @@ def main():
     print(f"extractor edges: {len(edges)}  identities: {len(got_keys)}")
     print(f"CORRECT:   {correct}")
     print(f"WRONG:     {wrong}  {wrong_samples}")
-    print(f"MISSING:   {len(missing)}  {sorted(missing)[:5]}")
-    print(f"INVENTED:  {len(invented)}  {sorted(invented)[:5]}")
+    print(f"MISSING:   {len(missing)}  {sorted(missing)}")
+    print(f"INVENTED:  {len(invented)}  {sorted(invented)}")
     print(f"UNRESOLVED: expected {exp_unresolved} / extractor "
           f"{got_unresolved}")
     print(f"AMBIGUOUS:  expected {exp_ambiguous} / extractor "
@@ -380,8 +380,8 @@ def main():
               f"{len(cls_b)}; C import-dropped {len(cls_c)}; "
               f"pnpm-only total {len(only_pnpm)}")
         print(f"cross-format gates: invented {len(invented_in_cross)} "
-              f"{invented_in_cross[:3]}; missed {len(missed_in_cross)} "
-              f"{missed_in_cross[:3]}")
+              f"{invented_in_cross}; missed {len(missed_in_cross)} "
+              f"{missed_in_cross}")
         if invented_in_cross or missed_in_cross:
             ok = False
 

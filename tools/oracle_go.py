@@ -168,10 +168,10 @@ def main():
         print(f"oracle graph: expected VERIFIED {len(exp_edges)}, "
               f"malformed {len(exp_malformed)}")
         print(f"extractor VERIFIED identities: {len(got)}")
-        print(f"WRONG/MISSING: {len(missing)}  {sorted(missing)[:5]}")
-        print(f"INVENTED: {len(invented)}  {sorted(invented)[:5]}")
+        print(f"WRONG/MISSING: {len(missing)}  {sorted(missing)}")
+        print(f"INVENTED: {len(invented)}  {sorted(invented)}")
         print(f"malformed not preserved: {len(miss_malformed)}  "
-              f"{sorted(miss_malformed)[:3]}")
+              f"{sorted(miss_malformed)}")
         ok = not missing and not invented and not miss_malformed
     elif name == "go.mod":
         exp = expected_gomod(evidence)

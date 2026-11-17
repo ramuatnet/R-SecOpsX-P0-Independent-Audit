@@ -267,16 +267,16 @@ def main():
     print(f"extractor VERIFIED edges: {len(got_verified)} | "
           f"(n)-class UNRESOLVED: {len(got_unresolved)} | "
           f"other UNRESOLVED (project-parent): {other_unresolved}")
-    print(f"WRONG (VERIFIED):   {len(wrong)}  {sorted(wrong)[:5]}")
-    print(f"MISSING (VERIFIED): {len(missing)}  {sorted(missing)[:5]}")
-    print(f"WRONG ((n) UNRESOLVED):   {len(wrong_u)}  {sorted(wrong_u)[:5]}")
-    print(f"MISSING ((n) UNRESOLVED): {len(missing_u)}  {sorted(missing_u)[:5]}")
+    print(f"WRONG (VERIFIED):   {len(wrong)}  {sorted(wrong)}")
+    print(f"MISSING (VERIFIED): {len(missing)}  {sorted(missing)}")
+    print(f"WRONG ((n) UNRESOLVED):   {len(wrong_u)}  {sorted(wrong_u)}")
+    print(f"MISSING ((n) UNRESOLVED): {len(missing_u)}  {sorted(missing_u)}")
     print(f"CONFIDENCE MISMATCHES ((n) identity emitted VERIFIED): "
           f"{confidence_mismatch}")
     wrong_c = got_constraints - expected_constraints
     missing_c = expected_constraints - got_constraints
-    print(f"WRONG ((c) UNRESOLVED):   {len(wrong_c)}  {sorted(wrong_c)[:5]}")
-    print(f"MISSING ((c) UNRESOLVED): {len(missing_c)}  {sorted(missing_c)[:5]}")
+    print(f"WRONG ((c) UNRESOLVED):   {len(wrong_c)}  {sorted(wrong_c)}")
+    print(f"MISSING ((c) UNRESOLVED): {len(missing_c)}  {sorted(missing_c)}")
     print(f"CONSTRAINT FINGERPRINT VIOLATIONS: {constraint_fingerprint_violations}")
     print(f"CONSTRAINT CONFIDENCE MISMATCHES ((c) identity emitted "
           f"VERIFIED -- the F-R1 defect): {constraint_confidence_mismatch}")
