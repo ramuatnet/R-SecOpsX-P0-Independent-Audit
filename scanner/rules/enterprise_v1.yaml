@@ -1986,7 +1986,6 @@ rules:
     pattern: 'String\.to_atom\s*\(\s*(?![\"''])'
     span: 'evidence'
     negative: null
-    contract_ref: 'control_gap'
   - id: 'LUA_CMD_INJECTION'
     title: 'Lua os.execute/io.popen with Dynamic Input'
     family: 'command_injection'
@@ -2047,3 +2046,119 @@ rules:
     span: 'evidence'
     negative: null
     contract_ref: 'code_injection'
+  - id: 'PHP_ASSERT_REQUEST_CODE_EXEC'
+    title: 'PHP assert() with Request-Derived Code'
+    family: 'code_injection'
+    severity: 'Critical'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-95'
+    owasp: 'A03:2021 - Injection'
+    pattern: '\bassert\s*\([^;]{0,200}?\$_(?:GET|POST|REQUEST|COOKIE)[^;]{0,120}\)'
+    span: 'evidence'
+    negative: null
+    sink_category: 'code'
+    contract_ref: 'code_injection'
+  - id: 'PHP_DYNAMIC_CALLABLE_REQUEST'
+    title: 'PHP Request-Controlled Callable Invocation'
+    family: 'code_injection'
+    severity: 'Critical'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-95'
+    owasp: 'A03:2021 - Injection'
+    pattern: '\b(?:call_user_func(?:_array)?|array_map|array_filter|array_walk(?:_recursive)?|usort|uasort|uksort|preg_replace_callback|forward_static_call(?:_array)?)\s*\([^;]{0,120}?\$_(?:GET|POST|REQUEST|COOKIE)[^;]{0,80}\)'
+    span: 'evidence'
+    negative: null
+    sink_category: 'code'
+    contract_ref: 'code_injection'
+  - id: 'PHP_CREATE_FUNCTION_REQUEST'
+    title: 'PHP create_function() with Request-Derived Body'
+    family: 'code_injection'
+    severity: 'Critical'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-95'
+    owasp: 'A03:2021 - Injection'
+    pattern: '\bcreate_function\s*\([^;]{0,160}?\$_(?:GET|POST|REQUEST|COOKIE)[^;]{0,80}\)'
+    span: 'evidence'
+    negative: null
+    sink_category: 'code'
+    contract_ref: 'code_injection'
+  - id: 'PHP_VARIABLE_FUNCTION_REQUEST'
+    title: 'PHP Variable Function Call from Request Data'
+    family: 'code_injection'
+    severity: 'Critical'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-95'
+    owasp: 'A03:2021 - Injection'
+    pattern: '(?:\$_(?:GET|POST|REQUEST|COOKIE)\s*\[[^\]]{1,60}\]\s*\(|\$([A-Za-z_]\w{0,40})\s*=\s*\$_(?:GET|POST|REQUEST|COOKIE)[^;\n]{0,80};[\s\S]{0,300}?\$\1\s*\()'
+    span: 'evidence'
+    negative: null
+    sink_category: 'code'
+    contract_ref: 'code_injection'
+  - id: 'PHP_PREG_REPLACE_EVAL_MODIFIER'
+    title: 'PHP preg_replace() /e Modifier Code Execution'
+    family: 'code_injection'
+    severity: 'Critical'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-95'
+    owasp: 'A03:2021 - Injection'
+    pattern: '\bpreg_replace\s*\(\s*([''\"])(.)(?:(?!(?:\1|\2)).){0,160}\2[a-zA-Z]{0,7}e[a-zA-Z]{0,7}\1'
+    span: 'evidence'
+    negative: null
+    sink_category: 'code'
+    contract_ref: 'code_injection'
+  - id: 'PHP_WEBSHELL_DROPPER_REQUEST'
+    title: 'PHP Webshell Drop from Request Data'
+    family: 'unrestricted_upload'
+    severity: 'Critical'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-434'
+    owasp: 'A04:2021 - Insecure Design'
+    pattern: '\b(?:file_put_contents|fwrite|fputs)\s*\([^;]{0,200}?\$_(?:GET|POST|REQUEST|COOKIE)|\$_(?:GET|POST|REQUEST|COOKIE)[^;]{0,120}?\b(?:file_put_contents|fwrite|fputs)\s*\('
+    span: 'evidence'
+    negative: null
+    sink_category: 'file'
+    contract_ref: 'unrestricted_upload'
+  - id: 'PHP_UPLOAD_CLIENT_FILENAME'
+    title: 'PHP Upload Written Under Client-Supplied Filename'
+    family: 'unrestricted_upload'
+    severity: 'High'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-434'
+    owasp: 'A04:2021 - Insecure Design'
+    pattern: '\bmove_uploaded_file\s*\([^;]{0,200}?\$_FILES\s*\[[^\]]{1,60}\]\s*\[\s*[''\"]name[''\"]\s*\]'
+    span: 'evidence'
+    negative: null
+    sink_category: 'file'
+    contract_ref: 'unrestricted_upload'
+  - id: 'PHP_UPLOAD_INDIRECT_CLIENT_FILENAME'
+    title: 'PHP Upload Destination Built from Client Filename'
+    family: 'unrestricted_upload'
+    severity: 'High'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-434'
+    owasp: 'A04:2021 - Insecure Design'
+    pattern: '\$([A-Za-z_]\w{0,40})\s*\.?=\s*[^;\n]{0,160}?\$_FILES\s*\[[^\]]{1,60}\]\s*\[\s*[''\"]name[''\"]\s*\][^;\n]{0,60};[\s\S]{0,700}?move_uploaded_file\s*\([^;]{0,200}?\$\1\s*\)'
+    span: 'evidence'
+    negative: null
+    sink_category: 'file'
+    contract_ref: 'unrestricted_upload'
+  - id: 'PHP_EXTRACT_REQUEST_SCOPE_INJECTION'
+    title: 'PHP extract() / parse_str() Request Variable Injection'
+    family: 'variable_injection'
+    severity: 'High'
+    langs: ['php']
+    exts: ['.php']
+    cwe: 'CWE-621'
+    owasp: 'A04:2021 - Insecure Design'
+    pattern: '\b(?:extract|parse_str)\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)'
+    span: 'evidence'
+    negative: null
+    contract_ref: 'variable_injection'

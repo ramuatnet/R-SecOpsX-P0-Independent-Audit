@@ -94,18 +94,17 @@ def _contract_ref(vuln) -> str | None:
 
 
 def _enterprise_v1() -> list[dict]:
-    from scanner.php_webshell_rules import as_sast_rules
     from scanner.sast import (DISABLED_CONTEXT_ONLY_RULES, ENTERPRISE_RULES,
                               _PHP_SINK_CATEGORY)
-    # The webshell pack stays code-side (its RSECOPSX_PHP_WEBSHELL_RULES
-    # env switch removes it at registration time); its rules and their
-    # sink categories live in scanner/php_webshell_rules.py, and sast
-    # merges them after loading the YAML.
-    pack_ids = {r["id"] for r in as_sast_rules()}
+    # G2.1 / C1 (2026-11-17): the nine PHP webshell rules are migrated
+    # INTO the YAML -- sast.py no longer appends the pack, and the
+    # RSECOPSX_PHP_WEBSHELL_RULES=0 kill switch is preserved at load
+    # time in sast.py (the nine ids are excluded from the loaded tables
+    # exactly as the old registration-time switch removed them). Every
+    # rule -- pack included -- is emitted from the loaded tables; each
+    # rule's sink_category travels in its own row.
     rows = []
     for rule in ENTERPRISE_RULES:
-        if rule["id"] in pack_ids:
-            continue
         row = {
             "id": rule["id"],
             "title": rule["title"],

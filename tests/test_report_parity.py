@@ -372,17 +372,20 @@ def test_fnd06_loaded_count_equals_yaml_plus_shim():
     adapter cannot make both sides agree by construction.
     """
     from scanner import sast
-    from scanner.php_webshell_rules import as_sast_rules
     from scanner.rules import loader  # FND-06 (new): the declarative home
 
     yaml_e = loader.load_yaml_entries("enterprise_v1.yaml")
     yaml_r = loader.load_yaml_entries("regex_v1.yaml")
-    pack = as_sast_rules()
 
-    # Accept: loaded count equals YAML + shim (the Python-side pack).
-    assert len(sast.ENTERPRISE_RULES) == len(yaml_e) + len(pack), (
-        "FND-06: ENTERPRISE_RULES=%d != YAML %d + pack %d"
-        % (len(sast.ENTERPRISE_RULES), len(yaml_e), len(pack)))
+    # Accept (post G2.1/C1 migration, 2026-11-17): the loaded tables equal
+    # the YAML exactly -- the PHP webshell pack was migrated into the
+    # declarative home (its RSECOPSX_PHP_WEBSHELL_RULES=0 kill switch is
+    # preserved at load time in sast.py, which is why the parity is asserted
+    # in the default environment where the switch is unset).
+    assert len(sast.ENTERPRISE_RULES) == len(yaml_e), (
+        "FND-06/G2.1: ENTERPRISE_RULES=%d != YAML %d (the pack append was "
+        "removed; every rule must come from the YAML)"
+        % (len(sast.ENTERPRISE_RULES), len(yaml_e)))
     assert len(sast.REGEX_RULES) == len(yaml_r), (
         "FND-06: REGEX_RULES=%d != YAML %d"
         % (len(sast.REGEX_RULES), len(yaml_r)))

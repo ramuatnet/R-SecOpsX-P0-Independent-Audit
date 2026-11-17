@@ -172,18 +172,23 @@ BIG4_CONTROL_FALLBACKS = {
 # BIG4_CONTROL_FALLBACKS, the runtime compliance-text lookup.
 
 # ---- PHP webshell / code-execution pack (G-PHP-WS) ----
-# Additive: new ids only, no existing rule touched. Every pattern requires a
-# request superglobal in the same statement as the sink, so benign calls
-# (shell_exec("ls"), call_user_func("handler"), generated upload names) stay
-# dark. Measured 2026-10-27: 16/16 webshell shapes detected, 0/15 benign
+# MIGRATED (2026-11-17, G2.1/C1): the nine rules now live in
+# scanner/rules/enterprise_v1.yaml (sink_category travels in each rule
+# row). Measured 2026-10-27: 16/16 webshell shapes detected, 0/15 benign
 # controls flagged, 3 hits across 493 real PHP files (all DVWA upload
-# sources). Rollback is one environment variable:
-# RSECOPSX_PHP_WEBSHELL_RULES=0 -- no code change needed.
-from scanner.php_webshell_rules import as_sast_rules as _php_ws_rules
-for _r in _php_ws_rules():
-    if _r["id"] not in _existing_rule_ids:
-        ENTERPRISE_RULES.append(_r)
-        _existing_rule_ids.add(_r["id"])
+# sources). Rollback is still one environment variable --
+# RSECOPSX_PHP_WEBSHELL_RULES=0 -- preserved at load time: the migrated
+# ids are excluded from the loaded tables exactly as the old
+# registration-time switch removed them.
+from scanner.php_webshell_rules import DISABLE_ENV as _PHP_WS_DISABLE_ENV
+import os as _os
+
+if _os.environ.get(_PHP_WS_DISABLE_ENV) == "0":
+    from scanner.php_webshell_rules import RULES as _PHP_WS_RULES
+    _php_ws_kill = {r["id"] for r in _PHP_WS_RULES}
+    ENTERPRISE_RULES = [r for r in ENTERPRISE_RULES
+                        if r.get("id") not in _php_ws_kill]
+
 # ---- end PHP webshell pack ----
 
 COMPILED_ENTERPRISE_RULES = [
@@ -1204,12 +1209,12 @@ def _php_tainted_in(text: str, tainted: set) -> bool:
 # validator's own window analysis (which variable, fed from which request
 # source, reaches which sink), so downstream taint-evidence gates treat the
 # finding as the source-to-sink evidence it actually is.
-# T-0.6: 7 categories declarative (scanner/rules/enterprise_v1.yaml
-# sink_category) + 8 from the webshell pack's own map; EVIDEX
-# deletes a regex finding with no sink category at intake, so the
-# pack's entries travel with the pack.
-from scanner.php_webshell_rules import SINK_CATEGORIES as _PHP_WS_SINK
-_PHP_SINK_CATEGORY = {**load_sink_categories(), **_PHP_WS_SINK}
+# T-0.6/G2.1 (2026-11-17): fully declarative -- 15 categories from
+# scanner/rules/enterprise_v1.yaml sink_category fields (7 original +
+# 8 migrated from the webshell pack's map); EVIDEX deletes a regex
+# finding with no sink category at intake, so every PHP pack rule
+# carries its category in its own YAML row.
+_PHP_SINK_CATEGORY = load_sink_categories()
 
 
 # Batch-10 php rules subject to the string-position guard (see dispatch).
