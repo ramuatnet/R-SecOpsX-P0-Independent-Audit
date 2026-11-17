@@ -89,6 +89,11 @@ EXCLUDED_FILES = {
     # same self-scan hazard (caught by test_v11_self_scan_exclusions when
     # the artifact name landed without this entry).
     "verdicts.json",
+    # G1.6/DEC-06 (2026-11-17): --explain-score writes explain_scores.json
+    # beside clean_report.json; same self-scan hazard class as every entry
+    # above (caught by test_v11_self_scan_exclusions on the first run that
+    # carried the new artifact).
+    "explain_scores.json",
     # T-9.6 / D-2: --html-embedded writes triage.html beside
     # clean_report.json.  HTML IS a scannable extension (XSS rules), so a
     # re-scan of the output directory would read the SPA as input.
