@@ -3302,6 +3302,17 @@ def main():
         ),
     )
     parser.add_argument(
+        "--explain-score", dest="explain_score", action="store_true",
+        help=(
+            "write explain_scores.json next to clean_report.json: every "
+            "reported finding's score with its REAL contributors -- the "
+            "base (CVSS4 vector / explicit cvss / severity default, with "
+            "source) and the eight signed factor contributions -- exactly "
+            "as produced by the scoring service into payload['scoring'] "
+            "(cltask G1.6/DEC-06; no placeholders, no recomputation)."
+        ),
+    )
+    parser.add_argument(
         "--telemetry", dest="telemetry", action="store_true",
         help=(
             "T-14.3 (task.md section 14 'Observability'): write telemetry.json "
@@ -6211,6 +6222,18 @@ def main():
     # silent-drop breach -- fail loudly rather than ship an unresolvable
     # report.
     filter_trace.attach_to_payload(payload, raw_candidates_count)
+    # G1.6/DEC-06 (SAST overnight B6): wire the EXISTING scoring service
+    # into the payload -- analysis/scoring/score.py is the one score
+    # model (the separate per-finding core.risk_scorer contract is
+    # unchanged). explain=True keeps the full per-finding contribution
+    # rows so --explain-score reads real contributors, never
+    # placeholders. Findings without score_context score
+    # deterministically (base from severity/CVSS, neutral factor
+    # deltas); the artifact's as_of stamps the scoring moment and falls
+    # under the declared iso_timestamp volatile class (T-115 gate).
+    from analysis.scoring import score as _score_service
+    _score_artifact = _score_service.score_findings(payload, explain=True)
+    payload["scoring"] = _score_artifact
     from core import report_aggregates as _report_aggregates
     payload["aggregates"] = _report_aggregates.build(payload)
     json_path = output_dir / "clean_report.json"
@@ -6242,6 +6265,20 @@ def main():
             f"{verdicts_doc['summary']['released_count']} released / "
             f"{verdicts_doc['summary']['held_count']} held, each with "
             "gate results and rationale)"
+        )
+
+    if getattr(args, "explain_score", False):
+        from analysis.scoring.connect import build_explain_scores_document
+        scores_doc = build_explain_scores_document(payload)
+        scores_path = output_dir / "explain_scores.json"
+        with open(scores_path, "w", encoding="utf-8") as f:
+            json.dump(scores_doc, f, indent=2, default=str)
+        generated_files.append("explain_scores.json")
+        _safe_print(
+            f"       => {scores_path} "
+            f"({scores_doc['stats']['scored']} scored, "
+            f"{scores_doc['stats']['skips']} skips, each with its base "
+            "source and signed factor contributions)"
         )
 
     if args.html_embedded:

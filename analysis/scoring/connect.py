@@ -26,6 +26,10 @@ import sys
 
 from analysis.scoring.score import SCHEMA, _as_dt, score_findings
 
+# G1.6/E7: the --explain-score document schema (rows are the scoring
+# service's own rsecopsx.score/v1 explain rows, verbatim).
+EXPLAIN_SCORES_SCHEMA = "rsecopsx.explain_scores/v1"
+
 MAX_INPUT_BYTES = 64 * 1024 * 1024
 
 
@@ -105,6 +109,39 @@ def collect_scores(finding: str | None = None,
         "scores": rows,
         "skips": skips,
         "stats": {"scored": len(rows), "skips": len(skips)},
+    }
+
+
+def build_explain_scores_document(payload: dict) -> dict:
+    """G1.6/E7 (SAST overnight 2026-11-17): the main.py ``--explain-score``
+    document.
+
+    The rows are the scoring service's OWN explain rows (base source,
+    eight signed factor contributions, band, clamped) verbatim from
+    ``payload["scoring"]`` -- no recomputation, no placeholders. When the
+    payload carries no scoring block, the document discloses that
+    explicitly instead of inventing rows.
+    """
+    scoring = payload.get("scoring") if isinstance(payload, dict) else None
+    if not isinstance(scoring, dict) or not isinstance(
+            scoring.get("scores"), list):
+        return {
+            "schema": EXPLAIN_SCORES_SCHEMA,
+            "as_of": _as_dt(None).isoformat(),
+            "scores": [],
+            "skips": [{"stage": "scoring", "target": "explain_scores",
+                       "reason": "scoring_not_computed",
+                       "detail": {
+                           "hint": "payload['scoring'] missing or malformed"}}],
+            "stats": {"scored": 0, "skips": 1},
+        }
+    return {
+        "schema": EXPLAIN_SCORES_SCHEMA,
+        "as_of": str(scoring.get("as_of") or ""),
+        "scores": scoring["scores"],
+        "skips": list(scoring.get("skips") or []),
+        "stats": {"scored": len(scoring["scores"]),
+                  "skips": len(scoring.get("skips") or [])},
     }
 
 
