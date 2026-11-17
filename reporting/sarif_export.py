@@ -164,6 +164,34 @@ def _related_locations(finding: dict) -> list[dict]:
         locs.append({"physicalLocation": {"artifactLocation": {"uri": str(fp).replace("\\", "/")}}})
     return locs
 
+def _code_flows(finding: dict) -> list[dict]:
+    """E1: SARIF codeFlows for supported taint paths.
+
+    The engine's ``taint_chain`` entries are expressions (``req.body``,
+    ``UserModel.findOne``) -- the chain carries no per-step file:line
+    rows -- so each thread-flow location reports the step expression as
+    its message, and a physicalLocation appears ONLY on the sink step,
+    which is the finding's own (real) location. Intermediate locations
+    are never invented; a finding without a genuine multi-step chain
+    emits no codeFlows at all.
+    """
+    chain = finding.get("taint_chain")
+    if not isinstance(chain, list):
+        return []
+    steps = [str(s).strip() for s in chain if str(s).strip()]
+    if len(steps) < 2:
+        return []
+    locations = []
+    for i, step in enumerate(steps):
+        loc: dict = {"message": {"text": step}}
+        if i == len(steps) - 1:
+            loc = {"physicalLocation": {
+                "artifactLocation": {"uri": _artifact_uri(finding)},
+                "region": {"startLine": _line(finding)},
+            }, "message": {"text": step}}
+        locations.append({"location": loc})
+    return [{"threadFlows": [{"locations": locations}]}]
+
 def _build_results(findings: list[dict]) -> list[dict]:
     results = []
     for finding in findings:
@@ -191,6 +219,8 @@ def _build_results(findings: list[dict]) -> list[dict]:
         res["properties"].update(_decision_properties(finding))
         related = _related_locations(finding)
         if related: res["relatedLocations"] = related
+        flows = _code_flows(finding)
+        if flows: res["codeFlows"] = flows
         results.append(res)
     return results
 
