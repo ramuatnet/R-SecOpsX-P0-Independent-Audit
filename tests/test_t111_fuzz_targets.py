@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 REPO = pathlib.Path(__file__).resolve().parents[1]
 MODULE_PATH = REPO / "analysis" / "validation" / "fuzz_targets.py"
 
@@ -42,6 +44,7 @@ def test_all_four_task_targets_registered():
     }
 
 
+@pytest.mark.requires_rust_ext
 def test_rule_compiler_fuzz_contract_small():
     from analysis.validation.fuzz_targets import fuzz_rule_compiler
 
@@ -54,6 +57,7 @@ def test_rule_compiler_fuzz_contract_small():
     assert result["rejected"] > 0
 
 
+@pytest.mark.requires_rust_ext
 def test_program_parser_fuzz_contract_small():
     from analysis.validation.fuzz_targets import fuzz_program_parser
 
@@ -64,6 +68,7 @@ def test_program_parser_fuzz_contract_small():
     assert result["rejected"] > 0
 
 
+@pytest.mark.requires_rust_ext
 def test_source_parse_fuzz_contract_small():
     from analysis.validation.fuzz_targets import fuzz_source_parse
 
@@ -72,6 +77,7 @@ def test_source_parse_fuzz_contract_small():
     assert result["files"] == 12
 
 
+@pytest.mark.requires_rust_ext
 def test_walker_fuzz_deterministic_small():
     from analysis.validation.fuzz_targets import fuzz_walker
 
@@ -88,6 +94,7 @@ def test_dast_response_fuzz_contract_small():
     assert result["failures"] == [], result["failures"][:2]
 
 
+@pytest.mark.requires_rust_ext
 def test_run_all_same_seed_deterministic():
     from analysis.validation.fuzz_targets import run_all
 
@@ -135,6 +142,7 @@ def test_failures_append_caps_at_five():
     assert len(failures) == fuzz_targets.FAILURE_CAP == 5
 
 
+@pytest.mark.requires_rust_ext
 def test_main_cli_exit_codes():
     from analysis.validation import fuzz_targets
 

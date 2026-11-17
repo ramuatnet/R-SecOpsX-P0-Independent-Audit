@@ -180,6 +180,7 @@ def test_core_phase0_last_line_without_newline():
 # 3. span_layer facade: delegation, fallback, enclosing_symbol
 # ---------------------------------------------------------------------------
 def test_span_layer_delegates_to_native_core():
+    _load_core()  # asserts the NATIVE path: skip (with reason) when absent
     from scanner import span_layer
     t = span_layer.span_table(PY_SRC, "python")
     assert t["grammar"] is True and t["schema"] == span_layer.SCHEMA
@@ -209,6 +210,7 @@ def test_span_layer_never_raises_for_unknown_language():
 
 
 def test_enclosing_symbol_innermost_method_beats_class():
+    _load_core()  # symbol resolution is grammar-backed: native core required
     from scanner import span_layer
     src = ("class C:\n"
            "    def m(self):\n"
@@ -243,6 +245,7 @@ def test_infer_language_mapping():
 
 
 def test_enclosing_symbol_for_file_reads_source(tmp_path):
+    _load_core()  # symbol resolution is grammar-backed: native core required
     from scanner import span_layer
     f = tmp_path / "mod.py"
     f.write_text("def fn():\n    return 1\n", encoding="utf-8")
@@ -272,6 +275,7 @@ def test_span_layer_status_discloses_native_and_grammars():
 # 4. Product consumer: fix_validation code_context is additive + parity-safe
 # ---------------------------------------------------------------------------
 def test_fix_validation_code_context_is_additive(tmp_path):
+    _load_core()  # enclosing_symbol inside code_context is grammar-backed
     from analysis.repro import fix_validation as fv
     tgt = tmp_path / "target"
     tgt.mkdir()
