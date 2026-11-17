@@ -347,7 +347,7 @@ def test_result_valid_unnests_per_version_results():
 
 
 # --------------------------------------------------------------------------
-# Official-schema validation (network; skipped when unavailable)
+# Official-schema validation (CycloneDX 1.6 schema vendored offline; no network)
 # --------------------------------------------------------------------------
 
 def test_documents_validate_against_official_cyclonedx_16_schema():

@@ -322,7 +322,7 @@ def test_empty_inventory_gets_no_application_component():
 
 
 # --------------------------------------------------------------------------
-# Official schema validation (network; skipped when unavailable)
+# Official schema validation (CycloneDX 1.6 schema vendored offline; no network)
 # --------------------------------------------------------------------------
 
 def test_new_fields_validate_against_official_cyclonedx_16_schema():

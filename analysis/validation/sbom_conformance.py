@@ -311,13 +311,19 @@ def _attach_official_schema(result: dict, doc: dict, version: str) -> dict:
     """Fold the official CycloneDX schema check into a structural result.
 
     The structural check (assetType enum, asset-specific sub-object, unique
-    bom-refs) is offline and always runs. The official schema check fetches
-    bom-<version>.schema.json, so its outcome depends on the network:
+    bom-refs) is offline and always runs. For CycloneDX 1.6 the official
+    schema is loaded from the vendored, hash-pinned set under
+    schemas/cyclonedx/1.6/ (sha256 + $id verified; no network, no fallback)
+    -- loader integrity/identity failures surface as validation errors
+    ("valid": False) and are never tolerated. For other versions the
+    official schema check fetches bom-<version>.schema.json, so its
+    outcome depends on the network:
       * validation failure  -> the document does not conform; fold into
         valid, because "conforms to CycloneDX 1.6" is the claim being made.
       * fetch failure       -> cannot verify, not a defect; record under
-        schema_1.6 without failing the result, or an offline run would
-        report every document invalid for lack of network.
+        schema_<version> without failing the result (tolerated only for
+        errors starting with "schema fetch failed"), or an offline run
+        would report every document invalid for lack of network.
     """
     schema = _cyclonedx_schema_check(doc, target_versions=(version,))
     entry = schema.get(version)
