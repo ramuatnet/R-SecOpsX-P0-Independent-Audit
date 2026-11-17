@@ -1830,6 +1830,10 @@ ARTIFACT_FILE_NAMES = {
     # DoD --explain-verdict writes verdicts.json beside clean_report.json
     # (kept in exact set-agreement with sast/file_index EXCLUDED_FILES).
     "verdicts.json",
+    # G1.6/DEC-06 (2026-11-17): --explain-score writes explain_scores.json
+    # beside clean_report.json (kept in exact set-agreement with
+    # sast/file_index EXCLUDED_FILES).
+    "explain_scores.json",
     # T-9.6 / D-2: --html-embedded writes triage.html beside
     # clean_report.json (HTML is scannable -- XSS rules would read it).
     "triage.html",
