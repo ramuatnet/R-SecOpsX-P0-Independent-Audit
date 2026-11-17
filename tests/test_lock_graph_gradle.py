@@ -16,8 +16,13 @@ carry the selected version.
 
 import json
 
+import pytest
+
 from analysis.lock_graph import registry
 from analysis.lock_graph.gradle import extract
+
+
+from pathlib import Path
 
 
 def _write(tmp_path, text, name="gradle-dependencies.txt"):
@@ -604,8 +609,10 @@ def test_resolved_dependencies_around_constraints_unchanged(tmp_path):
 # comments): audit_output/real_gradle/micrometer/raw_dependencies.txt and
 # .../mockito/raw_dependencies.txt.  Proposal (source of truth):
 # audit_output/F_RG_2_REMEDIATION_PROPOSAL.md.  F-RG-1 (conflict+elision on
-# the 3-part path) is deliberately NOT fixed here and is PINNED by
-# test_frg2_s8_conflict_marker_semantics_untouched.
+# the 3-part path) was deliberately NOT fixed by F-RG-2 and was pinned by
+# test_frg2_s8_conflict_marker_semantics_untouched; the authorized F-RG-1
+# remediation (2026-11-17) rewrote that pin in place to the remediated
+# semantics and adds the F-RG-1 matrix block below.
 # ---------------------------------------------------------------------------
 
 # micrometer:218-228 verbatim -- netty BOM constraints + platform node +
@@ -795,18 +802,29 @@ def test_frg2_s7_direct_declarations_unchanged_for_depth1(tmp_path):
     assert result["tallies"]["direct_declarations"] == 3
 
 
-def test_frg2_s8_conflict_marker_semantics_untouched(tmp_path):
-    # matrix #8 (preservation PIN -- F-RG-1 deliberately NOT fixed here):
-    # the 3-part conflict+elision combo keeps its current disclosed state
-    # (UNRESOLVED, marker-contaminated selected version, no fingerprint).
+def test_frg2_s8_conflict_combo_frg1_semantics(tmp_path):
+    # matrix #8 of F-RG-2, REWRITTEN by the authorized F-RG-1 remediation
+    # (2026-11-17; formerly test_frg2_s8_conflict_marker_semantics_untouched,
+    # which pinned the pre-fix defect state -- UNRESOLVED, marker-
+    # contaminated selected version, no fingerprint -- while F-RG-1 was
+    # out of scope).  The 3-part conflict+elision combo now resolves at
+    # the CLEAN selected version (VERIFIED, conflict_resolved +
+    # subtree_elided, identity-stable fingerprint); the depth-1 direct-
+    # declaration accounting is unchanged.
     result = extract(_write(tmp_path, FRG2_MOCKITO_TREE))
+    assert result["tallies"]["direct_declarations"] == 3
     edges = {(e["parent_name"], e["child_name"]): e for e in result["edges"]}
-    for parent in ("com.google.auto:auto-common",
-                   "com.google.googlejavaformat:google-java-format"):
+    for parent, requested in (
+            ("com.google.auto:auto-common", "32.0.1-jre"),
+            ("com.google.googlejavaformat:google-java-format",
+             "32.1.3-jre")):
         e = edges[(parent, "com.google.guava:guava")]
-        assert e["child_version"] == "33.4.0-jre (*)", e
-        assert e["confidence"] == "UNRESOLVED", e
-        assert "fingerprint" not in e or not e.get("fingerprint")
+        assert e["child_version"] == "33.4.0-jre", e
+        assert e["confidence"] == "VERIFIED", e
+        assert e["qualifiers"]["requested_version"] == requested, e
+        assert e["qualifiers"]["conflict_resolved"] == "true"
+        assert e["qualifiers"]["subtree_elided"] == "true"
+        assert e.get("fingerprint")
 
 
 def test_frg2_s9_oracle_expects_platform_verified():
@@ -919,3 +937,367 @@ runtimeClasspath
     assert result["graph_status"] == "EXTRACTION_ERROR"
     assert result["edges"] == []
     assert result["limitations"]
+
+
+# ---------------------------------------------------------------------------
+# F-RG-1: conflict+elision combo `group:artifact:requested -> selected (*)`.
+# Authorized 2026-11-17; the approved proposal
+# audit_output/F_RG_1_REMEDIATION_PROPOSAL.md is the source of truth.
+# Matrix rows #1-#7 are implemented 1:1 below (M1-M7).  M8 is the
+# authorization-mandated F-RG-2/(c)/(n) compatibility pin; M9/M10 pin the
+# proposal §2.5/§2.2 semantics definitions (an unknown marker after the
+# arrow is strict-unparseable; a selected that is empty once the marker is
+# stripped printed no resolved version).  The F-RG-2-era pin of the
+# untouched defect state (test_frg2_s8_conflict_marker_semantics_untouched,
+# above) is REWRITTEN in place to pin the remediated semantics -- that
+# rewrite is the sanctioning change this authorization exists to make.
+# ---------------------------------------------------------------------------
+
+# mockito:114-115 and :118-119 verbatim line texts, composed at explicit
+# depths (the report nests these blocks deeper under configuration
+# subsections; the F-RG-2 fixtures compose verbatim line text at explicit
+# depths -- same disclosed precedent).
+FRG1_GJF_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- com.google.googlejavaformat:google-java-format:1.27.0
+|    \\--- com.google.guava:guava:32.1.3-jre -> 33.4.0-jre (*)
+"""
+
+FRG1_AUTOCOMMON_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- com.google.auto:auto-common:1.2.2
+|    \\--- com.google.guava:guava:32.0.1-jre -> 33.4.0-jre (*)
+"""
+
+FRG1_COMBO_TREE = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- com.google.googlejavaformat:google-java-format:1.27.0
+|    \\--- com.google.guava:guava:32.1.3-jre -> 33.4.0-jre (*)
++--- com.google.auto:auto-common:1.2.2
+|    \\--- com.google.guava:guava:32.0.1-jre -> 33.4.0-jre (*)
++--- com.google.guava:guava:33.4.0-jre (*)
+"""
+
+# The ACTUAL pre-fix extractor output for FRG1_COMBO_TREE (captured at the
+# red phase on the pre-fix code, byte-embedded; full JSON also preserved at
+# audit_output/frg1/logs/combo_prefix_edges.json): both combo edges emitted
+# UNRESOLVED with the marker-contaminated child version, an empty
+# resolution_status and no fingerprint.
+FRG1_PREFIX_PAYLOAD = [
+    {
+        "ecosystem": "maven",
+        "parent_name": "com.google.auto:auto-common",
+        "parent_version": "1.2.2",
+        "child_name": "com.google.guava:guava",
+        "child_version": "33.4.0-jre (*)",
+        "parent_purl": "pkg:maven/com.google.auto/auto-common@1.2.2",
+        "child_purl": "",
+        "source": "audit_output/frg1/logs/m_combo_fixture_tree.txt",
+        "source_location": "runtimeClasspath depth 2",
+        "evidence_source": "GRADLE_DEPENDENCIES",
+        "scope": "runtime",
+        "qualifiers": {
+            "configuration": "runtimeClasspath",
+            "requested_version": "32.0.1-jre",
+            "conflict_resolved": "true",
+        },
+        "kind": "",
+        "resolution_status": "",
+        "confidence": "UNRESOLVED",
+    },
+    {
+        "ecosystem": "maven",
+        "parent_name": "com.google.googlejavaformat:google-java-format",
+        "parent_version": "1.27.0",
+        "child_name": "com.google.guava:guava",
+        "child_version": "33.4.0-jre (*)",
+        "parent_purl": "pkg:maven/com.google.googlejavaformat/"
+                       "google-java-format@1.27.0",
+        "child_purl": "",
+        "source": "audit_output/frg1/logs/m_combo_fixture_tree.txt",
+        "source_location": "runtimeClasspath depth 2",
+        "evidence_source": "GRADLE_DEPENDENCIES",
+        "scope": "runtime",
+        "qualifiers": {
+            "configuration": "runtimeClasspath",
+            "requested_version": "32.1.3-jre",
+            "conflict_resolved": "true",
+        },
+        "kind": "",
+        "resolution_status": "",
+        "confidence": "UNRESOLVED",
+    },
+]
+
+_REAL_MOCKITO = (Path(__file__).resolve().parent.parent / "audit_output"
+                 / "real_gradle" / "mockito" / "raw_dependencies.txt")
+
+
+def test_frg1_m1_conflict_elision_resolves_clean_selected(tmp_path):
+    # matrix #1 (mockito:114-115): `requested -> selected (*)` resolves at
+    # the CLEAN selected version -- VERIFIED, `conflict_resolved` +
+    # `subtree_elided` qualifiers, identity-stable fingerprint.  Pre-fix
+    # the marker contaminated the version (UNRESOLVED, empty status, no
+    # fingerprint).
+    result = extract(_write(tmp_path, FRG1_GJF_TREE))
+    assert result["graph_status"] == "VERIFIED_EDGES_AVAILABLE", \
+        result.get("limitations")
+    edge = result["edges"][0]
+    assert edge["child_name"] == "com.google.guava:guava"
+    assert edge["child_version"] == "33.4.0-jre", edge
+    assert edge["confidence"] == "VERIFIED", edge
+    assert edge["qualifiers"]["requested_version"] == "32.1.3-jre"
+    assert edge["qualifiers"]["conflict_resolved"] == "true"
+    assert edge["qualifiers"]["subtree_elided"] == "true"
+    assert edge["child_purl"] == "pkg:maven/com.google.guava/guava@33.4.0-jre"
+    assert edge.get("fingerprint"), "VERIFIED edge must carry a fingerprint"
+
+
+def test_frg1_m2_conflict_elision_second_occurrence(tmp_path):
+    # matrix #2 (mockito:118-119, the auto-common occurrence -- the shape
+    # is parent-agnostic): identical remediated semantics.
+    result = extract(_write(tmp_path, FRG1_AUTOCOMMON_TREE))
+    edge = result["edges"][0]
+    assert edge["child_version"] == "33.4.0-jre", edge
+    assert edge["confidence"] == "VERIFIED", edge
+    assert edge["qualifiers"]["requested_version"] == "32.0.1-jre"
+    assert edge["qualifiers"]["subtree_elided"] == "true"
+
+
+def test_frg1_m3_oracle_parses_clean_selected():
+    # matrix #3 (O-RG-1 pairing): the independent oracle's parse of the
+    # combo line expects the CLEAN selected version.  Pre-fix the oracle
+    # expected the marker-carrying tuple (the O-RG-1 artifact).
+    og = _load_oracle()
+    node = og.parse_node(
+        "com.google.guava:guava:32.1.3-jre -> 33.4.0-jre (*)")
+    assert node is not None
+    assert node["name"] == "com.google.guava:guava"
+    assert node["version"] == "33.4.0-jre", node
+    assert not node.get("not_resolved") and not node.get("constraint")
+
+
+def test_frg1_m3b_oracle_genuine_two_direction(tmp_path):
+    # matrix #3 (§3.3): genuine two-direction.  (a) The corrected oracle
+    # REJECTS the ACTUAL pre-fix extractor output (captured verbatim at
+    # the red phase, embedded above): the clean VERIFIED identities are
+    # MISSING.  (b) The post-fix extraction is ACCEPTED (exit 0).
+    import subprocess
+    import sys
+    from pathlib import Path as _P
+    og_path = _P(__file__).resolve().parent.parent / "tools" / \
+        "oracle_gradle.py"
+    tree = tmp_path / "gradle-dependencies.txt"
+    tree.write_text(FRG1_COMBO_TREE, encoding="utf-8")
+    prefix = tmp_path / "prefix_edges.json"
+    prefix.write_text(json.dumps(FRG1_PREFIX_PAYLOAD), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "-I", str(og_path), str(tree), str(prefix)],
+        capture_output=True, text=True)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "MISSING (VERIFIED)" in proc.stdout
+    assert "com.google.guava:guava" in proc.stdout
+    assert "33.4.0-jre" in proc.stdout
+    postfix = tmp_path / "postfix_edges.json"
+    postfix.write_text(
+        json.dumps(extract(str(tree))["edges"]), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "-I", str(og_path), str(tree), str(postfix)],
+        capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "ORACLE RESULT: PASS" in proc.stdout
+
+
+def test_frg1_m4_left_side_marker_depth1_direct_declaration(tmp_path):
+    # matrix #4 (mockito:117, preservation): a marker on the LEFT side
+    # only (`g:a:v (*)` at depth 1) keeps the direct-declaration
+    # accounting -- never edged, never reclassified.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- com.google.guava:guava:33.4.0-jre (*)
++--- org.example:other:1.0
+"""
+    result = extract(_write(tmp_path, tree))
+    assert result["tallies"]["direct_declarations"] == 2
+    assert result["edges"] == []
+
+
+def test_frg1_m5_plain_conflict_unchanged(tmp_path):
+    # matrix #5 (preservation): a plain conflict without a marker keeps
+    # the existing VERIFIED + conflict_resolved semantics.
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- parent:lib:1.0
+|    \\--- shared:lib:1.0.0 -> 2.0.0
+"""
+    result = extract(_write(tmp_path, tree))
+    edge = result["edges"][0]
+    assert edge["child_version"] == "2.0.0"
+    assert edge["confidence"] == "VERIFIED"
+    assert edge["qualifiers"]["requested_version"] == "1.0.0"
+    assert edge["qualifiers"]["conflict_resolved"] == "true"
+    assert "subtree_elided" not in edge["qualifiers"]
+
+
+def test_frg1_m6_plain_elision_unchanged(tmp_path):
+    # matrix #6 (preservation): a plain elision without a conflict keeps
+    # the existing VERIFIED + subtree_elided semantics (no
+    # conflict_resolved, no requested_version).
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- parent-one:lib:1.0
+|    \\--- shared:lib:5.0.0
+\\--- parent-two:lib:1.0
+     \\--- shared:lib:5.0.0 (*)
+"""
+    result = extract(_write(tmp_path, tree))
+    edges = {(e["parent_name"], e["child_version"]): e
+             for e in result["edges"] if e["child_name"] == "shared:lib"}
+    assert set(edges) == {("parent-one:lib", "5.0.0"),
+                          ("parent-two:lib", "5.0.0")}
+    star = edges[("parent-two:lib", "5.0.0")]
+    assert star["confidence"] == "VERIFIED"
+    assert star["qualifiers"]["subtree_elided"] == "true"
+    assert "conflict_resolved" not in star["qualifiers"]
+
+
+def test_frg1_m7_full_mockito_exact_reconciliation(tmp_path):
+    # matrix #7: the FULL real mockito-core report reconciles EXACTLY
+    # against the corrected oracle -- 103 VERIFIED (101 + the 2 combo
+    # edges), 0 WRONG / 0 MISSING.  Pre-fix: 101 VERIFIED and the oracle
+    # reported the 2 combo identities MISSING with marker-carrying
+    # tuples.  Skipped (honestly) when the preserved real-corpus evidence
+    # is absent from the checkout.
+    if not _REAL_MOCKITO.exists():
+        pytest.skip("real-corpus evidence not available in this checkout")
+    import subprocess
+    import sys
+    from pathlib import Path as _P
+    result = extract(str(_REAL_MOCKITO))
+    verified = [e for e in result["edges"] if e["confidence"] == "VERIFIED"]
+    assert len(verified) == 103, \
+        f"expected 103 VERIFIED (101 + 2 combo), got {len(verified)}"
+    combo = [e for e in result["edges"]
+             if e["child_name"] == "com.google.guava:guava"
+             and e["qualifiers"].get("conflict_resolved") == "true"]
+    assert len(combo) == 2
+    assert all(e["child_version"] == "33.4.0-jre" and
+               e["qualifiers"].get("subtree_elided") == "true"
+               for e in combo)
+    og_path = _P(__file__).resolve().parent.parent / "tools" / \
+        "oracle_gradle.py"
+    payload = tmp_path / "edges.json"
+    payload.write_text(json.dumps(result["edges"]), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "-I", str(og_path), str(_REAL_MOCKITO),
+         str(payload)],
+        capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "WRONG (VERIFIED):   0" in proc.stdout
+    assert "MISSING (VERIFIED): 0" in proc.stdout
+    assert "ORACLE RESULT: PASS" in proc.stdout
+
+
+def test_frg1_m8_platform_and_marker_semantics_untouched(tmp_path):
+    # authorization items 5-6 (compatibility pin): the F-RG-2 platform
+    # path and the (c)/(n) semantics are unchanged by the F-RG-1 work.
+    # The platform+elision combo (`g:a -> v (*)`, 2-part) keeps
+    # version_selected_by_platform + subtree_elided and NEVER gains
+    # conflict_resolved / requested_version; (c)/(n)-marked lines keep
+    # their disclosures.
+    result = extract(_write(tmp_path, FRG2_JUNIT_TREE))
+    edge = next(e for e in result["edges"]
+                if e["child_name"] == "org.junit.jupiter:junit-jupiter")
+    assert edge["child_version"] == "5.14.4"
+    assert edge["confidence"] == "VERIFIED"
+    quals = edge["qualifiers"]
+    assert quals.get("version_selected_by_platform") == "true"
+    assert quals.get("subtree_elided") == "true"
+    assert "requested_version" not in quals
+    assert "conflict_resolved" not in quals
+    cons_tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    +--- org.gradle.test:gd-constrained:2.0.0 (c)
+|    \\--- org.gradle.test:gd-unresolved:3.0.0 (n)
+"""
+    cons = extract(_write(tmp_path, cons_tree))
+    by_name = {e["child_name"]: e for e in cons["edges"]}
+    assert by_name["org.gradle.test:gd-constrained"][
+        "resolution_status"] == "GRADLE_CONSTRAINT_ENTRY_NOT_DEPENDENCY"
+    assert by_name["org.gradle.test:gd-unresolved"][
+        "resolution_status"] == "GRADLE_VERSION_NOT_RESOLVED"
+
+
+def test_frg1_m9_unknown_marker_after_arrow_strict_unparseable(tmp_path):
+    # §2.5 semantics pin: an unknown marker after the arrow is strict-
+    # unparseable (node-level; F-RG-2 §5 file-level policy: a LEAF is
+    # tallied + disclosed, a node WITH a subtree keeps the fatal error).
+    # Pre-fix the shape accidentally produced a contaminated UNRESOLVED
+    # edge (empty status) instead.  The shape does not occur in the real
+    # corpus (the F-RG-2 review's 1,710/1,710 line accounting has no such
+    # class); the behavior is defined, not guessed.
+    leaf = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-child:2.0.0 -> 3.0.0 (x)
+"""
+    result = extract(_write(tmp_path, leaf))
+    # the fixture has no other edges, so the honest envelope is
+    # NO_VERIFIED_EDGES (disclosed, not fatal) -- matching the
+    # test_malformed_constraint_output_is_disclosed convention.
+    assert result["graph_status"] != "EXTRACTION_ERROR", \
+        result.get("limitations")
+    assert result["tallies"]["invalid_nodes"] == 1
+    assert any("gd-child" in lim for lim in result["limitations"])
+    assert all(e["child_name"] != "org.gradle.test:gd-child"
+               for e in result["edges"])
+    subtree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-child:2.0.0 -> 3.0.0 (x)
+|         \\--- org.gradle.test:gd-grandchild:4.0.0
+"""
+    result2 = extract(_write(tmp_path, subtree))
+    assert result2["graph_status"] == "EXTRACTION_ERROR"
+    assert result2["edges"] == []
+
+
+def test_frg1_m10_star_only_selected_is_not_resolved(tmp_path):
+    # §2.2 corner pin: a selected that is empty once the marker is
+    # stripped (`-> (*)`) printed NO resolved version --
+    # requested-but-unresolved, never promoted (the requested version is
+    # disclosed, no fingerprint).  Pre-fix the marker contaminated the
+    # version (UNRESOLVED with an empty resolution status).
+    tree = """\
+> Task :app:dependencies
+
+runtimeClasspath
++--- org.gradle.test:gd-parent:1.0.0
+|    \\--- org.gradle.test:gd-child:2.0.0 -> (*)
+"""
+    result = extract(_write(tmp_path, tree))
+    edge = result["edges"][0]
+    assert edge["child_version"] == "", edge
+    assert edge["confidence"] == "UNRESOLVED"
+    assert edge["resolution_status"] == "GRADLE_VERSION_NOT_RESOLVED", edge
+    assert edge["qualifiers"]["requested_version"] == "2.0.0"
+    assert not edge.get("fingerprint")

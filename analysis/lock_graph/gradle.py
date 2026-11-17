@@ -28,7 +28,12 @@ F-1 finding; the (n) and (c) markers are NOT interchangeable):
   sides, tallied (`constraint_entries`), and depth-1 constraint lines
   are not counted as direct declarations.
 - ``(*)`` means "subtree already printed" -- the dependency still exists
-  and its edge is kept (`subtree_elided` qualifier).
+  and its edge is kept (`subtree_elided` qualifier).  F-RG-1: the marker
+  is honored on BOTH sides -- including after a conflict arrow
+  (``g:a:requested -> selected (*)`` resolves at the CLEAN selected
+  version, VERIFIED with ``conflict_resolved`` + ``subtree_elided``;
+  pre-fix the marker contaminated the version and the edge was emitted
+  UNRESOLVED with an empty status).
 - Conflict resolutions (``-> selected``) carry the selected version; the
   requested version travels as a qualifier (`conflict_resolved`). A
   missing selected version (``g:a:1.0 -> ``) is requested-but-unresolved
@@ -191,9 +196,35 @@ def _parse_node(body: str) -> dict | None:
         node["constraint"] = True
         node["constraint_version"] = version
     elif conflict:
-        node["requested_version"] = version
-        node["version"] = conflict
-        node["conflict"] = True
+        # F-RG-1: the SELECTED side may carry the same trailing-marker
+        # vocabulary as the requested side.  A trailing ``(*)`` is subtree
+        # elision -- the edge is real and kept: the resolved identity is
+        # the CLEAN selected version and ``subtree_elided`` is disclosed
+        # (proposal §2.1/2.2).  Pre-fix the marker contaminated the
+        # version, the PURL authority could not resolve it, and the edge
+        # was emitted UNRESOLVED with an empty resolution status and no
+        # fingerprint (the defect).  A selected that is empty once the
+        # marker is stripped printed no resolved version:
+        # requested-but-unresolved, never promoted.  Any OTHER trailing
+        # parenthesised marker after the arrow is unknown ->
+        # strict-unparseable (§2.5; F-RG-2 §5 node/file policy), mirrored
+        # in the independent oracle without sharing its code.
+        sel_star = bool(re.search(r"\(\*\)\s*$", conflict))
+        selected_clean = re.sub(r"\s*\(\*\)\s*$", "", conflict).strip()
+        if not selected_clean:
+            # `-> (*)`: nothing resolved was printed -- the requested
+            # version is disclosed, never promoted.
+            node["requested_version"] = version
+            node["version"] = ""
+            node["not_resolved"] = True
+        elif re.search(r"\([^)]*\)\s*$", selected_clean):
+            return None
+        else:
+            node["requested_version"] = version
+            node["version"] = selected_clean
+            node["conflict"] = True
+            if sel_star:
+                node["star"] = True
     return node
 
 

@@ -22,7 +22,10 @@ exactly the shared-assumption failure the closure audit flagged):
 - `-> X` -- conflict resolution: the selected version X is resolved; a
   MISSING selected version (`g:a:1.0 ->`) is requested-but-unresolved
   and follows the (n) semantics.
-- `(*)`  -- subtree elision: the edge is real and kept.
+- `(*)`  -- subtree elision: the edge is real and kept.  F-RG-1 (O-RG-1
+  pairing): the marker is honored on BOTH sides -- after a conflict arrow
+  the expected identity is the CLEAN selected version (pre-fix the oracle
+  expected the marker-carrying tuple, the O-RG-1 artifact).
 - `project :x` references have no registry identity (their subtree
   children are disclosed as unresolvable, never invented); those edges
   carry the extractor's own PROJECT_PARENT_UNSUPPORTED status and are
@@ -119,7 +122,21 @@ def parse_node(body):
         return None
     version = parts[2]
     if selected:
-        version = selected
+        # F-RG-1 (O-RG-1 pairing): the selected side may carry the same
+        # trailing-marker vocabulary as the requested side.  A trailing
+        # `(*)` is subtree elision -- the expected identity is the CLEAN
+        # selected version (the edge is real and kept).  A selected that
+        # is empty once the marker is stripped printed no resolved version
+        # (requested-but-unresolved, as `-> `).  Any OTHER trailing
+        # parenthesised marker after the arrow is unknown -> unparseable
+        # (§2.5), mirroring the extractor without sharing its code.
+        selected = re.sub(r"\s*\(\*\)\s*$", "", selected).strip()
+        if not selected:
+            not_resolved = True
+        elif re.search(r"\([^)]*\)\s*$", selected):
+            return None
+        else:
+            version = selected
     if not_resolved:
         return {"name": f"{parts[0]}:{parts[1]}", "version": "",
                 "project": False, "not_resolved": True}
