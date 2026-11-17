@@ -8,3 +8,10 @@ tests/replay/** text eol=lf
 # (tests/test_report_parity.py, report_audit --baseline).  CRLF
 # normalization at add-time would make every fresh clone fail the hash.
 tests/fixtures/baseline/** -text
+
+# DEV-1: the vendored CycloneDX schema fixture is byte-compared against
+# pinned SHA-256 values (schemas/cyclonedx/1.6/MANIFEST.json, verified at
+# every load by analysis/validation/sbom_conformance.py). CRLF conversion
+# at checkout would make every fresh clone fail the hash. Same convention
+# as the FND-08 baseline fixtures above.
+schemas/** -text

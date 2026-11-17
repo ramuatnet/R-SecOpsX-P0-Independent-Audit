@@ -202,3 +202,38 @@ def test_previously_invalid_document_remains_invalid_with_errors():
                                            target_versions=("1.6",))["1.6"]
     assert entry["valid"] is False, entry
     assert entry["errors"] and all(isinstance(e, str) for e in entry["errors"])
+
+
+# ---------------------------------------------------------------------------
+# E. DEV-1 regression guard: checkout-stable fixture bytes
+# ---------------------------------------------------------------------------
+
+def test_schema_fixture_checkout_bytes_and_attributes():
+    """DEV-1: on-disk schema bytes must match the manifest pins, and
+    .gitattributes must keep the fixture immune to EOL conversion
+    (``schemas/** -text``).  Without the attribute rule a Windows
+    checkout with core.autocrlf=true smudges LF to CRLF and the loader
+    correctly rejects the changed bytes -- while the original worktree
+    stays green (it holds LF), hiding the regression.  This guard fails
+    wherever it runs if the rule is removed or the bytes drift.
+    """
+    import hashlib
+    import subprocess
+    manifest = json.loads((VENDORED / "MANIFEST.json").read_text(
+        encoding="utf-8"))
+    names = sorted(manifest["files"])
+    for name in names:
+        data = (VENDORED / name).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == \
+            manifest["files"][name]["sha256"], name
+    try:
+        out = subprocess.run(
+            ["git", "check-attr", "text", "--"] +
+            [str(VENDORED / n) for n in names],
+            capture_output=True, text=True, cwd=str(REPO), timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("git not available for attribute check")
+    if out.returncode != 0:
+        pytest.skip("git check-attr failed: %s" % out.stderr[:200])
+    for line in out.stdout.splitlines():
+        assert line.endswith(": text: unset"), line
