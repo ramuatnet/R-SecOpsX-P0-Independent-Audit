@@ -61,7 +61,12 @@ from scanner.walk import walk
 
 SKIP_DIRS = {"backup", "dump", "Working folder", "__pycache__",
              ".git", ".venv",
-             "node_modules", "reports", "quarantine"}
+             "node_modules", "reports", "quarantine",
+             # Untracked evidence/scratch trees from the audit campaigns
+             # (2026-11-17): full scratch checkouts and tool copies whose
+             # modules are unreachable by design. Not production code --
+             # the guard's live-tree population must not count them.
+             "audit_output"}
 
 # Never a quarantine candidate regardless of reachability.  tools/ holds
 # the operator-run diagnostics (T-0.7 moved them out of tests/); like
@@ -117,6 +122,15 @@ def audit(root: Path | None = None) -> dict:
     for rel in files:
         base = os.path.basename(rel)
         if rel == "main.py" or rel.startswith(("tests/", "tools/")):
+            roots.add(rel)
+        elif base == "conftest.py":
+            # pytest loads conftest.py files by path convention; no import
+            # edge can reach them, but they are live entry points.
+            roots.add(rel)
+        elif rel == "scanner/cli.py":
+            # The ftasks/overlay `python -m scanner.cli` entry point
+            # (pending_features R2): registered as an entry root so the
+            # dead-code gate stays green without weakening reachability.
             roots.add(rel)
         elif rel.split("/")[0] in (
             "backup", "dump", "Working folder", "integration_fixture_llm01"):

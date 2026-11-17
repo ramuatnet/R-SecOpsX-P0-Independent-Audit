@@ -68,6 +68,26 @@ def test_runtime_sibling_script_counts_as_reachable(tmp_path):
     assert "driver.py" in res["dead"], res["dead"]
 
 
+def test_evidence_trees_are_not_dead_code(tmp_path):
+    """Untracked evidence/scratch trees (audit_output/) are not the live
+    tree. The overnight/review campaigns keep full scratch checkouts and
+    tool copies under audit_output/; those files are unreachable by
+    design and must never count as dead production modules (2026-11-17:
+    the audit reported 97 'dead' modules, every one under audit_output/).
+    Live dead code anywhere else must still be reported.
+    """
+    (tmp_path / "main.py").write_text("import live_mod\n", encoding="utf-8")
+    (tmp_path / "live_mod.py").write_text("X = 1\n", encoding="utf-8")
+    scratch = tmp_path / "audit_output" / "review_scratch" / "tests"
+    scratch.mkdir(parents=True)
+    (scratch / "dead_oracle.py").write_text("Y = 2\n", encoding="utf-8")
+    res = audit(tmp_path)
+    assert res["dead"] == [], (
+        "audit_output/ evidence trees must be excluded from the dead "
+        f"population: {res['dead']}")
+    assert res["files"] >= 2, res
+
+
 def test_quarantine_is_never_imported_by_live_code():
     """A quarantined module must not be imported, or the two copies drift.
 
