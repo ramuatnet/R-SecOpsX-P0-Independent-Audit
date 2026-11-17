@@ -205,6 +205,69 @@ def _check_baseline(out_dir: Path, payload: dict | None) -> list[str]:
     return problems
 
 
+def _check_sast_identity(out_dir: Path, payload: dict | None) -> list[str]:
+    """B8 (SAST overnight): stable SAST finding identity.
+
+    Every reported SAST finding must carry the identity triple the rest
+    of the system builds on (group_key, SARIF partialFingerprints, diff
+    lifecycle): non-empty rule_id, a file, and a positive line. Validated
+    against real artifacts before pinning (17 clean_report.json under
+    data/outputs: 0 missing across 63 findings).
+    """
+    if payload is None or not isinstance(payload.get("findings"), list):
+        return []
+    problems = []
+    for i, f in enumerate(payload["findings"]):
+        if not isinstance(f, dict):
+            continue
+        rid = str(f.get("rule_id") or "").strip()
+        file_v = str(f.get("file") or f.get("file_path") or "").strip()
+        try:
+            line = int(f.get("line"))
+        except (TypeError, ValueError):
+            line = 0
+        if not rid:
+            problems.append(f"finding[{i}]: empty rule_id (SAST identity)")
+        if not file_v:
+            problems.append(f"finding[{i}]: empty file (SAST identity)")
+        if line < 1:
+            problems.append(f"finding[{i}]: missing/invalid line (SAST identity)")
+    return problems
+
+
+def _check_verdict_consistency(out_dir: Path, payload: dict | None) -> list[str]:
+    """B8: verdict consistency -- dispositions/verdicts use the closed
+    vocabularies, and a suppression always explains itself (G1.5/B4
+    acceptance: suppressed findings stay in the audit WITH their reason,
+    never deleted, never silent)."""
+    if payload is None or not isinstance(payload.get("findings"), list):
+        return []
+    from analysis.ufib_brain import DISPOSITIONS
+    from accuracy.config import VERDICTS as ACC_VERDICTS
+    problems = []
+    for i, f in enumerate(payload["findings"]):
+        if not isinstance(f, dict):
+            continue
+        disp = f.get("disposition")
+        if disp is not None and str(disp) not in DISPOSITIONS:
+            problems.append(
+                f"finding[{i}]: disposition {disp!r} outside the UFIB "
+                "vocabulary")
+        acc = f.get("accuracy") if isinstance(f.get("accuracy"), dict) else {}
+        verdict = acc.get("verdict")
+        if verdict is not None and str(verdict) not in ACC_VERDICTS:
+            problems.append(
+                f"finding[{i}]: accuracy.verdict {verdict!r} outside the "
+                "accuracy vocabulary")
+        suppressed = (str(disp) == "SUPPRESSED"
+                      or str(verdict).startswith("SUPPRESSED_"))
+        if suppressed and not str(acc.get("reason") or "").strip():
+            problems.append(
+                f"finding[{i}]: suppressed without a recorded reason "
+                "(suppression explainability)")
+    return problems
+
+
 #: Registered invariant checks, in printed order.  Later ftasks phases
 #: append their own; nothing is removed (Appendix C rollback story).
 CHECKS: list[tuple[str, str, Check]] = [
@@ -214,6 +277,8 @@ CHECKS: list[tuple[str, str, Check]] = [
     ("AUD-004", "FND-01 filter_trace on payload, arithmetic holds", _check_filter_trace),
     ("AUD-005", "Security_Report.pdf present and non-trivial", _check_artifact("Security_Report.pdf")),
     ("AUD-006", "Security_Report.xlsx present and non-trivial", _check_artifact("Security_Report.xlsx")),
+    ("AUD-S01", "B8 stable SAST finding identity (rule_id/file/line)", _check_sast_identity),
+    ("AUD-S02", "B8 verdict consistency (closed vocabularies)", _check_verdict_consistency),
 ]
 
 
