@@ -236,6 +236,7 @@ def test_measured_magnitude_reads_only_forms_that_exist(evidence, want):
 # ---------------------------------------------------- the real register ------
 
 @pytest.mark.skipif(not REGISTER.exists(), reason="gap register absent")
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_the_real_register_ranking_is_sane():
     """The real data, checked for the properties that matter.
 

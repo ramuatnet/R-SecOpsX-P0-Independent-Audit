@@ -24,8 +24,14 @@ REGISTERED_MARKERS = {
         "Appendix A). Skipped with a reason when the extension is not "
         "built; runs when it is. Do not build/fix Rust to un-skip.",
     "requires_prod_tree":
-        "needs gitignored production-tree artifacts (reports/, backup/, "
-        "quarantine/) that a clean clone lacks",
+        "asserts authentic project data that lives in gitignored "
+        "production-tree artifacts of this worktree (Option B: synthetic "
+        "fixtures are separate). Usage: "
+        "@pytest.mark.requires_prod_tree(artifact=\"reports/gap_register.json\") "
+        "-- the artifact kwarg names the exact missing-on-fresh-clone file "
+        "(mandatory; enforced at collection) and the test skips with a "
+        "specific reason when that artifact is absent. Runs when the "
+        "artifact exists (e.g. this worktree).",
     "requires_posix": "requires POSIX-only mechanisms (resource/process-group)",
     "requires_windows": "requires Windows-only mechanisms",
     "requires_py314": "requires CPython 3.14 semantics",
@@ -58,6 +64,11 @@ def pytest_collection_modifyitems(config, items):
     every registered marker carries its mandatory reason string, and the
     skip hook emits it verbatim. Plain (non requires_*) skips are out of
     scope for this hook (recorded as a P2 audit in SAST_GAP_MATRIX.csv).
+
+    Option B (fixture governance): ``requires_prod_tree`` must name the
+    exact artifact it requires via the ``artifact=`` kwarg -- a
+    reason-less/artifact-less use fails collection, so every conditional
+    test explains precisely which authentic artifact it needs.
     """
     problems = []
     for item in items:
@@ -68,12 +79,30 @@ def pytest_collection_modifyitems(config, items):
                 problems.append(
                     f"{item.nodeid}: unregistered marker {marker.name!r} "
                     f"(add it to conftest.REGISTERED_MARKERS with a reason)")
+                continue
+            if marker.name == "requires_prod_tree" and not (
+                    marker.kwargs or {}).get("artifact"):
+                problems.append(
+                    f"{item.nodeid}: requires_prod_tree without artifact= "
+                    "(name the exact production-tree artifact this test "
+                    "requires)")
     if problems:
         raise pytest.UsageError(
-            "unregistered requires_* marker(s) (cltask rule 2):\n  "
+            "requires_* marker policy violation(s) (cltask rule 2):\n  "
             + "\n  ".join(problems))
 
 
 def pytest_runtest_setup(item):
     if item.get_closest_marker("requires_rust_ext") and not _rust_core_available():
         pytest.skip(RUST_SKIP_REASON)
+    marker = item.get_closest_marker("requires_prod_tree")
+    if marker:
+        artifact = (marker.kwargs or {}).get("artifact")
+        if artifact:
+            from pathlib import Path as _Path
+            repo_root = _Path(__file__).resolve().parent
+            if not (repo_root / artifact).exists():
+                pytest.skip(
+                    f"requires the authentic production-tree artifact "
+                    f"{artifact!r}, absent from this checkout (synthetic "
+                    f"fixtures are separate and do not replace it)")

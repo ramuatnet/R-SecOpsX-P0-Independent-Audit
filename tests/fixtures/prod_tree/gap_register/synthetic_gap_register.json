@@ -1,0 +1,80 @@
+{
+  "_fixture_notice": "SYNTHETIC TEST FIXTURE - independently authored for tests/test_prod_tree_fixture_contract.py. This file is NOT the authentic Phase-3 project register, contains no real project findings, no real remediation records, and no historical events. It exists solely to exercise the structural contract of the gap-register tooling (schema keys, closed vocabularies, renderer emission). See FIXTURE_PROVENANCE.md.",
+  "gaps": [
+    {
+      "id": "SYN-G-001",
+      "priority": "P1",
+      "domain": "synthetic-test-domain",
+      "title": "SYNTHETIC gap row: exercises renderer and schema validation",
+      "problem": "Synthetic problem statement: the fixture needs a row with every required field populated so the structural contract can be validated without authentic data.",
+      "reference_tool": "SYNTHETIC-REFERENCE (no real tool asserted)",
+      "how_reference_does_it": "Synthetic description of a reference behaviour; not a claim about any real tool.",
+      "current_behavior": "Synthetic current-behaviour statement for the fixture row.",
+      "actual_gap": "Synthetic gap statement: distance between the synthetic current behaviour and the synthetic reference behaviour.",
+      "enterprise_essential": true,
+      "research_relevant": false,
+      "cost": "S",
+      "regression_risk": "LOW",
+      "implementation_location": "tests/fixtures/prod_tree/gap_register/synthetic_gap_register.json (SYN-G-001)",
+      "root_cause_class": "SYNTHETIC_SCHEMA_GAP",
+      "evidence_tier": "STRUCTURAL",
+      "evidence": "Synthetic evidence: confirmed by source inspection of this fixture itself; no benchmark was run."
+    },
+    {
+      "id": "SYN-G-002",
+      "priority": "P2",
+      "domain": "synthetic-test-domain",
+      "title": "SYNTHETIC gap row: measured-closed variant with test-backed evidence",
+      "problem": "Synthetic problem statement for the measured-closed variant.",
+      "reference_tool": "SYNTHETIC-REFERENCE (no real tool asserted)",
+      "how_reference_does_it": "Synthetic reference behaviour description.",
+      "current_behavior": "Synthetic current-behaviour statement.",
+      "actual_gap": "Synthetic gap statement; closed by the synthetic detector test_synthetic_detector_is_green in this fixture set.",
+      "enterprise_essential": false,
+      "research_relevant": true,
+      "cost": "XS",
+      "regression_risk": "MED",
+      "implementation_location": "tests/fixtures/prod_tree/gap_register/synthetic_gap_register.json (SYN-G-002)",
+      "root_cause_class": "SYNTHETIC_EVIDENCE_GAP",
+      "evidence_tier": "MEASURED_CLOSED",
+      "evidence": "Synthetic closure evidence: tests/test_prod_tree_fixture_contract.py::test_synthetic_detector_is_green exercises the referenced behaviour."
+    },
+    {
+      "id": "SYN-G-003",
+      "priority": "P3",
+      "domain": "synthetic-test-domain",
+      "title": "SYNTHETIC gap row: measured-open variant (residual-style row)",
+      "problem": "Synthetic problem statement for the measured-open variant.",
+      "reference_tool": "SYNTHETIC-REFERENCE (no real tool asserted)",
+      "how_reference_does_it": "Synthetic reference behaviour description.",
+      "current_behavior": "Synthetic current-behaviour statement.",
+      "actual_gap": "Synthetic residual statement: the synthetic fixture intentionally keeps one row open so ranking and residual handling are exercised.",
+      "enterprise_essential": false,
+      "research_relevant": false,
+      "cost": "M",
+      "regression_risk": "HIGH",
+      "implementation_location": "tests/fixtures/prod_tree/gap_register/synthetic_gap_register.json (SYN-G-003)",
+      "root_cause_class": "SYNTHETIC_SCOPE_GAP",
+      "evidence_tier": "MEASURED_OPEN",
+      "evidence": "Synthetic evidence: a synthetic probe measured the synthetic residual."
+    }
+  ],
+  "root_cause_classes": {
+    "SYNTHETIC_SCHEMA_GAP": "Synthetic root-cause class used by this fixture: structural/schema alignment issues (fixture-defined definition).",
+    "SYNTHETIC_EVIDENCE_GAP": "Synthetic root-cause class used by this fixture: evidence recording issues (fixture-defined definition).",
+    "SYNTHETIC_SCOPE_GAP": "Synthetic root-cause class used by this fixture: scoping/residual issues (fixture-defined definition)."
+  },
+  "closed_this_program": [
+    {
+      "item": "SYN-G-002 (synthetic closure entry; no authentic project event is represented)",
+      "root_causes": ["SYNTHETIC_EVIDENCE_GAP", "SYNTHETIC_SCHEMA_GAP"],
+      "outcome": "MEASURED_CLOSED (synthetic)"
+    }
+  ],
+  "not_proposed": [
+    {
+      "item": "synthetic-not-proposed-item (no real scoping decision is represented)",
+      "reason": "Synthetic reason text; retained here so the not_proposed contract (item + reason both non-empty) is exercised."
+    }
+  ]
+}

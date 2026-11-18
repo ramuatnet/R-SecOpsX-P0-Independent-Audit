@@ -25,6 +25,8 @@ from __future__ import annotations
 import pathlib
 import re
 
+import pytest
+
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
 #: Directories never scanned for definitions: untracked legacy .bak
@@ -93,6 +95,7 @@ def test_checker_flags_a_duplicate(tmp_path):
     assert len(hits) == 2, hits
 
 
+@pytest.mark.requires_prod_tree(artifact="backup/")
 def test_backup_copies_are_excluded():
     """The 33 untracked legacy backup/ copies must not trip the guard."""
     backup = REPO / "backup"

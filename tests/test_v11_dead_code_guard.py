@@ -16,6 +16,8 @@ from __future__ import annotations
 import io
 import os
 import sys
+
+import pytest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -119,6 +121,7 @@ def test_quarantine_is_never_imported_by_live_code():
     assert len(list(REPO.rglob("*.py"))) > 200
 
 
+@pytest.mark.requires_prod_tree(artifact="quarantine/MANIFEST.txt")
 def test_quarantine_manifest_records_every_move():
     manifest = REPO / "quarantine" / "MANIFEST.txt"
     assert manifest.exists(), "quarantine/MANIFEST.txt must document every move"

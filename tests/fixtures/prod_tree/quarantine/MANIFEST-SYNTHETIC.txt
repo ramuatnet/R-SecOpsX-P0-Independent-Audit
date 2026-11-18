@@ -1,0 +1,12 @@
+SYNTHETIC TEST FIXTURE MANIFEST — not authentic quarantine history.
+
+This directory and this manifest are independently authored synthetic test
+fixtures for the quarantine-record contract tests
+(tests/test_prod_tree_fixture_contract.py). They are NOT the authentic
+quarantine record of this project; the module names below are invented
+placeholders and no such move ever occurred in any repository.
+
+Nothing here was deleted.
+
+  tests/fixtures/prod_tree/quarantine/synthetic_moved_module_a.py
+  tests/fixtures/prod_tree/quarantine/synthetic_moved_module_b.py

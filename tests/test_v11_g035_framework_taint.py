@@ -411,6 +411,7 @@ def _reg() -> dict:
     )
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_g035_is_recorded_as_measured_closed_with_before_and_after():
     by_id = {g["id"]: g for g in _reg()["gaps"]}
     g35 = by_id["G-035"]
@@ -427,6 +428,7 @@ def test_g035_is_recorded_as_measured_closed_with_before_and_after():
     assert "319 passed" in ev, "regression suite result missing"
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_g035_closure_ledger_entry_names_every_root_cause_involved():
     reg = _reg()
     hits = [e for e in reg["closed_this_program"] if "G-035" in e["item"]]
@@ -444,6 +446,7 @@ def test_g035_closure_ledger_entry_names_every_root_cause_involved():
         assert cause in reg["root_cause_classes"], cause
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_g035_scoping_decision_is_recorded_not_silently_dropped():
     """The withheld half of this phase must be visible in the register."""
     hits = [n for n in _reg()["not_proposed"] if "os.getenv" in n.get("item", "")]
@@ -453,6 +456,7 @@ def test_g035_scoping_decision_is_recorded_not_silently_dropped():
     assert "negative control" in hits[0]["reason"] or "negative-control" in hits[0]["reason"]
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_new_rows_added_alongside_this_phase_keep_the_register_schema():
     reg = _reg()
     for gid in ("G-045", "G-046"):

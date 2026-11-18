@@ -453,6 +453,7 @@ def test_ship_gap_register_with_missing_source_is_a_noop(tmp_path):
     assert not (out / "gap_register.json").exists()
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_ship_gap_register_default_source_is_the_repo_register(tmp_path):
     from reporting.companion_artifacts import ship_gap_register
 

@@ -1,0 +1,74 @@
+{
+ "schema": "rsecopsx.synthetic_fixture_manifest/v1",
+ "created": "2026-11-18T00:39:49.457862+00:00",
+ "provenance_statement": "These files are independently authored synthetic test fixtures. They are not copies, extracts, reconstructions, or representations of the authentic Phase-3 register, historical quarantine records, or legacy production backups. No V11 content was accessed, inspected, or copied for this implementation.",
+ "fixtures": [
+  {
+   "fixture_id": "backup__synthetic_legacy_copy_a",
+   "relative_path": "tests/fixtures/prod_tree/backup/synthetic_legacy_copy_a.py",
+   "fixture_type": "module",
+   "classification": "SYNTHETIC (independently authored; not derived from any existing fixture content)",
+   "purpose": "exercises the structural contract of the corresponding prod-tree artifact without authentic project data",
+   "consumed_by": [
+    "tests/test_prod_tree_fixture_contract.py",
+    "tests/test_prod_tree_fixture_contract.py::test_synthetic_backup_copies_are_discovered_and_excluded"
+   ],
+   "sha256": "0fc46b5d25ec5682fec4860ddc9a2faa7f73a5952f2294f3e71ecf3637069d4d"
+  },
+  {
+   "fixture_id": "backup__synthetic_legacy_copy_b",
+   "relative_path": "tests/fixtures/prod_tree/backup/synthetic_legacy_copy_b.py",
+   "fixture_type": "module",
+   "classification": "SYNTHETIC (independently authored; not derived from any existing fixture content)",
+   "purpose": "exercises the structural contract of the corresponding prod-tree artifact without authentic project data",
+   "consumed_by": [
+    "tests/test_prod_tree_fixture_contract.py"
+   ],
+   "sha256": "74479491a4d5d2660769588cc99b88ad79673e52cf763cb074f25378cd26eb44"
+  },
+  {
+   "fixture_id": "gap_register__synthetic_gap_register",
+   "relative_path": "tests/fixtures/prod_tree/gap_register/synthetic_gap_register.json",
+   "fixture_type": "register",
+   "classification": "SYNTHETIC (independently authored; not derived from any existing fixture content)",
+   "purpose": "exercises the structural contract of the corresponding prod-tree artifact without authentic project data",
+   "consumed_by": [
+    "tests/test_prod_tree_fixture_contract.py"
+   ],
+   "sha256": "7fe665ef744f403c3a212626899ddaf55b2c83b720a741184cfe1eb89c41cc29"
+  },
+  {
+   "fixture_id": "quarantine__MANIFEST-SYNTHETIC",
+   "relative_path": "tests/fixtures/prod_tree/quarantine/MANIFEST-SYNTHETIC.txt",
+   "fixture_type": "manifest",
+   "classification": "SYNTHETIC (independently authored; not derived from any existing fixture content)",
+   "purpose": "exercises the structural contract of the corresponding prod-tree artifact without authentic project data",
+   "consumed_by": [
+    "tests/test_prod_tree_fixture_contract.py"
+   ],
+   "sha256": "1c0d1c3854b2becdeb93d636140f144783b6b55a3e99e1e95bdb693aad178420"
+  },
+  {
+   "fixture_id": "quarantine__synthetic_moved_module_a",
+   "relative_path": "tests/fixtures/prod_tree/quarantine/synthetic_moved_module_a.py",
+   "fixture_type": "module",
+   "classification": "SYNTHETIC (independently authored; not derived from any existing fixture content)",
+   "purpose": "exercises the structural contract of the corresponding prod-tree artifact without authentic project data",
+   "consumed_by": [
+    "tests/test_prod_tree_fixture_contract.py"
+   ],
+   "sha256": "7fdd03c38b14edb33d29390e5fdc7a7ab2d40bdd9b5f1d028459a0148c9f35e6"
+  },
+  {
+   "fixture_id": "quarantine__synthetic_moved_module_b",
+   "relative_path": "tests/fixtures/prod_tree/quarantine/synthetic_moved_module_b.py",
+   "fixture_type": "module",
+   "classification": "SYNTHETIC (independently authored; not derived from any existing fixture content)",
+   "purpose": "exercises the structural contract of the corresponding prod-tree artifact without authentic project data",
+   "consumed_by": [
+    "tests/test_prod_tree_fixture_contract.py"
+   ],
+   "sha256": "cbd5eb85bdfa2b33a35537c504a23cddd7e2be5981bfbc69dc2bb3519abf6f1e"
+  }
+ ]
+}

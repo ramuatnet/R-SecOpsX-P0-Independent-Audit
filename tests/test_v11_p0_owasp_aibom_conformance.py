@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import re
 import sys
+
+import pytest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -502,6 +504,7 @@ def _register() -> dict:
     )
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_37_register_rows_share_one_schema_and_a_closed_vocabulary():
     reg = _register()
     gaps = reg["gaps"]
@@ -528,6 +531,7 @@ def test_37_register_rows_share_one_schema_and_a_closed_vocabulary():
             assert g["evidence"].strip(), g["id"]
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_38_renderer_emits_every_register_row():
     reg = _register()
     rendered = _render(reg)
@@ -540,6 +544,7 @@ def test_38_renderer_emits_every_register_row():
     assert "| Considered | Why not |" in rendered
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_39_closure_ledger_only_cites_defined_root_causes():
     reg = _register()
     assert reg["closed_this_program"], "closure ledger is empty"
@@ -558,6 +563,7 @@ def test_39_closure_ledger_only_cites_defined_root_causes():
         assert rejected["item"].strip() and rejected["reason"].strip(), rejected
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_40_every_new_closure_is_backed_by_a_detector():
     by_id = {g["id"]: g for g in _register()["gaps"]}
     for closed_id in ("G-004", "G-040", "G-041", "G-042", "G-043"):
@@ -568,6 +574,7 @@ def test_40_every_new_closure_is_backed_by_a_detector():
         )
 
 
+@pytest.mark.requires_prod_tree(artifact="reports/gap_register.json")
 def test_41_the_residual_gap_is_registered_not_absorbed_into_the_closure():
     by_id = {g["id"]: g for g in _register()["gaps"]}
 
