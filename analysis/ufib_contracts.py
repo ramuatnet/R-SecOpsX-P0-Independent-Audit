@@ -597,6 +597,21 @@ DEFAULT_CONTRACT = _contract(
 # ---------------------------------------------------------------------------
 # Resolution + claim interpretation
 # ---------------------------------------------------------------------------
+_RULE_CONTRACT_REFS: dict | None = None
+
+
+def _get_rule_contract_ref(rule_id: str) -> str:
+    """Look up contract_ref from YAML rule definitions (lazy, cached)."""
+    global _RULE_CONTRACT_REFS
+    if _RULE_CONTRACT_REFS is None:
+        try:
+            from scanner.rules.loader import load_contract_refs
+            _RULE_CONTRACT_REFS = load_contract_refs()
+        except Exception:
+            _RULE_CONTRACT_REFS = {}
+    return _RULE_CONTRACT_REFS.get(rule_id, "")
+
+
 def resolve_category(finding: dict) -> str:
     # Identity-driven resolution comes first: an advisory-backed dependency
     # finding may carry the advisory id (GHSA-...) as its rule string, which
@@ -604,6 +619,22 @@ def resolve_category(finding: dict) -> str:
     if str(finding.get("cve") or "").strip() and \
             str(finding.get("package") or "").strip():
         return "sca_vulnerability"
+    # Explicit contract_ref takes precedence over heuristic resolution.
+    # If supplied and valid, it is authoritative. If supplied but invalid,
+    # it must NOT silently fall through to an unrelated default.
+    explicit_ref = str(finding.get("contract_ref") or "").strip().lower()
+    if not explicit_ref:
+        # Lazy lookup: check YAML rule definitions for an explicit contract_ref
+        # when the finding dict does not carry one.
+        rid = str(finding.get("rule_id") or "").strip()
+        if rid:
+            explicit_ref = _get_rule_contract_ref(rid)
+    if explicit_ref:
+        if explicit_ref in CONTRACTS:
+            return explicit_ref
+        raise ValueError(
+            f"Invalid contract_ref {explicit_ref!r} for rule "
+            f"{finding.get('rule_id')!r}: not a known contract")
     vuln = str(finding.get("vuln_type") or "").strip().lower()
     rid = str(finding.get("rule_id") or "").strip().upper()
     for key, c in CONTRACTS.items():

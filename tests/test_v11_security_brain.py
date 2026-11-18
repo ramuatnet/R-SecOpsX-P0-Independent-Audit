@@ -208,9 +208,10 @@ def test_rule_table_sweep_covers_all_engines():
     # + 9 PHP webshell pack, registered in sast.py)
     # + 18 regex (17 + PYTHON_JINJA_FROM_STRING) + 13 known-secret + 10 generic-secret
     # + 18 tf + 17 docker + 12 k8s + 5 missing-rules + 40 llm + 10 cbom
-    # + 10 pii-patterns + 7 pii-exposure. Pinned exactly on purpose: adding
-    # or dropping a rule must fail this test and force a conscious update.
-    assert "343 rules across 12 tables" in row["evidence"], row["evidence"]
+    # + 10 pii-patterns + 7 pii-exposure + 6 PowerShell (C2-WIN) = 349.
+    # Pinned exactly on purpose: adding or dropping a rule must fail this test
+    # and force a conscious update.
+    assert "349 rules across 12 tables" in row["evidence"], row["evidence"]
 
 
 def test_iac_secrets_probes_report_per_fixture_counts():

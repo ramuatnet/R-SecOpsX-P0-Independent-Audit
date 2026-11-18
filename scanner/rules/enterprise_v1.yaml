@@ -2162,3 +2162,73 @@ rules:
     span: 'evidence'
     negative: null
     contract_ref: 'variable_injection'
+  - id: 'PS_IEX_DOWNLOAD_CRADLE'
+    title: 'PowerShell IEX Download Cradle'
+    family: 'powershell_dangerous_execution'
+    severity: 'Critical'
+    langs: ['powershell']
+    exts: ['.ps1', '.psm1']
+    cwe: 'CWE-78'
+    owasp: 'A03:2021 - Injection'
+    pattern: '(?:IEX|Invoke-Expression)[ \t]*\([^\n;]*?(?:New-Object[ \t]+Net\.WebClient[^\n;]*?\)[ \t]*\.(?:DownloadString|DownloadFile)|Invoke-WebRequest[^\n;]*?\)[ \t]*\.(?:Content|RawContent|Bytes))'
+    span: 'evidence'
+    negative: null
+    contract_ref: 'code_injection'
+  - id: 'PS_ENCODED_COMMAND'
+    title: 'PowerShell Encoded Command Execution'
+    family: 'powershell_dangerous_execution'
+    severity: 'High'
+    langs: ['powershell']
+    exts: ['.ps1', '.psm1']
+    cwe: 'CWE-78'
+    owasp: 'A03:2021 - Injection'
+    pattern: 'powershell(?:\.exe)?[ \t]+[^\n;]*?-(?:enc|encodedcommand)[ \t]+[A-Za-z0-9+/=]{20,}'
+    span: 'evidence'
+    negative: null
+  - id: 'PS_DEFENSE_EVASION_EXCLUSION'
+    title: 'PowerShell Defender Exclusion / Disable'
+    family: 'powershell_dangerous_execution'
+    severity: 'High'
+    langs: ['powershell']
+    exts: ['.ps1', '.psm1']
+    cwe: 'CWE-693'
+    owasp: 'A05:2021 - Security Misconfiguration'
+    pattern: '(?:(?:Add|Set)-MpPreference[ \t]+[^\n;]*?-ExclusionPath|Set-MpPreference[ \t]+[^\n;]*?-DisableRealtimeMonitoring)'
+    span: 'evidence'
+    negative: null
+    contract_ref: 'security_misconfiguration'
+  - id: 'PS_OBFUSCATED_INVOKE'
+    title: 'PowerShell Obfuscated Invoke-Expression'
+    family: 'powershell_dangerous_execution'
+    severity: 'High'
+    langs: ['powershell']
+    exts: ['.ps1', '.psm1']
+    cwe: 'CWE-78'
+    owasp: 'A03:2021 - Injection'
+    pattern: 'Invoke-Expression[ \t]+[^\n;]*?(?:\$\w+[ \t]*\+|\x60(?-i:[A-Z])(?:\x60[A-Za-z]){2,}|\x60[^\x60\$\n]{2,}\x60|[ \t]-f[ \t])'
+    span: 'evidence'
+    negative: null
+    contract_ref: 'code_injection'
+  - id: 'PS_DOWNLOAD_CRADLE_START_PROCESS'
+    title: 'PowerShell Start-Process Download Cradle'
+    family: 'powershell_dangerous_execution'
+    severity: 'High'
+    langs: ['powershell']
+    exts: ['.ps1', '.psm1']
+    cwe: 'CWE-78'
+    owasp: 'A03:2021 - Injection'
+    pattern: 'Start-Process[ \t]+powershell[ \t]+[^\n;]*?(?:-ArgumentList|-Command|-c)[ \t]+["\''"][^\n"\''"]*?(?:IEX|Invoke-Expression)[ \t]*\([^\n;]*?(?:New-Object[ \t]+Net\.WebClient[^\n;]*?\)[ \t]*\.(?:DownloadString|DownloadFile)|Invoke-WebRequest[^\n;]*?\)[ \t]*\.(?:Content|RawContent|Bytes))'
+    span: 'evidence'
+    negative: null
+    contract_ref: 'command_injection'
+  - id: 'PS_CREDENTIAL_DUMPING'
+    title: 'PowerShell Credential Dumping Tool'
+    family: 'powershell_dangerous_execution'
+    severity: 'Critical'
+    langs: ['powershell']
+    exts: ['.ps1', '.psm1']
+    cwe: 'CWE-798'
+    owasp: 'A07:2021 - Identification and Authentication Failures'
+    pattern: '\b(?:Invoke-Mimikatz|Invoke-CredentialInjection|DumpCreds|Invoke-TokenManipulation)\b'
+    span: 'evidence'
+    negative: null

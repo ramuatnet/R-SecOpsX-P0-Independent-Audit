@@ -175,6 +175,11 @@ LANG_BY_EXT = {
     ".ex": "elixir", ".exs": "elixir",
     ".lua": "lua", ".r": "r",
     ".pl": "perl", ".pm": "perl",
+    # C2-WIN: Windows script extensions (discovery + language mapping only;
+    # PowerShell detection rules are in scanner/rules/enterprise_v1.yaml).
+    ".ps1": "powershell", ".psm1": "powershell",
+    ".bat": "batch", ".cmd": "batch",
+    ".vbs": "vbscript",
 }
 
 # ---------------------------------------------------------------------------

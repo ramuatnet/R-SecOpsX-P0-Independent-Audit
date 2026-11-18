@@ -89,6 +89,8 @@ SCANNABLE_EXT = {
     ".swift", ".dart", ".ex", ".exs", ".lua", ".r", ".pl", ".pm",
     ".env", ".yml", ".yaml", ".properties", ".xml", ".json", ".graphql", ".gql",
     ".gradle", ".csproj", ".config", ".tf", ".Dockerfile", "Dockerfile",
+    # C2-WIN: Windows script extensions (discovery + language mapping).
+    ".ps1", ".psm1", ".bat", ".cmd", ".vbs",
 }
 EXCLUDED_FILES = file_index.EXCLUDED_FILES
 
@@ -190,6 +192,16 @@ if _os.environ.get(_PHP_WS_DISABLE_ENV) == "0":
                         if r.get("id") not in _php_ws_kill]
 
 # ---- end PHP webshell pack ----
+
+# ---- Windows-script rule family kill switch (C2-WIN) ----
+# RSECOPSX_WINDOWS_SCRIPT_RULES=0 disables the PowerShell dangerous-execution
+# rule family at load time. Discovery (SCANNABLE_EXT / LANG_BY_EXT) is NOT
+# affected by this switch.
+_WINDOWS_SCRIPT_DISABLE_ENV = "RSECOPSX_WINDOWS_SCRIPT_RULES"
+if _os.environ.get(_WINDOWS_SCRIPT_DISABLE_ENV) == "0":
+    ENTERPRISE_RULES = [r for r in ENTERPRISE_RULES
+                        if r.get("vuln") != "powershell_dangerous_execution"]
+# ---- end Windows-script kill switch ----
 
 COMPILED_ENTERPRISE_RULES = [
     {**r, "pattern": re.compile(r["pat"], _F)}
@@ -294,6 +306,7 @@ _LINE_COMMENT_PREFIXES = {
     "php": ("//", "#"),
     "solidity": ("//",),
     "vbnet": ("'",),
+    "powershell": ("#",),
     "xml": ("<!--",),
     "graphql": ("#",),
     # T-14.1b long-tail languages: without these, a pattern mention in
@@ -327,6 +340,100 @@ _BLOCK_COMMENT_DELIMS = {
     "swift": ("/*", "*/"),
     "dart": ("/*", "*/"),
 }
+
+
+# ---- C2-WIN: PowerShell string/comment suppression helpers ----
+# These are scoped to the powershell_dangerous_execution rule family only.
+# They track string state and comment state simultaneously, handling:
+#   - Single- and double-quoted strings
+#   - Doubled apostrophes in single-quoted strings
+#   - Backtick-escaped double quotes in double-quoted strings
+#   - Line comments (#) ending at newline
+#   - Block comments (<# ... #>) spanning lines
+#   - Comment delimiters inside strings are NOT treated as comments
+# Known limitation: here-strings (@'...'@ / @"..."@) are NOT modeled.
+
+def _ps_starts_in_string(source: str, offset: int) -> bool:
+    """True if offset is inside a single- or double-quoted PowerShell string."""
+    if offset < 0:
+        return False
+    i = 0
+    in_s = False
+    qc = None
+    while i < offset and i < len(source):
+        ch = source[i]
+        if not in_s:
+            if ch in ('"', "'"):
+                in_s = True
+                qc = ch
+        else:
+            if ch == qc:
+                in_s = False
+                qc = None
+            elif ch == '`' and qc == '"':
+                i += 1  # skip escaped char in double-quoted string
+        i += 1
+    return in_s
+
+
+def _ps_starts_in_comment(source: str, offset: int) -> bool:
+    """True if offset is inside a PowerShell comment.
+
+    String-aware: comment markers inside strings are NOT comments.
+    Line comments (#) are line-scoped (end at \\n).
+    Block comments (<# ... #>) can span lines.
+    """
+    if offset < 0:
+        return False
+    i = 0
+    in_s = False
+    qc = None
+    in_block = False
+    while i < offset and i < len(source):
+        ch = source[i] if i < len(source) else ''
+        if in_block:
+            if source[i:i + 2] == '#>':
+                in_block = False
+                i += 2
+                continue
+            i += 1
+            continue
+        if in_s:
+            if ch == qc:
+                in_s = False
+                qc = None
+            elif ch == '`' and qc == '"':
+                i += 2
+                continue
+            i += 1
+            continue
+        # Not in string or block comment
+        if ch in ('"', "'"):
+            in_s = True
+            qc = ch
+            i += 1
+            continue
+        if source[i:i + 2] == '<#':
+            in_block = True
+            i += 2
+            continue
+        if ch == '#' and source[i:i + 2] != '#>':
+            # Line comment: skip to end of line
+            nl = source.find('\n', i)
+            if nl == -1 or nl >= offset:
+                return True  # offset is on this comment line
+            i = nl + 1
+            continue
+        i += 1
+    return in_block
+
+
+def _ps_match_suppressed(source: str, match_start: int) -> bool:
+    """True if a PowerShell rule match should be suppressed (comment or string)."""
+    return _ps_starts_in_comment(source, match_start) or _ps_starts_in_string(source, match_start)
+
+
+# ---- end C2-WIN suppression helpers ----
 
 
 def _is_comment(snippet: str, language: str) -> bool:
@@ -2425,6 +2532,11 @@ def scan_file(filepath: str) -> list[dict]:
                 rule["pattern"], source,
                 rule_id=rule.get("id") or "?",
                 file_path=str(filepath), lines=lines_ke):
+            # C2-WIN: family-scoped PowerShell comment/string suppression.
+            # Only applies to the powershell_dangerous_execution family.
+            if (rule.get("vuln") == "powershell_dangerous_execution"
+                    and _ps_match_suppressed(source, match.start())):
+                continue
             if rule.get("id") == "NPM_SUPPLY_CHAIN_SCRIPT" and package_lock:
                 continue
             if str(rule.get("vuln") or rule.get("vuln_type") or "").lower() == "ssrf":
