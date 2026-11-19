@@ -21,6 +21,10 @@ from typing import Any
 from core.mapper import get_owasp_summary, get_mitre_summary
 from core import report_aggregates
 from core.rule_contract_adapter import adapt_findings
+# B3-ID Phase A (contract: audit_output/B3_ID_PHASE_A_IMPLEMENTATION_CONTRACT.md):
+# stable finding_uid + canonical ordering. Strictly additive -- the legacy
+# fingerprint/root_key/group_key formulas below are untouched.
+from core import finding_identity as _finding_identity
 # T-0.1 (task.md ground rule 3): every filter pass annotates, never silently
 # deletes.  filter_trace is dependency-free, so no import cycle is possible.
 from core import filter_trace
@@ -1141,6 +1145,11 @@ def _finalize_occurrence_integrity(findings: list[dict]) -> list[dict]:
 def build_report_payload(findings: list[dict], sbom: list[dict],
                          target_path: str) -> dict[str, Any]:
     findings = adapt_findings(findings)
+    # B3-ID S2 (contract §4): canonical pre-dedup ordering. deduplicate()'s
+    # conflict rules are order-symmetric, so this reorder changes no survivor
+    # SET -- it only makes the previously arrival-dependent tie winners
+    # deterministic regardless of worker count. Membership unchanged.
+    findings = _finding_identity.sorted_canonically(findings, target_path)
     deduped  = deduplicate(findings)
     # Issue 2 FIX: drop any finding that enrich_finding signals as invalid
     # (returns {} for IDOR with http sink_category)
@@ -1173,6 +1182,15 @@ def build_report_payload(findings: list[dict], sbom: list[dict],
     # and EVIDEX evidence after every dedupe/pruning operation so stale
     # aggregate counters/evidence from pre-pruned detections cannot survive.
     enriched = _finalize_occurrence_integrity(enriched)
+    # B3-ID (contract §1/§4): stable UIDs are assigned AFTER the final
+    # normalization pass (these are the objects that become payload
+    # findings) and BEFORE the severity grouping that feeds every renderer.
+    # Strictly additive: assign_uids only adds finding_uid; the canonical
+    # re-sort invariant below makes payload["findings"] and the severity
+    # buckets deterministic. The legacy fingerprint (location-anchored) is
+    # left exactly as enrich_finding stamped it.
+    _finding_identity.assign_uids(enriched, target_path)
+    enriched.sort(key=lambda f: _finding_identity.sort_key(f, target_path))
     grouped  = group_by_severity(enriched)
 
     scored_sbom = [_score_sbom_entry(p) for p in sbom]

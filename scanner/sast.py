@@ -66,6 +66,12 @@ except Exception:
                 out.append(f)
         return out
 
+# B3-ID Phase A (contract: audit_output/B3_ID_PHASE_A_IMPLEMENTATION_CONTRACT.md):
+# S1 canonical ordering of the gathered findings before cross-engine
+# grouping. Import hoisted to module top (no cold import inside the scan
+# window). Reorder only -- membership unchanged.
+from core.finding_identity import sort_in_place as _b3id_sort_in_place
+
 _F = re.IGNORECASE | re.MULTILINE | re.DOTALL
 
 # IANA HTTP method names (RFC 9110).  A comparison literal that is one of
@@ -3024,6 +3030,16 @@ def scan_directory(target_path: str, workers: int = 2) -> list[dict]:
         all_findings.extend(_artifact_scan(target))
     except Exception as _artifact_error:
         _LOG.warning("       ! model artifact scan unavailable: %s", _artifact_error)
+
+    # B3-ID S1 (contract §4): canonical ordering AFTER every engine
+    # post-pass has appended its findings and BEFORE group_findings. The
+    # walk itself is already deterministic (core/file_index.py sorts by
+    # relative path); the only ordering nondeterminism was the
+    # as_completed gather -- this reorder removes it, so group_findings'
+    # representative selection, metadata tie-breaks and affected_files
+    # order are deterministic regardless of worker count. Membership
+    # unchanged (group_findings' group SET is arrival-invariant).
+    _b3id_sort_in_place(all_findings, str(target))
 
     grouped = group_findings(all_findings)
     return grouped
