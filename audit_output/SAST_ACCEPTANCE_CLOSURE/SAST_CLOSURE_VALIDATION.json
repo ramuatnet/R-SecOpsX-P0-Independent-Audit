@@ -1,0 +1,72 @@
+{
+ "erratum_vs_history": {
+  "2603e58_ancestor_of_b42316c": true,
+  "commits_6a07066_to_b42316c": 12,
+  "expected_12": true,
+  "merges": 0,
+  "new_tests_actual": 22,
+  "expected_22": true,
+  "result": "VERIFIED"
+ },
+ "skip_ledger": {
+  "identity_rows": 12,
+  "rust_conditional_rows": 10,
+  "resumed_rows": 2,
+  "unique_identities": true,
+  "aggregate_rows": 4,
+  "both_required_resumed_identities_present": true,
+  "all_rust_conditional_on_native": true,
+  "all_resumed_passed": true,
+  "result": "VERIFIED"
+ },
+ "skip_arithmetic": {
+  "baseline_skipped": 66,
+  "rust_relocations": 10,
+  "resumed": 2,
+  "final_skipped": 74,
+  "arithmetic_66+10-2==final": true,
+  "final_failed": 3,
+  "final_passed": 5127,
+  "collected_total": 5204,
+  "failed_identity_count_in_log": 3,
+  "result": "VERIFIED"
+ },
+ "fixture_inventory": {
+  "reports_files": 1,
+  "quarantine_files": 56,
+  "backup_py_files": 127,
+  "expected": "1 / 56 / 127",
+  "preserved_untouched": true,
+  "method": "os.walk (the earlier bash -c subprocess returned zeros - probe artifact, not a fixture change)",
+  "result": "VERIFIED"
+ },
+ "inventory_arithmetic": {
+  "counts": {
+   "IMPLEMENTED_VERIFIED": 25,
+   "PARTIAL": 18,
+   "MISSING": 7,
+   "IMPLEMENTED_UNVERIFIED": 2,
+   "OUT_OF_SCOPE": 1,
+   "NOT_STARTED": 2
+  },
+  "sum": 55,
+  "rows": 55,
+  "expected_55": true,
+  "result": "VERIFIED"
+ },
+ "cross_document_consistency": {
+  "b42316c_in_both": "YES",
+  "count_22_in_both": "YES",
+  "skip_66_74_in_both": "YES",
+  "final_3_5127_74_in_freeze": "YES",
+  "result": "VERIFIED"
+ },
+ "not_verified": [
+  "official SARIF 2.1.0 schema validation (no vendored schema; offline)",
+  "Rust-conditional test bodies executed (native core absent on host)",
+  "full test suite re-run (would mutate the cache - boundary forbidden)",
+  "V11-side byte provenance of the fixtures (V11 access forbidden)",
+  "commit of the closure deliverables (commit policy: awaiting explicit authorization)"
+ ],
+ "overall": "VERIFIED"
+}

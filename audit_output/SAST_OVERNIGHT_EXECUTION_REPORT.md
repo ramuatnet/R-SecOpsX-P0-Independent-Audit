@@ -88,3 +88,14 @@ Completion is calculated from the reconciled 55-row inventory, not from the run 
 - Scope held to SAST: no SCA/SBOM/IaC/DAST/Cloud/ASM/IAM/Rust/tenancy implementation; the B-1 skip-flipper and parked code untouched.
 - No test weakening: skips are registered-marker-conditional (tests run when the capability exists); no xfails, relaxed assertions, pinned counts, deleted tests, or swallowed exceptions; the one failing test the night produced (self-scan hazard) was fixed, not suppressed.
 - No external target scanning; all validation offline on repository fixtures/local corpora.
+
+---
+
+## ADDENDUM · 2026-11-18 — dated erratum (acceptance closure; historical text above preserved unmodified)
+
+Per the acceptance audit (`audit_output/SAST_ACCEPTANCE_REVIEW/SAST_ACCEPTANCE_AUDIT.md`, verdict `ACCEPT_WITH_REVISIONS`, condition 2) and the full erratum `audit_output/SAST_ACCEPTANCE_CLOSURE/SAST_CAMPAIGN_ERRATUM.md`:
+
+- **Ending HEAD:** the actual final commit is **`b42316c`** (the closure deliverables commit, docs-only). The "Ending HEAD: `2603e58`" recorded above is an **ancestor** of `b42316c`; the 11 implementation commits are unchanged and exactly as reported.
+- **Commit count:** 12 total — 11 implementation + 1 closure.
+- **New tests:** **22** (not 23) — exact added-`def test_` count and collected delta (5,204 − 5,182) both give 22.
+- All other figures in this report (final regression 3 failed / 5,127 passed / 74 skipped; the 3 unchanged SCA-class failure identities; zero new failures; skip arithmetic 66 → 74) were independently re-verified and stand as written.
