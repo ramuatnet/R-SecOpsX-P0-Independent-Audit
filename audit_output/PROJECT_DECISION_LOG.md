@@ -1190,3 +1190,33 @@ or suppressed; stash and pre-existing dirty/untracked state preserved
 throughout. This decision does NOT authorize: B-2/B-5/B-7 implementation,
 B-4 disclosure-note or calibration study, publication, R3.
 Next: separately authorized work only.
+
+## D-044 · 2026-11-21 · B-5a (F-R4-A) owner acceptance + conditional two-file commit authorization exercised
+
+FACTS: B-5a (gomod zero-parseable-records envelope) was implemented 2026-11-20
+against the uncommitted working tree @ `0da0d80` (no staging; 25 tracked mods
+= 23 prior + the 2 B-5a files). Owner decision 2026-11-21 (this session):
+
+1. **ACCEPTANCE** — B-5a accepted based on the controlled repeat, which
+   reproduced the accepted baseline exactly (3 failed / 5,290 passed / 75
+   skipped, 13:26, run_tag `b5a_repeat_20261120`, pinned offline advisory
+   cache); the 3 transient timing flakes of the first contended run
+   (R-FR3-2 ×2 + F-W1-2) did not recur. Both runs recorded accurately in
+   V-037, including the initial 6-failure result (evidence:
+   `audit_output/b3id_phase_b_waves23/b5a_full_regression.log` +
+   `b5a_repeat_regression.log`; pin proofs
+   `audit_output/b3id_phase_b_baseline_normalized/pin_activation_proof_b5a_{full,repeat}_20261120.json`).
+2. **CONDITIONAL COMMIT AUTHORIZATION EXERCISED** — one separate commit
+   containing EXACTLY `analysis/lock_graph/gomod.py` +
+   `tests/test_lock_graph_gomod.py`: commit `3fe7703`
+   (`3fe7703130fa93a5ec60234497ead897b24fa511`, parent `0da0d80`, 2 files,
+   67+/15−). Pre-commit integrity: working-tree blob hashes equal the diff
+   post-images (`fdf63d8…` / `96f39b3…`) — commit content == validated
+   content. Post-commit: staged 0; remaining tracked mods 23 (all unrelated
+   work preserved); stash (1) intact; no push.
+3. **BOUNDARIES** — B-5b/B-5c NOT implemented (untouched); no push; no
+   history operation; unrelated changes preserved. The D-044/V-037 ledger
+   edits themselves are UNCOMMITTED working-tree changes by design (the
+   authorized commit scope was owner-capped at the 2 code files).
+
+Next: owner-directed work only (B-5b/B-5c and any further authorization remain open).

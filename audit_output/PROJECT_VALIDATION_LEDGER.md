@@ -812,3 +812,19 @@ not run.
 | Protected state (final) | status / stash / V11 / remotes | tracked set unchanged (cache only); stash 1 intact; V11 `889170a` untouched; no remote operation at any point **[REPRODUCED]** |
 | Exclusions honored | review of executed actions | project R3 not started; B-1 skip flipper not reopened; F-CDX16-R3 (test finding) distinct from project R3 — untouched post-acceptance **[PRESERVED]** |
 | Verdict | — | **ALL OVERNIGHT GATES PASS; BASELINE-IDENTICAL REGRESSION; NO UNAUTHORIZED CHANGE.** Documentation commits `77f21f4`/`dbe1f3c`/`b8df396`/`40c0b4b` validated; B-2/B-5/B-7 implementation and B-4 disclosure note remain separately gated; publication NOT performed |
+
+## V-037 · 2026-11-21 · B-5a regression evidence reconciliation — contended run + controlled repeat (artifacts `b5a_*`; related decision D-044)
+
+Evidence classes: **[REPRODUCED]** = executed this session; **[PRESERVED]** =
+read from preserved run artifacts (2026-11-20) without re-execution.
+
+| Check | Method | Result |
+|---|---|---|
+| Run 1 (contended) result | artifact `audit_output/b3id_phase_b_waves23/b5a_full_regression.log` + `b5a_pytest_rc.txt` | **6 failed / 5,287 passed / 75 skipped** in 2436.89 s (40:36), PYTEST_RC=1 **[PRESERVED]** |
+| Run 1 failure identities | failure-section extraction from the log | 3 recurring/historical: `test_emitter_check_passes_on_committed_artifacts`, `test_package_release_date_still_counts_as_freshness`, `test_looks_recent_ignores_missing_and_advisory_dates`; 3 transient timing: `test_5mb_minified_js_no_regex_exceeds_budget`, `test_fr3_s1_single_thread_baseline`, `test_walk_10k_file_tree_is_fast` (prior-session classification R-FR3-2 ×2 + F-W1-2) **[PRESERVED]** |
+| Controlled repeat result | artifact `b5a_repeat_regression.log` + `b5a_repeat_pytest_rc.txt` | **3 failed / 5,290 passed / 75 skipped** in 806.33 s (13:26), PYTEST_RC=1 **[PRESERVED]** |
+| Repeat failure identities | failure-section extraction | exactly the 3 recurring/historical; all 3 transient timing flakes ABSENT — accepted baseline reproduced exactly **[PRESERVED]** |
+| Count reconciliation | arithmetic over both logs | 5,287+6+75 = 5,290+3+75 = 5,368 population in both runs **[REPRODUCED]** |
+| Offline pin mechanism | `audit_output/b3id_phase_b_baseline_normalized/pin_activation_proof_b5a_repeat_20261120.json` | run_tag `b5a_repeat_20261120`, activated 2026-11-20T07:35:13Z, pinned cache `tests/replay/vuln_cache_pinned.json` (sha256 `9d7aa22614ce1162ba402841e9d7d0f834dbfcf9cdbd72291991172c51682759`, 122,555 B); full-run twin `pin_activation_proof_b5a_full_20261120.json` present **[PRESERVED]** |
+| Commit content tie | diff post-image vs working-tree blob hashes (pre-commit) | `gomod.py` `fdf63d8…` / `tests/test_lock_graph_gomod.py` `96f39b3…` == diff post-images; commit `3fe7703` contains exactly the validated content **[REPRODUCED]** |
+| Verdict | — | **GATE-AS-WRITTEN FAILURE OF RUN 1 DISCLOSED AND RESOLVED BY CONTROLLED REPEAT: the 3 transient flakes did not recur; the accepted baseline (3 historical failures) was reproduced exactly; B-5a ACCEPTED per D-044.** No suite re-execution this session (artifact-based reconciliation per policy) |
