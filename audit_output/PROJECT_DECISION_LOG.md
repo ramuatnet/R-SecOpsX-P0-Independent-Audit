@@ -1220,3 +1220,239 @@ against the uncommitted working tree @ `0da0d80` (no staging; 25 tracked mods
    authorized commit scope was owner-capped at the 2 code files).
 
 Next: owner-directed work only (B-5b/B-5c and any further authorization remain open).
+
+## D-045 · 2026-11-21 · B-5b (Cargo child-side dependency-edge provenance) implemented + owner ACCEPT — no commit/push authorization
+
+FACTS: B-5b was implemented 2026-11-21 against the uncommitted working tree
+@ `78fac3c` on feature/r2-multiecosystem-graph (4 files, +197/−17; exact
+numstat in V-038). Paired change: `analysis/lock_graph/cargo.py` discloses
+child-side provenance on VERIFIED edges only (`child_source_kind` /
+`child_source` / `child_revision` verbatim `#`-fragment when the child's
+own [[package]] source carries one; AMBIGUOUS/UNRESOLVED children carry
+none — nothing fabricated), and `tools/oracle_cargo.py` independently
+re-derives the same provenance contract from its own TOML walk (the
+extractor is never imported) and gates PASS on it.
+
+1. **IMPLEMENTATION + VALIDATION** — RED-first demonstrated (3 expected
+   failures: `KeyError: 'child_source_kind'` ×3; 1 boundary test passing
+   by design pre+post). GREEN: Cargo suite 24 passed; oracle diagnostics
+   7 passed; wider lock-graph regression 258 passed; oracle battery —
+   probe fixture 1/1 identity + 0 provenance mismatches (PASS), tamper
+   probe FAILED rc=1 with exactly 1 provenance mismatch detected (oracle
+   independence demonstrated), real corpus rust/Cargo.lock 125/125
+   identities + 0 provenance mismatches (== recorded R2.4 identity
+   baseline). Full evidence and exact counts: V-038.
+2. **OWNER ACCEPTANCE (2026-11-21)** — Workstream B-5b: **ACCEPT**,
+   explicit; owner comments: NONE. Acceptance applies to the
+   implementation and the focused validation evidence presented in the
+   B-5b implementation report (recorded as V-038).
+3. **AUTHORIZATION BOUNDARIES** — this acceptance does NOT authorize a
+   commit (B-5b remains UNCOMMITTED at HEAD `78fac3c`), a push, B-5c,
+   Wave 4/VEX, or R3. Any commit requires a separate explicit Project
+   Owner authorization.
+4. **DISCLOSED** — pre-existing `SyntaxWarning` at
+   tests/test_lock_graph_cargo.py:133 ('is' with tuple literal) untouched;
+   `expected_lock` interface extended 3→4-tuple with a disclosed unpack
+   adaptation in tests/test_oracle_diagnostics.py (display assertion
+   unchanged — update, not weakening); provenance compared only for
+   extractor-claimed identities (absent/invented edges remain identity
+   failures — no double-flagging).
+
+Next: owner-directed work only.
+
+## D-046 · 2026-11-21 · B-5c (AMBIGUOUS candidate duplicate semantics) implemented + owner ACCEPT — no commit/push authorization
+
+FACTS: B-5c was implemented 2026-11-21 against the uncommitted working tree
+@ `78fac3c` on feature/r2-multiecosystem-graph (paired extractor+oracle
+change per the authorized B-5 proposal §3 Commit 3; files: cargo.py +
+oracle_cargo.py + test_lock_graph_cargo.py; test_oracle_diagnostics.py
+NOT changed by B-5c).
+
+1. **SCOPE + OUTCOME** — AMBIGUOUS candidate duplicate semantics: two
+   distinct Cargo instances with identical name+version but different
+   sources generated duplicate candidate disclosure strings
+   (`['d@1.0.0', 'd@1.0.0']`, probe fixture_c); the extractor now
+   deduplicates the disclosure strings (`sorted(set(...))`, R2.3 yarn
+   convention) while distinct instances, source-hint disambiguation, the
+   AMBIGUOUS decision, empty child version,
+   `AMBIGUOUS_MULTIPLE_INSTANCES` and the absence of a fingerprint all
+   remain unchanged; `tools/oracle_cargo.py` applies the same candidate
+   normalization independently (own derivation, extractor never
+   imported). Evidence and exact counts: V-039.
+2. **DISCOVERED PRE-EXISTING ORACLE DEFECT CORRECTED (part of accepted
+   scope)** — expected AMBIGUOUS keys were (parent, parent_version,
+   child) tuples while extractor-side keys were pipe-joined strings, so
+   the candidate reconciliation could never match (dead since R2.4; the
+   rust corpus has AMBIGUOUS 0 and never exercised it); keys were
+   aligned so the proposal's B-5c reconciliation gate functions. This
+   activates a previously ineffective check — a strengthening, disclosed
+   in code and in the implementation report.
+3. **OWNER ACCEPTANCE (2026-11-21)** — Workstream B-5c: **ACCEPT**,
+   explicit; owner comments: NONE. Acceptance applies to the
+   implementation and the focused validation evidence presented in the
+   B-5c implementation report (recorded as V-039).
+4. **AUTHORIZATION BOUNDARIES** — this acceptance does NOT imply a
+   commit (B-5c remains UNCOMMITTED at HEAD `78fac3c`, alongside the
+   accepted B-5b), a push, Wave 4/VEX, R3, or any other workstream. Any
+   commit requires separate explicit Project Owner authorization.
+
+Next: owner-directed work only.
+
+## D-047 · 2026-11-21 · G-P0-1 B3-ID prepared-commit decision EXECUTED — owner-authorized controlled commit of the verified 21-file manifest
+
+FACTS: the G-P0-1 workstream (B3-ID Phase B Waves 1–3, register entry
+G-P0-1) reached its owner decision: the Project Owner authorized staging
+and then the commit of the corrected, evidence-verified 21-file manifest
+(revised from the historical 23-file wording by owner-approved exclusions,
+per the G-P0-1 readiness + 10-file attribution verification tasks).
+
+1. **COMMIT EXECUTED** — `b47b85b` (`b47b85b5885d1bf74541590a074594f3cd130fc6`,
+   subject `feat(p0): commit accepted B3-ID waves 1-3`, parent
+   `78fac3c5caa0196cccefceffa7bb1292aeb7a2bc`): exactly the approved 21-file
+   manifest (6 Wave-1 + 10 Wave-2 production + 1 Wave-3 + 4 R-6 linkage
+   tests), 21 files +297/−25. Pre-commit checks: all seven passed (branch,
+   HEAD, staged-set equality, 21/21 index-vs-working-tree blob hashes,
+   unstaged set == the 8 protected exclusions, exclusions unstaged, stash
+   intact). Post-commit: path-set equality exact (no additional or missing
+   paths), zero excluded paths in the commit, staging empty, 8 protected
+   modifications remain unstaged, stash intact. Full evidence: V-040.
+2. **SCOPE CORRECTION (owner-approved)** — the historical register wording
+   "23-file set" was revised to 21 files: `SAST_OVERNIGHT_EXECUTION_REPORT.md`
+   excluded (its current content belongs to the G-P0-2 prepared commit —
+   later SAST erratum) and `data/.vuln_cache.json` excluded (runtime cache,
+   rule-permitted refreshes; left uncommitted). Neither was silently dropped:
+   the revision was presented, evidence-verified, and owner-approved before
+   staging.
+3. **DISTINCTION PRESERVED** — this decision records implementation
+   completion of G-P0-1 (commit executed exactly as verified). It is NOT
+   the formal overall P0 acceptance (G-P0-10) and does not imply any other
+   gate's disposition.
+4. **AUTHORIZATION BOUNDARIES** — no push/publication performed or
+   authorized; ledger updates for this commit were separately authorized
+   (this D-047/V-040 pair); B-5b/B-5c remain accepted-but-uncommitted;
+   G-P0-2/G-P0-3 not started; no tests/scans in the commit task.
+
+Next: owner-directed work only (G-P0-2 SAST closure commit, G-P0-3 ledger
+backfill, and the remaining decision gates).
+
+## D-048 · 2026-11-21 · G-P0-2 SAST closure-commit decision EXECUTED — owner-authorized controlled commit of the verified seven-file manifest
+
+FACTS: the G-P0-2 workstream (SAST campaign acceptance conditions 2+3,
+register entry G-P0-2) reached its owner decision: the Project Owner
+authorized staging and the commit of the seven-file prepared manifest
+(`SAST_ACCEPTANCE_CLOSURE/SAST_ACCEPTANCE_CLOSURE_SUMMARY.md` §5), following
+the read-only readiness verification (PASS disposition, exact 7/7 scope,
+no drift).
+
+1. **COMMIT EXECUTED** — `6edc0d3`
+   (`6edc0d3a0dec08a812ee6bc49fce72d06180f3c5`, subject
+   `docs(p0): commit SAST acceptance closure evidence`, parent `b47b85b`
+   — the G-P0-1 commit): exactly the seven-file §5 manifest, 7 files
+   +349/−0 (1 tracked +11/−0 dated addendum to
+   `SAST_OVERNIGHT_EXECUTION_REPORT.md` + 6 new closure-evidence files,
+   nothing overwritten). Fresh pre-staging verification: all 7 blob hashes
+   matched the previously verified values; committed baseline byte-identical
+   to `report_BEFORE_erratum_append.md` (`c5d8c7d1…` both); staging set
+   equality exact; 7/7 index-vs-working-tree hash match; zero exclusions
+   staged. Post-commit: path-set equality exact, zero excluded paths,
+   staging empty, 7 protected modifications remain unstaged, stash intact.
+   Full evidence: V-041.
+2. **CLOSURE-VALIDATION STATUS PRESERVED** — `SAST_CLOSURE_VALIDATION.json`
+   overall VERIFIED with all six sub-checks VERIFIED; its honest
+   `not_verified` disclosures (offline SARIF schema validation, Rust-
+   conditional bodies, full-suite re-run, V11-side fixture provenance,
+   commit-authorization itself) are preserved verbatim in the committed
+   evidence and NOT superseded by this decision.
+3. **FIXTURE-PROVENANCE DECISION UNRESOLVED (deliberately)** — the §6
+   `OWNER_DECISION_REQUIRED` item (Options A/B/C in
+   `SAST_FIXTURE_PROVENANCE_ASSESSMENT.md`) remains open; no resolution is
+   inferred or recorded by this decision.
+4. **DISTINCTION PRESERVED** — this records implementation completion of
+   G-P0-2 (closure commit executed exactly per manifest). It is NOT formal
+   overall P0 acceptance (G-P0-10) and does not imply any other gate's
+   disposition.
+5. **AUTHORIZATION BOUNDARIES** — no push/publication performed or
+   authorized; no tests/scans in the commit task; B-5b/B-5c remain
+   accepted-but-uncommitted; G-P0-3 not started.
+
+Next: owner-directed work only (fixture-provenance adjudication, G-P0-3
+ledger backfill, remaining decision gates).
+
+## D-049 · 2026-11-21 · SAST campaign era backfill — campaign executed under owner task authorization; independent audit ACCEPT_WITH_REVISIONS (historical evidence record, not a new decision)
+
+FACTS (historical backfill; all facts source-verified, no new owner
+decision created): the SAST implementation campaign was executed
+2026-11-17/18 under the owner-issued task authorization
+(`SAST_overnight_tasks.md`) as 12 commits `3ff8c20..b42316c`
+(commit chain and per-commit scopes verified in
+`SAST_ACCEPTANCE_REVIEW/SAST_COMMIT_SCOPE.csv`; subjects verified in git
+history; NO push).
+
+1. **INDEPENDENT AUDIT VERDICT (preserved verbatim)** — **ACCEPT_WITH_REVISIONS**
+   (`SAST_ACCEPTANCE_REVIEW/SAST_ACCEPTANCE_AUDIT.md:100`): "the technical
+   work is independently verified (commit chain, regression accounting, all
+   nine feature slices, inventory totals); the deviations are disclosed and
+   non-concealed but leave three conditions before the next implementation
+   campaign". This verdict is NOT converted into unconditional ACCEPT.
+2. **CONDITIONS STATUS** — condition 1 (fixture governance) was split to
+   **G-P0-4** (Option B ratification — still PENDING owner decision;
+   nothing here implies its resolution). Conditions 2+3 closure evidence was
+   prepared, validated, and committed as the G-P0-2 closure commit
+   **`6edc0d3`** (recorded separately as D-048/V-041). The next campaign is
+   NOT authorized (requires explicit owner instruction AND the fixture
+   decision, per the closure summary).
+3. **BOUNDARY DEVIATIONS** — disclosed and non-concealed
+   (`SAST_BOUNDARY_DEVIATIONS.md`); carried forward, not absorbed.
+4. **BOUNDARY** — this entry records a historical era's documented outcomes;
+   it is NOT a new owner decision, NOT overall P0 acceptance (G-P0-10), and
+   does not close G-P0-4.
+
+Cross-reference: V-042 (campaign validation evidence).
+
+## D-050 · 2026-11-21 · C2-WIN era backfill — implementation committed `aa4e2be`; NO formal acceptance verdict located (UE-27 remains pending)
+
+FACTS (historical backfill; no owner decision created or inferred): the
+C2-WIN Windows/PowerShell slice was implemented and committed as
+**`aa4e2be`** ("feat(sast): add Windows PowerShell security scanning", 12
+files; NO push).
+
+1. **VALIDATION (documented)** — core 121/121 + broader 193/193 + full-suite
+   zero new failures, as recorded VERIFIED in the frozen consolidated plan
+   (row 27, `bf45b2ef…`) and register UE-27; Layer C (Batch/VBScript
+   detection) deferred-by-design.
+2. **ACCEPTANCE VERDICT: NOT LOCATED** — explicitly recorded per register
+   UE-27: "A formal acceptance verdict record for C2-WIN — none located in
+   this repository". **No ACCEPT or REJECT outcome is manufactured here.**
+   UE-27 remains AWAITING-DECISION (PENDING owner adjudication; row 27
+   reclassifies to COMPLETED only upon an actual verdict).
+3. **BOUNDARY** — implementation completion is NOT acceptance; this entry is
+   NOT overall P0 acceptance (G-P0-10).
+
+Cross-reference: V-044 (C2-WIN validation evidence).
+
+## D-051 · 2026-11-21 · B3-ID Phase A + Phase B Waves 1–3 era backfill — session acceptance ACCEPTED WITH DOCUMENTED LIMITATIONS (historical evidence record)
+
+FACTS (historical backfill; all verdicts preserved verbatim from their
+hash-verified sources):
+
+1. **PHASE A** — `0da0d80` ("feat(identity): B3-ID Phase A -- finding_uid
+   minting + canonical sort + T1-T14 tests"), parent `aa4e2be`.
+2. **PHASE B WAVE 1** — accepted with documented limitations
+   (`B3_ID_PHASE_B_WAVE_1_ACCEPTANCE_RECORD.md`, `cd19a1f2…`): F-W1-1/G-W1-1
+   closed, F-W1-2 retained as non-blocking, F-W1-3 Interpretation A;
+   corrective closure and regate history recorded in the Wave-1
+   corrective/regate reports.
+3. **PHASE B WAVES 2–3** — final verdict **ACCEPTED WITH DOCUMENTED
+   LIMITATIONS** (`B3_ID_PHASE_B_WAVES_1_TO_3_FINAL_ACCEPTANCE_REPORT.md`
+   §12, `d103feab…`); three documentation-only reconciliation passes
+   2026-11-20 (`B3_ID_PHASE_B_DOCUMENTATION_RECONCILIATION_RECORD.md`,
+   `e0d63d51…`).
+4. **DISTINCTION PRESERVED** — the historical session acceptance above is
+   distinct from the later owner-authorized G-P0-1 implementation commit
+   **`b47b85b`** (recorded separately as D-047/V-040), and both are distinct
+   from overall P0 acceptance (G-P0-10). Neither is implied by this entry.
+5. **BOUNDARY** — historical evidence record only; no new owner decision;
+   G-P0-1's ledger record and G-P0-10 remain as they were.
+
+Cross-reference: V-045 (B3-ID validation evidence); D-047/V-040 (the later
+G-P0-1 commit records).

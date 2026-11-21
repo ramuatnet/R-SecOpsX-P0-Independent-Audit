@@ -828,3 +828,155 @@ read from preserved run artifacts (2026-11-20) without re-execution.
 | Offline pin mechanism | `audit_output/b3id_phase_b_baseline_normalized/pin_activation_proof_b5a_repeat_20261120.json` | run_tag `b5a_repeat_20261120`, activated 2026-11-20T07:35:13Z, pinned cache `tests/replay/vuln_cache_pinned.json` (sha256 `9d7aa22614ce1162ba402841e9d7d0f834dbfcf9cdbd72291991172c51682759`, 122,555 B); full-run twin `pin_activation_proof_b5a_full_20261120.json` present **[PRESERVED]** |
 | Commit content tie | diff post-image vs working-tree blob hashes (pre-commit) | `gomod.py` `fdf63d8…` / `tests/test_lock_graph_gomod.py` `96f39b3…` == diff post-images; commit `3fe7703` contains exactly the validated content **[REPRODUCED]** |
 | Verdict | — | **GATE-AS-WRITTEN FAILURE OF RUN 1 DISCLOSED AND RESOLVED BY CONTROLLED REPEAT: the 3 transient flakes did not recur; the accepted baseline (3 historical failures) was reproduced exactly; B-5a ACCEPTED per D-044.** No suite re-execution this session (artifact-based reconciliation per policy) |
+
+## V-038 · 2026-11-21 · B-5b implementation + focused validation evidence (UNCOMMITTED at HEAD `78fac3c`; related decision D-045)
+
+Evidence classes: **[REPRODUCED]** = executed this implementation run
+(2026-11-21); **[NOT-EXECUTED]** = explicitly not run.
+
+| Check | Method | Result |
+|---|---|---|
+| Files changed (4, append-only extractors unchanged) | `git diff --numstat` | `analysis/lock_graph/cargo.py` +26/−13 (child-side provenance disclosure on VERIFIED edges; AMBIGUOUS/UNRESOLVED carry none); `tools/oracle_cargo.py` +54/−3 (additive independent provenance derivation + PASS gate); `tests/test_lock_graph_cargo.py` +114/−0 (4 new tests); `tests/test_oracle_diagnostics.py` +3/−1 (disclosed unpack adaptation 3→4-tuple, display assertion unchanged); total **+197/−17** **[REPRODUCED]** |
+| RED evidence (pre-fix) | `pytest tests/test_lock_graph_cargo.py -k child` | **3 failed** (`KeyError: 'child_source_kind'` ×3 — git-child, registry-child, path-child disclosure tests) / **1 passed** (nothing-fabricated boundary guard, green by design pre+post) **[REPRODUCED]** |
+| Cargo suite | `pytest tests/test_lock_graph_cargo.py -q` | **24 passed / 0 failed** (20 → 24) **[REPRODUCED]** |
+| Oracle diagnostics | `pytest tests/test_oracle_diagnostics.py -q` | **7 passed / 0 failed** **[REPRODUCED]** |
+| Wider lock-graph regression | `pytest tests/test_lock_graph_*.py -q` | **258 passed / 0 failed** **[REPRODUCED]** |
+| Probe oracle (B-5b probe fixture presented as `Cargo.lock`) | `tools/oracle_cargo.py` CLI vs extractor payload | **1/1 identity**, **PROVENANCE mismatches: 0**, ORACLE RESULT: PASS rc=0 **[REPRODUCED]** |
+| Tamper probe (oracle independence) | payload `child_source_kind` flipped to registry | ORACLE RESULT: **FAIL rc=1** with exactly **1 provenance mismatch** (expected-vs-got dicts named); oracle imports no extractor code **[REPRODUCED]** |
+| Real Cargo corpus | `rust/Cargo.lock` (65 packages, format 4) | **125/125 identities**, **PROVENANCE mismatches: 0**, PASS rc=0 (== recorded R2.4 identity baseline) **[REPRODUCED]** |
+| Full regression | — | **[NOT-EXECUTED]** — not authorized for this task; no concrete acceptance reason identified |
+| Disclosures | py_compile + test stderr | pre-existing `SyntaxWarning` tests/test_lock_graph_cargo.py:133 ('is' with tuple literal) untouched; registry and oracle dispatch on the literal filename `Cargo.lock` (probe evidence must be presented under that name); provenance compared only for extractor-claimed identities **[REPRODUCED]** |
+| Protected state | git rev-parse / status / stash | B-5b UNCOMMITTED at HEAD `78fac3c`; staged 0; 23 unrelated modified tracked files preserved (27 total mods = 23 + 4 B-5b); `stash@{0}` intact; no commit, no push; V11 untouched **[REPRODUCED]** |
+| Verdict | — | **B-5b IMPLEMENTED + FOCUSED VALIDATION COMPLETE; OWNER ACCEPTED per D-045; commit/push NOT authorized; B-5c untouched** |
+
+## V-039 · 2026-11-21 · B-5c implementation + focused validation evidence (UNCOMMITTED at HEAD `78fac3c`; related decision D-046)
+
+Evidence classes: **[REPRODUCED]** = executed this implementation run
+(2026-11-21); **[NOT-EXECUTED]** = explicitly not run.
+
+| Check | Method | Result |
+|---|---|---|
+| Implementation scope | working-tree diff review | B-5c changed exactly `analysis/lock_graph/cargo.py` (both AMBIGUOUS candidate sites → `sorted(set(...))` dedupe of disclosure strings), `tools/oracle_cargo.py` (same rule independently in `expected_lock()` + AMBIG key-alignment fix), `tests/test_lock_graph_cargo.py` (+2 tests); `tests/test_oracle_diagnostics.py` was NOT changed by B-5c. The working tree also contains the previously accepted B-5b implementation (cargo.py 32+/15−, test file +179, oracle +67/−7 CUMULATIVE vs HEAD incl. B-5b) — cumulative changes are not represented as B-5c-only **[REPRODUCED]** |
+| Defect + correction | probe fixture `fixture_c__Cargo.lock` + code inspection | two distinct instances (d@1.0.0 registry + d@1.0.0 git) → duplicate disclosure strings; extractor now dedupes (`sorted(set(...))`); distinct instances and source-hint disambiguation intact; AMBIGUOUS status, `child_version=""`, `AMBIGUOUS_MULTIPLE_INSTANCES`, no-fingerprint unchanged; oracle normalizes identically **[REPRODUCED]** |
+| Pre-existing oracle defect | battery diagnosis | expected AMBIGUOUS keys were tuples vs extractor-side pipe-joined strings — comparison never matched (dead since R2.4); corrected by aligning `got_amb` keys to the expected side; reconciliation now live **[REPRODUCED]** |
+| RED evidence (pre-fix) | `pytest tests/test_lock_graph_cargo.py -k "deduped or not_collapsed"` | **1 failed** with the exact duplicate-string mismatch `assert ['d@1.0.0', 'd@1.0.0'] == ['d@1.0.0']`; **1 passed** (distinct-versions non-collapse pin, green by design pre+post) **[REPRODUCED]** |
+| GREEN — cargo suite | `pytest tests/test_lock_graph_cargo.py -q` | **26 passed / 0 failed** (24 → 26) **[REPRODUCED]** |
+| GREEN — oracle diagnostics | `pytest tests/test_oracle_diagnostics.py -q` | **7 passed / 0 failed** **[REPRODUCED]** |
+| GREEN — wider lock-graph regression | `pytest tests/test_lock_graph_*.py -q` | **260 passed / 0 failed** (258 → 260) **[REPRODUCED]** |
+| Fixture C oracle (as `Cargo.lock`) | `tools/oracle_cargo.py` CLI vs extractor payload | **PASS rc=0**, AMBIG mismatches **0** — expected `['d@1.0.0']` reconciles with the deduped disclosure; proposal's multi-instance reconciliation gate now functions **[REPRODUCED]** |
+| Duplicate-restoring tamper probe | payload candidates restored to `['d@1.0.0','d@1.0.0']` | **FAIL rc=1**, exactly **1 AMBIG mismatch** (expected `['d@1.0.0']` vs got `['d@1.0.0','d@1.0.0']`) — oracle independently rejects duplicate-candidate disclosure **[REPRODUCED]** |
+| Fixture B oracle (B-5b preservation) | `fixture_b__Cargo.lock` as `Cargo.lock` | **PASS rc=0**, 1/1 identity + 0 provenance mismatches — accepted B-5b behavior intact **[REPRODUCED]** |
+| Real Rust Cargo corpus | `rust/Cargo.lock` (65 packages, format 4) | **125/125 identities**, AMBIGUOUS **0**, provenance mismatches **0**, PASS rc=0 **[REPRODUCED]** |
+| B-5b focused regression + provenance battery | cargo suite (4 B-5b tests green) + battery legs | **PASS** — B-5b tests and child-provenance disclosure untouched by B-5c; no B-5b test modified **[REPRODUCED]** |
+| Full regression | — | **[NOT-EXECUTED]** — not authorized; no concrete acceptance reason identified |
+| Disclosures | run records | no real-corpus AMBIGUOUS case available in the tested rust corpus — fixture C exercises the live comparison; the key-alignment correction activates a previously ineffective reconciliation check (strengthening); pre-existing `SyntaxWarning` tests/test_lock_graph_cargo.py:133 untouched; B-5c remains uncommitted **[REPRODUCED]** |
+| Protected state | git rev-parse / status / stash | B-5c UNCOMMITTED at HEAD `78fac3c` (alongside accepted B-5b); staged 0; 29 modified tracked = 23 unrelated + 4 implementation files + 2 ledgers; `stash@{0}` intact; no commit, no push; V11 untouched **[REPRODUCED]** |
+| Verdict | — | **B-5c IMPLEMENTED + FOCUSED VALIDATION COMPLETE; OWNER ACCEPTED per D-046; commit/push NOT authorized; no further workstream started** |
+
+## V-040 · 2026-11-21 · G-P0-1 controlled commit verification (commit `b47b85b`; related decision D-047)
+
+Evidence classes: **[REPRODUCED]** = executed this task (2026-11-21);
+**[NOT-EXECUTED]** = explicitly not run.
+
+| Check | Method | Result |
+|---|---|---|
+| Commit identity | `git show` | `b47b85b5885d1bf74541590a074594f3cd130fc6`, subject `feat(p0): commit accepted B3-ID waves 1-3`, parent `78fac3c5caa0196cccefceffa7bb1292aeb7a2bc` (exact) **[REPRODUCED]** |
+| Manifest equality | commit path set vs approved 21-file manifest (sorted diff) | **exact match — no additional or missing paths**; 6 Wave-1 + 10 Wave-2 production + 1 Wave-3 + 4 R-6 linkage tests **[REPRODUCED]** |
+| Diff statistics | `git show --stat` | **21 files, +297/−25** (equals the verified per-file numstat total) **[REPRODUCED]** |
+| Pre-commit checks (7) | branch/HEAD/staged-set/21×hash/unstaged-set/exclusions/stash | **all seven passed** before the commit; index blob hashes == verified pre-staging working-tree blob hashes 21/21 (`HASH-FAIL=0`) **[REPRODUCED]** |
+| Exclusions honored | commit path grep | zero excluded paths in the commit (`SAST_OVERNIGHT_EXECUTION_REPORT.md`, `data/.vuln_cache.json`, 4 B-5b/B-5c files, both ledgers) **[REPRODUCED]** |
+| Post-commit working tree | `git status` | staging empty (0); **8 protected modifications remain unstaged** (SAST report, cache, 4 B-5b/B-5c files, 2 ledgers); `stash@{0}` intact; history linear `b47b85b → 78fac3c → 3fe7703 → 0da0d80` **[REPRODUCED]** |
+| Tests / scans | — | **none run** in the commit or verification task (per authorization) **[NOT-EXECUTED]** |
+| Push / publication | — | **not performed** — no remote operation of any kind **[NOT-EXECUTED]** |
+| Verdict | — | **G-P0-1 implementation-commit evidence recorded; owner-authorized controlled commit executed exactly as verified; no push, no ledger self-commit; overall P0 acceptance (G-P0-10) untouched** |
+
+## V-041 · 2026-11-21 · G-P0-2 controlled commit verification (commit `6edc0d3`; related decision D-048)
+
+Evidence classes: **[REPRODUCED]** = executed this task (2026-11-21);
+**[NOT-EXECUTED]** = explicitly not run.
+
+| Check | Method | Result |
+|---|---|---|
+| Commit identity | `git show` | `6edc0d3a0dec08a812ee6bc49fce72d06180f3c5`, subject `docs(p0): commit SAST acceptance closure evidence`, parent `b47b85b5885d1bf74541590a074594f3cd130fc6` (the G-P0-1 commit; exact) **[REPRODUCED]** |
+| Manifest equality | commit path set vs §5 seven-file manifest (sorted diff) | **exact match — no additional or missing paths**; 1 tracked-modified + 6 new **[REPRODUCED]** |
+| Diff statistics | `git show --stat` | **7 files, +349/−0**; addendum `SAST_OVERNIGHT_EXECUTION_REPORT.md` +11/−0; 6 new files created, nothing overwritten **[REPRODUCED]** |
+| Pre-staging hash verification | fresh `git hash-object` ×7 | all 7 working-tree blob hashes **identical to the previously verified values** (`fe41b2cd…`, `43dbca4f…`, `b389c465…`, `addce4b3…`, `2859948f…`, `fff1135a…`, `99701f60…`) **[REPRODUCED]** |
+| Baseline preservation | `git show HEAD:<report>` vs `report_BEFORE_erratum_append.md` | **byte-identical** (`c5d8c7d13e4f0f0f1c826cd1ff11b782741a5d1a` both) — the committed original is 100% intact; the working diff is solely the dated addendum **[REPRODUCED]** |
+| Staging verification | staged-count/set-equality/index-vs-wt hashes ×7/exclusion grep | 7 staged; set equality PASS; **7/7 hash match**; zero excluded paths staged (`phase_a_baseline.txt` + `report_BEFORE_erratum_append.md` remain untracked working evidence) **[REPRODUCED]** |
+| Closure validation | `SAST_CLOSURE_VALIDATION.json` | **overall VERIFIED**; six sub-checks VERIFIED (erratum-vs-history, skip ledger, skip arithmetic 66+10−2=74, fixture inventory 1/56/127, inventory sum 55/55, cross-document consistency); **`not_verified` disclosures preserved verbatim** (offline SARIF schema validation; Rust-conditional bodies; full-suite re-run; V11-side fixture provenance; commit authorization itself) **[PRESERVED]** |
+| Fixture provenance | read-only | **`OWNER_DECISION_REQUIRED` — unresolved by design**; Options A/B/C left open, no resolution inferred **[PRESERVED]** |
+| Post-commit working tree | `git status` | staging empty (0); **7 protected modifications remain unstaged** (runtime cache, 4 B-5b/B-5c files, 2 ledgers); `stash@{0}` intact; history linear `6edc0d3 → b47b85b → 78fac3c → 3fe7703 → 0da0d80` **[REPRODUCED]** |
+| Tests / scans | — | **none run** (per authorization) **[NOT-EXECUTED]** |
+| Push / publication | — | **not performed** — no remote operation of any kind **[NOT-EXECUTED]** |
+| Verdict | — | **G-P0-2 implementation-commit evidence recorded; owner-authorized controlled commit executed exactly per the §5 manifest; fixture provenance deliberately left open; overall P0 acceptance (G-P0-10) untouched** |
+
+## V-042 · 2026-11-21 · SAST campaign validation evidence backfill (campaign `6a07066→b42316c`; related decision D-049)
+
+Evidence classes: **[PRESERVED]** = recorded from hash-verified committed
+evidence and closure artifacts (2026-11-17/18 campaign, re-verified from
+sources this pass); **[NOT-EXECUTED]** = not run in this backfill task.
+
+| Check | Source | Result |
+|---|---|---|
+| Campaign scope | `SAST_ACCEPTANCE_REVIEW/SAST_COMMIT_SCOPE.csv` | **12 commits `3ff8c20..b42316c`** with per-commit scope classification (11 IN_SCOPE + 1 INCIDENTAL self-SBOM refresh) **[PRESERVED]** |
+| Final baseline | `SAST_ACCEPTANCE_CLOSURE/SAST_ACCEPTANCE_CLOSURE_SUMMARY.md` §3 + `SAST_CLOSURE_VALIDATION.json` | frozen at `b42316c`: **3 failed / 5,127 passed / 74 skipped** (5,204 collected) — the 3 failures are exactly the unchanged SCA-class OUT_OF_SCOPE identities; **zero new failures** (campaign reduced the standing baseline from 27) **[PRESERVED]** |
+| Skip arithmetic | validation json | 66 + 10 − 2 = 74 VERIFIED **[PRESERVED]** |
+| Inventory | validation json | 55 rows exact (25+18+7+2+1+2) VERIFIED **[PRESERVED]** |
+| Audit verdict | `SAST_ACCEPTANCE_AUDIT.md:100` | **ACCEPT_WITH_REVISIONS** with three pre-campaign conditions — preserved verbatim, not converted **[PRESERVED]** |
+| Limitations/deviations | `SAST_BOUNDARY_DEVIATIONS.md`; §6 of the closure summary | boundary deviations disclosed; validation-PENDING items (fresh-clone portability, official SARIF schema, Rust-executed coverage) carried, not absorbed **[PRESERVED]** |
+| Closure | G-P0-2 commit | conditions 2+3 closure evidence committed as `6edc0d3` (D-048/V-041) **[PRESERVED]** |
+| Tests / push | — | no tests/scans and no push in this backfill task **[NOT-EXECUTED]** |
+| Verdict | — | **historical SAST campaign validation evidence recorded; ACCEPT_WITH_REVISIONS + conditions preserved; G-P0-4 remains pending** |
+
+## V-043 · 2026-11-21 · Option B fresh-clone validation evidence backfill (implementation `993f6b8`; related evidence: acceptance-audit §11 condition 1; G-P0-4 pending)
+
+Evidence classes: **[PRESERVED]** = recorded from the committed/validation
+artifacts (2026-11-18, re-verified from sources this pass);
+**[NOT-EXECUTED]** = not run in this backfill task.
+
+| Check | Source | Result |
+|---|---|---|
+| Implementation | git history | `993f6b8` ("test(sast): add portable synthetic prod-tree fixtures") — portable synthetic fixtures replaced V11-derived fixtures **[PRESERVED]** |
+| Fresh-clone validation | `SAST_OPTION_B_FRESH_CLONE_VALIDATION/VALIDATION_SUMMARY.md` (2026-11-18; isolated clone @ `b42316c` + Option B changes only) | per-check table VERIFIED: protected-fixture absence (all_absent=true); synthetic hash validation 33 checks / 0 false; **portable tests 14 passed / 0 failed / 0 skipped, exit 0** (with all groups absent AND with the §5 controlled fixture present); adjacent regressions 54 passed / 1 expected skip / 1 pre-existing failure **[PRESERVED]** |
+| Disclosed deviations | VALIDATION_SUMMARY.md §"Annotation corrections" | 7 misattributed `artifact=` strings (`test_v11_g035_framework_taint.py` ×4, `test_v11_p0_owasp_aibom_conformance.py` ×3) + 2 unmarked MIXED tests (`test_37`/`test_38`) corrected mid-validation — **test annotations only**; `conftest.py` hash unchanged across validation **[PRESERVED]** |
+| t118 self-sbom "drift" | VALIDATION_SUMMARY.md + pristine `b42316c` baseline clone | **proven PRE-EXISTING** (`core.autocrlf=true` CRLF checkout vs LF emitter output; content git-equivalent); unrelated to Option B **[PRESERVED]** |
+| Overall verdict | governance baseline records; register §G-P0-4 | delivered as **PASS_WITH_LIMITATIONS**; the register additionally records that the overall classification was NOT independently re-verified during its pass — both facts preserved, neither upgraded **[PRESERVED]** |
+| Ratification | register §G-P0-4 | **MISSING — no owner ratification record exists**; validation is NOT ratification; G-P0-4 remains AWAITING-DECISION **[PRESERVED]** |
+| Decision cross-reference | — | the only documented Option B decision-side reference is `SAST_ACCEPTANCE_AUDIT.md` §11 condition 1 (the condition itself; "no owner decision on record" per the register) — **no formal Option B decision entry exists in this ledger to cross-reference; disclosed, not fabricated** |
+| Tests / push | — | none in this backfill task **[NOT-EXECUTED]** |
+| Verdict | — | **Option B fresh-clone validation evidence recorded with limitations; ratification remains pending under G-P0-4** |
+
+## V-044 · 2026-11-21 · C2-WIN validation evidence backfill (implementation `aa4e2be`; related decision D-050)
+
+Evidence classes: **[PRESERVED]** = recorded from committed governance
+evidence (2026-11-18 era, re-verified from sources this pass);
+**[NOT-EXECUTED]** = not run in this backfill task.
+
+| Check | Source | Result |
+|---|---|---|
+| Implementation | git history | `aa4e2be` "feat(sast): add Windows PowerShell security scanning" (12 files); Layer C (Batch/VBScript detection) deferred-by-design **[PRESERVED]** |
+| Core + broader validation | frozen consolidated plan row 27 (`bf45b2ef…`); register UE-27 | **core 121/121 + broader 193/193** **[PRESERVED]** |
+| Full-suite regression | `B3_ID_PHASE_A_ACCEPTANCE.md:74` ("Pre-Phase-A baseline") + plan row 27 + matrix row 19 | **5,207 passed / 4 failed / 74 skipped**; **zero C2-WIN-attributable failures** ("full-suite 0 new failures" — register-verified) **[PRESERVED]** |
+| Failure attribution | `B3_ID_PHASE_A_ACCEPTANCE.md:78` | the baseline 4 = pre-existing SCA-class identities + the documented R-FR3-2 environmental timing flake ("listed among the baseline 4"); preserved as failures, not passes **[PRESERVED]** |
+| Acceptance | register UE-27 | **verdict MISSING** — formal acceptance remains unresolved under UE-27 (no outcome manufactured) **[PRESERVED]** |
+| Tests / push | — | none in this backfill task; era committed with NO push **[NOT-EXECUTED]** |
+| Verdict | — | **C2-WIN validation evidence recorded; acceptance deliberately left pending under UE-27** |
+
+## V-045 · 2026-11-21 · B3-ID Phase A/B Waves 1–3 validation evidence backfill (related decision D-051)
+
+Evidence classes: **[PRESERVED]** = recorded from the hash-verified final
+acceptance report and evidence manifest (2026-11-19/20 era, re-verified from
+sources this pass); **[NOT-EXECUTED]** = not run in this backfill task.
+
+| Check | Source | Result |
+|---|---|---|
+| Phase A | `0da0d80` (git history) | finding_uid minting + canonical sort + T1–T14 tests **[PRESERVED]** |
+| Phase-B gate | final acceptance report §7 (`d103feab…`) | **62 passed** Phase-B file (17 Wave-1 + 45 Wave-2/3 + INT-01 integration); focused suites 122 / 134 / 113 passed, rc 0 **[PRESERVED]** |
+| Gates | final acceptance report §12 | **G1–G13 green** on the final tree; R6-T1..T6, R7-T1..T5, N1–N7 exercised **[PRESERVED]** |
+| Full frozen-pin regression | report §7 + `waves23_regression.log` + `waves23_pytest_rc.txt` | **3 failed / 5,288 passed / 75 skipped / 0 errors — population 5,366**; PYTEST_RC=1 direct; 866.30 s; pin `9d7aa226…` (pin-activation proof recorded); the 3 failures = the unchanged historical identities **[PRESERVED]** |
+| Population arithmetic | report §7 | 5,320 (Wave-1 corrected tree) + 46 added tests = 5,366 **exact** **[PRESERVED]** |
+| Integrity | `waves23_integrity_PRE.txt` / `waves23_integrity_POST.txt` (both `2b94a4ec…` per the evidence manifest) | **PRE == POST** — byte-identical working-tree integrity across the waves **[PRESERVED]** |
+| Limitations | report §11/§12 | F-W1-2 retained non-blocking; §4.3 uuid5-relationship RESOLUTION OPEN; PDF Stable-ID column deferred (explicitly optional); preserved verbatim in the verdict ACCEPTED WITH DOCUMENTED LIMITATIONS **[PRESERVED]** |
+| Closure | G-P0-1 commit | the verified tree was committed as `b47b85b` (D-047/V-040) **[PRESERVED]** |
+| Tests / push | — | none in this backfill task **[NOT-EXECUTED]** |
+| Verdict | — | **B3-ID historical validation evidence recorded; ACCEPTED WITH DOCUMENTED LIMITATIONS preserved; distinct from G-P0-1 commit records and overall P0 acceptance** |
