@@ -54,6 +54,12 @@ SUPPORTED_FORMATS = {1, 2, 3, 4}
 _DEP_BLOCKS = (("dependencies", "unknown"),)
 
 
+def _source_kind(source: str) -> str:
+    """Source-string provenance kind: absent -> path, git+ -> git, else registry."""
+    return ("path" if not source else
+            ("git" if source.startswith("git+") else "registry"))
+
+
 def _parse_dep_entry(entry: str) -> tuple:
     """``name`` / ``name version`` / ``name version (source)`` ->
     (name, version|'', source_hint|'')."""
@@ -74,7 +80,7 @@ def _parse_dep_entry(entry: str) -> tuple:
 
 def _resolve_entry(universe: dict, name: str, version: str,
                    source_hint: str) -> tuple:
-    """-> (confidence, resolved_(name, version)|None, candidates).
+    """-> (confidence, resolved_block|None, candidates).
 
     Resolution order: exact (name, version); source-hint disambiguation;
     unique same-name instance; multiple same-name instances -> AMBIGUOUS.
@@ -83,31 +89,31 @@ def _resolve_entry(universe: dict, name: str, version: str,
     if version:
         exact = [b for b in blocks if b["version"] == version]
         if len(exact) == 1:
-            return (contract.VERIFIED, (exact[0]["name"],
-                                        exact[0]["version"]), [])
+            return (contract.VERIFIED, exact[0], [])
         if len(exact) > 1 and source_hint:
             by_source = [b for b in exact
                          if source_hint in str(b.get("source") or "")]
             if len(by_source) == 1:
-                return (contract.VERIFIED, (by_source[0]["name"],
-                                            by_source[0]["version"]), [])
+                return (contract.VERIFIED, by_source[0], [])
         if not exact:
             return (contract.UNRESOLVED, None, [])
+        # B-5c (F-R4-C, R2.3 yarn convention): dedupe the candidate
+        # disclosure strings -- two instances can share name+version
+        # (different sources) and rendered identically; the instances
+        # stay distinct, the disclosure list does not repeat a string.
         return (contract.AMBIGUOUS, None,
-                sorted(f"{b['name']}@{b['version']}" for b in exact))
+                sorted({f"{b['name']}@{b['version']}" for b in exact}))
     if len(blocks) == 1:
-        return (contract.VERIFIED, (blocks[0]["name"],
-                                    blocks[0]["version"]), [])
+        return (contract.VERIFIED, blocks[0], [])
     if not blocks:
         return (contract.UNRESOLVED, None, [])
     if source_hint:
         by_source = [b for b in blocks
                      if source_hint in str(b.get("source") or "")]
         if len(by_source) == 1:
-            return (contract.VERIFIED, (by_source[0]["name"],
-                                        by_source[0]["version"]), [])
+            return (contract.VERIFIED, by_source[0], [])
     return (contract.AMBIGUOUS, None,
-            sorted(f"{b['name']}@{b['version']}" for b in blocks))
+            sorted({f"{b['name']}@{b['version']}" for b in blocks}))
 
 
 def extract(lockfile_path: str) -> dict:
@@ -168,9 +174,7 @@ def extract(lockfile_path: str) -> dict:
         if not parent_name or not parent_version:
             continue
         source = str(pkg.get("source") or "")
-        parent_qualifiers = {"source_kind": ("path" if not source else
-                                             ("git" if source.startswith(
-                                                 "git+") else "registry"))}
+        parent_qualifiers = {"source_kind": _source_kind(source)}
         if source:
             parent_qualifiers["source"] = source
         for dep_entry in pkg.get("dependencies") or []:
@@ -191,10 +195,23 @@ def extract(lockfile_path: str) -> dict:
             confidence, resolved, candidates = _resolve_entry(
                 universe, child_name, child_version, source_hint)
             if confidence == contract.VERIFIED:
+                # B-5b (D-020 Ruby precedent): the resolved child's own
+                # [[package]] block is the child-side evidence -- disclose
+                # child_source_kind/child_source (+ child_revision when the
+                # source carries a # rev). AMBIGUOUS/UNRESOLVED children
+                # resolve to no single instance: nothing fabricated.
+                child_source = str(resolved.get("source") or "")
+                qualifiers["child_source_kind"] = _source_kind(child_source)
+                if child_source:
+                    qualifiers["child_source"] = child_source
+                    if "#" in child_source:
+                        qualifiers["child_revision"] = \
+                            child_source.rsplit("#", 1)[1]
                 edges.append(_edge(
                     parent_name=parent_name,
                     parent_version=parent_version,
-                    child_name=resolved[0], child_version=resolved[1]))
+                    child_name=resolved["name"],
+                    child_version=resolved["version"]))
             elif confidence == contract.AMBIGUOUS:
                 edges.append(_edge(
                     parent_name=parent_name,

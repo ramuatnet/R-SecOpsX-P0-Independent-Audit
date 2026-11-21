@@ -163,6 +163,185 @@ def test_lock_path_dependency_provenance(tmp_path):
     assert cfg_edge["confidence"] == "VERIFIED"
 
 
+# -- B-5b: child-side dependency-edge provenance (paired oracle check) ----------
+def test_lock_child_git_source_provenance(tmp_path):
+    # SYNTHETIC (B-5b probe fixture audit_output/overnight_nov17/b5/
+    # fixture_b__Cargo.lock): parent (registry) -> child resolved to a
+    # git+-sourced instance. The edge must disclose the CHILD-side source
+    # (R2.5.1 Ruby precedent, D-020): child_source_kind/child_source from
+    # the child's OWN [[package]] block + child_revision verbatim when the
+    # source carries a # rev. Parent-side disclosure, identity and
+    # confidence are untouched.
+    lock = """\
+version = 3
+
+[[package]]
+name = "parent"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = ["child 1.0.0"]
+
+[[package]]
+name = "child"
+version = "1.0.0"
+source = "git+https://github.com/example/child?branch=main#abc123def4567890"
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Cargo.lock"))
+    edge = next(e for e in result["edges"]
+                if e["confidence"] == "VERIFIED" and e["child_name"] == "child")
+    q = edge["qualifiers"]
+    # parent side unchanged
+    assert q["source_kind"] == "registry"
+    assert q["source"] == "registry+https://github.com/rust-lang/crates.io-index"
+    # child side disclosed from the child's own resolved block
+    assert q["child_source_kind"] == "git"
+    assert q["child_source"] == ("git+https://github.com/example/child"
+                                 "?branch=main#abc123def4567890")
+    assert q["child_revision"] == "abc123def4567890"
+    # identity/confidence untouched by the disclosure
+    assert (edge["parent_name"], edge["parent_version"],
+            edge["child_name"], edge["child_version"]) == (
+        "parent", "0.1.0", "child", "1.0.0")
+
+
+def test_lock_child_registry_source_provenance(tmp_path):
+    # LOCK_V4: app-core -> serde 1.0.200; the child block IS registry-sourced
+    result = registry.extract_for_file(_write(tmp_path, LOCK_V4, "Cargo.lock"))
+    edge = next(e for e in result["edges"]
+                if e["parent_name"] == "app-core" and e["child_name"] == "serde"
+                and e["confidence"] == "VERIFIED")
+    q = edge["qualifiers"]
+    assert q["child_source_kind"] == "registry"
+    assert q["child_source"] == (
+        "registry+https://github.com/rust-lang/crates.io-index")
+    assert "child_revision" not in q
+
+
+def test_lock_child_path_source_not_invented(tmp_path):
+    # cfg-if's block carries NO source line: child_source_kind=path and
+    # NO child_source/child_revision is invented
+    result = registry.extract_for_file(_write(tmp_path, LOCK_V4, "Cargo.lock"))
+    edge = next(e for e in result["edges"]
+                if e["parent_name"] == "app-core" and e["child_name"] == "cfg-if")
+    q = edge["qualifiers"]
+    assert q["child_source_kind"] == "path"
+    assert "child_source" not in q
+    assert "child_revision" not in q
+
+
+def test_lock_ambiguous_unresolved_no_child_provenance(tmp_path):
+    # B-5b boundary: an AMBIGUOUS or UNRESOLVED child resolves to no single
+    # instance -> NO child-side provenance is fabricated
+    amb_lock = """\
+version = 4
+
+[[package]]
+name = "app"
+version = "1.0.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde"
+version = "1.0.200"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "serde"
+version = "1.0.100"
+source = "git+https://github.com/example/serde#rev111"
+"""
+    result = registry.extract_for_file(_write(tmp_path, amb_lock, "Cargo.lock"))
+    amb = next(e for e in result["edges"] if e["confidence"] == "AMBIGUOUS")
+    assert "child_source_kind" not in amb["qualifiers"]
+    assert "child_source" not in amb["qualifiers"]
+    assert "child_revision" not in amb["qualifiers"]
+
+    unres_lock = """\
+version = 4
+
+[[package]]
+name = "app"
+version = "1.0.0"
+dependencies = [
+ "ghost 9.9.9",
+]
+"""
+    result2 = registry.extract_for_file(
+        _write(tmp_path, unres_lock, "Cargo.lock"))
+    unres = next(e for e in result2["edges"]
+                 if e["confidence"] == "UNRESOLVED")
+    assert "child_source_kind" not in unres["qualifiers"]
+    assert "child_source" not in unres["qualifiers"]
+    assert "child_revision" not in unres["qualifiers"]
+
+
+# -- B-5c: AMBIGUOUS candidate duplicate semantics (paired oracle check) --------
+def test_lock_ambiguous_candidates_deduped_multi_source(tmp_path):
+    # SYNTHETIC (B-5c probe fixture audit_output/overnight_nov17/b5/
+    # fixture_c__Cargo.lock): two d@1.0.0 instances (registry + git) are
+    # DISTINCT instances, but both rendered the identical candidate string
+    # "d@1.0.0" -> the candidate DISCLOSURE LIST is deduped (R2.3 yarn
+    # convention, sorted(set(...))); the AMBIGUOUS decision itself is
+    # unchanged: never picked, no fingerprint, full status disclosed.
+    lock = """\
+version = 3
+
+[[package]]
+name = "parent"
+version = "0.1.0"
+dependencies = ["d"]
+
+[[package]]
+name = "d"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "d"
+version = "1.0.0"
+source = "git+https://github.com/example/d"
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Cargo.lock"))
+    amb = [e for e in result["edges"] if e["confidence"] == "AMBIGUOUS"]
+    assert len(amb) == 1
+    assert amb[0]["ambiguity"]["candidates"] == ["d@1.0.0"]
+    assert amb[0]["resolution_status"] == "AMBIGUOUS_MULTIPLE_INSTANCES"
+    assert amb[0]["child_version"] == ""
+    assert "fingerprint" not in amb[0]
+
+
+def test_lock_ambiguous_distinct_versions_not_collapsed(tmp_path):
+    # B-5c preservation: dedupe removes only DUPLICATE strings -- genuine
+    # distinct candidates (different versions, multi-source) reconcile
+    # exactly as before.
+    lock = """\
+version = 4
+
+[[package]]
+name = "app"
+version = "1.0.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde"
+version = "1.0.200"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "serde"
+version = "1.0.100"
+source = "git+https://github.com/example/serde#rev111"
+"""
+    result = registry.extract_for_file(_write(tmp_path, lock, "Cargo.lock"))
+    amb = next(e for e in result["edges"] if e["confidence"] == "AMBIGUOUS")
+    assert amb["ambiguity"]["candidates"] == [
+        "serde@1.0.100", "serde@1.0.200"]
+
+
 def test_lock_multiple_parents(tmp_path):
     # SYNTHETIC: two parents declare cfg-if
     lock = LOCK_V4.replace(

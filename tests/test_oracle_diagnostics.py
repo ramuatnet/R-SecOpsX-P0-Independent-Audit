@@ -197,7 +197,9 @@ def test_cargo_long_missing_collection_displays_all_entries(tmp_path):
     og = _load_oracle("cargo")
     lfile = tmp_path / "Cargo.lock"
     lfile.write_text(lock, encoding="utf-8")
-    verified, _amb, _unres = og.expected_lock(str(lfile))
+    # B-5b: expected_lock now also returns the child-provenance map (4th
+    # value) -- unpack adapted; the display assertion below is unchanged.
+    verified, _amb, _unres, _prov = og.expected_lock(str(lfile))
     assert len(verified) == 8, f"fixture sanity: {sorted(verified)}"
     proc = _run("cargo", "Cargo.lock", lock, {"edges": []}, tmp_path)
     shown = _displayed_tuples(proc.stdout, "WRONG/MISSING:")

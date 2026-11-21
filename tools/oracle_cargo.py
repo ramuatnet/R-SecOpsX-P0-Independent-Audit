@@ -13,6 +13,10 @@ Contract semantics modeled independently:
 - a versionless entry naming several same-name instances -> AMBIGUOUS
   with the full candidate set;
 - zero matches -> UNRESOLVED.
+- the resolved child's own [[package]] source travels as child-side
+  provenance (child_source_kind / child_source / child_revision) and is
+  checked against this oracle's own fresh derivation (B-5b), never
+  against the extractor's output.
 
 Usage:
     python -I oracle_cargo.py <Cargo.lock> <extractor-edges.json>
@@ -51,6 +55,24 @@ def parse_dep_entry(entry):
     return (name, version, source)
 
 
+def _source_kind(source):
+    """Own provenance classification: absent -> path, git+ -> git, else registry."""
+    if not source:
+        return "path"
+    return "git" if source.startswith("git+") else "registry"
+
+
+def _child_prov(block):
+    """Expected child-side qualifier disclosure from the child's own block."""
+    source = str(block.get("source") or "")
+    expected = {"child_source_kind": _source_kind(source)}
+    if source:
+        expected["child_source"] = source
+        if "#" in source:
+            expected["child_revision"] = source.rsplit("#", 1)[1]
+    return expected
+
+
 def expected_lock(path):
     """-> (verified, ambiguous, unresolved) from a fresh TOML walk."""
     data = tomllib.loads(Path(path).read_text(encoding="utf-8",
@@ -68,6 +90,7 @@ def expected_lock(path):
     verified = set()
     ambiguous = {}
     unresolved = set()
+    provenance = {}
     for p in packages:
         parent_name = str(p.get("name") or "")
         parent_version = str(p.get("version") or "")
@@ -83,6 +106,9 @@ def expected_lock(path):
                 if len(exact) == 1:
                     verified.add((parent_name, parent_version,
                                   exact[0]["name"], exact[0]["version"]))
+                    provenance[(parent_name, parent_version,
+                                exact[0]["name"],
+                                exact[0]["version"])] = _child_prov(exact[0])
                     continue
                 if not exact:
                     unresolved.add((parent_name, parent_version,
@@ -92,6 +118,9 @@ def expected_lock(path):
                 if len(blocks) == 1:
                     verified.add((parent_name, parent_version,
                                   blocks[0]["name"], blocks[0]["version"]))
+                    provenance[(parent_name, parent_version,
+                                blocks[0]["name"],
+                                blocks[0]["version"])] = _child_prov(blocks[0])
                     continue
                 if not blocks:
                     unresolved.add((parent_name, parent_version,
@@ -104,11 +133,18 @@ def expected_lock(path):
                     verified.add((parent_name, parent_version,
                                   narrowed[0]["name"],
                                   narrowed[0]["version"]))
+                    provenance[(parent_name, parent_version,
+                                narrowed[0]["name"],
+                                narrowed[0]["version"])] = \
+                        _child_prov(narrowed[0])
                     continue
             key = (parent_name, parent_version, child_name)
+            # B-5c: identical dedupe rule as the extractor (R2.3 yarn
+            # convention) -- own fresh derivation, never the extractor's
+            # output.
             ambiguous[key] = sorted(
-                f"{b['name']}@{b['version']}" for b in blocks)
-    return verified, ambiguous, unresolved
+                {f"{b['name']}@{b['version']}" for b in blocks})
+    return verified, ambiguous, unresolved, provenance
 
 
 def expected_toml(path):
@@ -167,7 +203,7 @@ def main():
     ok = True
     if evidence.name == "Cargo.lock":
         edges = payload.get("edges") or []
-        verified, ambiguous, unresolved = expected_lock(evidence)
+        verified, ambiguous, unresolved, provenance = expected_lock(evidence)
         got = {(str(e.get("parent_name") or ""),
                 str(e.get("parent_version") or ""),
                 str(e.get("child_name") or ""),
@@ -175,9 +211,15 @@ def main():
                for e in edges if e.get("confidence") == "VERIFIED"}
         missing = verified - got
         invented = got - verified
-        got_amb = {str(e.get("parent_name")) + "|" +
-                   str(e.get("parent_version")) + "|" +
-                   str(e.get("child_name")):
+        # B-5c battery finding (pre-existing oracle defect, first real
+        # exercise of this comparison): got_amb keys were pipe-joined
+        # strings while expected_lock() keys are (parent, parent_version,
+        # child) tuples -- the AMBIGUOUS comparison could never match
+        # (always None != list). Keys aligned to the expected side so the
+        # candidate-list reconciliation is live; no expected-side change.
+        got_amb = {(str(e.get("parent_name") or ""),
+                    str(e.get("parent_version") or ""),
+                    str(e.get("child_name") or "")):
                    sorted((e.get("ambiguity") or {}).get("candidates") or [])
                    for e in edges if e.get("confidence") == "AMBIGUOUS"}
         amb_bad = {k: (v, got_amb.get(k)) for k, v in ambiguous.items()
@@ -191,6 +233,22 @@ def main():
                      and e.get("resolution_status")
                      == "CHILD_NOT_IN_LOCKFILE"}
         unres_bad = unresolved - got_unres
+        got_prov = {}
+        for e in edges:
+            if e.get("confidence") == "VERIFIED":
+                q = e.get("qualifiers") or {}
+                got_prov[(str(e.get("parent_name") or ""),
+                          str(e.get("parent_version") or ""),
+                          str(e.get("child_name") or ""),
+                          str(e.get("child_version") or ""))] = {
+                    k: q[k] for k in ("child_source_kind", "child_source",
+                                      "child_revision") if k in q}
+        # provenance is checked for identities the extractor actually
+        # claimed: an absent or invented edge is already an identity
+        # failure (MISSING/INVENTED) -- no double-flagging, and no vacuous
+        # mismatch noise when the extractor reports no edges at all.
+        prov_bad = {k: (v, got_prov.get(k)) for k, v in provenance.items()
+                    if k in got and got_prov.get(k) != v}
         print(f"oracle lock: expected VERIFIED {len(verified)}, "
               f"AMBIGUOUS {len(ambiguous)}, UNRESOLVED {len(unresolved)}")
         print(f"extractor VERIFIED identities: {len(got)}")
@@ -200,8 +258,10 @@ def main():
               f"{list(amb_bad.items())}")
         print(f"UNRESOLVED not preserved: {len(unres_bad)}  "
               f"{sorted(unres_bad)}")
+        print(f"PROVENANCE mismatches: {len(prov_bad)}  "
+              f"{sorted(prov_bad.items())}")
         ok = (not missing and not invented and not amb_bad
-              and not unres_bad)
+              and not unres_bad and not prov_bad)
     elif evidence.name == "Cargo.toml":
         exp = expected_toml(evidence)
         tallies = payload.get("tallies") or {}
