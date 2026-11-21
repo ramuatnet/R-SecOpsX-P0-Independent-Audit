@@ -89,10 +89,13 @@ def extract_graph(lockfile_path: str) -> dict:
     edges = []
     invalid_records = 0
     duplicate_dropped = 0
+    parsed_records = 0
+    substantive_lines = 0
     for raw in lines:
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
+        substantive_lines += 1
         m = _GRAPH_LINE.match(line)
         if m is None:
             # a two-token line with a versionless half is still an
@@ -120,6 +123,7 @@ def extract_graph(lockfile_path: str) -> dict:
                 child_name=child_name, child_version=child_version,
                 resolution_status="MALFORMED_GRAPH_LINE"))
             continue
+        parsed_records += 1
         parent_name = _decode_module_path(m.group(WINDOW_1))
         parent_version = m.group(WINDOW_2)
         child_name = _decode_module_path(m.group(3))
@@ -157,26 +161,39 @@ def extract_graph(lockfile_path: str) -> dict:
         e["parent_name"], e["parent_version"], e["child_name"],
         e["confidence"], e.get("child_version") or "",
     ))
-    verified_status = (contract.VERIFIED_EDGES_AVAILABLE if any(
-        e["confidence"] == contract.VERIFIED for e in edges)
-        else contract.NO_VERIFIED_EDGES)
+    if parsed_records == 0 and substantive_lines > 0:
+        # B-5a (F-R4-A): content with zero parseable graph records is not
+        # a graph at all -- say so honestly instead of NO_VERIFIED_EDGES
+        # ("graph parsed, zero verified edges"). Identity disclosures
+        # (MALFORMED_GRAPH_LINE edges) and invalid tallies are retained.
+        verified_status = contract.UNSUPPORTED_FORMAT
+    else:
+        verified_status = (contract.VERIFIED_EDGES_AVAILABLE if any(
+            e["confidence"] == contract.VERIFIED for e in edges)
+            else contract.NO_VERIFIED_EDGES)
+    limitations = [
+        "go mod graph lines are instance-to-instance resolved pairs: "
+        "AMBIGUOUS structurally cannot arise; unparseable lines are "
+        "counted invalid and versionless identities stay UNRESOLVED.",
+        "module paths are decoded from Go's escaped form (!x -> X) so "
+        "one canonical identity holds; versions (including "
+        "+incompatible and pseudo-versions) travel verbatim.",
+        "No `go` CLI in this environment (GAP-R2-08): real go mod "
+        "graph artifacts cannot be generated here; synthetic graph "
+        "fixtures carry this coverage and are disclosed as such.",
+    ]
+    if verified_status == contract.UNSUPPORTED_FORMAT:
+        limitations.append(
+            f"content contains no parseable go mod graph records: "
+            f"{invalid_records} line(s) counted invalid; "
+            f"{len(edges)} malformed identity disclosure(s) retained.")
     return contract.extraction_result(
         engine=GRAPH_ENGINE, source=str(lockfile_path),
         format_version=FORMAT_GRAPH, graph_status=verified_status,
         edges=edges,
         tallies={"duplicate_records_dropped": duplicate_dropped,
                  "invalid_records": invalid_records},
-        limitations=[
-            "go mod graph lines are instance-to-instance resolved pairs: "
-            "AMBIGUOUS structurally cannot arise; unparseable lines are "
-            "counted invalid and versionless identities stay UNRESOLVED.",
-            "module paths are decoded from Go's escaped form (!x -> X) so "
-            "one canonical identity holds; versions (including "
-            "+incompatible and pseudo-versions) travel verbatim.",
-            "No `go` CLI in this environment (GAP-R2-08): real go mod "
-            "graph artifacts cannot be generated here; synthetic graph "
-            "fixtures carry this coverage and are disclosed as such.",
-        ])
+        limitations=limitations)
 
 
 # ---- go.mod declarations --------------------------------------------------------

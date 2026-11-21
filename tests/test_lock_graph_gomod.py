@@ -175,9 +175,44 @@ def test_graph_exact_instance_semantics_never_ambiguous(tmp_path):
 
 
 def test_graph_unsupported_file_envelope(tmp_path):
+    # Disclosed assertion correction (B-5a, F-R4-A): this test originally
+    # pinned the buggy envelope ("this is not a graph" -> NO_VERIFIED_EDGES).
+    # The mandated behavior is UNSUPPORTED_FORMAT for non-graph content; the
+    # assertion is inverted with this disclosure. The test keeps full
+    # strength: the envelope is pinned both ways by
+    # test_graph_non_graph_content_unsupported_format and
+    # test_graph_empty_input_envelope_unchanged.
     result = registry.extract_for_file(
         _write(tmp_path, "this is not a graph\n", "go-mod-graph.txt"))
-    assert result["graph_status"] == "NO_VERIFIED_EDGES"
+    assert result["graph_status"] == contract.UNSUPPORTED_FORMAT
+
+
+def test_graph_non_graph_content_unsupported_format(tmp_path):
+    # B-5a red-first regression (F-R4-A): non-graph content must be
+    # classified UNSUPPORTED_FORMAT, not NO_VERIFIED_EDGES. Fixture ==
+    # the reproduced probe fixture (audit_output/overnight_nov17/b5/
+    # fixture_a_nongraph__go-mod-graph.txt). Zero lines parse as graph
+    # records; the 2-token line ("hello world") still yields its
+    # MALFORMED_GRAPH_LINE identity disclosure (never dropped), and the
+    # invalid lines stay tallied -- only the envelope vocabulary changes.
+    result = registry.extract_for_file(
+        _write(tmp_path, "hello world\n"
+               "this file is not go mod graph output\n"
+               "no edges here\n", "go-mod-graph.txt"))
+    assert result["graph_status"] == contract.UNSUPPORTED_FORMAT
+    assert result["tallies"]["invalid_records"] == 2
+    assert any(e["resolution_status"] == "MALFORMED_GRAPH_LINE"
+               for e in result["edges"])
+
+
+def test_graph_empty_input_envelope_unchanged(tmp_path):
+    # B-5a preservation pin (probe: "empty file -> NO_VERIFIED_EDGES
+    # (correct)"): a genuinely empty graph file keeps the NO_VERIFIED_EDGES
+    # envelope before and after the fix.
+    result = registry.extract_for_file(
+        _write(tmp_path, "", "go-mod-graph.txt"))
+    assert result["graph_status"] == contract.NO_VERIFIED_EDGES
+    assert result["edges"] == []
 
 
 # -- go.mod: declarations envelope ---------------------------------------------
