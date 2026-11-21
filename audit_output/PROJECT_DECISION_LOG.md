@@ -1456,3 +1456,280 @@ hash-verified sources):
 
 Cross-reference: V-045 (B3-ID validation evidence); D-047/V-040 (the later
 G-P0-1 commit records).
+
+## D-052 · 2026-11-21 · G-P0-4 RATIFIED WITH DISCLOSED LIMITATIONS — SAST Option B portable prod-tree fixtures (`993f6b8`) are the standing fixture basis
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **RATIFY WITH DISCLOSED LIMITATIONS**.
+
+1. **RATIFIED** — SAST Option B portable synthetic prod-tree fixtures
+   (`993f6b8`) are the standing fixture basis for the SAST baseline, accepted
+   WITH DISCLOSED LIMITATIONS per V-043: fresh-clone validation executed
+   (portable tests **14 passed / 0 failed / 0 skipped, exit 0**) under BOTH
+   the fixture-absent and the controlled-fixture-present conditions;
+   per-check table VERIFIED.
+2. **DISCLOSED DEVIATIONS PRESERVED** — the 7 marker-string corrections
+   (`test_v11_g035_framework_taint.py` ×4, `test_v11_p0_owasp_aibom_
+   conformance.py` ×3) and 2 marker-addition corrections (test_37/test_38)
+   remain disclosed annotation deviations from strict §5; `conftest.py`
+   hash unchanged; t118 self-SBOM drift stands as a **pre-existing
+   `core.autocrlf` condition** (proven on a pristine baseline clone).
+   The delivered `PASS_WITH_LIMITATIONS` classification is preserved —
+   **no unconditional acceptance is claimed**.
+3. **DISTINCTION PRESERVED** — the implementation/validation evidence
+   (V-043) and this ratification record are distinct artifacts: this entry
+   now supplies the formal ratification record the register recorded as
+   MISSING; G-P0-4's documented closure criterion (dated ratification
+   record) is satisfied by this entry. This does NOT close any other gate
+   and is NOT overall P0 acceptance.
+
+Cross-reference: V-043; register §G-P0-4; `993f6b8`.
+
+## D-053 · 2026-11-21 · UE-27 C2-WIN CONDITIONAL ACCEPTANCE — Windows/PowerShell slice (`aa4e2be`) formally accepted; Layer C not accepted
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **CONDITIONAL ACCEPTANCE**.
+
+1. **ACCEPTED SCOPE** — the implemented Windows/PowerShell detection slice
+   associated with `aa4e2be` ("feat(sast): add Windows PowerShell security
+   scanning", 12 files), on the documented validation evidence: core
+   **121/121**, broader **193/193**, baseline full-suite regression
+   **5,207 passed / 4 failed / 74 skipped** with **zero C2-WIN-attributable
+   failures** (V-044; the 4 failures are the preserved pre-existing
+   SCA-class identities + the R-FR3-2 environmental timing flake — historical
+   outcomes and attribution preserved verbatim).
+2. **NOT ACCEPTED** — Layer C (Batch/VBScript detection) remains **deferred
+   by design and is not accepted as implemented**; no full Windows-scripting
+   coverage is claimed. The formal verdict the register recorded as MISSING
+   is supplied by this entry; per the register's own consequence rule, plan
+   row 27 reclassifies to COMPLETED for the implemented scope.
+3. **BOUNDARY** — conditional acceptance ≠ overall P0 acceptance (G-P0-10);
+   Layer C carries forward under the G-P0-7 unsourced inventory.
+
+Cross-reference: V-044; register UE-27; `aa4e2be`.
+
+## D-054 · 2026-11-21 · Fixture provenance — OPTION C selected (requires_prod_tree markers; V11-derived register/quarantine/backup fixtures)
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **OPTION C selected** from the
+documented Options A/B/C (`SAST_FIXTURE_PROVENANCE_ASSESSMENT.md` §4).
+
+1. **SELECTED** — the V11-derived register/quarantine/backup fixture
+   dependencies are to be governed via the registered `requires_prod_tree`
+   marker policy (mandatory reasons) targeting the **nine unconditional
+   fixture-dependent tests**; fresh clones must degrade honestly through
+   reason-attached skips.
+2. **PRESERVED DISTINCTIONS** — the V11-derived files remain **local-only**:
+   nothing is fabricated, committed, or added to the P0 repository; the two
+   existing conditional cases and fixture-independent behavior are not
+   silently altered; the provenance deviation is recorded as
+   disclosed-and-managed.
+3. **NOT AUTHORIZED BY THIS ENTRY** — implementing Option C (the marker
+   conversion) requires its own separate task authorization; Option B
+   (authoring committed replacements) remains a possible FUTURE workstream,
+   explicitly not selected.
+
+Cross-reference: `SAST_FIXTURE_PROVENANCE_ASSESSMENT.md` §2–5; closure
+summary §6 (the OWNER_DECISION_REQUIRED item this entry resolves).
+
+## D-055 · 2026-11-21 · G-P0-5b production adjudication — DEFER; production/main-branch integration recorded NOT-READY
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **DEFER**.
+
+1. **ADJUDICATED** — production/main-branch integration readiness is
+   recorded **NOT-READY** as the standing position (`R2_FINAL_CLOSURE_AUDIT.md`
+   §9/§181: production integration and push are separate approvals; `origin`
+   carries no audit commit).
+2. **RECONSIDERATION** — requires a separately authorized production-
+   readiness review; this entry implies **no production approval and no
+   production readiness**.
+3. **BOUNDARY** — feed into G-P0-10; no implementation authorized.
+
+## D-056 · 2026-11-21 · G-P0-5c B-4 (R-FR3-2) — DISCLOSURE-ONLY CLOSURE approved
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **APPROVE DISCLOSURE-ONLY CLOSURE**.
+
+1. **EVIDENCE RECORDED (preserved)** — conservative-margin observation:
+   worst observed row 218.8 ms under the one-spinner condition (≈1.15×
+   headroom under heavier contention than observed); **no failure observed
+   at eight spinners**; post-study margins **S3 ≥1.454× / S5 ≥5.33×** with
+   **0 of 12 over-budget** observations (D-043-era study, V-036); the
+   historical thread-time contamination mechanism was addressed after
+   `3563a0e`.
+2. **AUTHORIZED** — the disclosure disposition only (recording the
+   observation in the test module documentation and ledgers as a disclosed
+   conservative-margin observation). The actual documentation change is a
+   separately authorized task. **Assertions and test names are preserved
+   unchanged** (identity baseline); **no new performance validation is
+   claimed**.
+
+Cross-reference: V-036; D-043 (study row); `B1_B7_HYGIENE_BACKLOG_ASSESSMENT.md` §B-4.
+
+## D-057 · 2026-11-21 · G-P0-5e residual pointer dispositions — RETAIN UNTIL PUBLICATION approved
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **APPROVE RETENTION UNTIL PUBLICATION**.
+
+1. **DISPOSITIONED** — the 18 residual local branch pointers (content-
+   verified integrated, linear history) are **retained until publication has
+   successfully landed**; deletion only after publication AND fresh
+   verification of the exact pointer inventory; **no history rewriting**.
+2. **BOUNDARY** — no branch is deleted or modified by this entry; the
+   per-pointer schedule is a hygiene record feeding G-P0-10.
+
+Cross-reference: frozen consolidated plan structural discovery (branch
+inventory); matrix row 9.
+
+## D-058 · 2026-11-21 · G-P0-6 GAP-13/B-8 — ACCEPT AS BLOCKED (protected V11 boundary)
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **ACCEPT AS BLOCKED**.
+
+1. **ADJUDICATED** — the GAP-13/B-8 defect (`ztask5.md` cites the
+   nonexistent commit `f3b2e8c` in the protected V11 worktree) is accepted
+   as a recorded **P3 documentation defect** subject to the protected V11
+   boundary; the staged P0-side correction remains preserved.
+2. **BOUNDARY** — the correction remains pending a separately authorized
+   V11-maintenance task; **this entry does not authorize access to or
+   modification of V11** in any form.
+
+Cross-reference: register §G-P0-6; `GAP13_BLOCKER_DOCUMENTATION.md`.
+
+## D-059 · 2026-11-21 · G-P0-7 carried backlog — ACCEPT AS UNSOURCED for P0 disclosure
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **ACCEPT AS UNSOURCED FOR P0
+DISCLOSURE**.
+
+1. **INVENTORY ACCEPTED AS UNSOURCED** — T26, T28, T44, T45, Layer C, and
+   here-strings: their defining documents are **unavailable in the P0
+   repository** (V11-side) and their technical definitions remain
+   **unverified** — both facts explicitly preserved.
+2. **BOUNDARY** — no provenance is fabricated and no technical verification
+   is claimed; sourcing remains possible later via a separately authorized
+   V11 read authorization; Layer C also carries the D-053 scope note.
+
+Cross-reference: register §G-P0-7; B3-ID authorization §9 reference.
+
+## D-060 · 2026-11-21 · G-P0-8a pnpm — evidence tier ACCEPTED: NOT_ESTABLISHED (real-world committed lock)
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling). Ruling: **ACCEPT the recorded evidence tier as final P0 disclosure**.
+
+Label preserved: **NOT_ESTABLISHED** for real-world committed-lock evidence
+(corpus availability blocker — evidence-establishment report §1). This is a
+separate, individual disposition; higher-tier evidence (corpus acquisition)
+requires separate authorization. No unavailable validation is claimed to
+have occurred.
+
+## D-061 · 2026-11-21 · G-P0-8b Go — evidence tier ACCEPTED: REAL_WORLD declarations/membership; NOT_GENERATABLE graph artifacts
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling). Ruling: **ACCEPT the recorded evidence tiers as final P0 disclosure**.
+
+Labels preserved: declarations/membership **REAL_WORLD** (established R2.4);
+graph artifacts **NOT_GENERATABLE** (`go` CLI absent — GAP-R2-08; evidence-
+establishment report §2). Graph-edge evidence beyond fixtures remains
+unverifiable here; a Go toolchain acquisition requires separate
+authorization. No unavailable validation is claimed.
+
+## D-062 · 2026-11-21 · G-P0-8c Cargo/Rust — evidence tier ACCEPTED: REAL_WORLD lockfile edges; NOT_GENERATABLE metadata
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling). Ruling: **ACCEPT the recorded evidence tiers as final P0 disclosure**.
+
+Labels preserved: lockfile edges **REAL_WORLD** (established R2.4); metadata
+**NOT_GENERATABLE** (shim present, no default toolchain — report §3).
+Metadata-dependent edge semantics (kinds/targets) remain unverified; a Cargo
+toolchain acquisition requires separate authorization. No unavailable
+validation is claimed.
+
+## D-063 · 2026-11-21 · G-P0-8d .NET/NuGet — evidence tier ACCEPTED: FIXTURE-only lock tiers; NOT_GENERATABLE restore validation
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling). Ruling: **ACCEPT the recorded evidence tier as final P0 disclosure**.
+
+Labels preserved: lock tiers **FIXTURE**-only; restore validation
+**NOT_GENERATABLE** (SDK absent; fixtures never real-world — report §4).
+Restore-tier evidence remains fixture-only; an SDK acquisition requires
+separate authorization. No unavailable validation is claimed.
+
+## D-064 · 2026-11-21 · G-P0-8e Gradle — evidence tier ACCEPTED: two-project REAL_WORLD; third-project capture NOT_RUN
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling). Ruling: **ACCEPT the recorded evidence tiers as final P0 disclosure**.
+
+Labels preserved: two-project evidence **REAL_WORLD** (preserved +
+hash-recorded); third-project capture **NOT_RUN** (wrapper download
+approval-gated — report §5). Gradle real evidence remains the two JVM
+projects only; wrapper-download approval requires separate authorization.
+No unavailable validation is claimed.
+
+## D-065 · 2026-11-21 · G-P0-9 R3 disposition — DEFER (not started; planning register acknowledged)
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **DEFER**.
+
+1. **ADJUDICATED** — R3 remains **not started**; the R2 §10 planning
+   register (`R2_FINAL_CLOSURE_AUDIT.md`: R3 planning readiness READY) is
+   acknowledged as the input for future R3 planning.
+2. **REQUIREMENTS TO RECONSIDER** — completed P0 closure AND a separate
+   R3 authorization package. R3 is not started and the P0 scope is not
+   expanded by this entry.
+
+## D-066 · 2026-11-21 · V-012–V-016 historical traceability gap — PRESERVED AS DOCUMENTED HISTORICAL ARTIFACT
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **PRESERVE THE DOCUMENTED HISTORICAL
+GAP** (no reconstruction).
+
+1. **FACTS PRESERVED** — V-012 through V-016 were never created in the
+   validation ledger (G-P0-3A audit finding: 40 entries, gaps at 12–16);
+   the related historical evidence exists in committed review documents
+   (`R2_3_FINAL_REVIEW.md` et al.); the existing D-016, D-021, and D-022
+   references remain **historically traceable through those documents**.
+2. **DISPOSITION** — no reconstruction is required for this disposition;
+   the append-only ledger is left as-is; **any future reconstruction
+   requires separate authorization and evidence-backed append-only
+   entries**. No replacement validation entries are created by this entry.
+
+## D-067 · 2026-11-21 · B-5b/B-5c commit packaging — APPROVED as a separate controlled exact-file-set commit
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **APPROVE SEPARATE CONTROLLED COMMIT
+PACKAGING**.
+
+1. **APPROVED** — the already owner-accepted B-5b/B-5c implementation and
+   test files (`analysis/lock_graph/cargo.py`, `tools/oracle_cargo.py`,
+   `tests/test_lock_graph_cargo.py`, `tests/test_oracle_diagnostics.py`)
+   are approved for packaging as **one separate exact-file-set commit**
+   under the established controlled procedure (fresh pre-staging
+   verification, explicit-path staging, set equality, hash verification,
+   post-commit verification).
+2. **EXPLICIT EXCLUSIONS** — the runtime vulnerability cache
+   (`data/.vuln_cache.json`), all other unrelated changes, untracked
+   evidence, and any file outside the four approved paths.
+3. **BOUNDARY** — this entry records approval of the packaging task ONLY;
+   it does **not execute staging or committing**; execution requires its
+   own authorized task with a fresh §9.1 declaration.
+
+Cross-reference: D-045/D-046 (the acceptances whose commit condition this
+approval satisfies); V-038/V-039.
+
+## D-068 · 2026-11-21 · G-P0-5a publication — DEFERRED until governance decisions and controlled commit packaging are reconciled
+
+DECISION AUTHORITY: Project Owner (explicit endorsement of the architecture
+ruling presented 2026-11-21). Ruling: **DEFER PUBLICATION**.
+
+1. **ADJUDICATED** — publication (audit-remote push) waits until the
+   governance decisions recorded in D-052…D-067 and the controlled commit
+   packaging (D-067) have been reconciled.
+2. **PRESERVED** — the previously established **clean fast-forward
+   requirement** for the 30-commit local lead over the audit remote
+   tracking ref; no push, publication, tag, or remote operation is
+   performed or authorized by this entry.
+
+Cross-reference: D-043 (publication assessment READY-FOR-AUTHORIZATION —
+deferred by this decision, not contradicted); register §G-P0-5a.
