@@ -29,6 +29,23 @@ GIL for the duration of a match), so the budget is layered:
     inputs (>64 KB) -- the only mechanism that can actually interrupt a
     catastrophic match; breach returns zero matches FOR THAT RULE+FILE
     ONLY and records a REGEX_TIMEOUT row (never a silent skip).
+
+    B-4 / R-FR3-2 disclosure (conservative-margin observation; disclosed
+    per D-056; Low, test-only; no production surface):
+
+    The S3/S5 contended-budget assertions below carry a thin theoretical
+    headroom: the worst row observed under one-spinner load was 218.8 ms
+    (quiet 78-94 ms), ~1.15x headroom against heavier contention than
+    these tests generate (FR3_INDEPENDENT_REVIEW.md:34).  No failure has
+    ever been observed at eight spinners in any recorded run.  The
+    historical process-wide CPU contamination mechanism was removed after
+    3563a0e (thread_time measurement), and the D-043-era 12-repetition
+    study measured post-fix margins of S3 >=1.454x and S5 >=5.33x with
+    0 of 12 over-budget rows and a minimum band margin of 3.1 ms (V-036).
+    These are existing recorded observations, not newly generated
+    results; the assertions, thresholds and test names in this file are
+    unchanged by this disclosure, and no new performance guarantee is
+    introduced.  This is not proof of unlimited contention safety.
 """
 from __future__ import annotations
 
