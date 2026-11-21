@@ -810,6 +810,11 @@ def _findings(ws, payload):
     ws.title = "Findings"
     # FIX #3: added Confidence and Score Rationale columns
     # FIX #4: added Affected Files column
+    # B3-ID Phase B Wave 3 (contract §6.1 #4): appended the "Stable ID"
+    # column (the finding's finding_uid; blank for legacy uid-less rows —
+    # absence is rendered honestly, never fabricated). Appended LAST so the
+    # styled column indices below (j == 5 Severity, j == 20 Confidence,
+    # j in {21, 22}) are unchanged.
     headers = [
         "#", "Rule ID", "Vulnerability Type", "Issue", "Severity", "Priority", "Risk Score",
         "File", "Affected Files", "Line",
@@ -821,6 +826,7 @@ def _findings(ws, payload):
         "Benchmark Disposition", "Evidence Qualification",
         "Decision State", "Reportable", "Evidence Valid",
         "Accuracy Verdict",
+        "Stable ID",
     ]
     widths = [
         4,   28,   30,   32,   12,   10,   10,
@@ -832,6 +838,10 @@ def _findings(ws, payload):
     ]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    # B3-ID Wave 3: explicit width for the appended Stable ID column (the
+    # legacy widths list stops at column 23 and must not be extended, which
+    # would silently re-width columns 24+).
+    ws.column_dimensions[get_column_letter(len(headers))].width = 38
 
     _title_row(ws, "DETAILED SECURITY FINDINGS SAST FINDINGS (GROUPED RECORDS) ALL COMPLIANCE FIELDS", len(headers))
     _hdr(ws, 2, headers)
@@ -897,6 +907,9 @@ def _findings(ws, payload):
             # D3: the accuracy layer's verdict, same NOT_RECORDED rule as
             # the other disposition columns -- absence is never a pass.
             _excel_accuracy_verdict(f),
+            # B3-ID Phase B Wave 3 (contract §6.1 #4): the finding's stable
+            # identity; blank for legacy uid-less rows (honest absence).
+            f.get("finding_uid") or "",
         ]
         for j, val in enumerate(row_vals, 1):
             cell = ws.cell(row=i, column=j, value=_sanitize_excel_value(val))

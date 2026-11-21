@@ -13,7 +13,7 @@ def enrich_pr_review_integration(payload: Dict[str, Any]) -> Dict[str, Any]:
     for row in changed:
         if not isinstance(row,dict) or not row.get("on_changed_line"):
             continue
-        fid=str(row.get("finding_id") or "UNIDENTIFIED_FINDING")
+        fid=str(row.get("finding_uid") or row.get("finding_id") or "UNIDENTIFIED_FINDING")
         path=str(row.get("path") or "")
         lines=row.get("changed_lines") or []
         rows.append({

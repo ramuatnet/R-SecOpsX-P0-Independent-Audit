@@ -8,7 +8,7 @@ not push into someone else's tracker, so the deliverable is the JSON that
 makes the POST a copy-paste away:
 
 * Security_Findings_Webhook.json — a reduced, redacted findings
-  projection in the stable rsecopsx.findings-webhook/v1 schema;
+  projection in the stable rsecopsx.findings-webhook/v2 schema;
 * Security_DefectDojo_Import.json — the multipart POST blueprint for
   DefectDojo's import-scan API (endpoint, form fields, the SARIF
   artifact embedded base64, a ready curl command). The contract was
@@ -97,8 +97,8 @@ def test_projection_is_one_to_one_and_carries_only_documented_keys(tmp_path):
     assert webhook["summary"]["by_severity"] == {"High": 1, "Low": 1}
     for projected in webhook["findings"]:
         assert set(projected) <= {
-            "finding_id", "rule_id", "vuln_type", "severity", "cwe",
-            "file", "line", "description", "remediation", "confidence",
+            "finding_uid", "finding_id", "rule_id", "vuln_type", "severity",
+            "cwe", "file", "line", "description", "remediation", "confidence",
             "fix_snippet",
         }
 

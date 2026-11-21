@@ -295,7 +295,12 @@ def _finding_lines(finding: Dict[str, Any]) -> List[int]:
 
 
 def _finding_id(finding: Dict[str, Any], index: int) -> str:
-    for key in ("id", "finding_id", "rule_id", "key"):
+    # B3-ID Phase B Wave 2 (contract §6.1 #7 + §3.3): the universal §3.3
+    # precedence is composed with EVERY legacy fallback field and the exact
+    # positional fallback retained byte-verbatim. Disclosed C-3 nuance: the
+    # legacy chain checked `id` before `finding_id`; the composed chain
+    # follows §3.3 (`finding_id` before `id`).
+    for key in ("finding_uid", "finding_id", "id", "rule_id", "key"):
         value = finding.get(key)
         if value not in (None, ""):
             return str(value)

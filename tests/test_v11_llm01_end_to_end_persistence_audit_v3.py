@@ -120,10 +120,16 @@ def runtime_trace():
     if isinstance(evidence, dict):
         related = evidence.get("related_finding_id")
         print("[INFO] evidence.related_finding_id:", related)
-        if raw.get("finding_id") and related == raw.get("finding_id"):
+        # B3-ID Phase B Wave 2 (R-6 §4.4 Test 3): [PASS] criterion is now
+        # uid-preferred for uid-bearing findings; uid-less findings keep the
+        # [PASS] uuid5 match; any mismatch remains [REVIEW] (strictness
+        # preserved — audit-strengthening, not weakening).
+        if raw.get("finding_uid") and related == raw.get("finding_uid"):
+            print("[PASS] evidence linkage matches finding_uid (B3-ID preferred)")
+        elif raw.get("finding_id") and related == raw.get("finding_id"):
             print("[PASS] evidence linkage matches finding_id")
         else:
-            print("[REVIEW] evidence linkage does not match finding_id")
+            print("[REVIEW] evidence linkage does not match finding identity")
 
     return stages
 

@@ -115,7 +115,8 @@ def enrich_changed_line_findings(
             scope = "UNCHANGED_FILE"
 
         finding_id = str(
-            f.get("finding_id")
+            f.get("finding_uid")  # B3-ID Phase B Wave 2 prepend (contract §6.2 #2)
+            or f.get("finding_id")
             or f.get("id")
             or ""
         ).strip()

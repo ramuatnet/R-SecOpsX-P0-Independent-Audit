@@ -194,7 +194,8 @@ def get_attack_paths(findings):
                     "source": nodes[0],
                     "sink": nodes[-1],
                     "finding_id": str(
-                        finding.get("finding_id")
+                        finding.get("finding_uid")  # B3-ID Wave 2 prepend (§6.2 #5)
+                        or finding.get("finding_id")
                         or finding.get("id")
                         or ""
                     ),
@@ -223,7 +224,8 @@ def get_attack_paths(findings):
                 "source": str(source),
                 "sink": str(sink),
                 "finding_id": str(
-                    finding.get("finding_id")
+                    finding.get("finding_uid")  # B3-ID Wave 2 prepend (§6.2 #5)
+                    or finding.get("finding_id")
                     or finding.get("id")
                     or ""
                 ),

@@ -235,6 +235,85 @@ def _check_sast_identity(out_dir: Path, payload: dict | None) -> list[str]:
     return problems
 
 
+def _check_sast_uid(out_dir: Path, payload: dict | None) -> list[str]:
+    """B8 (Phase B Wave 1): stable finding UID integrity.
+
+    Three invariants over the additive ``finding_uid`` surface:
+
+    1. FORMAT -- every uid a finding carries matches the sole generator's
+       pinned format ``^b3id1-[0-9a-f]{32}$``. Malformed values are
+       flagged, never repaired (contract §3.4).
+    2. SARIF AGREEMENT -- when the scan's ``Security_Report.sarif`` is
+       present, its ``rsecopsxFindingUid/v1`` keys and the payload's
+       well-formed finding uids agree both ways (no drift, no duplicates).
+    3. DUPLICATES (R-7) -- the same uid on two distinct payload findings
+       is an identity-assignment defect: both findings stay in the report
+       and the gate FAILS; nothing is merged or silently accepted.
+
+    Absence is not a breach: findings without a uid (pre-Phase-B
+    artifacts) pass through untouched. Per contract §3.4 the audit scope
+    is what a finding DOES carry, not what it lacks -- malformed values
+    are the flagged class, absent values are the fall-through class.
+    """
+    if payload is None or not isinstance(payload.get("findings"), list):
+        return []
+    # local imports: keeps module load cheap (same pattern as AUD-003)
+    from core.finding_identity import UID_RE
+    from reporting.sarif_export import SARIF_UID_KEY
+    problems = []
+    findings = payload["findings"]
+    seen: dict[str, list[int]] = {}
+    for i, f in enumerate(findings):
+        if not isinstance(f, dict):
+            continue
+        uid = f.get("finding_uid")
+        if uid is None or str(uid).strip() == "":
+            continue
+        uid = str(uid)
+        if not UID_RE.match(uid):
+            problems.append(
+                f"finding[{i}]: malformed finding_uid {uid!r} "
+                "(expected ^b3id1-[0-9a-f]{32}$)")
+            continue
+        seen.setdefault(uid, []).append(i)
+    for uid, idxs in sorted(seen.items()):
+        if len(idxs) > 1:
+            problems.append(
+                f"duplicate finding_uid {uid} on findings {idxs} "
+                "(R-7 identity-assignment defect: preserved, never merged)")
+    sarif_path = out_dir / "Security_Report.sarif"
+    if sarif_path.is_file():
+        try:
+            sarif = json.loads(sarif_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            problems.append(f"{sarif_path.name} did not parse: {exc}")
+            sarif = None
+        if isinstance(sarif, dict):
+            keys: dict[str, int] = {}
+            for run in sarif.get("runs") or []:
+                results = run.get("results") if isinstance(run, dict) else None
+                for res in results or []:
+                    if not isinstance(res, dict):
+                        continue
+                    key = (res.get("partialFingerprints") or {}).get(SARIF_UID_KEY)
+                    if key:
+                        keys[str(key)] = keys.get(str(key), 0) + 1
+            for uid in sorted(set(seen) - set(keys)):
+                problems.append(
+                    f"finding uid {uid} missing from {sarif_path.name} "
+                    f"{SARIF_UID_KEY} keys (SARIF/payload identity drift)")
+            for key in sorted(set(keys) - set(seen)):
+                problems.append(
+                    f"{sarif_path.name} {SARIF_UID_KEY} {key} matches no "
+                    "payload finding uid (SARIF/payload identity drift)")
+            for key, n in sorted(keys.items()):
+                if n > 1:
+                    problems.append(
+                        f"{sarif_path.name} {SARIF_UID_KEY} {key} appears "
+                        f"{n} times (duplicate uid, R-7 class)")
+    return problems
+
+
 def _check_verdict_consistency(out_dir: Path, payload: dict | None) -> list[str]:
     """B8: verdict consistency -- dispositions/verdicts use the closed
     vocabularies, and a suppression always explains itself (G1.5/B4
@@ -279,6 +358,7 @@ CHECKS: list[tuple[str, str, Check]] = [
     ("AUD-006", "Security_Report.xlsx present and non-trivial", _check_artifact("Security_Report.xlsx")),
     ("AUD-S01", "B8 stable SAST finding identity (rule_id/file/line)", _check_sast_identity),
     ("AUD-S02", "B8 verdict consistency (closed vocabularies)", _check_verdict_consistency),
+    ("AUD-S03", "B8 stable finding uid (format/SARIF agreement/R-7 duplicates)", _check_sast_uid),
 ]
 
 

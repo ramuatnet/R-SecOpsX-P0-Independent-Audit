@@ -13,6 +13,8 @@ finding's own (real) location. A finding without a taint chain emits no
 """
 from __future__ import annotations
 
+import pytest
+
 from reporting.sarif_export import build_sarif
 
 
@@ -87,3 +89,74 @@ def test_codeflow_structure_is_sarif_2_1_0_shaped():
                     pl = loc["physicalLocation"]
                     assert pl["artifactLocation"]["uri"]
                     assert pl["region"]["startLine"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# Phase B Wave 1 -- additive uid key (contract §7). The tests below are
+# ADDITIVE. Correction note (F-W1-1, corrective closure): the initial
+# Wave-1 edit inadvertently re-nested the legacy structural test's inner
+# loop (only the last threadFlow was validated); it has been restored
+# byte-identically to its 0da0d80 form, so the legacy assertions above are
+# byte-unchanged again. test_multi_threadflow_codeflow_fully_validated
+# pins the every-threadFlow validation semantics.
+# ---------------------------------------------------------------------------
+
+_UID = "b3id1-09bde52221c281601387248b7b1d325e"
+
+
+def test_uid_key_present_and_equal_to_json_uid():
+    f = _finding(finding_uid=_UID)
+    sarif = build_sarif({"findings": [f]})
+    res = sarif["runs"][0]["results"][0]
+    assert res["partialFingerprints"]["rsecopsxFindingUid/v1"] == _UID
+    assert res["partialFingerprints"]["primaryLocationLineHash"] == \
+        "src/app.py:10:TAINT_DEMO"
+
+
+def test_uid_key_absent_for_legacy_findings_never_fabricated():
+    sarif = build_sarif({"findings": [_finding()]})
+    res = sarif["runs"][0]["results"][0]
+    assert "rsecopsxFindingUid/v1" not in res["partialFingerprints"]
+
+
+def test_uid_key_stable_across_builds_with_codeflows():
+    f = _finding(finding_uid=_UID)
+    base = build_sarif({"findings": [dict(f, taint_chain=[], taint_path="")]})
+    with_flows = build_sarif({"findings": [f]})
+    r0, r1 = base["runs"][0]["results"][0], with_flows["runs"][0]["results"][0]
+    assert r0["partialFingerprints"] == r1["partialFingerprints"]
+    assert r0["partialFingerprints"]["rsecopsxFindingUid/v1"] == _UID
+
+
+def test_multi_threadflow_codeflow_fully_validated(monkeypatch):
+    """F-W1-1 focused regression (corrective closure): the legacy structural
+    test must validate EVERY threadFlow of a codeFlow, not only the last.
+
+    The initial Wave-1 edit demoted the legacy ``for tfl`` loop out of
+    ``for tf`` (gate finding F-W1-1); under that defective nesting a defect
+    planted in the FIRST threadFlow escapes validation. This test patches
+    the code-flow producer with a TWO-threadFlow fixture carrying
+    distinguishable locations -- the first structurally invalid -- and
+    requires the legacy structural test to REJECT it. It therefore fails
+    against the defective (demoted) validation and passes against the
+    corrected (nested) one."""
+    import reporting.sarif_export as se
+
+    def _two_threadflows(finding):
+        return [{"threadFlows": [
+            {"locations": [{"location": {
+                "message": {"text": "flow1-step"},                # distinguishable marker
+                "physicalLocation": {"artifactLocation": {"uri": ""},
+                                     "region": {"startLine": 0}},  # INVALID: empty uri, zero line
+            }}]},
+            {"locations": [{"location": {
+                "message": {"text": "flow2-step"},                # distinguishable marker
+                "physicalLocation": {"artifactLocation": {"uri": "src/flow2.py"},
+                                     "region": {"startLine": 2}},  # valid
+            }}]},
+        ]}]
+
+    monkeypatch.setattr(se, "_code_flows", _two_threadflows)
+    # Corrected (nested) validation: the flow-1 defect MUST be rejected.
+    with pytest.raises(AssertionError):
+        test_codeflow_structure_is_sarif_2_1_0_shaped()

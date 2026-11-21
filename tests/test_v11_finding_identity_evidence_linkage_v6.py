@@ -17,10 +17,19 @@ def main():
     assert normalize_payload({"findings":[make_finding()]})["findings"][0]["finding_id"] == f1["finding_id"]
     ev=normalize_finding_evidence(f1)
     assert getattr(ev,"related_finding_id",None) == f1["finding_id"]
+    # B3-ID Phase B Wave 2 (R-6 §4.4 Test 1): uid-preferred linkage case added;
+    # the uid-less assertion above is RETAINED verbatim as the
+    # historical-compatibility case (contract §4.4, strengthening-only).
+    fu=make_finding(); fu["finding_uid"]="b3id1-" + "ab"*16
+    fn=normalize_finding(fu)
+    assert fn.get("finding_uid") == "b3id1-" + "ab"*16   # incoming uid survives normalization
+    evu=normalize_finding_evidence(fn)
+    assert getattr(evu,"related_finding_id",None) == "b3id1-" + "ab"*16
     print("[PASS] deterministic finding_id")
     print("[PASS] existing finding_id preserved")
     print("[PASS] distinct occurrence separation")
     print("[PASS] normalize_payload preservation")
     print("[PASS] evidence.related_finding_id linkage")
+    print("[PASS] evidence.related_finding_id uid-preferred linkage (B3-ID R-6)")
     print("FINDING_ID_EVIDENCE_LINKAGE_ACCEPTED")
 if __name__ == "__main__": main()

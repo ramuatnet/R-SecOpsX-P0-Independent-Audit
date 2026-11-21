@@ -82,7 +82,10 @@ def _row(finding: dict) -> dict:
     evidence = finding.get("evidence")
     if not isinstance(evidence, list):
         evidence = []
-    fid = finding.get("finding_id") or finding.get("fingerprint")
+    # B3-ID Phase B Wave 2 (contract §6.1 #2): uid-preferred chain; the
+    # legacy finding_id/fingerprint/composite fallback is retained verbatim.
+    fid = (finding.get("finding_uid") or finding.get("finding_id")
+           or finding.get("fingerprint"))
     if not fid:
         fid = "%s:%s:%s" % (finding.get("rule_id"), finding.get("file"),
                             finding.get("line"))
@@ -250,7 +253,7 @@ function normRow(f) { return f; }
 function rowFromFull(f) {
   var acc = (f && typeof f === "object" && f.accuracy) ? f.accuracy : {};
   return {
-    id: (f.finding_id || f.fingerprint || (f.rule_id + ":" + f.file + ":" + f.line)),
+    id: (f.finding_uid || f.finding_id || f.fingerprint || (f.rule_id + ":" + f.file + ":" + f.line)),
     rule_id: f.rule_id != null ? f.rule_id : null,
     title: (f.title || f.vuln_type || f.rule_id || ""),
     severity: f.severity != null ? f.severity : null,

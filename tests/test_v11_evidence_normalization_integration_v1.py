@@ -33,6 +33,24 @@ def test_normalization_attaches_canonical_evidence():
     assert evidence["provenance"]["engine"] == "R-SecOpsX"
 
 
+def test_normalization_attaches_uid_preferred_evidence():
+    """B3-ID Phase B Wave 2 (R-6 §4.4 Test 2): uid-preferred linkage case.
+
+    Strengthening-only addition (contract §4.4): a uid-bearing finding gets
+    related_finding_id == finding_uid; the pre-existing uuid5 case in
+    test_normalization_attaches_canonical_evidence is retained unchanged as
+    the historical-compatibility case.
+    """
+    f_in = base_finding()
+    f_in["finding_uid"] = "b3id1-" + "cd"*16
+    f = normalize_finding(f_in)
+    assert f["finding_uid"] == "b3id1-" + "cd"*16  # incoming uid preserved
+    evidence = f["canonical_evidence"]
+    assert evidence["related_finding_id"] == "b3id1-" + "cd"*16
+    # dual-ID coexistence: the uuid5 finding_id is still on the finding (§2.5)
+    assert f["finding_id"] == "11111111-1111-4111-8111-111111111111"
+
+
 def test_normalization_attaches_qualified_evidence():
     f = normalize_finding(base_finding())
     q = f["canonical_qualified_evidence"]

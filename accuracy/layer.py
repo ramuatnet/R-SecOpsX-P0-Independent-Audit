@@ -183,7 +183,8 @@ def apply_accuracy_layer(payload: dict, target: str | None = None) -> dict:
             conf = 0
         by_key.setdefault(key, []).append(f)
 
-        fid = str(f.get("finding_id") or f.get("group_key") or
+        fid = str(f.get("finding_uid") or  # B3-ID Wave 2 prepend (contract §6.2 #10)
+                  f.get("finding_id") or f.get("group_key") or
                   "%s|%s|%s" % (f.get("rule_id"), f.get("file"), f.get("line")))
         audit.append({
             "finding_id": fid,

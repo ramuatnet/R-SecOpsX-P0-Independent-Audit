@@ -622,7 +622,8 @@ def _deterministic_finding_id(finding: Dict[str, Any]) -> str:
     finding ordering changes.
     """
     existing = str(
-        finding.get("finding_id")
+        finding.get("finding_uid")  # B3-ID Phase B Wave 2 prepend (contract §6.2 #4)
+        or finding.get("finding_id")
         or finding.get("id")
         or ""
     ).strip()

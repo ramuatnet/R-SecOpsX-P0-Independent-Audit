@@ -192,6 +192,29 @@ def _code_flows(finding: dict) -> list[dict]:
         locations.append({"location": loc})
     return [{"threadFlows": [{"locations": locations}]}]
 
+#: Additive identity key (Phase B Wave 1). The legacy
+#: ``primaryLocationLineHash`` key keeps its exact formula and values; this
+#: key only ever carries a uid the pipeline already assigned (never
+#: fabricated, never repaired -- contract §3.4).
+SARIF_UID_KEY = "rsecopsxFindingUid/v1"
+
+
+def _fingerprints(finding: dict) -> dict:
+    """partialFingerprints: legacy key byte-identical + additive uid key.
+
+    Absence-safe: a missing/empty uid means the uid key is simply not
+    emitted. Malformed uid values are emitted verbatim and surfaced by the
+    B8 audit gate (tools/report_audit.py AUD-S03), never repaired here.
+    """
+    prints = {
+        "primaryLocationLineHash": f"{_artifact_uri(finding)}:{_line(finding)}:{_rule_id(finding)}",
+    }
+    uid = finding.get("finding_uid")
+    if uid is not None and str(uid).strip():
+        prints[SARIF_UID_KEY] = str(uid)
+    return prints
+
+
 def _build_results(findings: list[dict]) -> list[dict]:
     results = []
     for finding in findings:
@@ -200,9 +223,7 @@ def _build_results(findings: list[dict]) -> list[dict]:
             "level": _level(finding.get("severity")),
             "message": {"text": _message(finding)},
             "locations": [{"physicalLocation": {"artifactLocation": {"uri": _artifact_uri(finding)}, "region": {"startLine": _line(finding)}}}],
-            "partialFingerprints": {
-                "primaryLocationLineHash": f"{_artifact_uri(finding)}:{_line(finding)}:{_rule_id(finding)}",
-            },
+            "partialFingerprints": _fingerprints(finding),
             "properties": {
                 "severity": finding.get("severity"), "priority": finding.get("priority"),
                 "risk_score": finding.get("risk_score"), "confidence": finding.get("confidence"),

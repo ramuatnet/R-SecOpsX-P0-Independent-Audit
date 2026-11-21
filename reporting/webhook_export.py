@@ -5,7 +5,8 @@ business writing to someone else's tracker — the artifacts ARE the
 contract, the same honesty as the Jira exporter):
 
 * ``Security_Findings_Webhook.json`` — a reduced, redacted findings
-  projection in a stable schema (``rsecopsx.findings-webhook/v1``): one
+  projection in a stable schema (``rsecopsx.findings-webhook/v2`` — v2
+  discloses the additive ``finding_uid`` field, Phase B Wave 1): one
   object per finding with the fields a triage consumer needs and nothing
   it doesn't, plus tool/project context and severity counts. This is also
   the interchange shape for SecObserve-style ingestion (their findings
@@ -39,12 +40,16 @@ from typing import Any
 
 from core.redaction import redact_pem_deep
 
-WEBHOOK_SCHEMA = "rsecopsx.findings-webhook/v1"
+WEBHOOK_SCHEMA = "rsecopsx.findings-webhook/v2"
 
 # The projection: the fields a triage consumer needs, nothing it doesn't.
+# finding_uid (Phase B Wave 1, additive) leads the tuple so the projection
+# mirrors the identity preference chain (uid first, uuid5 finding_id kept
+# byte-unchanged); the schema bumps v1 -> v2 to disclose the added field.
 # fix_snippet is optional and rides along when the finding carries one
 # (Phase 3.3 attaches it during enrichment).
 _WEBHOOK_FINDING_FIELDS = (
+    "finding_uid",
     "finding_id",
     "rule_id",
     "vuln_type",

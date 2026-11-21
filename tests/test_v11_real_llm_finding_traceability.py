@@ -44,10 +44,26 @@ def test_prompt():
 
     assert checked > 0, "No canonical LLM evidence object was produced"
 
+    # B3-ID Phase B Wave 2 (R-6 §4.4 Test 4): uid-preferred equality for a
+    # uid-bearing fixture; the loop above retains `assert related == fid`
+    # verbatim as the historical-compatibility case (uid-less findings).
+    uid_finding = dict(normalized_findings[0])
+    uid_finding["finding_uid"] = "b3id1-" + "ef"*16
+    uid_evidence = normalize_finding_evidence(uid_finding)
+    assert uid_evidence is not None
+    assert getattr(uid_evidence, "related_finding_id", None) == "b3id1-" + "ef"*16, (
+        f"uid-preferred linkage mismatch: "
+        f"finding_uid={uid_finding['finding_uid']}, "
+        f"related_finding_id={getattr(uid_evidence, 'related_finding_id', None)}"
+    )
+    # dual-ID coexistence: the uuid5 finding_id is retained on the finding
+    assert uid_finding["finding_id"] == normalized_findings[0]["finding_id"]
+
     print("[PASS] LLM01 real scanner produced finding")
     print("[PASS] LLM finding received finding_id")
     print("[PASS] LLM canonical evidence produced")
     print("[PASS] LLM evidence.related_finding_id matches finding_id")
+    print("[PASS] LLM evidence.related_finding_id uid-preferred (B3-ID R-6)")
 
 
 def main():

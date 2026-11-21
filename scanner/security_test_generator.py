@@ -107,9 +107,10 @@ def generate_security_test_blueprints(payload: Dict[str, Any]) -> Dict[str, Any]
             continue
 
         finding_id = str(
-            finding.get("finding_id")
+            finding.get("finding_uid")  # B3-ID Phase B Wave 2 prepend (contract §6.2 #3)
+            or finding.get("finding_id")
             or finding.get("id")
-            or f"FINDING_{i + 1:06d}"
+            or f"FINDING_{i + 1:06d}"  # positional fallback retained for legacy inputs
         )
 
         rule = str(

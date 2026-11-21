@@ -267,7 +267,12 @@ def test_t09_legacy_fields_unchanged():
     assert legacy_rk == root_key(dict(before))
 
 
-def test_t10_sarif_identity_untouched():
+def test_t10_sarif_uid_key_presence_pin():
+    # T10 PIN FLIP (Phase B Wave 1, disclosed in-scope change per contract
+    # §7.2): the Phase A ABSENCE pin inverts with the SARIF migration. BOTH
+    # directions are pinned here -- uid-bearing findings emit the additive
+    # key equal to their JSON uid; findings without a uid emit NO uid key
+    # (the exact historical behavior, preserved byte-identically).
     fs = [{"engine": "scanner.sast", "rule_id": "SSRF_HTTP", "vuln_type": "ssrf",
            "file": "s.py", "line": 5, "snippet": "requests.get(u)",
            "severity": "High", "title": "SSRF"}]
@@ -275,9 +280,18 @@ def test_t10_sarif_identity_untouched():
     sarif = build_sarif({"findings": fs})
     res = sarif["runs"][0]["results"][0]
     assert res["partialFingerprints"]["primaryLocationLineHash"] == "s.py:5:SSRF_HTTP"
-    blob = repr(sarif)
-    assert "finding_uid" not in blob            # Phase A: SARIF NOT migrated
+    assert res["partialFingerprints"]["rsecopsxFindingUid/v1"] == fs[0]["finding_uid"]
+    assert fs[0]["finding_uid"] in repr(sarif)
+    # legacy finding (no uid): the key stays ABSENT -- never fabricated
+    legacy = [{"engine": "scanner.sast", "rule_id": "SSRF_HTTP", "vuln_type": "ssrf",
+               "file": "s.py", "line": 5, "snippet": "requests.get(u)",
+               "severity": "High", "title": "SSRF"}]
+    sarif2 = build_sarif({"findings": legacy})
+    blob = repr(sarif2)
+    assert "finding_uid" not in blob
     assert "rsecopsxFindingUid" not in blob
+    assert sarif2["runs"][0]["results"][0]["partialFingerprints"][
+        "primaryLocationLineHash"] == "s.py:5:SSRF_HTTP"
     # results order == canonical order of the input findings
     assert [r["ruleId"] for r in sarif["runs"][0]["results"]] == ["SSRF_HTTP"]
 

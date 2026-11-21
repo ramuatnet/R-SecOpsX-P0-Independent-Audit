@@ -181,7 +181,9 @@ def attack_path_view(ap: dict) -> dict:
         "risk_score": risk,
         "title": title,
         "rule_id": rule_id,
-        "finding_id": ap.get("finding_id") or ap.get("id") or "",
+        # B3-ID Phase B Wave 2 (contract §6.2 #6): uid-preferred; legacy tail retained.
+        "finding_id": (ap.get("finding_uid") or ap.get("finding_id")
+                       or ap.get("id") or ""),
         "file": ap.get("file") or "",
         "line": ap.get("line") or "",
         "narrative": ap.get("narrative") or "",

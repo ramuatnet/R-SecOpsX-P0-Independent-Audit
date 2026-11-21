@@ -97,6 +97,7 @@ def normalize_finding_evidence(
         content_or_context=content,
         confidence=confidence,
         related_finding_id=_first_nonempty(
+            finding.get("finding_uid"),  # B3-ID Wave 2 R-6 prepend (contract §4.2)
             finding.get("finding_id"),
             finding.get("id"),
             finding.get("fingerprint"),
