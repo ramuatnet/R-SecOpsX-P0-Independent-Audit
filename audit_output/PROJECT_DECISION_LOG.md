@@ -1733,3 +1733,63 @@ ruling presented 2026-11-21). Ruling: **DEFER PUBLICATION**.
 
 Cross-reference: D-043 (publication assessment READY-FOR-AUTHORIZATION —
 deferred by this decision, not contradicted); register §G-P0-5a.
+
+## D-069 · 2026-11-22 · G-P0-10 Overall P0 Acceptance
+
+**Verdict: `ACCEPTED_WITH_LIMITATIONS`**
+
+**Decision authority:** Project Owner.
+
+1. **VERDICT**
+
+   Overall P0 acceptance is `ACCEPTED_WITH_LIMITATIONS`, based on the G-P0-10 acceptance assessment.
+
+   All G-P0-1 through G-P0-9 workstreams have been assessed and formally adjudicated, with completed, conditionally accepted, deferred, blocked, and unsourced outcomes retained as recorded.
+
+   No critical unresolved blockers were identified by the G-P0-10 assessment. Publication was completed and verified through V-046.
+
+2. **SCOPE STATEMENT**
+
+   Acceptance applies to the defined P0 scope only.
+
+   It does not imply completion of deferred, blocked, unsourced, or future work.
+
+   It does not constitute production readiness. D-055 `NOT-READY` remains in force.
+
+   It does not authorize R3. D-065 `DEFER` remains in force.
+
+3. **EVIDENCE**
+
+   - Decisions: D-001 through D-068, contiguous and verified.
+   - Validation: V-001 through V-045, with the V-012 through V-016 historical gap preserved under D-066.
+   - Implementation: published 32-commit range `f100e3e..61e49e2`.
+   - Publication: V-046.
+   - Acceptance assessment: G-P0-10.
+
+4. **CRITICAL BLOCKER ASSESSMENT**
+
+   None identified by the G-P0-10 assessment.
+
+5. **RESIDUAL EXCEPTIONS**
+
+   Nine documented residual exceptions are retained below, with their existing decisions and statuses preserved. Do not represent all nine as individually accepted limitations.
+
+   1. V-012 through V-016 historical validation-ledger gap — accepted historical artifact under D-066; era evidence exists inline in committed review documents.
+   2. C2-WIN Layer C not accepted, with carried unsourced backlog T26/T28/T44/T45/here-strings — D-053 and D-059.
+   3. Production/main-branch integration deferred, with `NOT-READY` standing — D-055.
+   4. Ecosystem evidence-tier limitations — `NOT_ESTABLISHED`, `NOT_GENERATABLE`, and `NOT_RUN` preserved — D-060 through D-064.
+   5. R3 deferred and not started — D-065.
+   6. SAST `not_verified` disclosures — offline SARIF schema validation, Rust-executed coverage, and closure-time full-suite re-run.
+   7. GAP-13/B-8 blocked at the protected V11 boundary — D-058.
+   8. Local-only runtime-cache modification and untracked evidence inventory — intentionally excluded from publication.
+   9. B-4 conservative-margin observation disclosed and published — D-056, commit `61e49e2`.
+
+6. **NOTHING OVERSTATED**
+
+   No deferred, blocked, unsourced, or not-verified item is converted into completed work.
+
+   This acceptance creates no new implementation authorization and does not change the existing status of any residual item.
+
+**BOUNDARY:** Post-acceptance actions, including residual-pointer hygiene under D-057 and future R3, production, or Layer-C work, remain separately authorized.
+
+**Cross-references:** V-046; G-P0-10 acceptance assessment; D-051 through D-068.

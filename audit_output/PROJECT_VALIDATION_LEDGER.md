@@ -980,3 +980,30 @@ sources this pass); **[NOT-EXECUTED]** = not run in this backfill task.
 | Closure | G-P0-1 commit | the verified tree was committed as `b47b85b` (D-047/V-040) **[PRESERVED]** |
 | Tests / push | — | none in this backfill task **[NOT-EXECUTED]** |
 | Verdict | — | **B3-ID historical validation evidence recorded; ACCEPTED WITH DOCUMENTED LIMITATIONS preserved; distinct from G-P0-1 commit records and overall P0 acceptance** |
+
+## V-046 · 2026-11-22 · G-P0-5A publication validation (audit remote; 32 commits `f100e3e..61e49e2`)
+
+**Scope:** Publication of the verified 32-commit range `f100e3e..61e49e2`.
+
+**Target:** Remote `audit`, branch `feature/r2-multiecosystem-graph`.
+
+**Evidence classes:**
+
+- `[EXECUTED]`: Operation performed by the primary agent under explicit owner authorization, with command and captured result reported in-session.
+- `[PRESERVED]`: Durable repository or remote state supporting the result.
+- `[NOT-EXECUTED]`: Operation not performed.
+
+| Check | Method | Result |
+|---|---|---|
+| Pre-push state | `git rev-parse` and `merge-base --is-ancestor` | Local HEAD `61e49e21111c796919129b164476a34874dfccd6`; remote tip `f100e3e493719a79d0901117cf089732475badf8`; strict fast-forward eligible; no force `[EXECUTED]` |
+| Publication command | `git push audit feature/r2-multiecosystem-graph` | Captured result: `f100e3e..61e49e2 feature/r2-multiecosystem-graph -> feature/r2-multiecosystem-graph`; clean fast-forward `[EXECUTED]` |
+| Published content | G-P0-5A3 verified manifest | 32 commits, `34b07ed..61e49e2`, including G-P0-1 `b47b85b`, G-P0-2 `6edc0d3`, G-P0-3B `4cd3a64`, B-5b/B-5c `958ba16`, decision-ledger commit `130029e`, and B-4 disclosure `61e49e2` `[PRESERVED]` |
+| Post-push verification | Remote-tracking ref and ahead/behind | Remote tip equals local HEAD `61e49e21111c796919129b164476a34874dfccd6`; ahead 0 / behind 0 `[EXECUTED]` |
+| Durability | Re-checkable using `git fetch audit` and remote branch inspection | No persistent in-repository push log; provenance is the captured execution report plus durable remote state `[PRESERVED]` |
+| Exclusions | Status and commit-range inspection | Runtime cache and 193-item untracked evidence inventory remained local; zero range commits modify `data/.vuln_cache.json` `[PRESERVED]` |
+| `origin` | Remote configuration and execution report | Not contacted `[NOT-EXECUTED]` |
+| Tests/scans | Execution record | None performed as part of publication `[NOT-EXECUTED]` |
+
+**Verdict:** Publication completed and verified. Audit remote synchronized at `61e49e2`. Runtime cache and untracked evidence inventory excluded.
+
+**Provenance note:** The push was executed by the primary agent under explicit owner authorization. The durable, independently verifiable fact is the remote tip state. Do not claim that a persistent in-repository push log exists.
