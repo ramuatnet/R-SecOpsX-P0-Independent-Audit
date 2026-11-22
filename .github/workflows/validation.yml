@@ -9,31 +9,40 @@ on:
 jobs:
   golden-corpus:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Run golden corpus validation
         run: python -m analysis.validation.run --corpus tests/vuln-test-corpus
 
   version-fuzzing:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Run version comparator fuzzing
         run: python -m analysis.validation.fuzz_versions --count 1000
 
   v0-unit-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install test runner
         # pytest is not preinstalled on the runner; the product itself stays
         # stdlib-only, but the test runner is a dev-time dependency.
@@ -43,11 +52,14 @@ jobs:
 
   phase0-gate-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install test runner
         run: python -m pip install pytest
       - name: Run Phase 0 security gate tests
@@ -60,11 +72,14 @@ jobs:
   # pattern as v0/phase0: direct signal here, aggregated there).
   redos-suite:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install test runner
         run: python -m pip install pytest
       - name: Run ReDoS budget suite
@@ -78,21 +93,27 @@ jobs:
   # only, so no pip install (pinned by test_t1402_dead_code_ci).
   dead-code-audit:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Run dead-code reachability audit
         run: python analysis/audit_dead_code.py
 
   phase4-bom-conformance:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install BOM schema validation dependencies
         run: pip install jsonschema requests pytest
       - name: Run Phase 4 CBOM/AI-BOM conformance tests
@@ -100,11 +121,14 @@ jobs:
 
   e2e-pipeline:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       # No dependencies: the CLI is stdlib-only at import time (PDF/Excel
       # renderers import lazily and the harness scans with --no-pdf
       # --no-excel), and the harness copies each fixture to a temp dir so
@@ -115,21 +139,27 @@ jobs:
 
   mutation-testing:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Run detection mutation testing
         run: python -m analysis.validation.mutation
 
   owasp-benchmark:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Clone OWASP BenchmarkJava (shallow)
         run: git clone --depth 1 https://github.com/OWASP-Benchmark/BenchmarkJava.git "$RUNNER_TEMP/BenchmarkJava"
       # Report-only by design: absolute recall against an external oracle is
@@ -161,12 +191,15 @@ jobs:
 
   ci-matrix:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.14"]
     needs: [golden-corpus, version-fuzzing, v0-unit-tests, phase0-gate-tests, phase4-bom-conformance, e2e-pipeline, mutation-testing, owasp-benchmark, redos-suite, dead-code-audit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install test runner
         # ci_matrix re-runs the v0/phase0 pytest suites internally, so this
         # job needs the test runner too (same dev-time dependency as the
